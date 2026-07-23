@@ -12,8 +12,13 @@ import { pool, runQueryWithTenant, runQueriesWithTenant } from '@core/database/p
 import { authorizationService } from '@core/authorization/authorization.service';
 import { canonicalServiceService } from '@core/catalog/canonical/canonical-service.service';
 import { unifiedAvailabilityService } from '@core/availability/unified-availability.service';
-import { AvailabilityOwnerType, type UnifiedAvailability } from '@core/availability/unified-availability.types';
+import { AvailabilityOwnerType, UnifiedBookingStatus, type UnifiedAvailability } from '@core/availability/unified-availability.types';
 import { assertOfferingActivationEligibility } from './services-offering-activation-gate';
+// 🔴 F-PERFORMER-CONTRACTING-POLICY / DECISION-0030 — REUSA o primitivo geo CANÔNICO do feed/rentals/marketplace
+// (actor_active_location = SSOT de localização do actor + a SQL fn haversine_distance_km). NÃO cria caminho geo
+// paralelo (§2 sem realidade paralela). O uso de haversine_distance_km em módulo operacional CRUZA a ressalva
+// anti-padrão #1 da DECISION-0030 amparado no PRECEDENTE já SELADO de rentals/feed-proximity (mesmo par de primitivos).
+import { actorActiveLocationRepository } from '@core/location/actor-active-location.repository';
 
 export class ServiceOfferingError extends Error {
   constructor(public readonly statusCode: number, public readonly code: string, message: string) {
@@ -45,6 +50,12 @@ export interface ServiceOffering {
   professionalActorId: string | null;
   modality: string;
   status: string;
+  // 🔴 F-PERFORMER-CONTRACTING-POLICY — política de contratação (colunas REAIS, CHECK-governed; NÃO conditions
+  // JSONB). 'manual'=negocia (fica requested), 'automatic'=aceita-direto (auto-confirma dentro da distância).
+  // Condição = DISTÂNCIA: mesma-cidade OU raio(km). PREÇO fora desta fatia. Δbank=0.
+  bookingApprovalMode: 'manual' | 'automatic';
+  acceptDirectSameCity: boolean;
+  acceptDirectRadiusKm: number | null;
 }
 
 interface SoRow {
@@ -58,11 +69,15 @@ interface SoRow {
   professional_actor_id: string | null;
   modality: string;
   status: string;
+  booking_approval_mode: string;
+  accept_direct_same_city: boolean;
+  accept_direct_radius_km: string | number | null;
 }
 
 const SO_SELECT =
   'id, tenant_id, canonical_service_id, provider_actor_id, company_id, price_cents, ' +
-  'duration_minutes, professional_actor_id, modality, status';
+  'duration_minutes, professional_actor_id, modality, status, ' +
+  'booking_approval_mode, accept_direct_same_city, accept_direct_radius_km';
 
 function toOffering(row: SoRow): ServiceOffering {
   return {
@@ -76,7 +91,34 @@ function toOffering(row: SoRow): ServiceOffering {
     professionalActorId: row.professional_actor_id,
     modality: row.modality,
     status: row.status,
+    bookingApprovalMode: (row.booking_approval_mode === 'automatic' ? 'automatic' : 'manual'),
+    acceptDirectSameCity: row.accept_direct_same_city === true,
+    acceptDirectRadiusKm: row.accept_direct_radius_km === null ? null : Number(row.accept_direct_radius_km),
   };
+}
+
+// 🔴 F-PERFORMER-CONTRACTING-POLICY — validação-antes-de-escrever (§4.9.5) do trio de política. Espelha o
+// CHECK físico do banco (automatic-exige-distância) na fronteira do writer, para rejeição controlada (400) em vez
+// de erro cru de constraint. Vocabulário GOVERNADO por CHECK — NÃO inventa enum type. Reusável por create/update.
+interface ContractingPolicyInput {
+  bookingApprovalMode?: 'manual' | 'automatic' | null;
+  acceptDirectSameCity?: boolean | null;
+  acceptDirectRadiusKm?: number | null;
+}
+function assertContractingPolicy(p: ContractingPolicyInput): void {
+  if (p.bookingApprovalMode != null && p.bookingApprovalMode !== 'manual' && p.bookingApprovalMode !== 'automatic') {
+    throw new ServiceOfferingError(400, 'SERVICE_OFFERING_APPROVAL_MODE_INVALID',
+      "booking_approval_mode deve ser 'manual' (negocia) ou 'automatic' (aceita-direto).");
+  }
+  if (p.acceptDirectRadiusKm != null && !(Number.isFinite(p.acceptDirectRadiusKm) && (p.acceptDirectRadiusKm as number) > 0)) {
+    throw new ServiceOfferingError(400, 'SERVICE_OFFERING_RADIUS_INVALID',
+      'accept_direct_radius_km deve ser número > 0 (ou ausente).');
+  }
+  // automatic EXIGE condição de alcance (espelho do CHECK físico chk_service_offering_automatic_requires_distance).
+  if (p.bookingApprovalMode === 'automatic' && p.acceptDirectSameCity !== true && p.acceptDirectRadiusKm == null) {
+    throw new ServiceOfferingError(400, 'SERVICE_OFFERING_AUTOMATIC_REQUIRES_DISTANCE',
+      "aceita-direto ('automatic') exige condição de distância: same_city=true OU radius_km definido (sem prova de alcance não há auto-confirmação).");
+  }
 }
 
 export const serviceOfferingService = {
@@ -106,6 +148,9 @@ export const serviceOfferingService = {
     location?: Record<string, unknown> | null;
     serviceArea?: Record<string, unknown> | null;
     conditions?: Record<string, unknown> | null;
+    bookingApprovalMode?: 'manual' | 'automatic' | null;
+    acceptDirectSameCity?: boolean | null;
+    acceptDirectRadiusKm?: number | null;
   }): Promise<{ offering: ServiceOffering; created: boolean }> {
     const canRep = await authorizationService.canRepresentActor(input.tenantId, input.userId, input.providerActorId);
     if (!canRep) {
@@ -118,6 +163,8 @@ export const serviceOfferingService = {
     if (!Number.isInteger(input.durationMinutes) || input.durationMinutes <= 0) {
       throw new ServiceOfferingError(400, 'SERVICE_OFFERING_DURATION_INVALID', 'durationMinutes inteiro > 0.');
     }
+    // 🔴 F-PERFORMER-CONTRACTING-POLICY — valida o trio de política ANTES de escrever (§4.9.5).
+    assertContractingPolicy(input);
     // 🔴 C1c-a — CAPACIDADE DE PÚBLICO: atributo OPCIONAL em conditions.audience_capacity (int > 0). É
     // "atende até N pessoas" (público do show) — SEMÂNTICA DISTINTA do `capacity` de SLOT da Unified
     // Availability (vagas de agenda). Só validação de shape; sem coluna nova. Fail-closed no writer de conditions.
@@ -165,8 +212,10 @@ export const serviceOfferingService = {
       `INSERT INTO service_offerings (
          tenant_id, canonical_service_id, service_id, provider_actor_id, company_id,
          price_cents, duration_minutes, professional_actor_id, modality,
-         location, service_area, conditions, status
-       ) VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5, $6, $7, $8, $9, $10::jsonb, $11::jsonb, $12::jsonb, 'draft')
+         location, service_area, conditions, status,
+         booking_approval_mode, accept_direct_same_city, accept_direct_radius_km
+       ) VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5, $6, $7, $8, $9, $10::jsonb, $11::jsonb, $12::jsonb, 'draft',
+                 $13, $14, $15)
        RETURNING ${SO_SELECT}`,
       [
         input.tenantId, canonical.id, serviceId, input.providerActorId, derivedCompanyId,
@@ -174,6 +223,9 @@ export const serviceOfferingService = {
         input.modality ?? 'in_person',
         JSON.stringify(input.location ?? {}), JSON.stringify(input.serviceArea ?? {}),
         JSON.stringify(input.conditions ?? {}),
+        input.bookingApprovalMode ?? 'manual',
+        input.acceptDirectSameCity ?? false,
+        input.acceptDirectRadiusKm ?? null,
       ]
     );
     return { offering: toOffering(ins.rows[0]), created: true };
@@ -187,6 +239,9 @@ export const serviceOfferingService = {
     priceCents?: number | null;
     durationMinutes?: number | null;
     status?: 'draft' | 'active' | 'suspended' | null;
+    bookingApprovalMode?: 'manual' | 'automatic' | null;
+    acceptDirectSameCity?: boolean | null;
+    acceptDirectRadiusKm?: number | null;
   }): Promise<void> {
     const offering = await this.findById(input.tenantId, input.offeringId);
     if (!offering) throw new ServiceOfferingError(404, 'SERVICE_OFFERING_NOT_FOUND', 'Oferta inexistente.');
@@ -194,6 +249,18 @@ export const serviceOfferingService = {
     if (!canRep) {
       throw new ServiceOfferingError(403, 'SERVICE_OFFERING_NOT_REPRESENTABLE',
         'Prestador só altera a própria oferta.');
+    }
+
+    // 🔴 F-PERFORMER-CONTRACTING-POLICY — política de contratação: valida os valores EFETIVOS (merge do input com
+    // o estado atual) ANTES de escrever (§4.9.5), espelhando o CHECK físico automatic-exige-distância. Um update
+    // parcial (só mode='automatic') não pode passar se a linha resultante ficaria sem condição de distância.
+    const touchesPolicy =
+      input.bookingApprovalMode !== undefined || input.acceptDirectSameCity !== undefined || input.acceptDirectRadiusKm !== undefined;
+    if (touchesPolicy) {
+      const effMode = (input.bookingApprovalMode ?? offering.bookingApprovalMode) as 'manual' | 'automatic';
+      const effSameCity = input.acceptDirectSameCity != null ? input.acceptDirectSameCity : offering.acceptDirectSameCity;
+      const effRadius = input.acceptDirectRadiusKm !== undefined ? input.acceptDirectRadiusKm : offering.acceptDirectRadiusKm;
+      assertContractingPolicy({ bookingApprovalMode: effMode, acceptDirectSameCity: effSameCity, acceptDirectRadiusKm: effRadius });
     }
 
     // 🔴 P3 / DECISION-0147 — STATE-MACHINE fail-closed (Q4: status NUNCA free-form do body) +
@@ -233,9 +300,18 @@ export const serviceOfferingService = {
          price_cents = COALESCE($3, price_cents),
          duration_minutes = COALESCE($4, duration_minutes),
          status = COALESCE($5, status),
+         booking_approval_mode = COALESCE($6, booking_approval_mode),
+         accept_direct_same_city = COALESCE($7, accept_direct_same_city),
+         accept_direct_radius_km = CASE WHEN $8::boolean THEN $9::numeric ELSE accept_direct_radius_km END,
          updated_at = NOW()
        WHERE id = $1::uuid AND tenant_id = $2::uuid`,
-      [input.offeringId, input.tenantId, input.priceCents ?? null, input.durationMinutes ?? null, input.status ?? null]
+      [
+        input.offeringId, input.tenantId, input.priceCents ?? null, input.durationMinutes ?? null, input.status ?? null,
+        input.bookingApprovalMode ?? null,
+        input.acceptDirectSameCity ?? null,
+        // radius é nullable-com-significado: só grava quando explicitamente presente no input (undefined = não mexe).
+        input.acceptDirectRadiusKm !== undefined, input.acceptDirectRadiusKm ?? null,
+      ]
     );
   },
 
@@ -268,6 +344,101 @@ export const serviceOfferingService = {
       endDatetime: new Date(input.endDatetime),
       capacity: input.capacity ?? null,
     });
+  },
+
+  /**
+   * 🔴 F-PERFORMER-CONTRACTING-POLICY — GATE DE DISTÂNCIA (roda ANTES do confirm, §4.9.5 validate-before-mutate).
+   * within-reach = (same_city AND requester.city == provider.city) OR (radius_km set AND haversine_km <= radius_km).
+   * Localização do requester OU do provider AUSENTE → NÃO within-reach → fail-closed a NEGOCIA (booking fica
+   * 'requested'; nunca auto-confirma sem prova de alcance). Reusa actor_active_location (SSOT) + haversine_distance_km
+   * (fn SQL SELADA) — sem recalcular distância em JS, sem caminho geo paralelo.
+   */
+  async isWithinContractingReach(input: {
+    tenantId: string;
+    offering: ServiceOffering;
+    requesterActorId: string;
+  }): Promise<{ withinReach: boolean; reason: string }> {
+    const { tenantId, offering, requesterActorId } = input;
+    const wantsSameCity = offering.acceptDirectSameCity === true;
+    const radiusKm = offering.acceptDirectRadiusKm;
+    if (!wantsSameCity && radiusKm == null) {
+      return { withinReach: false, reason: 'no_condition' }; // sem condição não há aceita-direto (defesa; CHECK já barra)
+    }
+    const providerLoc = await actorActiveLocationRepository.getActiveHydrated(tenantId, offering.providerActorId);
+    const requesterLoc = await actorActiveLocationRepository.getActiveHydrated(tenantId, requesterActorId);
+    if (!providerLoc || !requesterLoc) {
+      return { withinReach: false, reason: 'location_absent' }; // fail-closed → negocia
+    }
+    // (a) MESMA CIDADE via city_id GOVERNADO (resolvido do endereço; NÃO string crua).
+    if (wantsSameCity && providerLoc.cityId && requesterLoc.cityId && providerLoc.cityId === requesterLoc.cityId) {
+      return { withinReach: true, reason: 'same_city' };
+    }
+    // (b) RAIO via haversine_distance_km (fn SQL SELADA — DECISION-0030). Exige coordenadas dos dois lados.
+    if (radiusKm != null
+      && providerLoc.lat != null && providerLoc.lng != null
+      && requesterLoc.lat != null && requesterLoc.lng != null) {
+      const r = await pool.query<{ km: string | null }>(
+        `SELECT haversine_distance_km($1::numeric, $2::numeric, $3::numeric, $4::numeric)::text AS km`,
+        [providerLoc.lat, providerLoc.lng, requesterLoc.lat, requesterLoc.lng]
+      );
+      const km = r.rows[0]?.km == null ? null : Number(r.rows[0].km);
+      if (km != null && Number.isFinite(km) && km <= radiusKm) {
+        return { withinReach: true, reason: `radius_ok(${km.toFixed(2)}km<=${radiusKm}km)` };
+      }
+      return { withinReach: false, reason: `radius_exceeded(${km == null ? 'null' : km.toFixed(2)}km>${radiusKm}km)` };
+    }
+    return { withinReach: false, reason: 'not_within_reach' };
+  },
+
+  /**
+   * 🔴 F-PERFORMER-CONTRACTING-POLICY — SOLICITAR/RESERVAR uma janela da oferta (entrypoint no NÍVEL DA OFERTA,
+   * espelhando rentable-resource.requestBooking). O booking é SEMPRE criado 'requested' primeiro (core createBooking);
+   * DEPOIS resolve o gate de distância:
+   *   - mode='automatic' + within-reach → CONFIRMA passando pelo CHOKEPOINT ÚNICO de confirm
+   *     (unifiedAvailabilityService.updateBooking → confirmBookingWithProviderLock, provider DERIVADO server-side);
+   *   - senão (manual, OU automatic fora-de-alcance, OU localização ausente) → fica 'requested' (NEGOCIA).
+   * O consumidor NUNCA confirma sozinho — a auto-confirmação é a pré-autorização do DONO aplicada server-side.
+   * Conflito de slot no auto-confirm (409 BOOKING_PROVIDER_TIME_CONFLICT do lock) → HARD-FAIL (first-come: o slot
+   * foi levado; NÃO rebaixa silenciosamente p/ negocia). PRÉ-DINHEIRO: 'confirmed' = compromisso de agenda (Δbank=0).
+   * NÃO forka o lock; NÃO cria segundo caminho de confirm (§4.8).
+   */
+  async requestBooking(
+    tenantId: string,
+    offeringId: string,
+    availabilityId: string,
+    subject: { subjectUserId: string; requesterActorId: string }
+  ): Promise<{ bookingId: string; status: string; autoConfirmed: boolean; gateReason: string }> {
+    const offering = await this.findById(tenantId, offeringId);
+    if (!offering || offering.status !== 'active') {
+      throw new ServiceOfferingError(404, 'SERVICE_OFFERING_NOT_BOOKABLE', 'Oferta indisponível/não-ativa.');
+    }
+    const { unifiedAvailabilityRepository } = await import('@core/availability/unified-availability.repository');
+    const availability = await unifiedAvailabilityRepository.findAvailabilityById(tenantId, availabilityId);
+    if (!availability || availability.ownerType !== AvailabilityOwnerType.SERVICE_OFFERING || availability.ownerId !== offeringId) {
+      throw new ServiceOfferingError(400, 'SERVICE_OFFERING_AVAILABILITY_MISMATCH', 'Janela não pertence a esta oferta.');
+    }
+    // 1) SEMPRE cria 'requested' primeiro (core revalida oferta active + autoridade do subject — DECISION-0147/0148).
+    const booking = await unifiedAvailabilityService.createBooking(
+      tenantId, subject, { availabilityId, requesterActorId: subject.requesterActorId } as any
+    );
+
+    // 2) NEGOCIA (manual) → fica requested; a banda decide depois pelo caminho owner-only (updateBooking).
+    if (offering.bookingApprovalMode !== 'automatic') {
+      return { bookingId: booking.bookingId, status: booking.status, autoConfirmed: false, gateReason: 'manual' };
+    }
+
+    // 3) ACEITA-DIRETO: resolve o gate ANTES de mutar. Fora-de-alcance/ausente → mantém requested (negocia-hold).
+    const gate = await this.isWithinContractingReach({ tenantId, offering, requesterActorId: subject.requesterActorId });
+    if (!gate.withinReach) {
+      return { bookingId: booking.bookingId, status: booking.status, autoConfirmed: false, gateReason: gate.reason };
+    }
+
+    // 4) within-reach → CONFIRMA pelo chokepoint ÚNICO (deriva provider server-side + advisory-lock transacional).
+    //    409 do lock (slot já levado) PROPAGA como hard-fail — NÃO rebaixa p/ negocia.
+    const confirmed = await unifiedAvailabilityService.updateBooking(
+      tenantId, booking.bookingId, subject.subjectUserId, { status: UnifiedBookingStatus.CONFIRMED }
+    );
+    return { bookingId: booking.bookingId, status: confirmed.status, autoConfirmed: true, gateReason: gate.reason };
   },
 
   /** Ofertas ATIVAS de um serviço canônico (agrupamento por identidade — discovery). */

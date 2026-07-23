@@ -88,6 +88,7 @@ const CMDS = [
   "node scripts/audit-musical-performance-concept-governed.mjs",
   "node scripts/audit-offering-genre-facet-governed.mjs",
   "node scripts/audit-offering-equipment-facet-governed.mjs",
+  "node scripts/audit-service-offering-contracting-policy.mjs",
   "node scripts/audit-event-staff-commitment-contract.mjs",
   "node scripts/audit-event-staff-single-writer.mjs",
   "node scripts/audit-service-offering-binding.mjs",
