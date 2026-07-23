@@ -156,6 +156,11 @@ const FN_GI_IMMUT = fnBody('fn_gi_intent_enforce_immutability');
     // leitura (DERIVED-INCOMPLETE; DECISION-0188 intacta: zero fn_*, zero DML na casa, zero auto-drop —
     // vigiado pelo par audit-offering-config-lineup.mjs).
     'src/modules/services/service-offering-config.service.ts',
+    // FATIA 4 arco fundação eventos (aviso SUAVE de conflito por pessoa — OP-2 2026-07-23): consumidor
+    // READ-ONLY governado — deriva as PESSOAS do provider recém-confirmado e as OUTRAS bandas da pessoa
+    // via memberships ATIVAS (SELECT puro em group_actor_memberships; DECISION-0188 intacta: zero fn_*,
+    // zero DML na casa, zero bloqueio de leave — vigiado pelo par audit-booking-soft-conflict.mjs).
+    'src/core/availability/booking-soft-conflict.ts',
   ];
   const allSrc = walk(resolve(ROOT, 'src')).map((p) => norm(p).replace(norm(ROOT) + '/', ''));
   for (const p of allSrc) {
@@ -164,6 +169,7 @@ const FN_GI_IMMUT = fnBody('fn_gi_intent_enforce_immutability');
     if (/^src\/scripts\/validate-pipeline-e2e-group-actor-membership/.test(p)) continue; // harness E2E D9.2-A
     if (/^src\/scripts\/validate-pipeline-e2e-group-membership-cutover/.test(p)) continue; // harness E2E D9.2-B
     if (/^src\/scripts\/validate-pipeline-e2e-offering-config-lineup/.test(p)) continue; // harness E2E FATIA 3 (config line-up)
+    if (/^src\/scripts\/validate-pipeline-e2e-band-cross-membership-soft-conflict/.test(p)) continue; // harness E2E FATIA 4 (aviso suave cross-membership)
     const s = stripTs(read(resolve(ROOT, p)));
     if (/group-actor-membership|group_actor_memberships|fn_enter_group_actor_membership|fn_accept_group_membership_intent|group-membership-shadow/.test(s)) {
       note('DORMANCY', `caller fora do allowlist governado do cutover: ${p}`);

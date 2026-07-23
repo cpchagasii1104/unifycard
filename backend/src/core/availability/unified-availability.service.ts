@@ -10,6 +10,7 @@ import { createHash } from 'crypto';
 import { getClientWithTenant, runQueryWithTenant } from '@core/database/pool';
 import { insertEventOutboxRow } from '@core/events/event-outbox.repository';
 import { unifiedAvailabilityRepository } from './unified-availability.repository';
+import { detectAndEmitCrossMembershipSoftConflict } from './booking-soft-conflict';
 import { resolveAvailabilityOwner, assertAvailabilityOwnerAuthorityActive } from './availability-owner-authority';
 import { socialPortsRegistry } from '@core/social/ports-registry';
 import { authorizationService } from '@core/authorization/authorization.service';
@@ -457,13 +458,34 @@ class UnifiedAvailabilityService {
         const owner = await resolveAvailabilityOwner(tenantId, AvailabilityOwnerType.SERVICE_OFFERING, availability.ownerId);
         const startIso = new Date(availability.startDatetime).toISOString();
         const endIso = new Date(availability.endDatetime).toISOString();
-        return await unifiedAvailabilityRepository.confirmBookingWithProviderLock(
+        const confirmedBooking = await unifiedAvailabilityRepository.confirmBookingWithProviderLock(
           tenantId,
           bookingId,
           owner.authorityActorId,
           startIso,
           endIso
         );
+        // 🔴 F4 ARCO FUNDAÇÃO EVENTOS — AVISO SUAVE de conflito POR PESSOA (cross-membership).
+        // DEPOIS do compromisso firmado (o 409 do hard-lock acima propaga ANTES de qualquer aviso):
+        // detecta se alguma PESSOA da banda/ato recém-confirmado tem OUTRO compromisso confirmado
+        // sobreposto (outras bandas via memberships ativas, ou solo) e emite o aviso no event_outbox
+        // (sink OP-2 — ver booking-soft-conflict.ts). NUNCA bloqueia. NÃO-CRÍTICO: falha na detecção/
+        // emissão jamais desfaz o confirm (mesmo padrão do SERVICE_BOOKING_REQUESTED no createBooking).
+        // Este é o chokepoint ÚNICO de confirm (PATCH manual, C-POLICY auto-confirm e Surface-B
+        // passam todos por aqui — §4.8), então o aviso cobre as 3 superfícies sem fork.
+        try {
+          await detectAndEmitCrossMembershipSoftConflict({
+            tenantId,
+            providerActorId: owner.authorityActorId,
+            bookingId,
+            availabilityId: existing.availabilityId,
+            startIso,
+            endIso,
+          });
+        } catch (softConflictErr) {
+          console.error('[updateBooking] Erro no aviso suave de conflito cross-membership (não crítico):', softConflictErr);
+        }
+        return confirmedBooking;
       }
       // 🔴 DECISION-0151 FASE 2b: RECURSO ALUGÁVEL — exclusividade por RESOURCE (owner_id), NÃO provider.
       //    Confirm é o ponto ÚNICO; lock transacional por resource_id + conflito por owner_id em status

@@ -34,6 +34,12 @@ const FAMILY = [
   'core/availability/unified-availability.routes.ts',
   'core/availability/availability-owner-authority.ts',
   'core/availability/weekly-template-materializer.service.ts',
+  // F4 arco fundação eventos (OP-2, 2026-07-23): detecção do AVISO SUAVE de conflito por pessoa
+  // (cross-membership) no confirm. NÃO resolve owner-authority (recebe providerActorId JÁ derivado
+  // pelo resolver no chokepoint) e NÃO escreve em availability/bookings — leitura + emissão outbox.
+  // Entra na FAMÍLIA para herdar as vigilâncias estruturais (no-as-never, no-actor-cure).
+  // Guard próprio: audit-booking-soft-conflict.mjs.
+  'core/availability/booking-soft-conflict.ts',
   'modules/services/service-offering.service.ts',
 ];
 

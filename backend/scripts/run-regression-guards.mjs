@@ -220,6 +220,11 @@ const CMDS = [
   // (grupo-provider + membership ATIVA + identidade=PESSOA/member_actor_id), piso team_size nos 2 lados,
   // fronteira Bank-free das tabelas de config, zero acoplamento nos writers selados de membership.
   "node scripts/audit-offering-config-lineup.mjs",
+  // FATIA 4 arco fundação eventos (A ÚLTIMA) — aviso SUAVE de conflito de agenda POR PESSOA
+  // (cross-membership) no confirm: hook NÃO-CRÍTICO após o hard-lock, predicado meio-aberto/
+  // bloqueantes/self-excluído, derivação por memberships ativas (zero agenda materializada — §2),
+  // sink OP-2 = event_outbox (dedup determinístico), zero referência aos ghosts notify/system_notifications.
+  "node scripts/audit-booking-soft-conflict.mjs",
   // DECISION-0189C C1: o runner passa a INCLUIR o gate financeiro (financial-ssot/vocabulary +
   // typecheck do gate) — o "verde" do runner deixa de mentir (o script infrator elevava 591→592
   // sem o runner acusar). Baseline só-desce (DECISION-0158); nunca sobe para 592.
