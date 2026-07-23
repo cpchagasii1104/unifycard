@@ -167,6 +167,41 @@ function assertAudienceRange(p: AudienceRangeInput): void {
   }
 }
 
+// 🔴 C3 EDGE C-1 — AUTORIDADE DE CONTEXTO DE EVENTO no PROPOSE. O contratante pode amarrar a reserva a um
+// evento SEU (metadata.eventId). Vincular um performer ao elenco é ADMINISTRAR staff do evento, então a
+// decisão é EXATAMENTE a mesma do POST /events/:id/v2/commitments: manage_attendees sobre o DONO do evento.
+// Reusa os PRIMITIVOS SELADOS (eventService.getEvent + authorizationService.canActAs) — não forka a decisão
+// (a função-wrapper assertEventExactAuthority é privada de event.routes; a decisão MATERIAL é canActAs). O
+// evento é carregado server-side (o eventId do body NUNCA é prova): inexistente → 404; sem a chave → 403.
+async function assertEventContractingAuthority(tenantId: string, userId: string, eventId: string): Promise<void> {
+  const { eventService } = await import('@core/events/event.service');
+  const event = await eventService.getEvent(tenantId, eventId);
+  if (!event) {
+    throw new ServiceOfferingError(404, 'SERVICE_OFFERING_EVENT_NOT_FOUND', 'Evento inexistente neste tenant.');
+  }
+  const decision = await authorizationService.canActAs(tenantId, userId, event.actorId, 'manage_attendees');
+  if (!decision.allowed) {
+    throw new ServiceOfferingError(403, 'SERVICE_OFFERING_EVENT_NOT_MANAGEABLE',
+      'Sem a permissão exata manage_attendees sobre o dono do evento (mesma chave do POST /events/:id/v2/commitments).');
+  }
+}
+
+// 🔴 C3 EDGE C-1 — validação SOFT do configId (metadata-only). Se informado, o config DEVE pertencer a ESTA
+// oferta (sem FK dura, sem tocar o gate de soft-retire do config). config de OUTRA oferta → rejeita no propose.
+async function assertConfigBelongsToOffering(tenantId: string, offeringId: string, configId: string): Promise<void> {
+  const rows = await runQueriesWithTenant<{ id: string }>(
+    tenantId,
+    `SELECT id::text AS id FROM service_offering_configs
+      WHERE id = $1::uuid AND service_offering_id = $2::uuid AND tenant_id = $3::uuid
+      LIMIT 1`,
+    [configId, offeringId, tenantId]
+  );
+  if (rows.length === 0) {
+    throw new ServiceOfferingError(422, 'SERVICE_OFFERING_CONFIG_MISMATCH',
+      'configId não pertence a esta oferta (metadata-only; sem FK dura).');
+  }
+}
+
 export const serviceOfferingService = {
   async findById(tenantId: string, offeringId: string): Promise<ServiceOffering | null> {
     const r = await pool.query<SoRow>(
@@ -477,7 +512,11 @@ export const serviceOfferingService = {
     tenantId: string,
     offeringId: string,
     availabilityId: string,
-    subject: { subjectUserId: string; requesterActorId: string }
+    subject: { subjectUserId: string; requesterActorId: string },
+    // 🔴 C3 EDGE C-1 — CONTEXTO de contratação orquestrada (opcional). eventId amarra a reserva a um evento
+    // do contratante (autoridade manage_attendees exigida ANTES de mutar); configId é metadata SOFT (∈ configs
+    // desta oferta). Ambos são persistidos em bookings.metadata (JSONB já existente) para o BIND on-confirm (C-2).
+    context?: { eventId?: string; configId?: string }
   ): Promise<{ bookingId: string; status: string; autoConfirmed: boolean; gateReason: string }> {
     const offering = await this.findById(tenantId, offeringId);
     if (!offering || offering.status !== 'active') {
@@ -488,9 +527,25 @@ export const serviceOfferingService = {
     if (!availability || availability.ownerType !== AvailabilityOwnerType.SERVICE_OFFERING || availability.ownerId !== offeringId) {
       throw new ServiceOfferingError(400, 'SERVICE_OFFERING_AVAILABILITY_MISMATCH', 'Janela não pertence a esta oferta.');
     }
+    // 🔴 C3 EDGE C-1 — resolve o CONTEXTO (validate-before-mutate, §4.9.5). eventId exige AUTORIDADE de evento
+    // (manage_attendees, chave do commitments); configId é SOFT (pertencer à oferta). O metadata só é montado
+    // com o que foi validado — nada de valor cru do body vira verdade sem checagem.
+    let bookingMetadata: Record<string, unknown> | undefined;
+    if (context && (context.eventId || context.configId)) {
+      const md: Record<string, unknown> = {};
+      if (context.eventId) {
+        await assertEventContractingAuthority(tenantId, subject.subjectUserId, context.eventId);
+        md.eventId = context.eventId;
+      }
+      if (context.configId) {
+        await assertConfigBelongsToOffering(tenantId, offeringId, context.configId);
+        md.configId = context.configId;
+      }
+      bookingMetadata = md;
+    }
     // 1) SEMPRE cria 'requested' primeiro (core revalida oferta active + autoridade do subject — DECISION-0147/0148).
     const booking = await unifiedAvailabilityService.createBooking(
-      tenantId, subject, { availabilityId, requesterActorId: subject.requesterActorId } as any
+      tenantId, subject, { availabilityId, requesterActorId: subject.requesterActorId, metadata: bookingMetadata } as any
     );
 
     // 2) NEGOCIA (manual) → fica requested; a banda decide depois pelo caminho owner-only (updateBooking).

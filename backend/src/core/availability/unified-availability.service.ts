@@ -485,6 +485,31 @@ class UnifiedAvailabilityService {
         } catch (softConflictErr) {
           console.error('[updateBooking] Erro no aviso suave de conflito cross-membership (não crítico):', softConflictErr);
         }
+        // 🔴 C3 EDGE C-2 — BIND CONFIÁVEL do performer ao ELENCO (F-ORCHESTRATED-CONTRACTING). Se o booking recém-
+        // confirmado carrega metadata.eventId, o PERFORMER (owner.authorityActorId = provider, DERIVADO server-side,
+        // NUNCA o requester) é vinculado ao elenco via o writer SELADO createCommitment. Chokepoint ÚNICO: as 3
+        // superfícies de confirm (C-POLICY auto-confirm, PATCH owner manual, Surface-B) passam por aqui (§4.8).
+        // OPÇÃO A (síncrono): o vínculo ACONTECE de fato aqui (anti-F4: sem outbox oco/consumidor não-inscrito),
+        // é IDEMPOTENTE (bindConfirmedPerformerToEvent checa linha existente) e NÃO-CRÍTICO (try/catch: uma falha
+        // de bind JAMAIS desfaz o booking confirmado — apenas loga alto). Money-free: Δbank=0, porta-01 FORA (factual).
+        try {
+          const meta = (existing.metadata ?? {}) as Record<string, unknown>;
+          const boundEventId = typeof meta.eventId === 'string' ? meta.eventId : null;
+          if (boundEventId) {
+            const { bindConfirmedPerformerToEvent } = await import('./performer-event-binding');
+            const bindRes = await bindConfirmedPerformerToEvent({
+              tenantId,
+              eventId: boundEventId,
+              performerActorId: owner.authorityActorId, // provider derivado server-side, nunca o requester
+              bookingId,
+              startIso,
+              endIso,
+            });
+            console.log(`[updateBooking] C3 bind performer→elenco: ${bindRes.reason} (event=${boundEventId} performer=${owner.authorityActorId} commitment=${bindRes.commitmentId ?? '—'})`);
+          }
+        } catch (bindErr) {
+          console.error('[updateBooking] C3 bind performer→elenco FALHOU (NÃO crítico; booking confirmado permanece):', bindErr);
+        }
         return confirmedBooking;
       }
       // 🔴 DECISION-0151 FASE 2b: RECURSO ALUGÁVEL — exclusividade por RESOURCE (owner_id), NÃO provider.

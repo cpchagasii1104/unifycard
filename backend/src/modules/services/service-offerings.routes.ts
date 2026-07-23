@@ -52,6 +52,10 @@ const updateSchema = z.object({
 const bookingSchema = z.object({
   availabilityId: z.string().uuid(),
   requesterActorId: z.string().uuid(),
+  // 🔴 C3 EDGE C-1 — CONTEXTO de contratação orquestrada (opcional). eventId amarra a reserva a um evento do
+  // contratante (autoridade manage_attendees revalidada no service, server-side); configId é metadata SOFT.
+  eventId: z.string().uuid().optional(),
+  configId: z.string().uuid().optional(),
 });
 
 // 🔴 FATIA 3 — CARDÁPIO DE CONFIGS com line-up opcional. Rótulo AUTORAL livre (não-governado);
@@ -211,7 +215,9 @@ const serviceOfferingsRoutes: FastifyPluginAsync = async (fastify) => {
     try {
       const result = await serviceOfferingService.requestBooking(
         req.tenant!.id, req.params.offeringId, parsed.data.availabilityId as string,
-        { subjectUserId: userId, requesterActorId }
+        { subjectUserId: userId, requesterActorId },
+        // 🔴 C3 EDGE C-1 — repassa o contexto (validado server-side no service). Ausente = comportamento antigo.
+        { eventId: parsed.data.eventId, configId: parsed.data.configId }
       );
       return reply.status(201).send({ ok: true, data: result });
     } catch (err: any) {

@@ -40,6 +40,12 @@ const FAMILY = [
   // Entra na FAMÍLIA para herdar as vigilâncias estruturais (no-as-never, no-actor-cure).
   // Guard próprio: audit-booking-soft-conflict.mjs.
   'core/availability/booking-soft-conflict.ts',
+  // C3 F-ORCHESTRATED-CONTRACTING (2026-07-23): BIND do performer ao elenco no confirm. NÃO resolve
+  // owner-authority (recebe performerActorId JÁ derivado pelo resolver no chokepoint — owner.authorityActorId)
+  // e NÃO escreve em availability/bookings — lê event_staff (idempotência) + compõe o writer SELADO
+  // createCommitment. Entra na FAMÍLIA para herdar as vigilâncias estruturais (no-as-never, no-actor-cure).
+  // Guard próprio: audit-performer-event-binding.mjs.
+  'core/availability/performer-event-binding.ts',
   'modules/services/service-offering.service.ts',
 ];
 

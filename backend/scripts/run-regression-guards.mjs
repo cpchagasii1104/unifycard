@@ -89,6 +89,12 @@ const CMDS = [
   "node scripts/audit-offering-genre-facet-governed.mjs",
   "node scripts/audit-offering-equipment-facet-governed.mjs",
   "node scripts/audit-service-offering-contracting-policy.mjs",
+  // F-ORCHESTRATED-CONTRACTING (C3) — fecha o loop propose→accept→BIND: booking de service_offering confirmado
+  // com metadata.eventId vincula o PERFORMER (provider derivado server-side, nunca o requester) ao elenco via o
+  // writer SELADO createCommitment. Bind IDEMPOTENTE, NÃO-CRÍTICO (try/catch no chokepoint ÚNICO), síncrono
+  // (anti-hollow/trap F4 — sem outbox oco), sem spine/writer paralelo; EDGE C-1 carrega contexto com autoridade
+  // de evento (canActAs manage_attendees) reusada; Bank-free (porta-01 FORA).
+  "node scripts/audit-performer-event-binding.mjs",
   "node scripts/audit-offering-audience-range.mjs",
   "node scripts/audit-event-staff-commitment-contract.mjs",
   "node scripts/audit-event-staff-single-writer.mjs",
