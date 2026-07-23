@@ -225,6 +225,11 @@ const CMDS = [
   // bloqueantes/self-excluído, derivação por memberships ativas (zero agenda materializada — §2),
   // sink OP-2 = event_outbox (dedup determinístico), zero referência aos ghosts notify/system_notifications.
   "node scripts/audit-booking-soft-conflict.mjs",
+  // FATIA PREÇO arco fundação eventos — GRADE DE PREÇO por CONFIG (dia-da-semana × período) com resolução
+  // em cascata "a partir de" de 3 níveis (célula → configs.default_price_cents → offerings.price_cents SELADA).
+  // Preço = catálogo DECLARADO (price_cents/priceCents, Δbank=0, porta-01 FORA); dia 1-7 + período por CHECK;
+  // config precificada em soft-retire (FK RESTRICT); sem 4ª verdade de preço; fronteira Bank-free.
+  "node scripts/audit-offering-config-price-grid.mjs",
   // DECISION-0189C C1: o runner passa a INCLUIR o gate financeiro (financial-ssot/vocabulary +
   // typecheck do gate) — o "verde" do runner deixa de mentir (o script infrator elevava 591→592
   // sem o runner acusar). Baseline só-desce (DECISION-0158); nunca sobe para 592.

@@ -69,10 +69,25 @@ const configUpdateSchema = z.object({
   teamSize: z.number().int().positive().optional(),
   requiresSetupCrew: z.boolean().optional(),
   status: z.enum(['disponivel', 'sob_consulta']).optional(),
+  // 🔴 FATIA PREÇO — base "a partir de" POR CONFIG (nível 2 da cascata §2). null = limpa (cai no nível 3).
+  defaultPriceCents: z.number().int().min(0).optional().nullable(),
 });
 
 const configMemberSchema = z.object({
   memberActorId: z.string().uuid(),
+});
+
+// 🔴 FATIA PREÇO — grade de preço por CONFIG (dia-da-semana ISO 1-7 × período pt-BR governado). Preço = valor
+// DECLARADO de catálogo ("a partir de"), NUNCA cobrança/movimento de dinheiro (Δbank=0; porta-01 FORA; BRL implícito).
+const configPriceSetSchema = z.object({
+  dayOfWeek: z.number().int().min(1).max(7),
+  period: z.enum(['manha', 'tarde', 'noite']),
+  priceCents: z.number().int().min(0),
+});
+
+const configPriceRemoveSchema = z.object({
+  dayOfWeek: z.number().int().min(1).max(7),
+  period: z.enum(['manha', 'tarde', 'noite']),
 });
 
 const availabilitySchema = z.object({
@@ -261,6 +276,9 @@ const serviceOfferingsRoutes: FastifyPluginAsync = async (fastify) => {
         teamSize: parsed.data.teamSize as number | undefined,
         requiresSetupCrew: parsed.data.requiresSetupCrew as boolean | undefined,
         status: parsed.data.status as 'disponivel' | 'sob_consulta' | undefined,
+        // undefined = campo AUSENTE do body (não mexe); null = presente-e-nulo (limpa, cai no nível 3).
+        defaultPriceCents: ('defaultPriceCents' in ((req.body as object) ?? {}))
+          ? ((parsed.data.defaultPriceCents as number | null | undefined) ?? null) : undefined,
       });
       return reply.send({ ok: true });
     } catch (err) {
@@ -320,6 +338,74 @@ const serviceOfferingsRoutes: FastifyPluginAsync = async (fastify) => {
           offeringId: req.params.offeringId,
           configId: req.params.configId,
           memberActorId: req.params.memberActorId,
+        });
+        return reply.send({ ok: true });
+      } catch (err) {
+        if (err instanceof ServiceOfferingError) return reply.status(err.statusCode).send({ ok: false, code: err.code, message: err.message });
+        throw err;
+      }
+    }
+  );
+
+  // ── FATIA PREÇO — GRADE DE PREÇO por CONFIG (dia-da-semana × período), owner-gated no service.
+  // GET lê base "a partir de" + células ESPARSAS; PUT faz UPSERT de uma célula; DELETE remove uma célula
+  // (volta a resolver pelo nível 2/3). Preço = catálogo DECLARADO (Δbank=0; porta-01 FORA; BRL implícito).
+
+  fastify.get<{ Params: { offeringId: string; configId: string } }>(
+    '/offerings/:offeringId/configs/:configId/prices',
+    async (req, reply) => {
+      const userId = (req as { user?: { userId?: string } }).user?.userId;
+      if (!userId) return reply.status(401).send({ ok: false, code: 'UNAUTHENTICATED' });
+      try {
+        const data = await serviceOfferingConfigService.listConfigPrices({
+          tenantId: req.tenant!.id, userId, offeringId: req.params.offeringId, configId: req.params.configId,
+        });
+        return reply.send({ ok: true, data });
+      } catch (err) {
+        if (err instanceof ServiceOfferingError) return reply.status(err.statusCode).send({ ok: false, code: err.code, message: err.message });
+        throw err;
+      }
+    }
+  );
+
+  fastify.put<{ Params: { offeringId: string; configId: string } }>(
+    '/offerings/:offeringId/configs/:configId/prices',
+    async (req, reply) => {
+      const userId = (req as { user?: { userId?: string } }).user?.userId;
+      if (!userId) return reply.status(401).send({ ok: false, code: 'UNAUTHENTICATED' });
+      const parsed = configPriceSetSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return reply.status(400).send({ ok: false, code: 'SERVICE_OFFERING_BAD_REQUEST', issues: parsed.error.issues });
+      }
+      try {
+        await serviceOfferingConfigService.setConfigPrice({
+          tenantId: req.tenant!.id, userId, offeringId: req.params.offeringId, configId: req.params.configId,
+          dayOfWeek: parsed.data.dayOfWeek as number,
+          period: parsed.data.period as 'manha' | 'tarde' | 'noite',
+          priceCents: parsed.data.priceCents as number,
+        });
+        return reply.send({ ok: true });
+      } catch (err) {
+        if (err instanceof ServiceOfferingError) return reply.status(err.statusCode).send({ ok: false, code: err.code, message: err.message });
+        throw err;
+      }
+    }
+  );
+
+  fastify.delete<{ Params: { offeringId: string; configId: string } }>(
+    '/offerings/:offeringId/configs/:configId/prices',
+    async (req, reply) => {
+      const userId = (req as { user?: { userId?: string } }).user?.userId;
+      if (!userId) return reply.status(401).send({ ok: false, code: 'UNAUTHENTICATED' });
+      const parsed = configPriceRemoveSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return reply.status(400).send({ ok: false, code: 'SERVICE_OFFERING_BAD_REQUEST', issues: parsed.error.issues });
+      }
+      try {
+        await serviceOfferingConfigService.removeConfigPrice({
+          tenantId: req.tenant!.id, userId, offeringId: req.params.offeringId, configId: req.params.configId,
+          dayOfWeek: parsed.data.dayOfWeek as number,
+          period: parsed.data.period as 'manha' | 'tarde' | 'noite',
         });
         return reply.send({ ok: true });
       } catch (err) {

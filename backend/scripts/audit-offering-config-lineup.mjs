@@ -89,7 +89,13 @@ if (SVC_RAW) {
 // ══ (b) fronteira Bank-free: tabelas de config NUNCA ganham coluna de preco/financeira nesta fatia ══
 {
   const MIG_DIR = join(ROOT, 'migrations');
-  const FIN_TOKENS = /price|_cents|\bfee\b|fee_bps|\btax\b|tax_|bank_|currency|valor_|preco/i;
+  // GOVERNED EVOLUTION (FATIA PREÇO, migration 20260723180000): a fronteira de PREÇO das tabelas de config
+  // deixou de ser "preço PROIBIDO nesta fatia" e passou a ser GOVERNADA pelo guard dedicado
+  // audit-offering-config-price-grid.mjs (price_cents/default_price_cents + cascata "a partir de" de 3 níveis,
+  // Δbank=0, porta-01 FORA). Este guard NÃO enfraquece: continua mordendo contaminação BANCÁRIA real em tabela
+  // de config (bank_/currency/fee/tax) — apenas DELEGA a nomenclatura de PREÇO ao guard dedicado, sem dupla
+  // verdade sobre a mesma fronteira. price|_cents|valor_|preco saem daqui e passam a ser vigiados lá.
+  const FIN_TOKENS = /\bfee\b|fee_bps|\btax\b|tax_|bank_|currency/i;
   if (!existsSync(MIG_DIR)) {
     note('MIGRATIONS', 'diretorio migrations ausente');
   } else {

@@ -26,6 +26,24 @@ import { groupActorMembershipRepository } from '../groups/group-actor-membership
 
 export type OfferingConfigStatus = 'disponivel' | 'sob_consulta';
 
+// FATIA PREÇO — período do dia (pt-BR sem acento, CHECK-not-enum §4.9.7; espelha o CHECK físico da migration).
+export type OfferingConfigPeriod = 'manha' | 'tarde' | 'noite';
+const CONFIG_PERIODS: readonly OfferingConfigPeriod[] = ['manha', 'tarde', 'noite'];
+
+/** Célula da grade de preço declarada: (dia-da-semana ISO 1-7, período) → price_cents. */
+export interface OfferingConfigPriceCell {
+  dayOfWeek: number;
+  period: OfferingConfigPeriod;
+  priceCents: number;
+}
+
+/** Nível resolvido da cascata "a partir de" (§2 — UMA verdade por célula). */
+export type OfferingConfigPriceSource = 'cell' | 'config_default' | 'offering_base';
+export interface OfferingConfigResolvedPrice {
+  priceCents: number;
+  source: OfferingConfigPriceSource;
+}
+
 export interface OfferingConfigMemberView {
   memberActorId: string;
   // DERIVADO na leitura (nunca persistido): membership ATIVA no grupo do provider?
@@ -42,6 +60,8 @@ export interface OfferingConfigView {
   members: OfferingConfigMemberView[];
   // DERIVADO: todos os declarados no line-up seguem membros ATIVOS (vazio = completo por vacuidade).
   lineupComplete: boolean;
+  // FATIA PREÇO — base "a partir de" POR CONFIG (nível 2 da cascata §2); NULL = cai no nível 3 (offering base).
+  defaultPriceCents: number | null;
 }
 
 interface ConfigRow {
@@ -51,10 +71,13 @@ interface ConfigRow {
   team_size: number;
   requires_setup_crew: boolean;
   status: string;
+  default_price_cents: string | number | null;
+  retired_at: string | null;
 }
 
 const CONFIG_SELECT =
-  'id::text AS id, service_offering_id::text AS service_offering_id, label, team_size, requires_setup_crew, status';
+  'id::text AS id, service_offering_id::text AS service_offering_id, label, team_size, requires_setup_crew, status, ' +
+  'default_price_cents::text AS default_price_cents, retired_at::text AS retired_at';
 
 function assertLabel(label: string): void {
   if (typeof label !== 'string' || label.trim() === '') {
@@ -72,6 +95,28 @@ function assertStatus(status: string): void {
   if (status !== 'disponivel' && status !== 'sob_consulta') {
     throw new ServiceOfferingError(400, 'CONFIG_STATUS_INVALID',
       "status da config deve ser 'disponivel' ou 'sob_consulta' (vocabulário pt-BR governado por CHECK).");
+  }
+}
+
+// FATIA PREÇO — validate-before-mutate (§4.9.5). Dia ISO 1-7, período governado, cents inteiro >= 0.
+function assertDayOfWeek(dayOfWeek: number): void {
+  if (!Number.isInteger(dayOfWeek) || dayOfWeek < 1 || dayOfWeek > 7) {
+    throw new ServiceOfferingError(400, 'CONFIG_PRICE_DAY_INVALID',
+      'day_of_week deve ser inteiro 1-7 (ISO-8601: Segunda=1 .. Domingo=7).');
+  }
+}
+
+function assertPeriod(period: string): asserts period is OfferingConfigPeriod {
+  if (!CONFIG_PERIODS.includes(period as OfferingConfigPeriod)) {
+    throw new ServiceOfferingError(400, 'CONFIG_PRICE_PERIOD_INVALID',
+      "period deve ser 'manha', 'tarde' ou 'noite' (vocabulário pt-BR governado por CHECK).");
+  }
+}
+
+function assertPriceCents(priceCents: number): void {
+  if (!Number.isInteger(priceCents) || priceCents < 0) {
+    throw new ServiceOfferingError(400, 'CONFIG_PRICE_INVALID',
+      'price_cents deve ser inteiro >= 0 (dinheiro em cents; valor DECLARADO de catálogo, não cobrança).');
   }
 }
 
@@ -158,12 +203,16 @@ export const serviceOfferingConfigService = {
     teamSize?: number;
     requiresSetupCrew?: boolean;
     status?: OfferingConfigStatus;
+    // FATIA PREÇO — base "a partir de" POR CONFIG: undefined = campo AUSENTE (não mexe); null = limpa (cai no
+    // nível 3); número = define. Distinção null-vs-ausente preservada pela rota ('defaultPriceCents' in body).
+    defaultPriceCents?: number | null;
   }): Promise<void> {
     await requireOwnedOffering(input.tenantId, input.userId, input.offeringId);
     const current = await requireConfig(input.tenantId, input.offeringId, input.configId);
     if (input.label !== undefined) assertLabel(input.label);
     if (input.teamSize !== undefined) assertTeamSize(input.teamSize);
     if (input.status !== undefined) assertStatus(input.status);
+    if (input.defaultPriceCents !== undefined && input.defaultPriceCents !== null) assertPriceCents(input.defaultPriceCents);
     // PISO (lado config): valor EFETIVO de team_size >= line-up declarado (validate-before-mutate §4.9.5).
     if (input.teamSize !== undefined) {
       const lineup = await countLineup(input.tenantId, input.configId);
@@ -201,16 +250,45 @@ export const serviceOfferingConfigService = {
         input.status ?? null,
       ]
     );
+    // FATIA PREÇO — base "a partir de" POR CONFIG (nível 2). UPDATE explícito (não COALESCE) para distinguir
+    // null-limpa de ausente: só toca a coluna quando o campo veio no body.
+    if (input.defaultPriceCents !== undefined) {
+      await runQueryWithTenant(
+        input.tenantId,
+        `UPDATE service_offering_configs SET default_price_cents = $3, updated_at = NOW()
+          WHERE id = $1::uuid AND tenant_id = $2::uuid`,
+        [input.configId, input.tenantId, input.defaultPriceCents]
+      );
+    }
   },
 
   /**
-   * Dono APAGA um item do cardápio (DELETE físico PERMITIDO NESTA fatia — nenhuma linha de preço/booking
-   * referencia configs ainda; quando referenciar, este caminho vira soft-retire por decisão própria).
-   * Line-up cai junto (ON DELETE CASCADE físico).
+   * Dono RETIRA um item do cardápio. FATIA PREÇO fecha a promessa selada da F3 (20260723170000:18-20): se a
+   * config está REFERENCIADA por preço (qualquer célula da grade OU default_price_cents definido), o DELETE
+   * físico é PROIBIDO (FK ON DELETE RESTRICT é o backstop) — faz-se SOFT-RETIRE (retired_at) GRACIOSO: sai do
+   * cardápio ATIVO (listConfigs), mas os preços já declarados seguem RESOLVÍVEIS. Config SEM preço ainda pode
+   * ser deletada fisicamente nesta fatia (line-up cai junto por ON DELETE CASCADE físico).
    */
   async deleteConfig(input: { tenantId: string; userId: string; offeringId: string; configId: string }): Promise<void> {
     await requireOwnedOffering(input.tenantId, input.userId, input.offeringId);
-    await requireConfig(input.tenantId, input.offeringId, input.configId);
+    const current = await requireConfig(input.tenantId, input.offeringId, input.configId);
+    const pricedCell = await runQueryWithTenant<{ x: number }>(
+      input.tenantId,
+      `SELECT 1 AS x FROM service_offering_config_prices
+        WHERE config_id = $1::uuid AND tenant_id = $2::uuid LIMIT 1`,
+      [input.configId, input.tenantId]
+    );
+    const isReferenced = !!pricedCell || current.default_price_cents !== null;
+    if (isReferenced) {
+      // SOFT-RETIRE: nunca bate no RESTRICT; idempotente (retired_at IS NULL).
+      await runQueryWithTenant(
+        input.tenantId,
+        `UPDATE service_offering_configs SET retired_at = NOW(), updated_at = NOW()
+          WHERE id = $1::uuid AND tenant_id = $2::uuid AND retired_at IS NULL`,
+        [input.configId, input.tenantId]
+      );
+      return;
+    }
     await runQueryWithTenant(
       input.tenantId,
       `DELETE FROM service_offering_configs WHERE id = $1::uuid AND tenant_id = $2::uuid`,
@@ -304,8 +382,10 @@ export const serviceOfferingConfigService = {
   async listConfigs(tenantId: string, offeringId: string): Promise<OfferingConfigView[]> {
     const configs = await runQueriesWithTenant<ConfigRow>(
       tenantId,
+      // FATIA PREÇO — cardápio ATIVO exclui configs soft-retired (retired_at IS NULL); os preços da config
+      // retirada seguem RESOLVÍVEIS via resolveConfigPrice (retirada ORTOGONAL a disponivel/sob_consulta).
       `SELECT ${CONFIG_SELECT} FROM service_offering_configs
-        WHERE service_offering_id = $1::uuid AND tenant_id = $2::uuid
+        WHERE service_offering_id = $1::uuid AND tenant_id = $2::uuid AND retired_at IS NULL
         ORDER BY created_at ASC, id ASC`,
       [offeringId, tenantId]
     );
@@ -353,6 +433,120 @@ export const serviceOfferingConfigService = {
       status: (row.status === 'sob_consulta' ? 'sob_consulta' : 'disponivel'),
       members,
       lineupComplete: members.every((m) => m.isActiveMember),
+      defaultPriceCents: row.default_price_cents === null || row.default_price_cents === undefined
+        ? null : Number(row.default_price_cents),
     };
+  },
+
+  // ══════════ FATIA PREÇO — grade de preço por CONFIG (dia-da-semana × período), owner-gated ══════════
+  // Preço = valor DECLARADO de catálogo ("a partir de"), NUNCA cobrança/movimento de dinheiro (Δbank=0;
+  // porta-01 FORA; BRL implícito). §2 — UMA verdade por célula via cascata de 3 níveis (ver resolveConfigPrice).
+
+  /** Dono DEFINE/atualiza a célula (dia,período) da grade — UPSERT em uq_socp_cell. Owner-gated fail-closed. */
+  async setConfigPrice(input: {
+    tenantId: string;
+    userId: string;
+    offeringId: string;
+    configId: string;
+    dayOfWeek: number;
+    period: OfferingConfigPeriod;
+    priceCents: number;
+  }): Promise<void> {
+    await requireOwnedOffering(input.tenantId, input.userId, input.offeringId);
+    await requireConfig(input.tenantId, input.offeringId, input.configId);
+    assertDayOfWeek(input.dayOfWeek);
+    assertPeriod(input.period);
+    assertPriceCents(input.priceCents);
+    await runQueryWithTenant(
+      input.tenantId,
+      `INSERT INTO service_offering_config_prices (tenant_id, config_id, day_of_week, period, price_cents)
+       VALUES ($1::uuid, $2::uuid, $3, $4, $5)
+       ON CONFLICT (config_id, day_of_week, period)
+         DO UPDATE SET price_cents = EXCLUDED.price_cents, updated_at = NOW()`,
+      [input.tenantId, input.configId, input.dayOfWeek, input.period, input.priceCents]
+    );
+  },
+
+  /** Dono REMOVE uma célula da grade (volta a resolver pelo nível 2/3 da cascata). Owner-gated fail-closed. */
+  async removeConfigPrice(input: {
+    tenantId: string;
+    userId: string;
+    offeringId: string;
+    configId: string;
+    dayOfWeek: number;
+    period: OfferingConfigPeriod;
+  }): Promise<void> {
+    await requireOwnedOffering(input.tenantId, input.userId, input.offeringId);
+    await requireConfig(input.tenantId, input.offeringId, input.configId);
+    assertDayOfWeek(input.dayOfWeek);
+    assertPeriod(input.period);
+    await runQueryWithTenant(
+      input.tenantId,
+      `DELETE FROM service_offering_config_prices
+        WHERE config_id = $1::uuid AND day_of_week = $2 AND period = $3 AND tenant_id = $4::uuid`,
+      [input.configId, input.dayOfWeek, input.period, input.tenantId]
+    );
+  },
+
+  /** Read model da config precificada: base "a partir de" + células ESPARSAS da grade. Owner-gated fail-closed. */
+  async listConfigPrices(input: {
+    tenantId: string;
+    userId: string;
+    offeringId: string;
+    configId: string;
+  }): Promise<{ defaultPriceCents: number | null; cells: OfferingConfigPriceCell[] }> {
+    await requireOwnedOffering(input.tenantId, input.userId, input.offeringId);
+    const config = await requireConfig(input.tenantId, input.offeringId, input.configId);
+    const cells = await runQueriesWithTenant<{ day_of_week: number; period: string; price_cents: string }>(
+      input.tenantId,
+      `SELECT day_of_week, period, price_cents::text AS price_cents
+         FROM service_offering_config_prices
+        WHERE config_id = $1::uuid AND tenant_id = $2::uuid
+        ORDER BY day_of_week ASC, period ASC`,
+      [input.configId, input.tenantId]
+    );
+    return {
+      defaultPriceCents: config.default_price_cents === null || config.default_price_cents === undefined
+        ? null : Number(config.default_price_cents),
+      cells: cells.map((c) => ({
+        dayOfWeek: Number(c.day_of_week),
+        period: (c.period === 'tarde' ? 'tarde' : c.period === 'noite' ? 'noite' : 'manha'),
+        priceCents: Number(c.price_cents),
+      })),
+    };
+  },
+
+  /**
+   * COTAÇÃO — resolve o preço DECLARADO de uma célula (dia,período) pela cascata "a partir de" de 3 níveis
+   * (§2, UMA verdade por célula): (1) célula da grade → (2) service_offering_configs.default_price_cents →
+   * (3) service_offerings.price_cents (base SELADA da oferta). Leitura de catálogo (não owner-gated); tenant-scoped.
+   * Config RETIRADA (soft-retire) segue resolvível. NUNCA há 4ª verdade nem dois valores para a mesma célula.
+   */
+  async resolveConfigPrice(
+    tenantId: string,
+    offeringId: string,
+    configId: string,
+    dayOfWeek: number,
+    period: OfferingConfigPeriod
+  ): Promise<OfferingConfigResolvedPrice> {
+    assertDayOfWeek(dayOfWeek);
+    assertPeriod(period);
+    const config = await requireConfig(tenantId, offeringId, configId);
+    // nível 1 — célula da grade (mais específica).
+    const cell = await runQueryWithTenant<{ price_cents: string }>(
+      tenantId,
+      `SELECT price_cents::text AS price_cents FROM service_offering_config_prices
+        WHERE config_id = $1::uuid AND day_of_week = $2 AND period = $3 AND tenant_id = $4::uuid`,
+      [configId, dayOfWeek, period, tenantId]
+    );
+    if (cell) return { priceCents: Number(cell.price_cents), source: 'cell' };
+    // nível 2 — base "a partir de" POR CONFIG.
+    if (config.default_price_cents !== null && config.default_price_cents !== undefined) {
+      return { priceCents: Number(config.default_price_cents), source: 'config_default' };
+    }
+    // nível 3 — base DA OFERTA (coluna SELADA service_offerings.price_cents).
+    const offering = await serviceOfferingService.findById(tenantId, offeringId);
+    if (!offering) throw new ServiceOfferingError(404, 'SERVICE_OFFERING_NOT_FOUND', 'Oferta inexistente.');
+    return { priceCents: offering.priceCents, source: 'offering_base' };
   },
 };
