@@ -189,6 +189,7 @@ class ServicesRepository {
       categoryId?: string;
       conceptId?: string;
       subjectConceptId?: string; // C1b: gênero (subject-concept governado) — filtra via facet da oferta ativa
+      equipmentConceptId?: string; // C1c-a: equipamento (concept governado) — filtra via facet da oferta ativa
       cityId?: string;
       stateId?: string;
       countryId?: string;
@@ -236,6 +237,22 @@ class ServicesRepository {
            AND (so_g.service_id = s.service_id OR so_g.canonical_service_id = s.canonical_service_id)
            AND gf.subject_concept_id = $${paramIndex++})`);
       params.push(filters.subjectConceptId);
+    }
+
+    // 🔴 C1c-a: filtro por EQUIPAMENTO (concept governado do pool). Mesma forma do filtro de gênero:
+    // casa se existe oferta ATIVA do MESMO provider taggeada com o equipamento em
+    // service_offering_equipment_facets. Sem equipmentConceptId = comportamento atual.
+    if (filters.equipmentConceptId) {
+      conditions.push(`EXISTS (
+        SELECT 1
+          FROM service_offerings so_e
+          JOIN service_offering_equipment_facets ef ON ef.service_offering_id = so_e.id
+         WHERE so_e.tenant_id = s.tenant_id
+           AND so_e.status = 'active'
+           AND so_e.provider_actor_id = s.actor_id
+           AND (so_e.service_id = s.service_id OR so_e.canonical_service_id = s.canonical_service_id)
+           AND ef.equipment_concept_id = $${paramIndex++})`);
+      params.push(filters.equipmentConceptId);
     }
 
     // Filtros de localização. (category_id mantido p/ callers de navegação por árvore — ex.: marketplace-search,

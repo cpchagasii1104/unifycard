@@ -363,6 +363,7 @@ class ServicesService {
     filters: {
       categoryId?: string;
       subjectConceptId?: string; // C1b: gênero (subject-concept governado) — filtra via facet da oferta
+      equipmentConceptId?: string; // C1c-a: equipamento (concept governado) — filtra via facet da oferta
       cityId?: string;
       stateId?: string;
       countryId?: string;
@@ -405,6 +406,7 @@ class ServicesService {
     const services = await servicesRepository.discoverServices(tenantId, {
       conceptId,
       subjectConceptId: filters.subjectConceptId,
+      equipmentConceptId: filters.equipmentConceptId,
       cityId: filters.cityId,
       stateId: filters.stateId,
       countryId: filters.countryId,

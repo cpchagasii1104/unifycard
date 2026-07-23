@@ -22,6 +22,18 @@ export class ServiceOfferingError extends Error {
   }
 }
 
+// 🔴 C1c-a — valida a CAPACIDADE DE PÚBLICO (conditions.audience_capacity): se presente, inteiro > 0.
+// Capacidade-de-público ("atende até N pessoas") ≠ capacity de SLOT da Unified Availability (vagas de agenda).
+// Ausente = ok (atributo opcional). Só shape; sem coluna nova.
+function assertAudienceCapacity(conditions?: Record<string, unknown> | null): void {
+  if (!conditions || conditions.audience_capacity === undefined || conditions.audience_capacity === null) return;
+  const cap = conditions.audience_capacity;
+  if (!Number.isInteger(cap) || (cap as number) <= 0) {
+    throw new ServiceOfferingError(400, 'SERVICE_OFFERING_CAPACITY_INVALID',
+      'conditions.audience_capacity deve ser inteiro > 0 (capacidade de público).');
+  }
+}
+
 export interface ServiceOffering {
   id: string;
   tenantId: string;
@@ -106,6 +118,10 @@ export const serviceOfferingService = {
     if (!Number.isInteger(input.durationMinutes) || input.durationMinutes <= 0) {
       throw new ServiceOfferingError(400, 'SERVICE_OFFERING_DURATION_INVALID', 'durationMinutes inteiro > 0.');
     }
+    // 🔴 C1c-a — CAPACIDADE DE PÚBLICO: atributo OPCIONAL em conditions.audience_capacity (int > 0). É
+    // "atende até N pessoas" (público do show) — SEMÂNTICA DISTINTA do `capacity` de SLOT da Unified
+    // Availability (vagas de agenda). Só validação de shape; sem coluna nova. Fail-closed no writer de conditions.
+    assertAudienceCapacity(input.conditions);
 
     // Identidade compartilhada ATIVA (redirect resolvido; fail-closed).
     const canonical = await canonicalServiceService.requireActiveForTenant(input.tenantId, input.canonicalServiceId);
@@ -335,5 +351,79 @@ export const serviceOfferingService = {
       [offeringId]
     );
     return r.map((x) => x.subject_concept_id);
+  },
+
+  // ── C1c-a — FACET de EQUIPAMENTO próprio (raio-x: checklist do que a banda leva). Elo oferta↔equipamento
+  // GOVERNADO (service_offering_equipment_facets, espelho de service_offering_genre_facets/C1b). Autoridade =
+  // canRepresentActor(provider) fail-closed. Equipamento governado = concept do pool de equipamento
+  // (domain='produtos-e-comercio' ∧ offer_kind='rentable') — a FK física (→concepts) impede free-text; a
+  // pertinência ao pool é validada aqui (422). Bank-free.
+
+  /** Provider TAGUEIA equipamentos na PRÓPRIA oferta (multi, idempotente). Rejeita equipamento não-governado. */
+  async tagOfferingEquipment(input: {
+    tenantId: string;
+    userId: string;
+    offeringId: string;
+    equipmentConceptIds: string[];
+  }): Promise<void> {
+    const offering = await this.findById(input.tenantId, input.offeringId);
+    if (!offering) throw new ServiceOfferingError(404, 'SERVICE_OFFERING_NOT_FOUND', 'Oferta inexistente.');
+    const canRep = await authorizationService.canRepresentActor(input.tenantId, input.userId, offering.providerActorId);
+    if (!canRep) {
+      throw new ServiceOfferingError(403, 'SERVICE_OFFERING_NOT_REPRESENTABLE',
+        'Só o prestador (ou quem o representa) tagueia os equipamentos da própria oferta.');
+    }
+    const ids = Array.from(new Set((input.equipmentConceptIds || []).filter((s) => typeof s === 'string' && s.trim())));
+    if (ids.length === 0) {
+      throw new ServiceOfferingError(400, 'SERVICE_OFFERING_EQUIPMENT_EMPTY', 'Nenhum equipamento informado.');
+    }
+    // Governança: cada concept pertence ao POOL de equipamento (produtos-e-comercio + offer_kind='rentable').
+    const governed = await runQueriesWithTenant<{ concept_id: string }>(
+      input.tenantId,
+      `SELECT c.concept_id::text AS concept_id
+         FROM concepts c
+         JOIN concept_offer_kinds k ON k.concept_id = c.concept_id AND k.offer_kind = 'rentable'
+        WHERE c.domain = 'produtos-e-comercio' AND c.concept_id = ANY($1::uuid[])`,
+      [ids]
+    );
+    if (governed.length !== ids.length) {
+      throw new ServiceOfferingError(422, 'SERVICE_OFFERING_EQUIPMENT_NOT_GOVERNED',
+        'Equipamento deve ser um concept governado do pool de equipamento (produtos-e-comercio + rentable).');
+    }
+    for (const conceptId of ids) {
+      await runQueryWithTenant(
+        input.tenantId,
+        `INSERT INTO service_offering_equipment_facets (tenant_id, service_offering_id, equipment_concept_id)
+         VALUES ($1::uuid, $2::uuid, $3::uuid)
+         ON CONFLICT (service_offering_id, equipment_concept_id) DO NOTHING`,
+        [input.tenantId, input.offeringId, conceptId]
+      );
+    }
+  },
+
+  /** Provider REMOVE um equipamento da PRÓPRIA oferta. */
+  async untagOfferingEquipment(input: { tenantId: string; userId: string; offeringId: string; equipmentConceptId: string }): Promise<void> {
+    const offering = await this.findById(input.tenantId, input.offeringId);
+    if (!offering) throw new ServiceOfferingError(404, 'SERVICE_OFFERING_NOT_FOUND', 'Oferta inexistente.');
+    const canRep = await authorizationService.canRepresentActor(input.tenantId, input.userId, offering.providerActorId);
+    if (!canRep) {
+      throw new ServiceOfferingError(403, 'SERVICE_OFFERING_NOT_REPRESENTABLE', 'Só o prestador altera os equipamentos da própria oferta.');
+    }
+    await runQueryWithTenant(
+      input.tenantId,
+      `DELETE FROM service_offering_equipment_facets WHERE service_offering_id = $1::uuid AND equipment_concept_id = $2::uuid`,
+      [input.offeringId, input.equipmentConceptId]
+    );
+  },
+
+  /** Equipamentos (equipment_concept_id) de uma oferta. Read-only. */
+  async listOfferingEquipment(tenantId: string, offeringId: string): Promise<string[]> {
+    const r = await runQueriesWithTenant<{ equipment_concept_id: string }>(
+      tenantId,
+      `SELECT equipment_concept_id::text AS equipment_concept_id FROM service_offering_equipment_facets
+        WHERE service_offering_id = $1::uuid ORDER BY created_at ASC`,
+      [offeringId]
+    );
+    return r.map((x) => x.equipment_concept_id);
   },
 };
