@@ -164,7 +164,16 @@ DT-EVENT-STAFF-...-SCHEMA-DRIFT FECHADA. Sem event_actors paralelo, sem campo fi
 Fase C estrutural: C1 (oferta+catálogo+equipamento) + C2 (vínculo reconciliado + writer único). A banda é
 descoberta e contratada para o evento por UM caminho governado.
 
-## CHECKPOINT — próximo passo depende de decisões soberanas de Clayton (acumuladas)
+## Frente material ativa: C3a — necessidade do evento → candidatos no catálogo (read-only)
+- Instância: executora, Opus, alto. GO MATERIAL emitido, base `07fb13f74`. Clayton escolheu C3 (orquestração).
+- Mapa (descoberta): needs→descoberta→bind DESACOPLADO. event_operational_needs (governado, concept-first,
+  sem fio de saída por design = ponto de acoplamento limpo). Fronteira: REQUEST (declarar+descobrir+cotar) =
+  Bank-free sem decisão; ACCEPT/BIND (aceitar+vincular externo) = decisão bilateral + norma RFC §8 STOP.
+- Escopo C3a: endpoint READ-ONLY que liga need.need_concept_id → discoverServices (concept+gênero+cidade+data
+  do evento), reusando o catálogo C1. NÃO tocar RFQ/acceptQuote/createCommitment/booking/Bank (§8 STOP + decisão).
+- Próxima: C3a → (decisão bilateral / RFC própria do accept) → RFQ-request + convergir matching → bind externo.
+
+## CHECKPOINT — decisões soberanas acumuladas (ACCEPT/BIND depende delas)
 - **Vocabulário de PAPEL** do vínculo (event_staff.role): não governado por norma; promulgar a lista
   (artist/venue/sponsor/tech/...) = decisão normativa. NÃO enumerar por conta.
 - **SHARE/cachê declarado:** substrato próprio Bank-free (event_participation_terms); contrato proíbe em event_staff. Modelo a decidir.
