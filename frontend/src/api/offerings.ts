@@ -18,6 +18,13 @@ export interface ServiceOffering {
   durationMinutes: number;
   modality?: string | null;
   status: 'draft' | 'active' | 'suspended';
+  // 🔴 RAIO-X do performer — política de contratação (F-PERFORMER-CONTRACTING-POLICY) e faixa de público
+  // preferida (F-PERFORMER-AUDIENCE-RANGE). Todos vêm do read model (toOffering) do backend selado.
+  bookingApprovalMode?: 'manual' | 'automatic' | null;
+  acceptDirectSameCity?: boolean | null;
+  acceptDirectRadiusKm?: number | null;
+  audienceMin?: number | null;
+  audienceMax?: number | null;
 }
 
 /**
@@ -44,6 +51,12 @@ export async function createOffering(input: {
   companyId?: string | null;
   professionalActorId?: string | null;
   modality?: 'in_person' | 'remote' | 'home';
+  // RAIO-X: política de contratação + faixa de público (opcionais; backend valida both-or-neither/min<=max).
+  bookingApprovalMode?: 'manual' | 'automatic' | null;
+  acceptDirectSameCity?: boolean | null;
+  acceptDirectRadiusKm?: number | null;
+  audienceMin?: number | null;
+  audienceMax?: number | null;
 }): Promise<ServiceOffering> {
   const res = await apiFetchJson<{ ok: boolean; data: ServiceOffering; created?: boolean }>(
     '/services/offerings',
@@ -74,13 +87,195 @@ export async function activateOffering(offeringId: string): Promise<void> {
  */
 export async function updateOffering(
   offeringId: string,
-  input: { priceCents?: number; durationMinutes?: number; status?: 'draft' | 'active' | 'suspended' }
+  input: {
+    priceCents?: number;
+    durationMinutes?: number;
+    status?: 'draft' | 'active' | 'suspended';
+    // RAIO-X — política de contratação + faixa de público. Semântica null-vs-ausente preservada pelo backend
+    // ('field' in body): AUSENTE = não mexe; null = limpa; valor = define. JSON.stringify omite chaves undefined,
+    // então o caller manda SÓ os campos da aba que está editando (nunca reescreve o que não tocou).
+    bookingApprovalMode?: 'manual' | 'automatic' | null;
+    acceptDirectSameCity?: boolean | null;
+    acceptDirectRadiusKm?: number | null;
+    audienceMin?: number | null;
+    audienceMax?: number | null;
+  }
 ): Promise<void> {
   const res = await apiFetchJson<{ ok: boolean }>(`/services/offerings/${offeringId}`, {
     method: 'PUT',
     body: JSON.stringify(input),
   });
   if (!res?.ok) throw new Error('Erro ao atualizar oferta');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// 🔴 RAIO-X DO PERFORMER — facetas (gênero/equipamento), cardápio de configs (line-up) e grade de preço.
+// Exposição THIN dos endpoints SELADOS sob o escopo /services (prefixo idêntico às chamadas acima).
+// Autoridade = canRepresentActor(provider), fail-closed NO BACKEND — o frontend só projeta/edita.
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+
+// ── Gênero (subject-concept governado; espelho de event_theme_links). GET devolve os concept ids TAGUEADOS.
+export async function listOfferingGenres(offeringId: string): Promise<string[]> {
+  const res = await apiFetchJson<{ ok: boolean; data: string[] }>(`/services/offerings/${offeringId}/genres`);
+  return res?.ok && Array.isArray(res.data) ? res.data : [];
+}
+
+export async function tagOfferingGenres(offeringId: string, subjectConceptIds: string[]): Promise<void> {
+  const res = await apiFetchJson<{ ok: boolean }>(`/services/offerings/${offeringId}/genres`, {
+    method: 'POST',
+    body: JSON.stringify({ subjectConceptIds }),
+  });
+  if (!res?.ok) throw new Error('Erro ao adicionar gênero(s).');
+}
+
+export async function untagOfferingGenre(offeringId: string, conceptId: string): Promise<void> {
+  const res = await apiFetchJson<{ ok: boolean }>(`/services/offerings/${offeringId}/genres/${conceptId}`, {
+    method: 'DELETE',
+  });
+  if (!res?.ok) throw new Error('Erro ao remover gênero.');
+}
+
+// ── Equipamento (concept de use-area de palco/evento). GET devolve os concept ids TAGUEADOS.
+export async function listOfferingEquipment(offeringId: string): Promise<string[]> {
+  const res = await apiFetchJson<{ ok: boolean; data: string[] }>(`/services/offerings/${offeringId}/equipment`);
+  return res?.ok && Array.isArray(res.data) ? res.data : [];
+}
+
+export async function tagOfferingEquipment(offeringId: string, equipmentConceptIds: string[]): Promise<void> {
+  const res = await apiFetchJson<{ ok: boolean }>(`/services/offerings/${offeringId}/equipment`, {
+    method: 'POST',
+    body: JSON.stringify({ equipmentConceptIds }),
+  });
+  if (!res?.ok) throw new Error('Erro ao adicionar equipamento(s).');
+}
+
+export async function untagOfferingEquipment(offeringId: string, conceptId: string): Promise<void> {
+  const res = await apiFetchJson<{ ok: boolean }>(`/services/offerings/${offeringId}/equipment/${conceptId}`, {
+    method: 'DELETE',
+  });
+  if (!res?.ok) throw new Error('Erro ao remover equipamento.');
+}
+
+// ── Cardápio de CONFIGS (formações/line-up). Read model devolve todas as configs ATIVAS com line-up derivado.
+export type OfferingConfigStatus = 'disponivel' | 'sob_consulta';
+export type OfferingConfigPeriodOfDay = 'manha' | 'tarde' | 'noite';
+
+export interface OfferingConfigMember {
+  memberActorId: string;
+  isActiveMember: boolean;
+}
+
+export interface OfferingConfig {
+  id: string;
+  serviceOfferingId: string;
+  label: string;
+  teamSize: number;
+  requiresSetupCrew: boolean;
+  status: OfferingConfigStatus;
+  members: OfferingConfigMember[];
+  lineupComplete: boolean;
+  defaultPriceCents: number | null;
+}
+
+export async function listOfferingConfigs(offeringId: string): Promise<OfferingConfig[]> {
+  const res = await apiFetchJson<{ ok: boolean; data: OfferingConfig[] }>(`/services/offerings/${offeringId}/configs`);
+  return res?.ok && Array.isArray(res.data) ? res.data : [];
+}
+
+export async function createOfferingConfig(
+  offeringId: string,
+  input: { label: string; teamSize: number; requiresSetupCrew?: boolean | null; status?: OfferingConfigStatus | null }
+): Promise<OfferingConfig> {
+  const res = await apiFetchJson<{ ok: boolean; data: OfferingConfig }>(`/services/offerings/${offeringId}/configs`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+  if (!res?.ok || !res.data) throw new Error('Erro ao criar formação.');
+  return res.data;
+}
+
+export async function updateOfferingConfig(
+  offeringId: string,
+  configId: string,
+  input: {
+    label?: string;
+    teamSize?: number;
+    requiresSetupCrew?: boolean;
+    status?: OfferingConfigStatus;
+    // null = limpa a base "a partir de" da config (cai na base da oferta); número = define; ausente = não mexe.
+    defaultPriceCents?: number | null;
+  }
+): Promise<void> {
+  const res = await apiFetchJson<{ ok: boolean }>(`/services/offerings/${offeringId}/configs/${configId}`, {
+    method: 'PUT',
+    body: JSON.stringify(input),
+  });
+  if (!res?.ok) throw new Error('Erro ao atualizar formação.');
+}
+
+export async function deleteOfferingConfig(offeringId: string, configId: string): Promise<void> {
+  const res = await apiFetchJson<{ ok: boolean }>(`/services/offerings/${offeringId}/configs/${configId}`, {
+    method: 'DELETE',
+  });
+  if (!res?.ok) throw new Error('Erro ao remover formação.');
+}
+
+export async function addConfigMember(offeringId: string, configId: string, memberActorId: string): Promise<void> {
+  const res = await apiFetchJson<{ ok: boolean }>(`/services/offerings/${offeringId}/configs/${configId}/members`, {
+    method: 'POST',
+    body: JSON.stringify({ memberActorId }),
+  });
+  if (!res?.ok) throw new Error('Erro ao incluir integrante.');
+}
+
+export async function removeConfigMember(offeringId: string, configId: string, memberActorId: string): Promise<void> {
+  const res = await apiFetchJson<{ ok: boolean }>(
+    `/services/offerings/${offeringId}/configs/${configId}/members/${memberActorId}`,
+    { method: 'DELETE' }
+  );
+  if (!res?.ok) throw new Error('Erro ao remover integrante.');
+}
+
+// ── Grade de preço por CONFIG (dia-da-semana 0=Dom..6=Sáb × período do dia). Valor DECLARADO de catálogo.
+export interface OfferingConfigPriceCell {
+  dayOfWeek: number;
+  periodOfDay: OfferingConfigPeriodOfDay;
+  priceCents: number;
+}
+
+export async function listConfigPrices(
+  offeringId: string,
+  configId: string
+): Promise<{ defaultPriceCents: number | null; cells: OfferingConfigPriceCell[] }> {
+  const res = await apiFetchJson<{ ok: boolean; data: { defaultPriceCents: number | null; cells: OfferingConfigPriceCell[] } }>(
+    `/services/offerings/${offeringId}/configs/${configId}/prices`
+  );
+  if (!res?.ok || !res.data) return { defaultPriceCents: null, cells: [] };
+  return { defaultPriceCents: res.data.defaultPriceCents ?? null, cells: Array.isArray(res.data.cells) ? res.data.cells : [] };
+}
+
+export async function setConfigPrice(
+  offeringId: string,
+  configId: string,
+  input: { dayOfWeek: number; periodOfDay: OfferingConfigPeriodOfDay; priceCents: number }
+): Promise<void> {
+  const res = await apiFetchJson<{ ok: boolean }>(`/services/offerings/${offeringId}/configs/${configId}/prices`, {
+    method: 'PUT',
+    body: JSON.stringify(input),
+  });
+  if (!res?.ok) throw new Error('Erro ao definir preço.');
+}
+
+export async function removeConfigPrice(
+  offeringId: string,
+  configId: string,
+  input: { dayOfWeek: number; periodOfDay: OfferingConfigPeriodOfDay }
+): Promise<void> {
+  const res = await apiFetchJson<{ ok: boolean }>(`/services/offerings/${offeringId}/configs/${configId}/prices`, {
+    method: 'DELETE',
+    body: JSON.stringify(input),
+  });
+  if (!res?.ok) throw new Error('Erro ao remover preço.');
 }
 
 /**

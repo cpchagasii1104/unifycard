@@ -143,3 +143,169 @@
   color: #b91c1c;
   margin: 0 0 12px;
 }
+
+/* ── RAIO-X DO PERFORMER — abas + facetas + configs + grade de preço ── */
+
+.offering-manage-page .offering-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.offering-manage-page .offering-tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 0.92rem;
+  color: #6b7280;
+}
+.offering-manage-page .offering-tab.is-active {
+  color: #2563eb;
+  border-bottom-color: #2563eb;
+  font-weight: 600;
+}
+
+.offering-manage-page .btn-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.offering-manage-page select {
+  padding: 8px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  background: #fff;
+}
+
+.offering-manage-page .checkbox-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  color: #374151;
+  margin: 4px 0 12px;
+}
+
+.offering-manage-page .btn-danger {
+  padding: 9px 16px;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  cursor: pointer;
+  border: 1px solid #fecaca;
+  background: #fff;
+  color: #b91c1c;
+}
+.offering-manage-page .btn-danger:disabled { cursor: default; opacity: 0.6; }
+
+.offering-manage-page .chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.offering-manage-page .chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #eff6ff;
+  color: #1e40af;
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
+  padding: 3px 6px 3px 12px;
+  font-size: 0.85rem;
+}
+.offering-manage-page .chip-x {
+  border: none;
+  background: none;
+  color: #1e40af;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0 4px;
+}
+.offering-manage-page .chip-x:disabled { color: #93c5fd; cursor: default; }
+
+.offering-manage-page .picker-list {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0 0;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+.offering-manage-page .picker-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  border-bottom: 1px solid #f3f4f6;
+  font-size: 0.92rem;
+}
+.offering-manage-page .picker-list li:last-child { border-bottom: none; }
+
+.offering-manage-page .config-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 14px;
+  margin-top: 14px;
+  background: #fafafa;
+}
+.offering-manage-page .config-card.create { background: #f0f9ff; }
+
+.offering-manage-page .lineup {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed #e5e7eb;
+}
+.offering-manage-page .lineup-title {
+  display: block;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  color: #9ca3af;
+  margin-bottom: 6px;
+}
+.offering-manage-page .member-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 8px;
+}
+.offering-manage-page .member-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid #f3f4f6;
+  font-size: 0.9rem;
+}
+
+.offering-manage-page .price-grid-wrap { margin-top: 12px; }
+.offering-manage-page .price-grid-scroll { overflow-x: auto; }
+.offering-manage-page .price-grid {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 420px;
+}
+.offering-manage-page .price-grid th,
+.offering-manage-page .price-grid td {
+  border: 1px solid #e5e7eb;
+  padding: 6px;
+  text-align: center;
+  font-size: 0.85rem;
+}
+.offering-manage-page .price-grid thead th { background: #f3f4f6; }
+.offering-manage-page .price-grid tbody th { background: #fafafa; text-align: right; white-space: nowrap; }
+.offering-manage-page .price-grid td input {
+  width: 72px;
+  padding: 5px 6px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  text-align: right;
+}
