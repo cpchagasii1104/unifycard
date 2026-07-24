@@ -104,7 +104,7 @@ async function main(): Promise<void> {
     console.log(`✅ Usuário demo criado via authService.register (bcrypt). tenant=${tenantId.slice(0, 8)} cpf=${cpf}`);
   }
 
-  // user-actor resolvível por GET /social/actors/available
+  // user-actor resolvível pela listagem de actors do usuário (rota social de actors)
   const actorId = (await pool.query<{ id: string }>(
     `SELECT id::text AS id FROM actors
       WHERE tenant_id = $1 AND user_id = $2 AND actor_type IN ('user','person','actor_human')

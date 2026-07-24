@@ -477,6 +477,12 @@ const servicesRoutes: FastifyPluginAsync = async (fastify) => {
       ends_at?: string; // ISO 8601 date string
       has_availability?: string; // 'true' | 'false'
       actor_type?: 'user' | 'page' | 'group' | 'channel';
+      // 🔵 SLICE-2A (discovery by genre over HTTP): exposição THIN dos filtros JÁ SELADOS da camada de
+      // serviço (C1b gênero, C1c-a equipamento, F-PERFORMER-AUDIENCE-RANGE contains-N). Parse fino +
+      // pass-through — NENHUMA lógica nova de matching aqui (a verdade vive em discoverServices).
+      subject_concept_id?: string; // uuid — gênero (subject-concept governado)
+      equipment_concept_id?: string; // uuid — equipamento (concept governado)
+      audience_size?: string; // inteiro positivo — N pessoas (faixa da oferta CONTÉM N)
       limit?: string;
       offset?: string;
     };
@@ -500,8 +506,29 @@ const servicesRoutes: FastifyPluginAsync = async (fastify) => {
           ? false
           : undefined;
 
+      // 🔵 SLICE-2A — parse FINO dos novos filtros (fail-closed 400 em vez de deixar uuid/número inválido
+      // virar erro de cast no Postgres). Sem valor = comportamento atual (filtro ausente).
+      const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (query.subject_concept_id !== undefined && !UUID_RE.test(query.subject_concept_id)) {
+        return reply.status(400).send({ error: 'subject_concept_id inválido (uuid esperado)' });
+      }
+      if (query.equipment_concept_id !== undefined && !UUID_RE.test(query.equipment_concept_id)) {
+        return reply.status(400).send({ error: 'equipment_concept_id inválido (uuid esperado)' });
+      }
+      let audienceSize: number | undefined;
+      if (query.audience_size !== undefined) {
+        const n = Number(query.audience_size);
+        if (!Number.isInteger(n) || n <= 0) {
+          return reply.status(400).send({ error: 'audience_size inválido (inteiro positivo esperado)' });
+        }
+        audienceSize = n;
+      }
+
       const filters = {
         categoryId: query.category_id,
+        subjectConceptId: query.subject_concept_id,
+        equipmentConceptId: query.equipment_concept_id,
+        audienceSize,
         cityId: query.city_id,
         stateId: query.state_id,
         countryId: query.country_id,
