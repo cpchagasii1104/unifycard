@@ -152,9 +152,14 @@ const BANK_TOKEN = /\b(bank_ledger|bank_transactions|bank|ledger|payout|payable|
     if (!region) {
       note('ROUTE-REGION', `${ROUTE_PATH}: região da rota de setor (/events/:id/sectors) não encontrada.`);
     } else {
-      // (d)/autoridade: a rota prova a chave EXATA sobre o DONO DO EVENTO (organizerActorId).
+      // (d)/autoridade WRITE: a rota prova a chave EXATA sobre o DONO DO EVENTO (organizerActorId).
       if (!/userCanActOnEventOwner\([^)]*organizerActorId[^)]*create_events/.test(region.replace(/\s+/g, ' '))) {
-        note('ROUTE-AUTHORITY', `${ROUTE_PATH}: rota de setor perdeu o espelho de autoridade — userCanActOnEventOwner(..., event.organizerActorId, 'create_events') (dono do evento, server-resolved).`);
+        note('ROUTE-AUTHORITY', `${ROUTE_PATH}: rota de setor perdeu o espelho de autoridade WRITE — userCanActOnEventOwner(..., event.organizerActorId, 'create_events') (dono do evento, server-resolved).`);
+      }
+      // (d)/autoridade READ (R1): o GET de setores herda a visibilidade do irmão GET /events/:id via
+      // canViewEvent deny-first — sem ela, preço/capacidade/cota de eventos DRAFT/privados vazariam.
+      if (!/canViewEvent/.test(region)) {
+        note('ROUTE-READ-VISIBILITY', `${ROUTE_PATH}: rota de setor perdeu o espelho de VISIBILIDADE de leitura — GET /events/:id/sectors deve aplicar canViewEvent deny-first (igual ao irmão GET /events/:id), senão vaza preço/capacidade/cota de eventos DRAFT/privados.`);
       }
       // (c) fronteira Bank-free na região do setor (literais mascarados).
       const regionNoStr = stripJsLiterals(region);

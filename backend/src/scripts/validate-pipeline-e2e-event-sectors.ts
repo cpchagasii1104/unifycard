@@ -65,6 +65,19 @@ async function seedPublishedEvent(tenantId: string, organizerActorId: string, ma
   return row.id;
 }
 
+// Evento em DRAFT (não-publicado): pela régua de canViewEvent, só o organizer (representável) enxerga —
+// qualquer outro usuário do tenant recebe 404 não-leak.
+async function seedDraftEvent(tenantId: string, organizerActorId: string, maxAttendees: number): Promise<string> {
+  const row = (
+    await pool.query<{ id: string }>(
+      `INSERT INTO events (tenant_id, actor_id, actor_type, title, status, visibility, max_attendees)
+       VALUES ($1::uuid, $2::uuid, 'user', 'Jogo Secreto (DRAFT)', 'draft', 'public', $3) RETURNING id::text AS id`,
+      [tenantId, organizerActorId, maxAttendees]
+    )
+  ).rows[0];
+  return row.id;
+}
+
 async function main(): Promise<void> {
   await assertEphemeralDb();
 
@@ -217,6 +230,27 @@ async function main(): Promise<void> {
       record('(5) SUM(capacity) > events.max_attendees (5000) → 400 SECTOR_CAPACITY_EXCEEDS_EVENT, ZERO escrita',
         r.statusCode === 400 && b?.code === 'SECTOR_CAPACITY_EXCEEDS_EVENT' && (await countSectors()) === cBefore,
         `status=${r.statusCode} code=${b?.code}`);
+    }
+
+    // (R1 READ-PATH) VISIBILIDADE: GET /events/:id/sectors espelha o irmão GET /events/:id (canViewEvent
+    // deny-first). Evento DRAFT do organizer → OUTRO usuário do tenant NÃO vê os setores (404 não-leak);
+    // evento PUBLICADO/público → a vitrine do comprador funciona (200 + setores).
+    {
+      const draftEventId = await seedDraftEvent(TENANT, organizer.actorId, 5000);
+      // O organizer põe 1 setor no DRAFT (via POST, que é owner-gated e independe de publicação).
+      await call('POST', `/events/${draftEventId}/sectors`, {
+        userId: organizer.userId,
+        body: { sectorNumber: 1, name: 'Setor Secreto', capacity: 100, meiaQuotaBps: 4000, inteiraPriceCents: 90000, meiaPriceCents: 45000 },
+      });
+
+      // não-dono (attacker) tenta LER os setores do DRAFT → 404 deny-first (não vaza preço/capacidade/cota).
+      const rDeny = await call('GET', `/events/${draftEventId}/sectors`, { userId: attacker.userId });
+      // não-dono LÊ os setores do evento PUBLICADO/público (eventA, que já tem o setor 1) → 200 + vitrine.
+      const rShow = await call('GET', `/events/${eventId}/sectors`, { userId: attacker.userId });
+      const showBody = (() => { try { return JSON.parse(rShow.body || '[]'); } catch { return null; } })();
+      record('(R1) GET setores: DRAFT invisível ao não-dono → 404 (não vaza preços); PUBLICADO → 200 + vitrine',
+        rDeny.statusCode === 404 && rShow.statusCode === 200 && Array.isArray(showBody) && showBody.length >= 1,
+        `deny=${rDeny.statusCode} show=${rShow.statusCode} showLen=${Array.isArray(showBody) ? showBody.length : 'n/a'}`);
     }
 
     // (6) preços são DECLARADOS — ZERO linha em ticket_sales / orders.

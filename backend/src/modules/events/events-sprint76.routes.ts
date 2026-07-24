@@ -417,7 +417,9 @@ const eventsSprint76Routes = async (fastify: FastifyInstance) => {
 
   /**
    * GET /events/:id/sectors
-   * Lista os setores do evento (catálogo DECLARADO). tenant-scoped.
+   * Lista os setores do evento (catálogo DECLARADO). VITRINE do comprador: evento PUBLICADO/público
+   * mostra os preços; DRAFT/privado só a quem pode ver. Espelha o irmão GET /events/:id — canViewEvent
+   * deny-first → 404 não-leak (não vaza preço/capacidade/cota de eventos DRAFT/privados). tenant-scoped.
    */
   fastify.get<{
     Params: { id: string };
@@ -426,6 +428,15 @@ const eventsSprint76Routes = async (fastify: FastifyInstance) => {
       return reply.status(400).send({ error: 'Tenant é obrigatório' });
     }
     const tenantId = req.tenant.id;
+
+    // 🔵 DECISION-0113 F6.5.6b-CANAL5-A: visibilidade herdada do irmão GET /events/:id (mesmo helper,
+    // mesmo padrão deny-first → 404 não-leak). NÃO é owner-only (quebraria a vitrine do comprador).
+    const callerUserId = (req.user as { userId?: string } | undefined)?.userId;
+    const { canViewEvent } = await import('@core/events/event-visibility.service');
+    if (!(await canViewEvent(tenantId, req.params.id, callerUserId))) {
+      return reply.status(404).send({ error: 'Evento não encontrado' });
+    }
+
     const sectors = await eventSectorService.listSectors(tenantId, req.params.id);
     return reply.send(sectors);
   });
