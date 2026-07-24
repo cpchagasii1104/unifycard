@@ -7,6 +7,7 @@ import { getEventRFQs, type EventRFQ } from '../../api/event-rfq';
 import { showToast } from '../../utils/toast';
 import PostCard, { type PostCardData } from '../social/PostCard';
 import EventStatusBadge from './EventStatusBadge';
+import EventOrganizerPanel from './EventOrganizerPanel';
 import AvailabilityPreview from './AvailabilityPreview';
 import EventImpact from './EventImpact';
 import EventNeedsList, { type EventNeed } from './EventNeedsList';
@@ -412,6 +413,10 @@ export default function EventPage({ eventId: propEventId, onNavigateToCheckout }
         <h1 className="event-page-title">{event.title}</h1>
         <EventStatusBadge status={event.status} />
       </div>
+
+      {/* Painel do ORGANIZADOR (owner-only como hint; autoridade real = backend, DECISION-0189A):
+          Local (S2) · Vaquinha (S1) · Setores com meia-entrada legal (S3). Auto-oculta p/ não-dono. */}
+      <EventOrganizerPanel eventId={eventId} />
 
       {/* Banner de Produção Assistida (XL/XXL) */}
       {(() => {

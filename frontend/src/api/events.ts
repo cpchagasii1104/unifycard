@@ -684,6 +684,16 @@ export interface UpdateEventInput {
   venue_neighborhood_id?: string | null;
   venue_neighborhood_display?: string | null;
   venue_postal_code?: string | null;
+  // SLICE S2 (VENUE ENRICHMENT): logradouro do local reusa addresses.street/number/complement;
+  // Nome do Local = chave canônica events.metadata.location_name (o backend faz o merge JSONB).
+  venue_street?: string | null;
+  venue_number?: string | null;
+  venue_complement?: string | null;
+  location_name?: string | null;
+  // SLICE S1 (VAQUINHA all-or-nothing): regras DECLARADAS, Δbank=0 — META = min_attendees (pessoas).
+  // funding_deadline_at = PRAZO da vaquinha (≠ datetime_end). Regras espelhadas no backend (400 VAQUINHA_*).
+  funding_deadline_at?: string | null;
+  is_all_or_nothing?: boolean;
   metadata?: Record<string, any> | null;
 }
 
@@ -764,4 +774,53 @@ export async function addOperationalNeed(eventId: string, needConceptId: string)
 }
 export async function removeOperationalNeed(eventId: string, needConceptId: string): Promise<void> {
   await apiFetchJson(`/api/events/${eventId}/operational-needs/${encodeURIComponent(needConceptId)}`, { method: 'DELETE' });
+}
+
+// ===========================
+// SETORES (SLICE S3) — setor self-contained com inteira/meia (piso legal 40% — Lei 12.933/2013)
+// ===========================
+// Rotas sprint76 (events-sprint76.routes.ts) declaram path '/events/:id/sectors' e o módulo é registrado
+// com prefix '/api/events' (app.builder) → URL real /api/events/events/:id/sectors.
+// Body keys EXATAS do backend (CreateEventSectorInput, event-sector.repository.ts): sectorNumber, name,
+// capacity, meiaQuotaBps (4000..10000; default legal 4000), inteiraPriceCents, meiaPriceCents.
+// Regras espelhadas no backend: meia ≤ inteira (SECTOR_MEIA_PRICE_EXCEEDS_INTEIRA), cota 40%–100%
+// (SECTOR_MEIA_QUOTA_BELOW_LEGAL_FLOOR), SUM(capacity) ≤ max_attendees (SECTOR_CAPACITY_EXCEEDS_EVENT).
+
+export interface EventSector {
+  id: string;
+  tenantId: string;
+  eventId: string;
+  sectorNumber: number;
+  name: string;
+  capacity: number;
+  meiaQuotaBps: number;
+  inteiraPriceCents: number;
+  meiaPriceCents: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateEventSectorInput {
+  sectorNumber: number;
+  name: string;
+  capacity: number;
+  meiaQuotaBps?: number; // default DB = 4000 (piso legal 40%)
+  inteiraPriceCents: number;
+  meiaPriceCents: number;
+}
+
+/** Lista os setores do evento (GET canViewEvent-gated; 404 não-leak para quem não pode ver). */
+export async function listEventSectors(eventId: string): Promise<EventSector[]> {
+  return apiFetchJson<EventSector[]>(`/api/events/events/${eventId}/sectors`);
+}
+
+/** Cria setor (POST owner-gated: chave exata create_events sobre o dono do evento). */
+export async function createEventSector(
+  eventId: string,
+  input: CreateEventSectorInput
+): Promise<EventSector> {
+  return apiFetchJson<EventSector>(`/api/events/events/${eventId}/sectors`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
 }

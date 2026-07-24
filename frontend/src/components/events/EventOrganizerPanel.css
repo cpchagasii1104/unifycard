@@ -1,0 +1,169 @@
+/* EventOrganizerPanel.css — painel do organizador na página do evento.
+   Segue as convenções visuais de EventPage.css (cards com borda arredondada, paleta neutra). */
+
+.event-organizer-panel {
+  border: 2px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  background: #fafafa;
+}
+
+.event-organizer-panel-title {
+  margin: 0 0 1rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #111;
+}
+
+.organizer-section {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.organizer-section:last-child {
+  margin-bottom: 0;
+}
+
+.organizer-section-title {
+  margin: 0 0 0.75rem;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #111;
+}
+
+.organizer-form-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.organizer-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1 1 220px;
+  min-width: 160px;
+}
+
+.organizer-field-wide {
+  flex: 1 1 100%;
+}
+
+.organizer-field-small {
+  flex: 0 1 140px;
+}
+
+.organizer-field > span {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #374151;
+}
+
+.organizer-field input,
+.organizer-field select {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  color: #111;
+  background: #fff;
+}
+
+.organizer-field input:focus,
+.organizer-field select:focus {
+  outline: none;
+  border-color: #6366f1;
+}
+
+.organizer-field-checkbox {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.organizer-field-checkbox input {
+  width: 1rem;
+  height: 1rem;
+}
+
+.organizer-field-checkbox > span {
+  font-size: 0.9rem;
+  color: #374151;
+}
+
+.organizer-hint {
+  margin: 0.25rem 0 0.5rem;
+  font-size: 0.85rem;
+  color: #4b5563;
+}
+
+.organizer-hint-muted {
+  color: #6b7280;
+}
+
+.organizer-hint-warn {
+  color: #b45309;
+}
+
+.organizer-button {
+  padding: 0.6rem 1.25rem;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.organizer-button-primary {
+  background: #6366f1;
+  border-color: #6366f1;
+  color: #fff;
+}
+
+.organizer-button-primary:hover:not(:disabled) {
+  background: #4f46e5;
+}
+
+.organizer-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.organizer-sectors-table-wrap {
+  overflow-x: auto;
+  margin-bottom: 0.5rem;
+}
+
+.organizer-sectors-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.organizer-sectors-table th,
+.organizer-sectors-table td {
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid #e5e7eb;
+  color: #111;
+}
+
+.organizer-sectors-table th {
+  font-weight: 600;
+  color: #374151;
+  background: #f9fafb;
+}
+
+@media (max-width: 768px) {
+  .organizer-field,
+  .organizer-field-small {
+    flex: 1 1 100%;
+  }
+}
