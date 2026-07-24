@@ -705,6 +705,25 @@ export async function updateEvent(eventId: string, input: UpdateEventInput): Pro
   });
 }
 
+// 🔴 FATIA 3B — leitura do ELENCO (event_staff) pela rota v2 selada do event-core.
+// GET /api/events/:id/v2/commitments → { commitments: [...] } (sem wrapper ok; event.routes.ts:1981).
+// Read-only: prova o BIND on-confirm do performer (C3 EDGE C-2, role 'artist').
+export interface EventCommitmentView {
+  id: string;
+  eventId: string;
+  responsibleActorId: string;
+  responsibleActorType: 'user' | 'page' | 'group' | 'channel';
+  role: string;
+  status: string;
+  timeWindowRef?: Record<string, any> | null;
+  createdAt: string;
+}
+
+export async function listEventCommitmentsV2(eventId: string): Promise<EventCommitmentView[]> {
+  const res = await apiFetchJson<{ commitments: EventCommitmentView[] }>(`/api/events/${eventId}/v2/commitments`);
+  return Array.isArray(res?.commitments) ? res.commitments : [];
+}
+
 // F-EVENT-CONCEPT-FIRST-MODEL — taxonomia SERVER-DRIVEN (o front NUNCA enumera formato/categoria).
 export interface EventFormatOption {
   key: string; conceptId: string; label: string;

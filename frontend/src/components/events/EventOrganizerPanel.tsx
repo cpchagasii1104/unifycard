@@ -9,6 +9,7 @@
 // Δbank=0: preços/metas são valores DECLARADOS de catálogo; dinheiro real = PORTA-01, FORA.
 
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   getEventById,
   updateEvent,
@@ -90,6 +91,7 @@ function centsToReais(cents: number): string {
 
 export default function EventOrganizerPanel({ eventId }: EventOrganizerPanelProps) {
   const { activeActor } = useActiveActor();
+  const navigate = useNavigate();
 
   const [event, setEvent] = useState<OrganizerEventView | null>(null);
   const [sectors, setSectors] = useState<EventSector[]>([]);
@@ -526,6 +528,22 @@ export default function EventOrganizerPanel({ eventId }: EventOrganizerPanelProp
           disabled={creatingSector}
         >
           {creatingSector ? 'Criando…' : 'Criar setor'}
+        </button>
+      </section>
+
+      {/* ============ CONTRATAR (FATIA 3B) ============ */}
+      {/* Leva o organizador à descoberta com o eventId no query (?eventId=) — o modal CONTRATAR da
+          descoberta pré-seleciona este evento na proposta orquestrada (C3). Navegação pura, sem writer. */}
+      <section className="organizer-section">
+        <h3 className="organizer-section-title">🎸 Elenco / atrações</h3>
+        <p className="organizer-hint">
+          Encontre bandas, artistas e serviços e envie uma proposta de contratação já amarrada a este evento.
+        </p>
+        <button
+          className="organizer-button organizer-button-primary"
+          onClick={() => navigate(`/discover/services?eventId=${encodeURIComponent(eventId)}`)}
+        >
+          Contratar banda / serviços →
         </button>
       </section>
     </div>

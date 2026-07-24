@@ -294,6 +294,35 @@ export async function declareOfferingAvailability(
   return res.data;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// 🔴 FATIA 3B — CONTRATAR (C3 orquestrado). O ORGANIZADOR propõe reserva numa janela da oferta,
+// opcionalmente amarrada a um evento SEU (eventId → autoridade manage_attendees revalidada
+// server-side) e a uma formação (configId → deve pertencer à oferta; metadata SOFT).
+// Body keys EXATAS do backend (service-offerings.routes.ts, bookingSchema linhas 52-59):
+//   { availabilityId, requesterActorId, eventId?, configId? }
+// POST /services/offerings/:offeringId/bookings → 201 { ok, data: { bookingId, status, autoConfirmed,
+// gateReason } }. status: 'confirmed' (aceita-direto within-reach) | 'requested' (negocia).
+// O modo (aceita-direto/negocia) e o gate de distância são do DONO — decididos server-side.
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+export interface OfferingBookingResult {
+  bookingId: string;
+  status: string; // 'confirmed' | 'requested'
+  autoConfirmed: boolean;
+  gateReason: string; // ex.: 'manual', 'same_city', 'radius_ok(...)', 'radius_exceeded(...)', 'location_absent'
+}
+
+export async function requestOfferingBooking(
+  offeringId: string,
+  input: { availabilityId: string; requesterActorId: string; eventId?: string; configId?: string }
+): Promise<OfferingBookingResult> {
+  const res = await apiFetchJson<{ ok: boolean; data: OfferingBookingResult }>(
+    `/services/offerings/${offeringId}/bookings`,
+    { method: 'POST', body: JSON.stringify(input) }
+  );
+  if (!res?.ok || !res.data?.bookingId) throw new Error('Erro ao enviar a proposta de contratação.');
+  return res.data;
+}
+
 /**
  * true se o erro for o conflito de horário por provider (DECISION-0146 / F-OFFER-5/6, HTTP 409
  * BOOKING_PROVIDER_TIME_CONFLICT). Usado para dar UX honesta específica em vez de erro genérico.

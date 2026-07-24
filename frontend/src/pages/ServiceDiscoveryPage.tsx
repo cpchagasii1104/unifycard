@@ -14,6 +14,8 @@ import {
 } from '../api/service-discovery';
 import { searchEventThemes } from '../api/events';
 import { showToast } from '../components/common/Toast';
+// 🔴 FATIA 3B — CONTRATAR: modal de proposta orquestrada (C3) a partir do card de descoberta.
+import ContractPerformerModal from '../components/services/ContractPerformerModal';
 import './ServiceDiscoveryPage.css';
 
 export default function ServiceDiscoveryPage() {
@@ -50,6 +52,11 @@ export default function ServiceDiscoveryPage() {
   // Paginação
   const [limit] = useState<number>(20);
   const [offset, setOffset] = useState<number>(0);
+
+  // 🔴 FATIA 3B — CONTRATAR: alvo do modal + evento pré-selecionado via navegação do painel do
+  // organizador (?eventId= na URL). O modal só abre para serviço com superfície canônica de oferta.
+  const [contractTarget, setContractTarget] = useState<DiscoveredService | null>(null);
+  const contractEventId = searchParams.get('eventId');
 
   // 🔵 F-SERVICE-DISCOVERY-SEARCH-FRONTEND-WIRING: busca por TERMO de ocupação.
   // O frontend só projeta a verdade resolvida pelo backend (termo→concept via ponte advisory).
@@ -234,6 +241,22 @@ export default function ServiceDiscoveryPage() {
       {service.availability_summary?.next_available_date && (
         <div className="service-next-availability">
           Próxima disponibilidade: {new Date(service.availability_summary.next_available_date).toLocaleDateString('pt-BR')}
+        </div>
+      )}
+      {/* 🔴 FATIA 3B — CONTRATAR: só para serviço com identidade canônica (ofertas by-canonical).
+          stopPropagation para não disparar a navegação do card. A proposta real é o C3 no backend. */}
+      {service.canonicalServiceId && (
+        <div className="service-card-actions">
+          <button
+            type="button"
+            className="btn-contract"
+            onClick={(e) => {
+              e.stopPropagation();
+              setContractTarget(service);
+            }}
+          >
+            Contratar
+          </button>
         </div>
       )}
     </div>
@@ -523,6 +546,16 @@ export default function ServiceDiscoveryPage() {
           )}
         </div>
       </div>
+
+      {/* 🔴 FATIA 3B — modal CONTRATAR (proposta orquestrada C3; resultado honesto do backend) */}
+      {contractTarget?.canonicalServiceId && (
+        <ContractPerformerModal
+          canonicalServiceId={contractTarget.canonicalServiceId}
+          serviceName={contractTarget.name}
+          preselectedEventId={contractEventId}
+          onClose={() => setContractTarget(null)}
+        />
+      )}
     </div>
   );
 }

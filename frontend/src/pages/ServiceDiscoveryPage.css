@@ -444,3 +444,25 @@
   }
 }
 
+
+/* 🔴 FATIA 3B — CONTRATAR a partir do card de descoberta (jornada do organizador) */
+.service-card-actions {
+  margin-top: 10px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.btn-contract {
+  padding: 7px 16px;
+  border-radius: 8px;
+  border: 1px solid #4f46e5;
+  background: #4f46e5;
+  color: #fff;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-contract:hover {
+  background: #4338ca;
+}
