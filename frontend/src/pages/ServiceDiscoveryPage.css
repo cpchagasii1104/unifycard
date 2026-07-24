@@ -332,6 +332,102 @@
   color: #374151;
 }
 
+/* 🔵 SLICE-2B — filtro por GÊNERO governado + tamanho de público */
+.genre-search-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.genre-search-row .filter-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.btn-genre-search {
+  padding: 0.5rem 0.75rem;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  white-space: nowrap;
+}
+
+.btn-genre-search:hover:not(:disabled) {
+  background: #2563eb;
+}
+
+.btn-genre-search:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.genre-results {
+  list-style: none;
+  margin: 0.5rem 0 0 0;
+  padding: 0;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  background: white;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.genre-results li + li {
+  border-top: 1px solid #f3f4f6;
+}
+
+.genre-result-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: #374151;
+}
+
+.genre-result-item:hover {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.genre-selected {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.genre-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.625rem;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+  border-radius: 12px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+.genre-chip-x {
+  background: none;
+  border: none;
+  color: #1d4ed8;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0;
+}
+
+.genre-chip-x:hover {
+  color: #991b1b;
+}
+
 /* Vazio honesto quando o termo resolve concept/serviço mas não há oferta ativa */
 .empty-state--has-concept {
   border-left: 3px solid #3b82f6;

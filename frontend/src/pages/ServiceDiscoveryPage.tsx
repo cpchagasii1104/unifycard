@@ -12,6 +12,7 @@ import {
   type ServiceDiscoveryFilters,
   type ServiceTermSearchResult,
 } from '../api/service-discovery';
+import { searchEventThemes } from '../api/events';
 import { showToast } from '../components/common/Toast';
 import './ServiceDiscoveryPage.css';
 
@@ -31,7 +32,21 @@ export default function ServiceDiscoveryPage() {
   const [endDate, setEndDate] = useState<string>('');
   const [hasAvailability, setHasAvailability] = useState<boolean>(false);
   const [actorType, setActorType] = useState<string>('');
-  
+
+  // 🔵 SLICE-2B (discovery by genre): filtro por GÊNERO governado (typeahead no pool de assunto via
+  // searchEventThemes — mesmo padrão do GenreTab do raio-x; NENHUMA lista hardcoded no front) e filtro
+  // "evento para quantas pessoas?" (audience_size — a faixa da oferta precisa CONTER N). O frontend só
+  // projeta a verdade resolvida pelo backend (concept id governado); o matching vive em /services/discover.
+  const [genre, setGenre] = useState<{ conceptId: string; label: string } | null>(null);
+  const [genreQ, setGenreQ] = useState<string>('');
+  const [genreResults, setGenreResults] = useState<Array<{ conceptId: string; label: string }>>([]);
+  const [genreSearching, setGenreSearching] = useState<boolean>(false);
+  const [audienceSize, setAudienceSize] = useState<string>('');
+  // Só envia audience_size quando é inteiro positivo (o backend rejeita o resto com 400).
+  const audienceSizeNum = /^\d+$/.test(audienceSize.trim()) && parseInt(audienceSize.trim(), 10) > 0
+    ? parseInt(audienceSize.trim(), 10)
+    : undefined;
+
   // Paginação
   const [limit] = useState<number>(20);
   const [offset, setOffset] = useState<number>(0);
@@ -46,7 +61,8 @@ export default function ServiceDiscoveryPage() {
 
   useEffect(() => {
     loadServices();
-  }, [categoryId, cityId, stateId, startDate, endDate, hasAvailability, actorType, offset]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categoryId, cityId, stateId, startDate, endDate, hasAvailability, actorType, genre, audienceSizeNum, offset]);
 
   // 🔎 F-GLOBAL-SEARCH-DEADEND-REWIRE-SLICE-A: consome o termo vindo da URL (?term=) — a busca do header
   // global / marketplace agora aponta para cá. Preenche o campo e dispara a busca real de serviços no mount,
@@ -73,6 +89,8 @@ export default function ServiceDiscoveryPage() {
         end_date: endDate || undefined,
         has_availability: hasAvailability || undefined,
         actor_type: actorType ? (actorType as 'user' | 'page' | 'group' | 'channel') : undefined,
+        subject_concept_id: genre?.conceptId || undefined,
+        audience_size: audienceSizeNum,
         limit,
         offset,
       };
@@ -131,6 +149,35 @@ export default function ServiceDiscoveryPage() {
     setEndDate('');
     setHasAvailability(false);
     setActorType('');
+    setGenre(null);
+    setGenreQ('');
+    setGenreResults([]);
+    setAudienceSize('');
+    setOffset(0);
+  };
+
+  // Busca de gênero no pool GOVERNADO (searchEventThemes → GET /api/events/themes/search).
+  const handleGenreSearch = async () => {
+    if (genreQ.trim().length < 2) {
+      showToast('Digite ao menos 2 letras para buscar gênero.', 'error');
+      return;
+    }
+    setGenreSearching(true);
+    try {
+      const themes = await searchEventThemes(genreQ);
+      setGenreResults(themes.map((t) => ({ conceptId: t.conceptId, label: t.label })));
+      if (themes.length === 0) showToast('Nenhum gênero encontrado para essa busca.', 'info');
+    } catch (err: any) {
+      showToast(err?.message || 'Erro ao buscar gêneros.', 'error');
+    } finally {
+      setGenreSearching(false);
+    }
+  };
+
+  const selectGenre = (g: { conceptId: string; label: string }) => {
+    setGenre(g);
+    setGenreResults([]);
+    setGenreQ('');
     setOffset(0);
   };
 
@@ -236,6 +283,74 @@ export default function ServiceDiscoveryPage() {
               value={stateId}
               onChange={(e) => setStateId(e.target.value)}
               placeholder="ID do estado"
+              className="filter-input"
+            />
+          </div>
+
+          {/* 🔵 SLICE-2B — filtro por GÊNERO governado (typeahead no pool; sem lista hardcoded) */}
+          <div className="filter-section">
+            <label htmlFor="genre-search">Gênero:</label>
+            {genre ? (
+              <div className="genre-selected">
+                <span className="genre-chip">
+                  {genre.label}
+                  <button
+                    type="button"
+                    className="genre-chip-x"
+                    onClick={() => setGenre(null)}
+                    aria-label="Remover gênero"
+                  >
+                    ×
+                  </button>
+                </span>
+              </div>
+            ) : (
+              <>
+                <div className="genre-search-row">
+                  <input
+                    id="genre-search"
+                    type="text"
+                    value={genreQ}
+                    onChange={(e) => setGenreQ(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleGenreSearch(); } }}
+                    placeholder="ex.: rock, samba, funk"
+                    className="filter-input"
+                  />
+                  <button
+                    type="button"
+                    className="btn-genre-search"
+                    onClick={handleGenreSearch}
+                    disabled={genreSearching}
+                  >
+                    {genreSearching ? '…' : 'Buscar'}
+                  </button>
+                </div>
+                {genreResults.length > 0 && (
+                  <ul className="genre-results">
+                    {genreResults.map((g) => (
+                      <li key={g.conceptId}>
+                        <button type="button" className="genre-result-item" onClick={() => selectGenre(g)}>
+                          {g.label}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* 🔵 SLICE-2B — filtro por tamanho de público (audience_size: faixa da oferta CONTÉM N) */}
+          <div className="filter-section">
+            <label htmlFor="audience-size">Evento para quantas pessoas?</label>
+            <input
+              id="audience-size"
+              type="number"
+              min={1}
+              step={1}
+              value={audienceSize}
+              onChange={(e) => setAudienceSize(e.target.value)}
+              placeholder="ex.: 300"
               className="filter-input"
             />
           </div>

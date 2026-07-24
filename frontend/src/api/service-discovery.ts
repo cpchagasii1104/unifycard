@@ -16,6 +16,13 @@ export interface ServiceDiscoveryFilters {
   end_date?: string; // ISO 8601 date string
   has_availability?: boolean;
   actor_type?: 'user' | 'page' | 'group' | 'channel';
+  // 🔵 SLICE-2B (discovery by genre): filtros selados no backend expostos em GET /services/discover
+  // (snake_case exatamente como a rota espera). O gênero/equipamento são concept ids GOVERNADOS
+  // (resolvidos por busca no pool — nunca lista hardcoded no front); audience_size = "evento para
+  // quantas pessoas?" (a faixa da oferta precisa CONTER N).
+  subject_concept_id?: string;
+  equipment_concept_id?: string;
+  audience_size?: number;
   limit?: number;
   offset?: number;
 }
@@ -90,6 +97,10 @@ export async function discoverServices(filters: ServiceDiscoveryFilters = {}): P
       queryParams.append('has_availability', filters.has_availability ? 'true' : 'false');
     }
     if (filters.actor_type) queryParams.append('actor_type', filters.actor_type);
+    // SLICE-2B: pass-through fino dos filtros selados (nomes snake_case = contrato da rota).
+    if (filters.subject_concept_id) queryParams.append('subject_concept_id', filters.subject_concept_id);
+    if (filters.equipment_concept_id) queryParams.append('equipment_concept_id', filters.equipment_concept_id);
+    if (filters.audience_size !== undefined) queryParams.append('audience_size', filters.audience_size.toString());
     if (filters.limit) queryParams.append('limit', filters.limit.toString());
     if (filters.offset) queryParams.append('offset', filters.offset.toString());
 
