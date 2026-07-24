@@ -101,6 +101,17 @@ const availabilitySchema = z.object({
   capacity: z.number().int().positive().optional().nullable(),
 });
 
+// 🔴 C1b/C1c-a — FACETS de DESCOBERTA/RAIO-X da oferta (gênero musical + equipamento próprio). Body = SÓ os
+// ids GOVERNADOS; a governança (gênero = shared_subject_concepts habilitado; equipamento = use-area de palco/
+// evento) fica NO SERVICE SELADO (tag*/untag*), fail-closed via canRepresentActor(provider). A rota só parseia,
+// chama o método selado e mapeia o erro — NÃO revalida vocabulário nem inventa sinônimo. Bank-free (Δbank=0).
+const genreTagSchema = z.object({
+  subjectConceptIds: z.array(z.string().uuid()).min(1),
+});
+const equipmentTagSchema = z.object({
+  equipmentConceptIds: z.array(z.string().uuid()).min(1),
+});
+
 const serviceOfferingsRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post('/offerings', async (req, reply) => {
     const userId = (req as { user?: { userId?: string } }).user?.userId;
@@ -413,6 +424,118 @@ const serviceOfferingsRoutes: FastifyPluginAsync = async (fastify) => {
           tenantId: req.tenant!.id, userId, offeringId: req.params.offeringId, configId: req.params.configId,
           dayOfWeek: parsed.data.dayOfWeek as number,
           periodOfDay: parsed.data.periodOfDay as 'manha' | 'tarde' | 'noite',
+        });
+        return reply.send({ ok: true });
+      } catch (err) {
+        if (err instanceof ServiceOfferingError) return reply.status(err.statusCode).send({ ok: false, code: err.code, message: err.message });
+        throw err;
+      }
+    }
+  );
+
+  // ── C1b — FACET MULTI-GÊNERO (achar banda POR GÊNERO). Exposição HTTP THIN dos métodos SELADOS
+  // (tagOfferingGenres/untagOfferingGenre/listOfferingGenres). Autoridade = canRepresentActor(provider)
+  // fail-closed NO SERVICE (molde das configs). GET tenant-scoped (espelha GET /configs); POST/DELETE owner-gated.
+  // Governança do gênero (shared_subject_concepts habilitado) vive no service — a rota NÃO revalida.
+
+  fastify.get<{ Params: { offeringId: string } }>('/offerings/:offeringId/genres', async (req, reply) => {
+    try {
+      const data = await serviceOfferingService.listOfferingGenres(req.tenant!.id, req.params.offeringId);
+      return reply.send({ ok: true, data });
+    } catch (err) {
+      if (err instanceof ServiceOfferingError) return reply.status(err.statusCode).send({ ok: false, code: err.code, message: err.message });
+      throw err;
+    }
+  });
+
+  fastify.post<{ Params: { offeringId: string } }>('/offerings/:offeringId/genres', async (req, reply) => {
+    const userId = (req as { user?: { userId?: string } }).user?.userId;
+    if (!userId) return reply.status(401).send({ ok: false, code: 'UNAUTHENTICATED' });
+    const parsed = genreTagSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.status(400).send({ ok: false, code: 'SERVICE_OFFERING_BAD_REQUEST', issues: parsed.error.issues });
+    }
+    try {
+      await serviceOfferingService.tagOfferingGenres({
+        tenantId: req.tenant!.id,
+        userId,
+        offeringId: req.params.offeringId,
+        subjectConceptIds: parsed.data.subjectConceptIds as string[],
+      });
+      return reply.status(201).send({ ok: true });
+    } catch (err) {
+      if (err instanceof ServiceOfferingError) return reply.status(err.statusCode).send({ ok: false, code: err.code, message: err.message });
+      throw err;
+    }
+  });
+
+  fastify.delete<{ Params: { offeringId: string; conceptId: string } }>(
+    '/offerings/:offeringId/genres/:conceptId',
+    async (req, reply) => {
+      const userId = (req as { user?: { userId?: string } }).user?.userId;
+      if (!userId) return reply.status(401).send({ ok: false, code: 'UNAUTHENTICATED' });
+      try {
+        await serviceOfferingService.untagOfferingGenre({
+          tenantId: req.tenant!.id,
+          userId,
+          offeringId: req.params.offeringId,
+          subjectConceptId: req.params.conceptId,
+        });
+        return reply.send({ ok: true });
+      } catch (err) {
+        if (err instanceof ServiceOfferingError) return reply.status(err.statusCode).send({ ok: false, code: err.code, message: err.message });
+        throw err;
+      }
+    }
+  );
+
+  // ── C1c-a — FACET de EQUIPAMENTO próprio (raio-x: checklist do que a banda leva). Exposição HTTP THIN dos
+  // métodos SELADOS (tagOfferingEquipment/untagOfferingEquipment/listOfferingEquipment). Mesmo molde do gênero:
+  // GET tenant-scoped, POST/DELETE owner-gated no service; governança da use-area (audio_video_lighting/
+  // events_parties) vive no service — a rota NÃO revalida.
+
+  fastify.get<{ Params: { offeringId: string } }>('/offerings/:offeringId/equipment', async (req, reply) => {
+    try {
+      const data = await serviceOfferingService.listOfferingEquipment(req.tenant!.id, req.params.offeringId);
+      return reply.send({ ok: true, data });
+    } catch (err) {
+      if (err instanceof ServiceOfferingError) return reply.status(err.statusCode).send({ ok: false, code: err.code, message: err.message });
+      throw err;
+    }
+  });
+
+  fastify.post<{ Params: { offeringId: string } }>('/offerings/:offeringId/equipment', async (req, reply) => {
+    const userId = (req as { user?: { userId?: string } }).user?.userId;
+    if (!userId) return reply.status(401).send({ ok: false, code: 'UNAUTHENTICATED' });
+    const parsed = equipmentTagSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.status(400).send({ ok: false, code: 'SERVICE_OFFERING_BAD_REQUEST', issues: parsed.error.issues });
+    }
+    try {
+      await serviceOfferingService.tagOfferingEquipment({
+        tenantId: req.tenant!.id,
+        userId,
+        offeringId: req.params.offeringId,
+        equipmentConceptIds: parsed.data.equipmentConceptIds as string[],
+      });
+      return reply.status(201).send({ ok: true });
+    } catch (err) {
+      if (err instanceof ServiceOfferingError) return reply.status(err.statusCode).send({ ok: false, code: err.code, message: err.message });
+      throw err;
+    }
+  });
+
+  fastify.delete<{ Params: { offeringId: string; conceptId: string } }>(
+    '/offerings/:offeringId/equipment/:conceptId',
+    async (req, reply) => {
+      const userId = (req as { user?: { userId?: string } }).user?.userId;
+      if (!userId) return reply.status(401).send({ ok: false, code: 'UNAUTHENTICATED' });
+      try {
+        await serviceOfferingService.untagOfferingEquipment({
+          tenantId: req.tenant!.id,
+          userId,
+          offeringId: req.params.offeringId,
+          equipmentConceptId: req.params.conceptId,
         });
         return reply.send({ ok: true });
       } catch (err) {
