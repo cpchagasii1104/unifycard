@@ -6,12 +6,14 @@ import { eventRepository } from './event.repository';
 import { ticketService } from './ticket.service';
 import { checkInService } from './checkin.service';
 import { eventTicketRepository } from './event-ticket.repository';
+import { eventSectorService } from './event-sector.service';
 import type {
   CreateEventInput,
   CreateEventTicketInput,
   ReserveTicketInput,
 } from './event.types';
 import type { UpdateEventTicketInput } from './event-ticket.repository';
+import type { CreateEventSectorInput } from './event-sector.repository';
 
 /**
  * 🔒 F-EVENT-TICKETING-CONVERGENCE (Fatia 1) — autoridade de CATÁLOGO de ingresso: o actor DONO
@@ -366,6 +368,66 @@ const eventsSprint76Routes = async (fastify: FastifyInstance) => {
         message: error instanceof Error ? error.message : String(error),
       });
     }
+  });
+
+  // ============================================================
+  // SETORES (SLICE S3) — setor SELF-CONTAINED com inteira/meia (piso legal 40%)
+  // ============================================================
+
+  /**
+   * POST /events/:id/sectors
+   * Cria SETOR self-contained (pool compartilhado, preço inteira + meia legalmente pisada). Bank-free:
+   * preços são valores DECLARADOS de catálogo (Δbank=0). Autoridade = chave EXATA create_events sobre o
+   * DONO DO EVENTO (event.organizerActorId, server-resolved) — espelha a rota de ingresso; validate-before-
+   * mutate no service (piso legal da meia + meia<=inteira + reconciliação com max_attendees).
+   */
+  fastify.post<{
+    Params: { id: string };
+    Body: CreateEventSectorInput;
+  }>('/events/:id/sectors', async (req, reply) => {
+    if (!req.tenant?.id) {
+      return reply.status(400).send({ error: 'Tenant é obrigatório' });
+    }
+    const tenantId = req.tenant.id;
+
+    const userId = req.user?.userId;
+    if (!userId) {
+      return reply.status(401).send({ error: 'Authentication required', code: 'AUTH_REQUIRED' });
+    }
+    const event = await eventRepository.getEventById(tenantId, req.params.id);
+    if (!event) {
+      return reply.status(404).send({ error: 'Evento não encontrado' });
+    }
+    if (!(await userCanActOnEventOwner(tenantId, userId, event.organizerActorId, 'create_events'))) {
+      return reply.status(403).send({ error: 'EVENT_SECTOR_ACTOR_NOT_AUTHORIZED', code: 'EVENT_SECTOR_ACTOR_NOT_AUTHORIZED' });
+    }
+
+    try {
+      const sector = await eventSectorService.createSector(tenantId, req.params.id, req.body);
+      return reply.status(201).send(sector);
+    } catch (error) {
+      const statusCode = (error as { statusCode?: number })?.statusCode ?? 400;
+      const code = (error as { code?: string })?.code;
+      return reply.status(statusCode).send({
+        error: error instanceof Error ? error.message : String(error),
+        ...(code ? { code } : {}),
+      });
+    }
+  });
+
+  /**
+   * GET /events/:id/sectors
+   * Lista os setores do evento (catálogo DECLARADO). tenant-scoped.
+   */
+  fastify.get<{
+    Params: { id: string };
+  }>('/events/:id/sectors', async (req, reply) => {
+    if (!req.tenant?.id) {
+      return reply.status(400).send({ error: 'Tenant é obrigatório' });
+    }
+    const tenantId = req.tenant.id;
+    const sectors = await eventSectorService.listSectors(tenantId, req.params.id);
+    return reply.send(sectors);
   });
 
   /**

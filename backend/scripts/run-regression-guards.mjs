@@ -247,6 +247,13 @@ const CMDS = [
   // 'OPERATIONAL' + events.max_attendees), NUNCA cunha sinônimo. Morde se nascer coluna venue_name/place_name
   // OU coluna events.location_name OU capacidade nova em events/addresses OU role 'VENUE'. Bank-free (Δbank=0).
   "node scripts/audit-venue-location-name-ssot.mjs",
+  // SLICE S3 (SETORES) do arco "evento em si" — setor SELF-CONTAINED (event_sectors) com pool COMPARTILHADO
+  // (capacity) + preço INTEIRA + preço MEIA legalmente pisado. Morde se (a) a CHECK do piso legal
+  // (meia_quota_bps BETWEEN 4000 AND 10000 = 40%–100%, Lei 12.933/2013 + Decreto 8.537/2015) for perdida/
+  // enfraquecida; (b) nascer coluna sinônimo (setor/sector_capacity/meia_capacity/quota_pct) OU write-path
+  // à JSONB event_occupancy_models.config.sectors; (c) token bank/porta-01/ledger/venda no caminho do setor
+  // (_cents é DECLARADO, permitido); (d) o writer perder a reconciliação com max_attendees ou o espelho do piso.
+  "node scripts/audit-event-sector-meia-floor.mjs",
   // DECISION-0189C C1: o runner passa a INCLUIR o gate financeiro (financial-ssot/vocabulary +
   // typecheck do gate) — o "verde" do runner deixa de mentir (o script infrator elevava 591→592
   // sem o runner acusar). Baseline só-desce (DECISION-0158); nunca sobe para 592.
