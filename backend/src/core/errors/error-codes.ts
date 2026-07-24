@@ -41,7 +41,14 @@ export enum ErrorCode {
   INTERNAL_ERROR = 'INTERNAL_ERROR',
   DATABASE_ERROR = 'DATABASE_ERROR',
   EXTERNAL_SERVICE_ERROR = 'EXTERNAL_SERVICE_ERROR',
-  
+
+  // 503 - Service Unavailable
+  /**
+   * O banco conectado nao tem o schema que este codigo exige (SQLSTATE 42703/42P01).
+   * Condicao de INSTALACAO, nao defeito da requisicao. Ver @core/errors/postgres-schema-error.
+   */
+  SCHEMA_OUT_OF_DATE = 'SCHEMA_OUT_OF_DATE',
+
   // Domínio específico
   BOOKING_NOT_FOUND = 'BOOKING_NOT_FOUND',
   BOOKING_ALREADY_DECIDED = 'BOOKING_ALREADY_DECIDED',
@@ -91,6 +98,10 @@ export const ERROR_MESSAGES: Record<ErrorCode, string> = {
   INTERNAL_ERROR: 'Erro interno do servidor',
   DATABASE_ERROR: 'Erro no banco de dados',
   EXTERNAL_SERVICE_ERROR: 'Erro em serviço externo',
+
+  // 503
+  SCHEMA_OUT_OF_DATE:
+    'O banco conectado não tem as migrations desta funcionalidade. Rode as migrations ou aponte o backend para o banco correto.',
   
   // Domínio
   BOOKING_NOT_FOUND: 'Booking não encontrado',

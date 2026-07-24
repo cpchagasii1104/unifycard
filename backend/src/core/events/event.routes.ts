@@ -7,6 +7,7 @@ import { FastifyPluginAsync, type FastifyReply, type FastifyRequest } from 'fast
 import { eventService } from './event.service';
 import { BadRequestError, NotFoundError, ForbiddenError } from '@core/errors';
 import { ErrorCode } from '@core/errors/error-codes';
+import { describePostgresSchemaError } from '@core/errors/postgres-schema-error';
 import { buildCanonicalHttpErrorPayload } from '@core/http/canonical-http-error';
 import { runQueryWithTenant, getClientWithTenant } from '@core/database/pool';
 import {
@@ -858,6 +859,31 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
           return sendEventHttpError(reply, req, 403, ErrorCode.FORBIDDEN, error.message);
         }
         
+        // HONESTIDADE DE SCHEMA: se o Postgres disse que falta coluna/tabela (42703/42P01), o
+        // catch-all NAO pode devolver "Failed to update event" — isso esconde a causa real
+        // (banco conectado sem as migrations desta funcionalidade) e custa depuracao. Reportamos
+        // o que o proprio Postgres declarou. Deteccao NARROW: qualquer outro erro segue o 500 abaixo.
+        const schemaDrift = describePostgresSchemaError(error);
+        if (schemaDrift) {
+          fastify.log.error({
+            tenant_id: req.tenant?.id,
+            event_id: req.params.id,
+            err: error,
+            'economy.action': 'event.update.error',
+            error_type: 'SchemaOutOfDateError',
+            pg_code: schemaDrift.details.pg_code,
+            missing_object: schemaDrift.details.missing_object,
+          }, 'Schema do banco conectado nao atende esta funcionalidade');
+          return sendEventHttpError(
+            reply,
+            req,
+            schemaDrift.httpStatus,
+            ErrorCode.SCHEMA_OUT_OF_DATE,
+            schemaDrift.message,
+            schemaDrift.details as unknown as Record<string, unknown>
+          );
+        }
+
         fastify.log.error({
           tenant_id: req.tenant?.id,
           event_id: req.params.id,

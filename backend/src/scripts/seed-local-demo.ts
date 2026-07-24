@@ -6,6 +6,14 @@
  *   2. um serviço canônico `apresentacao-musical` + uma OFERTA ATIVA no user-actor (provider SOLO),
  *      compondo os writers SELADOS (declareConcept → createService → createOffering → activate) —
  *      a MESMA cadeia dos E2Es selados (ex.: band-group-actor-provider), só que provider = user-actor.
+ *   3. um EVENTO em rascunho (status `draft`) do MESMO user-actor, com cidade GOVERNADA no local,
+ *      para o humano abrir o painel do organizador (/events/:id) e editar de imediato. Compõe os
+ *      writers SELADOS eventService.createEvent → updateEvent (mesma cadeia do E2E selado
+ *      validate-pipeline-e2e-venue-enrichment). NUNCA SQL cru em `events`.
+ *
+ *      POR QUE `draft` (e não `published`): updateEvent só libera edição ampla enquanto o evento
+ *      é rascunho — em `published` a lista de campos liberados é restrita (event.service.ts).
+ *      Publicar aqui deixaria o painel do organizador travado, que é o oposto do objetivo.
  *
  * Bank-free (Δbank=0) · não move dinheiro · NUNCA toca unificard_dev (guard fail-closed).
  * Idempotente: re-rodar reusa o usuário/serviço/oferta existentes (não duplica).
@@ -20,6 +28,7 @@ import { professionalC1Service } from '../core/profile/professional-c1/professio
 import { servicesService } from '../modules/services/services.service';
 import { serviceOfferingService } from '../modules/services/service-offering.service';
 import { ServiceType, ServiceStatus } from '../modules/services/services.types';
+import { eventService } from '../core/events/event.service';
 import { randomUUID } from 'crypto';
 
 // ── Credenciais fixas da demo (dev local; sem segredo real) ──
@@ -28,6 +37,11 @@ const DEMO_PASSWORD = 'DemoUnificard!2026';
 const DEMO_NAME = 'Fundador Demo';
 const DEMO_BIRTHDATE = '1990-01-01';
 const SERVICE_NAME = 'Voz e violão — show ao vivo (demo)';
+/** Título do evento de demo — chave de idempotência (tenant + actor + título). */
+const EVENT_TITLE = 'Show da comunidade (demo — edite este evento)';
+const EVENT_MAX_ATTENDEES = 5000;
+const EVENT_VENUE_NAME = 'Casa da Cultura (demo)';
+const DEMO_CITY_NAME = 'Curitiba';
 
 function cpfCheckDigit(nums: number[]): number {
   const len = nums.length;
@@ -68,6 +82,61 @@ async function resolveServiceConcept(slug: string): Promise<{ conceptId: string;
   return { conceptId: r.concept_id, canonicalId: r.canonical_id };
 }
 
+/**
+ * Cidade GOVERNADA (linha real em `cities`) para o local do evento — é o `city_id` que o writer de
+ * venue resolve pela CTE geo. REUSA a cidade existente quando já houver (o banco local nasce com o
+ * catálogo territorial das migrations); só cria a hierarquia country→state→city se não houver
+ * nenhuma. Mesma composição do E2E selado validate-pipeline-e2e-venue-enrichment.
+ */
+async function resolveGovernedCity(): Promise<{ cityId: string; cityName: string; created: boolean }> {
+  const preferred = (await pool.query<{ id: string; name: string }>(
+    `SELECT city_id::text AS id, name FROM cities WHERE name = $1 ORDER BY city_id LIMIT 1`,
+    [DEMO_CITY_NAME]
+  )).rows[0];
+  if (preferred) return { cityId: preferred.id, cityName: preferred.name, created: false };
+
+  const any = (await pool.query<{ id: string; name: string }>(
+    `SELECT city_id::text AS id, name FROM cities ORDER BY city_id LIMIT 1`
+  )).rows[0];
+  if (any) return { cityId: any.id, cityName: any.name, created: false };
+
+  // Nenhuma cidade governada no banco — cria a hierarquia mínima (country → state → city).
+  const rl = (): string => String.fromCharCode(65 + Math.floor(Math.random() * 26));
+  let countryId: string | null = null;
+  for (let attempt = 0; attempt < 40 && !countryId; attempt += 1) {
+    try {
+      countryId = (await pool.query<{ id: string }>(
+        `INSERT INTO countries (iso_alpha2, name) VALUES ($1, $2) RETURNING country_id::text AS id`,
+        [rl() + rl(), 'Brasil (demo)']
+      )).rows[0].id;
+    } catch (e: any) {
+      if (!/unique|duplicad/i.test(String(e?.message ?? e))) throw e;
+    }
+  }
+  if (!countryId) throw new Error('resolveGovernedCity: não achou iso_alpha2 livre.');
+  const stateId = (await pool.query<{ id: string }>(
+    `INSERT INTO states (country_id, name) VALUES ($1::uuid, $2) RETURNING state_id::text AS id`,
+    [countryId, 'Paraná (demo)']
+  )).rows[0].id;
+  const cityId = (await pool.query<{ id: string }>(
+    `INSERT INTO cities (state_id, name) VALUES ($1::uuid, $2) RETURNING city_id::text AS id`,
+    [stateId, DEMO_CITY_NAME]
+  )).rows[0].id;
+  return { cityId, cityName: DEMO_CITY_NAME, created: true };
+}
+
+/** Formato de evento GOVERNADO (event_format_concepts habilitado). null se o catálogo não tiver. */
+async function resolveEventFormatConcept(slug: string): Promise<string | null> {
+  return (await pool.query<{ id: string }>(
+    `SELECT c.concept_id::text AS id
+       FROM concepts c
+       JOIN event_format_concepts efc ON efc.concept_id = c.concept_id AND efc.enabled = true
+      WHERE c.slug = $1
+      LIMIT 1`,
+    [slug]
+  )).rows[0]?.id ?? null;
+}
+
 async function main(): Promise<void> {
   await assertLocalDb();
 
@@ -78,6 +147,8 @@ async function main(): Promise<void> {
   socialPortsRegistry.setActorUtils(adapters.actorUtilsAdapter);
   socialPortsRegistry.setSocialRepository(adapters.socialRepositoryAdapter);
   socialPortsRegistry.setSocialService(adapters.socialServiceAdapter);
+  // Necessário para o nascimento de evento (efeitos de feed), como nos E2Es de evento.
+  socialPortsRegistry.setEventFeedHandlers(adapters.eventFeedHandlersAdapter);
 
   const bankSnap = async (): Promise<string> =>
     (await pool.query<{ n: string }>(
@@ -166,11 +237,85 @@ async function main(): Promise<void> {
     console.log('✅ serviço + oferta ATIVA publicados (declareConcept → createService → createOffering → activate).');
   }
 
+  // ── 3) EVENTO em rascunho, pronto para o painel do organizador (idempotente) ──
+  const city = await resolveGovernedCity();
+  console.log(`✅ cidade governada p/ o local: ${city.cityName} (${city.cityId})${city.created ? ' [criada]' : ' [reusada]'}`);
+
+  const existingEvent = (await pool.query<{ id: string }>(
+    `SELECT id::text AS id FROM events WHERE tenant_id = $1::uuid AND actor_id = $2::uuid AND title = $3 LIMIT 1`,
+    [tenantId, actorId, EVENT_TITLE]
+  )).rows[0];
+
+  let eventId: string;
+  if (existingEvent) {
+    eventId = existingEvent.id;
+    console.log('ℹ️  Evento demo já existia — reusando.');
+  } else {
+    // Janela FUTURA (o painel edita datas; começa daqui a 30 dias, dura 3h).
+    const start = new Date(Date.now() + 30 * 24 * 3600e3);
+    const end = new Date(start.getTime() + 3 * 3600e3);
+    const created = await eventService.createEvent(tenantId, {
+      actorId,
+      actorType: 'user',
+      title: EVENT_TITLE,
+      description: 'Evento de demonstração criado pelo seed local. Edite tudo pelo painel do organizador.',
+      datetimeStart: start.toISOString(),
+      datetimeEnd: end.toISOString(),
+    } as Parameters<typeof eventService.createEvent>[1]);
+    eventId = created.id;
+
+    // Capacidade primeiro (setores reconciliam contra max_attendees), depois o local governado.
+    await eventService.updateEvent(
+      tenantId,
+      eventId,
+      { maxAttendees: EVENT_MAX_ATTENDEES } as Parameters<typeof eventService.updateEvent>[2],
+      actorId
+    );
+
+    const formatConceptId = await resolveEventFormatConcept('show');
+    const venuePatch: Record<string, unknown> = {
+      venueCityId: city.cityId,
+      venueStreet: 'Rua XV de Novembro',
+      venueNumber: '100',
+      locationName: EVENT_VENUE_NAME,
+    };
+    if (formatConceptId) venuePatch.eventFormatConceptId = formatConceptId;
+    else console.log('ℹ️  formato de evento "show" ausente no catálogo — evento fica sem formato (editável no painel).');
+
+    await eventService.updateEvent(
+      tenantId,
+      eventId,
+      venuePatch as Parameters<typeof eventService.updateEvent>[2],
+      actorId
+    );
+    console.log('✅ evento criado em RASCUNHO (createEvent → updateEvent capacidade → updateEvent local).');
+  }
+
   // Verificação final
   const off = (await pool.query<{ status: string; provider_actor_id: string }>(
     `SELECT status, provider_actor_id::text AS provider_actor_id FROM service_offerings WHERE id = $1::uuid`,
     [offeringId]
   )).rows[0];
+  // Verificação do evento: dono, status editável, capacidade e cidade GOVERNADA (join real).
+  const ev = (await pool.query<{
+    status: string; actor_id: string; max_attendees: number | null;
+    venue_city_id: string | null; city_name: string | null;
+  }>(
+    `SELECT e.status,
+            e.actor_id::text AS actor_id,
+            e.max_attendees,
+            a.city_id::text  AS venue_city_id,
+            ct.name          AS city_name
+       FROM events e
+       LEFT JOIN address_assignments aa
+              ON aa.owner_type = 'event' AND aa.owner_id = e.id AND aa.valid_until_at IS NULL
+       LEFT JOIN addresses a ON a.address_id = aa.address_id
+       LEFT JOIN cities   ct ON ct.city_id = a.city_id
+      WHERE e.id = $1::uuid`,
+    [eventId]
+  )).rows[0];
+  const eventEditable = ev?.status === 'draft';
+
   const bankAfter = await bankSnap();
 
   console.log('\n────────────────────────────────────────────────────────');
@@ -182,10 +327,22 @@ async function main(): Promise<void> {
   console.log(`  serviceId: ${serviceId}`);
   console.log(`  offeringId:${offeringId}  (status=${off?.status}, provider ${off?.provider_actor_id === actorId ? 'OK' : 'DIVERGE'})`);
   console.log(`  Raio-x:    /services/${serviceId}/offering`);
+  console.log('  ──');
+  console.log(`  eventId:   ${eventId}`);
+  console.log(`  status:    ${ev?.status}  ${eventEditable ? '(editável no painel ✅)' : '(⚠️ NÃO é draft)'}`);
+  console.log(`  dono:      ${ev?.actor_id === actorId ? 'user-actor da demo OK' : '⚠️ DIVERGE'}`);
+  console.log(`  capacidade:${ev?.max_attendees ?? '—'}`);
+  console.log(`  cidade:    ${ev?.city_name ?? '—'} (${ev?.venue_city_id ?? 'sem local'})`);
+  console.log(`  PAINEL DO ORGANIZADOR:  /events/${eventId}`);
   console.log(`  Δbank:     ${bankBefore} → ${bankAfter}  ${bankBefore === bankAfter ? '(=0 ✅)' : '(⚠️ MUDOU)'}`);
   console.log('────────────────────────────────────────────────────────');
 
   if (off?.status !== 'active') throw new Error('oferta não ficou ativa');
+  if (!ev) throw new Error('evento demo não encontrado após o seed');
+  if (ev.actor_id !== actorId) throw new Error('evento demo não pertence ao user-actor da demo');
+  if (!eventEditable) throw new Error(`evento demo em status '${ev.status}' — painel do organizador ficaria travado`);
+  if (ev.max_attendees !== EVENT_MAX_ATTENDEES) throw new Error('evento demo sem a capacidade esperada');
+  if (!ev.venue_city_id || !ev.city_name) throw new Error('local do evento sem cidade GOVERNADA resolvida');
   if (bankBefore !== bankAfter) throw new Error('Δbank ≠ 0');
 
   await pool.end();
