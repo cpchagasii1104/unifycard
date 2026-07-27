@@ -85,6 +85,26 @@ O guard começa **inventariando** e só passa a **exigir** conforme a cobertura 
 
 ---
 
+## D5.1 — TETO DE TAMANHO E ECONOMIA DE TOKENS (restrição soberana de Clayton, 2026-07-27)
+
+> *"Sem também ficar criando uma forma de consumo de tokens infinitas."*
+
+**O bloco tem TETO DE 5 LINHAS.** É ponteiro, não documento. Cabeçalho que vira ensaio (a) custa tokens em **toda** leitura do arquivo, (b) deixa de ser lido — que é exatamente a falha que ele existe para evitar. Narrativa longa vive **na norma apontada**, nunca no cabeçalho. O guard afere **teto**, não piso.
+
+**Por que esta lei BARATEIA e não encarece — as camadas cobram onde faz sentido:**
+
+| Camada | Quando custa | Tamanho obrigatório |
+|---|---|---|
+| `CLAUDE.md` (raiz) | **toda sessão** | mínimo — pergunta invertida + armadilhas mortais + roteamento |
+| `00_AGENT_PROTOCOL.md` §7.1 | quando o domínio é tocado | completo |
+| Cabeçalho no arquivo | **só ao abrir aquele arquivo** | ≤ 5 linhas |
+
+O cabeçalho é a forma **mais barata** de conhecimento institucional que existe: cobra **uma vez, exatamente de quem precisa, no instante em que precisa**. A alternativa real não é "custo zero" — é **redescoberta**: na sessão que originou esta lei, cinco investigações read-only consumiram ordem de ~1 milhão de tokens, boa parte redescobrindo o que cinco linhas teriam dito. **A migalha não é o custo; é o que evita o custo.**
+
+**Vedado** usar esta lei como pretexto para inflar `CLAUDE.md`, criar documento-índice novo, ou exigir cabeçalho em arquivo trivial.
+
+---
+
 ## D6 — O CABEÇALHO NÃO É VERDADE; A NORMA É
 
 O cabeçalho é **ponteiro**, jamais fonte. Se contradisser `docs/01_normative/` ou `docs/02_decisions/`, **a norma vence e o cabeçalho é bug** — corrigir o cabeçalho, nunca a norma.

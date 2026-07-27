@@ -673,6 +673,35 @@ Execução sem registro
 
 ---
 
+## 7.1 ORIENTAÇÃO CANÔNICA NO PONTO DE USO (DECISION-0193)
+
+O registro em `docs/` protege quem **lê a doc**. Esta seção protege quem **abre o arquivo** — o caso normal de uma IA sem memória.
+
+**Regra:** arquivo que carrega decisão institucional (domínio governado: financeiro, autoridade, identidade/ontologia, territorial, governança) **ou** que está em estado não-óbvio (`LEGADO-CERCADO`, `DORMENTE`, `CONTIDO`, `REVOGADO`) declara no início:
+
+```
+// ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+// ║ STATUS:  CANÔNICO | LEGADO-CERCADO | DORMENTE | CONTIDO | REVOGADO
+// ║ NORMA:   <caminho real do documento que governa, com seção>
+// ║ NÃO:     <o que não fazer aqui>
+// ║ EM VEZ:  <o caminho correto, NOMEADO>
+// ╚════════════════════════════════════════════════════════════════
+```
+
+**`EM VEZ` é obrigatório.** Cabeçalho que só diz "não faça" é **pior que nenhum**: o agente descobre que o caminho está fechado, não descobre qual é o aberto, e **inventa um terceiro** — é assim que verdade paralela nasce.
+
+**TETO DE 5 LINHAS.** O bloco é ponteiro, não documento. Cabeçalho que vira ensaio custa tokens em toda leitura e deixa de ser lido — que é exatamente a falha que ele existe para evitar. Narrativa longa vive na norma apontada, não aqui.
+
+**Economia (por que isto BARATEIA, não encarece):** o custo é pago **uma vez, ao abrir o arquivo relevante** — em vez de uma investigação inteira redescobrindo a mesma coisa a cada sessão. Camadas: `CLAUDE.md` (custa **sempre** → mínimo) → este protocolo (custa quando o domínio é tocado) → cabeçalho (custa só ao abrir aquele arquivo).
+
+**O cabeçalho é PONTEIRO, nunca fonte.** Contradisse a norma? **A norma vence e o cabeçalho é bug.** Lê-lo **não dispensa** §2.2.
+
+**Aplicação gradual e obrigatoriamente por leva** (DECISION-0193 D5), na ordem: (1) arquivos cujo comentário atual **mente**; (2) `REVOGADO`/`CONTIDO`/`DORMENTE` sem aviso; (3) `LEGADO-CERCADO`; (4) `CANÔNICO` de domínio governado. **Vedada obrigação de massa** — cabeçalho falso é pior que ausente.
+
+> **Prova de que precisa de guard:** `CONTINUOUS PRODUCTION` era rótulo verdadeiro na época de sprint e hoje **mente** em pelo menos dois arquivos — um deles o motor legado cercado por tripwire. Comentário sem fiscalização apodrece. O guard exige que o caminho em `NORMA` **exista fisicamente**: sinapse rompida vira erro vermelho, não mentira silenciosa.
+
+---
+
 ## 8. LEITURA OBRIGATÓRIA ANTES DE QUALQUER CÓDIGO FINANCEIRO
 
 Antes de criar, editar ou executar QUALQUER código relacionado a:
