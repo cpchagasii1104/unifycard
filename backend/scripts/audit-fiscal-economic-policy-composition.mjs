@@ -147,7 +147,16 @@ if (/fiscal-policy-composition/.test(appBuilder)) note('R3: orquestrador registr
 
 // ── B · fronteiras: 3 arquivos B-CITY byte-intactos; guards reconciliados ──
 const BYTE_INTACT = {
-  [F.ENGINE]: 'f16934dce1eb000c501fd430d10be83cd4d908bc914becc84568a9832c881fdf',
+  // RECONCILIAÇÃO AUTORIZADA PELA DIREÇÃO (2026-07-27, frente economic-policy FATIA 0).
+  // O tripwire B1 disparou corretamente ao detectar a troca dos seletores territoriais do engine
+  // (country/region/city TEXT livre → countryId/stateId/cityId governados pelo Location Core).
+  // A executora PAROU e não se autorizou (feedback_executor_nao_se_autoriza) — correto.
+  // A direção verificou em 1ª mão ANTES de reconciliar: (a) o diff é cirúrgico (só SELECTOR_FIELDS
+  // + comentário); (b) a FRONTEIRA FISCAL que este guard realmente protege segue INTACTA — zero
+  // ocorrência de commission_distributable/tax_reserve/fiscalEconomicPolicyCompositionService no
+  // engine (o check B4 abaixo, defesa em profundidade, continua verde por conta própria).
+  // B1 é tripwire de mudança, não a fronteira; a fronteira é B4. Hash abaixo = pós-FATIA 0.
+  [F.ENGINE]: 'fbc3a108979124543499ed47f6b678645f50d0a27d3376db9e1e39d756206ee3',
   [F.SPE]: 'bb3f3fe6b494aac69a9642881f1d929aae9e0787e4f131fb30f88c069ff21050',
   [F.GUARD_BCITY]: 'd359f18db345137e91d06db1276475250f97e18c1bd4498ad5fab2cbc60387f9',
 };
