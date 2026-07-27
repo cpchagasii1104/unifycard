@@ -105,6 +105,25 @@ O cabeçalho é a forma **mais barata** de conhecimento institucional que existe
 
 ---
 
+## D5.2 — A REGRA DO ACESSO: anota-se ao tocar, nunca em campanha (decisão soberana de Clayton, 2026-07-27)
+
+> *"Nos arquivos já existentes a gente pode ir inserindo a orientação na medida que eles forem acessados por necessidade."*
+
+**Não existe frente de anotação.** Não se abre campanha, não se varre o repositório, não se orça esforço para isto. A regra é:
+
+> **Tocou um arquivo em trabalho real e descobriu, no caminho, qual norma o governa? Deixa a migalha antes de sair.**
+
+Consequências desejadas — todas gratuitas:
+- **Custo dedicado zero.** A anotação viaja de carona num trabalho que já ia acontecer; nada é feito só para anotar.
+- **Cobertura cresce pelos caminhos vivos.** Os arquivos mais tocados são os mais perigosos, e são os primeiros a ficar protegidos. Arquivo que ninguém abre há um ano não precisa de migalha — ninguém vai tropeçar nele.
+- **Nunca se começa do zero.** O sistema se blinda em camadas, ao longo do tempo, sem que nenhuma sessão precise carregar o peso inteiro.
+
+**🔴 TRAVA OBRIGATÓRIA — anota-se só o que se VERIFICOU.** Um agente que abriu o arquivo por motivo alheio e **não** apurou o estado institucional dele **NÃO escreve cabeçalho**. Escrever `STATUS` por dedução, ou `NORMA` por palpite, produz **cabeçalho falso — que D5 já declara pior que cabeçalho ausente**, porque a próxima IA vai confiar nele. Na dúvida: **não anota**, e registra a dúvida no cartório.
+
+**Exceção que obriga:** encontrou cabeçalho ou comentário que **mente** (caso `CONTINUOUS PRODUCTION`)? Corrigir é **obrigatório**, não opcional — comentário errado causa dano ativo, e deixá-lo é escolher que a próxima instância erre.
+
+---
+
 ## D6 — O CABEÇALHO NÃO É VERDADE; A NORMA É
 
 O cabeçalho é **ponteiro**, jamais fonte. Se contradisser `docs/01_normative/` ou `docs/02_decisions/`, **a norma vence e o cabeçalho é bug** — corrigir o cabeçalho, nunca a norma.

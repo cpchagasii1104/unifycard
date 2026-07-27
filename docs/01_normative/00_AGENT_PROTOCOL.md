@@ -696,7 +696,13 @@ O registro em `docs/` protege quem **lê a doc**. Esta seção protege quem **ab
 
 **O cabeçalho é PONTEIRO, nunca fonte.** Contradisse a norma? **A norma vence e o cabeçalho é bug.** Lê-lo **não dispensa** §2.2.
 
-**Aplicação gradual e obrigatoriamente por leva** (DECISION-0193 D5), na ordem: (1) arquivos cujo comentário atual **mente**; (2) `REVOGADO`/`CONTIDO`/`DORMENTE` sem aviso; (3) `LEGADO-CERCADO`; (4) `CANÔNICO` de domínio governado. **Vedada obrigação de massa** — cabeçalho falso é pior que ausente.
+**🔴 A REGRA DO ACESSO (DECISION-0193 D5.2) — não existe frente de anotação.** Não se abre campanha nem se varre o repositório. **Tocou um arquivo em trabalho real e descobriu, no caminho, qual norma o governa? Deixa a migalha antes de sair.** Custo dedicado zero (viaja de carona em trabalho que já ia acontecer), e a cobertura cresce pelos caminhos vivos — os arquivos mais tocados são os mais perigosos e ficam protegidos primeiro.
+
+**Trava:** anota-se **só o que se verificou**. Abriu por motivo alheio e não apurou o estado institucional? **Não escreve.** `STATUS` por dedução ou `NORMA` por palpite gera **cabeçalho falso — pior que ausente**, porque a próxima IA confia. Na dúvida, não anota e registra a dúvida no cartório.
+
+**Exceção que OBRIGA:** achou cabeçalho/comentário que **mente**? Corrigir não é opcional — comentário errado causa dano ativo, e deixá-lo é escolher que a próxima instância erre.
+
+Prioridade quando houver escolha: (1) comentário que **mente**; (2) `REVOGADO`/`CONTIDO`/`DORMENTE` sem aviso; (3) `LEGADO-CERCADO`; (4) `CANÔNICO` de domínio governado. **Vedada obrigação de massa.**
 
 > **Prova de que precisa de guard:** `CONTINUOUS PRODUCTION` era rótulo verdadeiro na época de sprint e hoje **mente** em pelo menos dois arquivos — um deles o motor legado cercado por tripwire. Comentário sem fiscalização apodrece. O guard exige que o caminho em `NORMA` **exista fisicamente**: sinapse rompida vira erro vermelho, não mentira silenciosa.
 

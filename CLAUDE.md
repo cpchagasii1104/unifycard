@@ -57,6 +57,21 @@ Ao despachar subagente, escreva o mandato como **inventário-primeiro, desenho-n
 - Windows: `Write`/`Edit` geram **CRLF** — normalize para LF e rode `git diff --check` antes de commitar.
 - Rode o **runner completo** (`npm run validate:regression-guards`), não só o E2E da sua fatia.
 
-## 6. Ao registrar
+## 6. A regra do acesso (DECISION-0193 · protocolo §7.1)
+
+**Tocou um arquivo em trabalho real e descobriu qual norma o governa? Deixe a migalha antes de sair** — 5 linhas, teto duro:
+
+```
+// ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+// ║ STATUS:  CANÔNICO | LEGADO-CERCADO | DORMENTE | CONTIDO | REVOGADO
+// ║ NORMA:   <caminho real do documento que governa>
+// ║ NÃO:     <o que não fazer aqui>
+// ║ EM VEZ:  <o caminho correto, NOMEADO>
+// ╚════════════════════════════════════════════════════════════════
+```
+
+Sem campanha, sem varredura — só de carona no trabalho que já ia acontecer. **`EM VEZ` é obrigatório**: dizer "não" sem dizer "faça isto" é o que faz a IA seguinte inventar um terceiro caminho. **Anote só o que verificou** — cabeçalho falso é pior que ausente. **Achou comentário que mente? Corrigir é obrigatório.**
+
+## 7. Ao registrar
 
 Escreva no cartório **durante** a fatia, não depois. O registro não é para o dono — é **para o próximo você**, que não vai lembrar de nada disto.
