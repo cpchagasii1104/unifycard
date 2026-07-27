@@ -258,6 +258,13 @@ const CMDS = [
   // typecheck do gate) — o "verde" do runner deixa de mentir (o script infrator elevava 591→592
   // sem o runner acusar). Baseline só-desce (DECISION-0158); nunca sobe para 592.
   "node scripts/audit-red-gates-baseline.mjs",
+  // F-EVENT-ECONOMIC-V2-HONEST-CONTAINMENT (DECISION-0190 §4/§9, SELADA · VEREDITO A): as 8 rotas
+  // mandatadas (custody/split/payment-authorize/payment-execute/payment-revoke/refund/chargeback/
+  // chargeback-resolve) sob economic/v2 devolvem 501 EVENT_ECONOMIC_V2_SANDBOX_SUBSTRATE_NOT_IMPLEMENTED
+  // como PRIMEIRA instrução do handler, ANTES de qualquer service/side-effect (writer real do Bank fica
+  // inalcançável). Morde regressão do 501, contenção movida pra depois de um await, citação DECISION-0190
+  // removida, drift no universo de sub-rotas, ou over-broadening nas 3 rotas fora do mapa (advance/GETs).
+  "node scripts/audit-economic-v2-containment.mjs",
   // F-RUNNER-COVERAGE-VISIBILITY-ANTI-DRIFT (ROOT-003 R2): meta-guard que torna a cobertura efetiva
   // VISIVEL e FALHA em drift (guard novo sem wiring). Nao executa guards; deriva o alcance das fontes
   // reais (este CMDS[], os 2 agregadores, actor-writer). Deve ser a ULTIMA entrada (le o array acima).
