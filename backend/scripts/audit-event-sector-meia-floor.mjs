@@ -37,6 +37,20 @@ const stripTs = (s) => s.replace(/(^|[^:"'`])\/\/[^\n]*/g, '$1').replace(/\/\*[\
 const stripJsLiterals = (s) => s.replace(/'(?:\\.|[^'\\])*'|"(?:\\.|[^"\\])*"|`(?:\\.|[^`\\])*`/g, "''");
 const stripSql = (s) => s.replace(/--[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
 const stripSqlLiterals = (s) => s.replace(/'(?:''|[^'])*'/g, "''");
+// Extrai a REGIÃO de UM método entre dois marcadores — mesmo mecanismo marker-based já usado abaixo p/
+// a região da rota do setor (code.search + code.slice), só reempacotado como helper reutilizável p/
+// ancorar checks a UMA função específica (RESSALVA 2: um check whole-file/regex solto no arquivo inteiro
+// passa mesmo se a trava sumir de UMA função só, contanto que sobre o literal em QUALQUER outro lugar do
+// arquivo — region-anchoring fecha esse ponto cego). Vai do INÍCIO do marcador inicial até o INÍCIO do
+// marcador final (exclusive); se o marcador final não aparecer, vai até o fim do arquivo. Marcador
+// inicial ausente → região vazia (caller decide como reportar "função sumiu").
+const regionBetween = (code, startMarker, endMarker) => {
+  const s = code.indexOf(startMarker);
+  if (s < 0) return '';
+  const rest = code.slice(s + startMarker.length);
+  const eRel = endMarker ? rest.indexOf(endMarker) : -1;
+  return eRel >= 0 ? code.slice(s, s + startMarker.length + eRel) : code.slice(s);
+};
 const fails = [];
 const note = (marker, m) => fails.push(`[${marker}] ${m}`);
 
@@ -190,11 +204,25 @@ const BANK_TOKEN = /\b(bank_ledger|bank_transactions|bank|ledger|payout|payable|
     // mesma casa da trava de core/events/event.service.ts (createEventBoundToGroup). Sem isto, o SELECT
     // SUM e o INSERT/UPDATE voltam a ser chamadas SEPARADAS (runQueryWithTenant/runQueriesWithTenant
     // abrem um client NOVO cada) — TOCTOU real entre duas criações concorrentes.
-    if (!/pg_advisory_xact_lock/.test(code) || !/hashtextextended\(\s*'event_sector_capacity:/.test(code)) {
-      note('CONCURRENCY-LOCK', `${REPO_PATH}: reconciliação de capacity perdeu a serialização por pg_advisory_xact_lock(hashtextextended('event_sector_capacity:'||tenant||':'||event, 0)) — sem ela, duas criações/edições concorrentes de setor podem ambas passar o check SUM(capacity) <= max_attendees e ambas escrever (BUG D1, TOCTOU).`);
-    }
-    if (!/'BEGIN'/.test(code)) {
-      note('CONCURRENCY-LOCK', `${REPO_PATH}: reconciliação de capacity perdeu o BEGIN explícito de transação — sem ele, o advisory xact lock (que expira no COMMIT/ROLLBACK) não serializa nada.`);
+    //
+    // RESSALVA 2 (auditoria independente, fechada): um check whole-file (/pg_advisory_xact_lock/.test(code))
+    // morde só se a trava sumir do ARQUIVO INTEIRO — remover a trava de UMA função só (ex.: só
+    // createSectorReconciled) ainda passa se a outra função (updateSectorReconciled) mantém o literal em
+    // algum lugar do arquivo (confirmado: mutar só createSectorReconciled NÃO derrubava o guard antes
+    // deste fix). Region-anchored por função — cada uma tem que carregar a trava+BEGIN NO PRÓPRIO CORPO.
+    const createRegion = regionBetween(code, 'async createSectorReconciled(', 'async updateSectorReconciled(');
+    const updateRegion = regionBetween(code, 'async updateSectorReconciled(', 'async getSectorById(');
+    for (const [fnName, region] of [['createSectorReconciled', createRegion], ['updateSectorReconciled', updateRegion]]) {
+      if (!region) {
+        note('CONCURRENCY-LOCK', `${REPO_PATH}: função ${fnName} não encontrada (marcador ausente) — não foi possível ancorar o check de trava ao corpo dela.`);
+        continue;
+      }
+      if (!/pg_advisory_xact_lock/.test(region) || !/hashtextextended\(\s*'event_sector_capacity:/.test(region)) {
+        note('CONCURRENCY-LOCK', `${REPO_PATH}#${fnName}: perdeu a serialização por pg_advisory_xact_lock(hashtextextended('event_sector_capacity:'||tenant||':'||event, 0)) NO CORPO DESTA FUNÇÃO — sem ela, duas criações/edições concorrentes de setor podem ambas passar o check SUM(capacity) <= max_attendees e ambas escrever (BUG D1, TOCTOU).`);
+      }
+      if (!/'BEGIN'/.test(region)) {
+        note('CONCURRENCY-LOCK', `${REPO_PATH}#${fnName}: perdeu o BEGIN explícito de transação NO CORPO DESTA FUNÇÃO — sem ele, o advisory xact lock (que expira no COMMIT/ROLLBACK) não serializa nada.`);
+      }
     }
     // (c) fronteira Bank-free no repository (código real, literais mascarados).
     const codeNoStr = stripJsLiterals(code);
@@ -289,6 +317,29 @@ const BANK_TOKEN = /\b(bank_ledger|bank_transactions|bank|ledger|payout|payable|
     }
     if (!/sumSectorCapacityByEvent/.test(code)) {
       note('MAX-ATTENDEES-RECONCILE', `${CORE_PATH}: updateEvent perdeu a leitura da soma de capacity dos setores (eventSectorRepository.sumSectorCapacityByEvent) antes de aplicar um max_attendees não-nulo menor.`);
+    }
+    // RESSALVA 1 (auditoria independente, fechada) — o fix do BUG D2 tinha a MESMA classe de corrida
+    // TOCTOU que o BUG D1 fechava do outro lado: a leitura do SUM (pré-checagem acima) e o UPDATE de
+    // max_attendees rodavam SEM a MESMA advisory xact lock que createSectorReconciled/
+    // updateSectorReconciled tomam. reconcileMaxAttendeesLocked fecha isso — region-anchored (RESSALVA 2)
+    // no CORPO desta função especificamente, não whole-file.
+    // Marcador da DEFINIÇÃO ("private async reconcileMaxAttendeesLocked("), não do CALL SITE
+    // ("this.reconcileMaxAttendeesLocked(...)" na pré-checagem acima) — senão a região começaria no
+    // call site e engoliria updateEvent inteiro até a definição real, alargando o escopo de volta a
+    // quase-whole-file (o mesmo ponto cego da RESSALVA 2).
+    const lockedRegion = regionBetween(code, 'private async reconcileMaxAttendeesLocked(', 'async createDraftEvent(');
+    if (!lockedRegion) {
+      note('CONCURRENCY-LOCK', `${CORE_PATH}: função reconcileMaxAttendeesLocked não encontrada (marcador ausente) — a reconciliação de max_attendees precisa da MESMA trava que event-sector.repository.ts toma, num método próprio ancorável.`);
+    } else {
+      if (!/pg_advisory_xact_lock/.test(lockedRegion) || !/hashtextextended\(\s*'event_sector_capacity:/.test(lockedRegion)) {
+        note('CONCURRENCY-LOCK', `${CORE_PATH}#reconcileMaxAttendeesLocked: perdeu a serialização por pg_advisory_xact_lock(hashtextextended('event_sector_capacity:'||tenant||':'||event, 0)) NO CORPO DESTA FUNÇÃO — sem ela, uma criação/edição de setor concorrente pode commitar ENTRE a leitura do SUM e o UPDATE de max_attendees, deixando max_attendees < SUM(capacity) (RESSALVA 1, TOCTOU).`);
+      }
+      if (!/'BEGIN'/.test(lockedRegion)) {
+        note('CONCURRENCY-LOCK', `${CORE_PATH}#reconcileMaxAttendeesLocked: perdeu o BEGIN explícito de transação NO CORPO DESTA FUNÇÃO — sem ele, o advisory xact lock não serializa nada.`);
+      }
+      if (!/UPDATE\s+events\s+SET\s+max_attendees/i.test(lockedRegion)) {
+        note('CONCURRENCY-LOCK', `${CORE_PATH}#reconcileMaxAttendeesLocked: perdeu o UPDATE de max_attendees DENTRO da própria seção travada — reler o SUM sob lock sem escrever max_attendees no MESMO client reabre a janela TOCTOU (RESSALVA 1).`);
+      }
     }
   }
 }

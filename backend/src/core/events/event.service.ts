@@ -497,22 +497,42 @@ class EventService {
     }
 
     // 7. Validar maxAttendees (se fornecido)
+    let maxAttendeesLockApplied = false;
     if (input.maxAttendees !== undefined && input.maxAttendees !== null) {
       if (input.maxAttendees <= 0) {
         throw new BadRequestError('maxAttendees deve ser maior que zero');
       }
-      // BUG D2 (auditoria blind): baixar max_attendees NÃO reconciliava contra os setores JÁ existentes
-      // (event_sectors.capacity) — um organizador podia criar setores somando 5000 e depois baixar o
-      // teto do evento para 100 por baixo deles, furando a invariante SUM(capacity) <= max_attendees que
-      // o writer de setor (event-sector.repository.createSectorReconciled) enforça DO OUTRO LADO. Setar
-      // maxAttendees = NULL (remover o teto) continua PERMITIDO — é o caso documentado "sem teto
-      // declarado", não um bug; só um valor NÃO-NULO abaixo da soma já persistida é rejeitado.
+      // BUG D2 (auditoria blind, fechado): baixar max_attendees NÃO reconciliava contra os setores JÁ
+      // existentes (event_sectors.capacity) — um organizador podia criar setores somando 5000 e depois
+      // baixar o teto do evento para 100 por baixo deles, furando a invariante SUM(capacity) <=
+      // max_attendees que o writer de setor (event-sector.repository.createSectorReconciled) enforça DO
+      // OUTRO LADO. Setar maxAttendees = NULL (remover o teto) continua PERMITIDO — é o caso documentado
+      // "sem teto declarado", não um bug; só um valor NÃO-NULO abaixo da soma já persistida é rejeitado.
+      //
+      // RESSALVA 1 (auditoria independente pós-fix, fechada): o fix do BUG D2 lia sumSectorCapacityByEvent
+      // e aplicava o UPDATE de max_attendees em passos SEM NENHUMA trava própria — a MESMA classe de
+      // corrida TOCTOU do BUG D1 (que createSectorReconciled/updateSectorReconciled já fecham com
+      // pg_advisory_xact_lock), só do outro lado da invariante: uma criação de setor concorrente podia
+      // tomar a trava, ler o max_attendees ANTIGO (mais alto), inserir sua capacity e commitar — tudo
+      // entre a leitura do SUM aqui e o UPDATE de max_attendees, deixando max_attendees < SUM(capacity)
+      // persistido no estado final.
+      //
+      // A checagem abaixo é uma PRÉ-CHECAGEM rápida (fail-fast, NÃO autoritativa) — evita abrir
+      // transação+lock para um valor obviamente inválido. A checagem AUTORITATIVA (a que realmente fecha
+      // a corrida) roda DENTRO da MESMA trava que createSectorReconciled/updateSectorReconciled tomam, em
+      // reconcileMaxAttendeesLocked (releitura do SUM + o UPDATE de max_attendees no MESMO client).
       const existingSectorSum = await eventSectorRepository.sumSectorCapacityByEvent(tenantId, eventId);
       if (input.maxAttendees < existingSectorSum) {
         throw new BadRequestError(
           `EVENT_MAX_ATTENDEES_BELOW_SECTOR_CAPACITY: max_attendees (${input.maxAttendees}) não pode ficar abaixo da soma de capacidade dos setores já persistidos (${existingSectorSum}). Os setores reconciliam A max_attendees (SSOT); baixar o teto por baixo deles fura a invariante.`
         );
       }
+      // Seção crítica MÍNIMA sob a MESMA advisory xact lock (event_sector_capacity:<tenant>:<event> via
+      // hashtextextended) que event-sector.repository.ts toma — releitura do SUM + UPDATE de
+      // max_attendees no MESMO client, fechando a janela TOCTOU descrita acima. O restante do PATCH
+      // (venue, vaquinha, facets, etc.) segue fora desta trava, no UPDATE dinâmico mais abaixo.
+      await this.reconcileMaxAttendeesLocked(tenantId, eventId, input.maxAttendees);
+      maxAttendeesLockApplied = true;
     }
 
     // 7. Moderação (se título ou descrição mudaram)
@@ -569,7 +589,9 @@ class EventService {
       values.push(input.ticketPriceCents);
     }
 
-    if (input.maxAttendees !== undefined) {
+    // Um maxAttendees NÃO-NULO já foi validado+escrito sob a trava em reconcileMaxAttendeesLocked
+    // (acima) — só entra aqui o caso NULL (remover o teto), que não precisa de reconciliação/trava.
+    if (input.maxAttendees === null) {
       updates.push(`max_attendees = $${paramIndex++}`);
       values.push(input.maxAttendees);
     }
@@ -729,6 +751,15 @@ class EventService {
     }
 
     if (updates.length === 0) {
+      if (maxAttendeesLockApplied) {
+        // max_attendees já foi escrito sob lock em reconcileMaxAttendeesLocked (acima) — `event` (linha
+        // ~422) é a leitura de ANTES da escrita e devolveria o valor velho; refletir o estado atual.
+        const refreshed = await this.getEvent(tenantId, eventId);
+        if (!refreshed) {
+          throw new Error('Falha ao atualizar evento');
+        }
+        return refreshed;
+      }
       return event; // Nada para atualizar na LINHA events (temas/facets/local já persistidos acima)
     }
 
@@ -755,6 +786,60 @@ class EventService {
     }
 
     return this.toEvent(row);
+  }
+
+  /**
+   * RESSALVA 1 (auditoria independente pós-BUG-D2, fechada): seção crítica MÍNIMA que reconcilia um
+   * max_attendees NÃO-NULO contra SUM(event_sectors.capacity) sob a MESMA advisory xact lock
+   * (event_sector_capacity:<tenant>:<event> via hashtextextended) que
+   * event-sector.repository.ts#createSectorReconciled/updateSectorReconciled tomam — mesma casa,
+   * mesma chave, mesmo formato de chamada (não uma trava nova). Sem isto, uma criação/edição de setor
+   * concorrente podia tomar a trava, ler o max_attendees ANTIGO (mais alto), inserir/ajustar sua
+   * capacity e commitar — tudo ENTRE a leitura do SUM e o UPDATE de max_attendees feitos aqui — deixando
+   * max_attendees < SUM(capacity) persistido (mesma classe do BUG D1, do outro lado da invariante).
+   * BEGIN → set_config tenant → advisory lock → releitura do SUM → UPDATE → COMMIT, tudo no MESMO
+   * client — mesma forma de createEventBoundToGroup/createSectorReconciled/updateSectorReconciled.
+   * NULL (remover o teto) NUNCA chama este método — não precisa de reconciliação/trava.
+   */
+  private async reconcileMaxAttendeesLocked(
+    tenantId: string,
+    eventId: string,
+    newMaxAttendees: number
+  ): Promise<void> {
+    const client: PoolClient = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(`SELECT set_config('app.current_tenant', $1, true)`, [tenantId]);
+      // MESMA chave/forma de event-sector.repository.ts — serializa contra QUALQUER criação/edição de
+      // setor deste evento antes de reler o SUM.
+      await client.query(
+        `SELECT pg_advisory_xact_lock(hashtextextended('event_sector_capacity:' || $1::text || ':' || $2::text, 0))`,
+        [tenantId, eventId]
+      );
+
+      const sumRes = await client.query<{ total: string | null }>(
+        `SELECT COALESCE(SUM(capacity), 0)::bigint AS total FROM event_sectors WHERE tenant_id = $1 AND event_id = $2`,
+        [tenantId, eventId]
+      );
+      const existingSectorSum = Number(sumRes.rows[0]?.total ?? 0);
+      if (newMaxAttendees < existingSectorSum) {
+        throw new BadRequestError(
+          `EVENT_MAX_ATTENDEES_BELOW_SECTOR_CAPACITY: max_attendees (${newMaxAttendees}) não pode ficar abaixo da soma de capacidade dos setores já persistidos (${existingSectorSum}). Os setores reconciliam A max_attendees (SSOT); baixar o teto por baixo deles fura a invariante.`
+        );
+      }
+
+      await client.query(
+        `UPDATE events SET max_attendees = $1, updated_at = NOW() WHERE tenant_id = $2 AND id = $3`,
+        [newMaxAttendees, tenantId, eventId]
+      );
+
+      await client.query('COMMIT');
+    } catch (e) {
+      try { await client.query('ROLLBACK'); } catch { /* conexão possivelmente inutilizada */ }
+      throw e;
+    } finally {
+      client.release();
+    }
   }
 
   /**

@@ -21,6 +21,12 @@
  *        prova a transação+advisory lock contra a corrida TOCTOU;
  *   (11) BUG D2: baixar events.max_attendees por baixo da soma de capacity já persistida em event_sectors
  *        → 400 EVENT_MAX_ATTENDEES_BELOW_SECTOR_CAPACITY; subir/manter ≥ soma → 200; NULL (remover teto) → 200.
+ *   (12) RESSALVA 1 (auditoria independente pós-BUG-D2): o PRÓPRIO fix do BUG D2 tinha a MESMA classe de
+ *        corrida TOCTOU que o BUG D1 fechava do outro lado — updateEvent lia sumSectorCapacityByEvent e
+ *        aplicava o UPDATE de max_attendees SEM a advisory xact lock que createSectorReconciled toma.
+ *        Prova: POST setor (capacity=800) CONCORRENTE com PATCH max_attendees=500 (500 < 800 — se ambos
+ *        "vencessem" furaria a invariante) via Promise.allSettled — exatamente 1 vence, o outro é
+ *        REJEITADO, e SUM(event_sectors.capacity) <= events.max_attendees SEMPRE no estado final.
  * DB efêmera. NUNCA unificard_dev.
  */
 
@@ -380,6 +386,46 @@ async function main(): Promise<void> {
       const upNull = await eventService.updateEvent(TENANT, eventD2Id, { maxAttendees: null }, organizer.actorId);
       record('(11c) PATCH max_attendees=null (remove o teto) → 200, PERMITIDO (não é o bug — é o caso "sem teto declarado")',
         upNull.maxAttendees === null, `maxAttendees=${upNull.maxAttendees}`);
+    }
+
+    // (12) RESSALVA 1 (auditoria independente, fechada): POST setor CONCORRENTE com PATCH max_attendees
+    // CONCORRENTE, ambos sobre o MESMO evento — a MESMA advisory xact lock (event_sector_capacity:
+    // <tenant>:<event>) que createSectorReconciled toma agora TAMBÉM serializa reconcileMaxAttendeesLocked
+    // (event.service.ts#updateEvent). capacity=800 e lowerTo=500 são escolhidos para GARANTIR conflito
+    // determinístico: quem tomar a trava primeiro sempre passa (contra o estado ORIGINAL, max=1000/sum=0);
+    // quem tomar depois SEMPRE vê o efeito do primeiro já commitado e é rejeitado (800 > 500). Não é uma
+    // corrida probabilística — é uma prova de que a serialização acontece, não de "geralmente dá certo".
+    {
+      const eventRaceId = await seedPublishedEvent(TENANT, organizer.actorId, 1000);
+      const capacityRace = 800;
+      const lowerTo = 500; // < capacityRace: se ambos "vencessem", SUM(800) > max_attendees(500) — furo.
+
+      const race = await Promise.allSettled([
+        call('POST', `/events/${eventRaceId}/sectors`, {
+          userId: organizer.userId,
+          body: { sectorNumber: 1, name: 'Race-Sector', capacity: capacityRace, meiaQuotaBps: 4000, inteiraPriceCents: 10000, meiaPriceCents: 5000 },
+        }),
+        eventService.updateEvent(TENANT, eventRaceId, { maxAttendees: lowerTo }, organizer.actorId),
+      ]);
+
+      const [sectorResult, patchResult] = race;
+      const sectorOk = sectorResult.status === 'fulfilled' && (sectorResult.value as { statusCode: number }).statusCode === 201;
+      const patchOk = patchResult.status === 'fulfilled';
+
+      const finalRow = (await pool.query<{ max_attendees: number | null }>(
+        `SELECT max_attendees FROM events WHERE id = $1`, [eventRaceId]
+      )).rows[0];
+      const finalMax = finalRow?.max_attendees ?? null;
+      const finalSum = Number((await pool.query<{ n: string }>(
+        `SELECT COALESCE(SUM(capacity), 0)::bigint AS n FROM event_sectors WHERE event_id = $1`, [eventRaceId]
+      )).rows[0].n);
+
+      const exactlyOneWon = sectorOk !== patchOk; // XOR: exatamente um dos dois venceu, o outro foi rejeitado.
+      const invariantHolds = finalMax === null || finalSum <= finalMax;
+
+      record('(12) RESSALVA 1: POST setor(cap=800) × PATCH max_attendees=500 CONCORRENTES (mesma trava event_sector_capacity) → exatamente 1 vence, o outro é REJEITADO, SUM(capacity) <= max_attendees SEMPRE',
+        exactlyOneWon && invariantHolds,
+        `sectorOk=${sectorOk} patchOk=${patchOk} finalMax=${finalMax} finalSum=${finalSum}`);
     }
 
     // (8) Δbank=0.
