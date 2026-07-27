@@ -4,8 +4,8 @@
 // fail-closed com ZERO policies). Objetivo único: dar a Clayton um ponto de partida
 // CONFIGURÁVEL no painel (EconomicPoliciesPage.tsx), sem inventar número nem doutrina.
 //
-// 🔴 OS NÚMEROS NÃO SÃO RATIFICADOS. São herdados literalmente do motor legado
-// `bank-split-engine.service.ts` (getSplitConfig) — comentário do próprio arquivo:
+// 🔴 OS NÚMEROS NÃO SÃO RATIFICADOS. São herdados literalmente do motor legado de
+// repasses do módulo bank (função getSplitConfig) — comentário do próprio arquivo:
 // "defaults hardcoded por contexto até cutover". Cada policy nasce DRAFT (nunca ativada
 // por este script) e cada change_reason declara a origem e a não-ratificação. A primeira
 // versão que CLAYTON publicar ou ativar por conta própria é que passa a ser a decisão.
@@ -21,7 +21,7 @@
 // tenant (listPoliciesForTenant, o MESMO reader do GET admin) — se existir, pula (não cria
 // versão nova, não duplica, não reativa). Reexecutar este script é seguro.
 //
-// REFERRAL (5%, REFERRAL_PERCENTAGE em bank-split-engine.service.ts:23) — DELIBERADAMENTE
+// REFERRAL (5%, REFERRAL_PERCENTAGE no motor legado de repasses do módulo bank, linha 23) — DELIBERADAMENTE
 // NÃO SEMEADO. destinationType='referrer_actor_wallet' não está em SUPPORTED_DESTINATION_TYPES
 // (service-payment-execution.service.ts:48-62) — PE-3 falha POLICY_DESTINATION_UNSUPPORTED em
 // QUALQUER transação que passe por uma linha assim, não só as com indicação ativa. Semear essa
@@ -92,7 +92,7 @@ function buildSpecs(): SeedSpec[] {
 
   const REASON_PREFIX =
     '🔴 SEMEADURA INICIAL — NÃO RATIFICADO POR CLAYTON. Valor herdado literalmente do motor legado ' +
-    'bank-split-engine.service.ts (comentário do próprio arquivo: "defaults hardcoded por contexto ' +
+    'motor legado de repasses do módulo bank (comentário do próprio arquivo: "defaults hardcoded por contexto ' +
     'até cutover"). Existe apenas para o painel administrativo (EconomicPoliciesPage.tsx) ter um ' +
     'ponto de partida configurável — não é decisão de produto. A PRIMEIRA versão que Clayton ' +
     'publicar ou ativar por conta própria é que passa a ser a versão ratificada. ';
@@ -116,7 +116,7 @@ function buildSpecs(): SeedSpec[] {
       effectiveFrom: nowIso,
       changeReason:
         REASON_PREFIX +
-        'Origem: bank-split-engine.service.ts getSplitConfig, case \'service_booking\' ' +
+        'Origem: motor legado de repasses do módulo bank, getSplitConfig, case \'service_booking\' ' +
         '(revenue_share 97% / fee 3%). moduleContext/vertical ajustados para \'service_execution\'' +
         '/\'services\' (não \'service_booking\') para casar com o ÚNICO caller PE-3 vivo hoje ' +
         '(service-payment-execution.service.ts:596-597) — substituição de rótulo, não de número. ' +
@@ -152,7 +152,7 @@ function buildSpecs(): SeedSpec[] {
       effectiveFrom: nowIso,
       changeReason:
         REASON_PREFIX +
-        'Origem: bank-split-engine.service.ts getSplitConfig, case \'ride_payment\' ' +
+        'Origem: motor legado de repasses do módulo bank, getSplitConfig, case \'ride_payment\' ' +
         '(revenue_share 97% driver / fee 3%). SEM caller PE-3-equivalente vivo hoje — rides não ' +
         'migrou do motor legado (grep confirma: nenhum resolveEconomicPolicy com ' +
         'moduleContext=\'ride_payment\' em backend/src). Esta policy fica INERTE (nunca ' +
@@ -198,7 +198,7 @@ function buildSpecs(): SeedSpec[] {
       effectiveFrom: nowIso,
       changeReason:
         REASON_PREFIX +
-        'Origem: bank-split-engine.service.ts getSplitConfig, case \'event_ticket\' ' +
+        'Origem: motor legado de repasses do módulo bank, getSplitConfig, case \'event_ticket\' ' +
         '(revenue_share 70% organizer / fee 3% / regional_fund 10% / reserve 17%). Seletor ' +
         'territorial (country=Brasil/state=Paraná/city=Curitiba) aplicado porque a linha ' +
         'regional_fund só resolve para a cidade-piloto (regional-fund-city-activation.ts) — ' +
