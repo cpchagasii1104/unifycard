@@ -12,6 +12,17 @@
 --
 -- O piso legal da MEIA (meia_quota_bps BETWEEN 4000 AND 10000 = 40%–100%) é HARD-LOCKED por lei
 -- (Lei 12.933/2013 + Decreto 8.537/2015): a meia-entrada tem que cobrir NO MÍNIMO 40% da capacidade do setor.
+--
+-- MEIA = EXATAMENTE METADE (Lei 12.933/2013): não basta a meia ser "mais barata" que a inteira — ela
+-- tem que valer a METADE EXATA. CHECK físico chk_event_sectors_meia_is_half_inteira
+-- (meia_price_cents = inteira_price_cents / 2, divisão inteira BIGINT trunca em direção a zero p/
+-- não-negativos = floor) substitui o antigo chk_event_sectors_meia_le_inteira (meia <= inteira), que
+-- só barrava meia MAIOR — permitia falsa "meia" com 1% de desconto. O floor arredonda a meia PARA
+-- BAIXO quando a inteira é ímpar (nunca para cima) — regra sempre favorável ao consumidor.
+--
+-- RLS (paridade com o padrão canônico das ~93 tabelas tenant-owned): ENABLE+FORCE + policy
+-- tenant_id::text = current_setting('app.current_tenant', true) + bypass unificard_infra.
+--
 -- Idempotente, aditiva, LF.
 
 BEGIN;
@@ -34,13 +45,38 @@ CREATE TABLE IF NOT EXISTS event_sectors (
   meia_price_cents BIGINT NOT NULL CHECK (meia_price_cents >= 0),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  -- a meia nunca custa mais que a inteira.
-  CONSTRAINT chk_event_sectors_meia_le_inteira CHECK (meia_price_cents <= inteira_price_cents),
+  -- MEIA = METADE EXATA da inteira (Lei 12.933/2013), não só "mais barata". Divisão inteira BIGINT
+  -- trunca em direção a zero p/ valores não-negativos = floor(inteira/2) — favorável ao consumidor
+  -- quando a inteira é ímpar (a meia arredonda PARA BAIXO, nunca para cima).
+  CONSTRAINT chk_event_sectors_meia_is_half_inteira CHECK (meia_price_cents = inteira_price_cents / 2),
   -- setores enumerados 1..N sem repetição por evento.
   CONSTRAINT uq_event_sectors_event_number UNIQUE (event_id, sector_number)
 );
 
 CREATE INDEX IF NOT EXISTS idx_event_sectors_tenant_event
   ON event_sectors (tenant_id, event_id);
+
+-- RLS tenant-owned (ENABLE+FORCE) — mesmo padrão canônico das ~93 tabelas tenant-owned
+-- (20260516100000_rls_critical_tables.sql): policy direta sobre a coluna tenant_id própria
+-- (event_sectors JÁ carrega tenant_id, sem necessidade de EXISTS/join) + bypass unificard_infra.
+ALTER TABLE event_sectors ENABLE ROW LEVEL SECURITY;
+ALTER TABLE event_sectors FORCE ROW LEVEL SECURITY;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'event_sectors' AND policyname = 'event_sectors_rls') THEN
+    CREATE POLICY event_sectors_rls ON event_sectors
+      USING (tenant_id::text = current_setting('app.current_tenant', true))
+      WITH CHECK (tenant_id::text = current_setting('app.current_tenant', true));
+  END IF;
+END $$;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'unificard_infra') THEN
+    CREATE ROLE unificard_infra;
+  END IF;
+END $$;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'event_sectors' AND policyname = 'event_sectors_infra_bypass') THEN
+    CREATE POLICY event_sectors_infra_bypass ON event_sectors TO unificard_infra USING (true);
+  END IF;
+END $$;
 
 COMMIT;

@@ -53,9 +53,10 @@ const BACKEND_ERROR_MESSAGES: Array<[string, string]> = [
   ['VAQUINHA_DEADLINE_AFTER_START', 'O prazo da vaquinha deve terminar até o início do evento (nunca depois).'],
   ['VAQUINHA_DEADLINE_INVALID', 'O prazo da vaquinha não é uma data/hora válida.'],
   ['SECTOR_MEIA_QUOTA_BELOW_LEGAL_FLOOR', 'A cota de meia-entrada deve ficar entre 40% (mínimo legal — Lei 12.933/2013) e 100%.'],
-  ['SECTOR_MEIA_PRICE_EXCEEDS_INTEIRA', 'O preço da meia-entrada não pode ser maior que o da inteira.'],
+  ['SECTOR_MEIA_PRICE_NOT_HALF', 'O preço da meia-entrada deve ser exatamente a metade do preço da inteira (Lei 12.933/2013).'],
   ['SECTOR_CAPACITY_EXCEEDS_EVENT', 'A soma das capacidades dos setores excede a capacidade máxima do evento.'],
   ['EVENT_SECTOR_ACTOR_NOT_AUTHORIZED', 'Você não tem permissão para criar setores neste evento.'],
+  ['EVENT_MAX_ATTENDEES_BELOW_SECTOR_CAPACITY', 'A capacidade máxima do evento não pode ficar abaixo da soma das capacidades dos setores já criados.'],
 ];
 
 function friendlyError(err: unknown, fallback: string): string {
@@ -120,7 +121,8 @@ export default function EventOrganizerPanel({ eventId }: EventOrganizerPanelProp
   const [sectorName, setSectorName] = useState('');
   const [sectorCapacity, setSectorCapacity] = useState('');
   const [sectorInteira, setSectorInteira] = useState('');
-  const [sectorMeia, setSectorMeia] = useState('');
+  // Preço da meia NÃO é estado editável — é DERIVADO (auto-computado, read-only) do preço da inteira
+  // (ver sectorMeiaCentsDerived, BUG E1: a meia tem que ser a METADE EXATA — Lei 12.933/2013).
   const [sectorQuotaPct, setSectorQuotaPct] = useState('40');
   const [creatingSector, setCreatingSector] = useState(false);
 
@@ -233,17 +235,25 @@ export default function EventOrganizerPanel({ eventId }: EventOrganizerPanelProp
     }
   };
 
+  // BUG E1 (Lei 12.933/2013): a meia tem que ser a METADE EXATA da inteira, nunca só "mais barata".
+  // O preço da meia NUNCA é digitado — é DERIVADO aqui (floor, consumer-favorável) do preço da inteira,
+  // espelhando exatamente o CHECK físico do backend (chk_event_sectors_meia_is_half_inteira:
+  // meia_price_cents = inteira_price_cents / 2). Isso torna FISICAMENTE impossível o organizador digitar
+  // um valor de meia que não seja a metade exata — o campo é só um DISPLAY read-only.
+  const sectorInteiraCents = reaisToCents(sectorInteira);
+  const sectorMeiaCentsDerived = sectorInteiraCents != null ? Math.floor(sectorInteiraCents / 2) : null;
+
   const handleCreateSector = async () => {
     const num = sectorNumber.trim() ? parseInt(sectorNumber, 10) : nextSectorNumber;
     const cap = sectorCapacity.trim() ? parseInt(sectorCapacity, 10) : NaN;
-    const inteira = reaisToCents(sectorInteira);
-    const meia = reaisToCents(sectorMeia);
+    const inteira = sectorInteiraCents;
+    const meia = sectorMeiaCentsDerived;
     const quotaPct = sectorQuotaPct.trim() ? parseFloat(sectorQuotaPct.replace(',', '.')) : 40;
 
     if (!sectorName.trim()) { showToast('Informe o nome do setor', 'error'); return; }
     if (isNaN(cap) || cap < 1) { showToast('Informe a capacidade do setor (mínimo 1)', 'error'); return; }
     if (inteira == null) { showToast('Informe o preço da inteira (R$)', 'error'); return; }
-    if (meia == null) { showToast('Informe o preço da meia (R$)', 'error'); return; }
+    if (meia == null) { showToast('Informe o preço da inteira (R$) para derivar a meia', 'error'); return; }
 
     setCreatingSector(true);
     try {
@@ -260,7 +270,6 @@ export default function EventOrganizerPanel({ eventId }: EventOrganizerPanelProp
       setSectorName('');
       setSectorCapacity('');
       setSectorInteira('');
-      setSectorMeia('');
       setSectorQuotaPct('40');
       await loadSectors();
     } catch (err) {
@@ -498,13 +507,13 @@ export default function EventOrganizerPanel({ eventId }: EventOrganizerPanelProp
             />
           </label>
           <label className="organizer-field organizer-field-small">
-            <span>Preço meia (R$)</span>
+            <span>Preço meia (R$) — metade exata, automático</span>
             <input
               type="text"
-              inputMode="decimal"
-              value={sectorMeia}
-              onChange={(e) => setSectorMeia(e.target.value)}
-              placeholder="Ex.: 40,00"
+              value={sectorMeiaCentsDerived != null ? centsToReais(sectorMeiaCentsDerived) : ''}
+              readOnly
+              disabled
+              placeholder="Informe a inteira ao lado"
             />
           </label>
           <label className="organizer-field organizer-field-small">
@@ -519,8 +528,10 @@ export default function EventOrganizerPanel({ eventId }: EventOrganizerPanelProp
           </label>
         </div>
         <p className="organizer-hint organizer-hint-muted">
-          Cota de meia-entrada: mínimo legal 40% — Lei 12.933/2013. A meia não pode custar mais que a inteira,
-          e a soma das capacidades dos setores não pode passar da capacidade máxima do evento.
+          Cota de meia-entrada: mínimo legal 40% — Lei 12.933/2013. O preço da meia é sempre EXATAMENTE
+          a metade do preço da inteira (calculado automaticamente, arredondado para baixo em favor do
+          consumidor quando a inteira for um valor ímpar de centavos), e a soma das capacidades dos
+          setores não pode passar da capacidade máxima do evento.
         </p>
         <button
           className="organizer-button organizer-button-primary"

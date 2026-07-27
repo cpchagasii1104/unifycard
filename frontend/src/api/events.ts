@@ -802,8 +802,9 @@ export async function removeOperationalNeed(eventId: string, needConceptId: stri
 // com prefix '/api/events' (app.builder) → URL real /api/events/events/:id/sectors.
 // Body keys EXATAS do backend (CreateEventSectorInput, event-sector.repository.ts): sectorNumber, name,
 // capacity, meiaQuotaBps (4000..10000; default legal 4000), inteiraPriceCents, meiaPriceCents.
-// Regras espelhadas no backend: meia ≤ inteira (SECTOR_MEIA_PRICE_EXCEEDS_INTEIRA), cota 40%–100%
-// (SECTOR_MEIA_QUOTA_BELOW_LEGAL_FLOOR), SUM(capacity) ≤ max_attendees (SECTOR_CAPACITY_EXCEEDS_EVENT).
+// Regras espelhadas no backend: meia = METADE EXATA da inteira (SECTOR_MEIA_PRICE_NOT_HALF — Lei
+// 12.933/2013, não só "mais barata"), cota 40%–100% (SECTOR_MEIA_QUOTA_BELOW_LEGAL_FLOOR),
+// SUM(capacity) ≤ max_attendees (SECTOR_CAPACITY_EXCEEDS_EVENT, reconciliado atomicamente).
 
 export interface EventSector {
   id: string;

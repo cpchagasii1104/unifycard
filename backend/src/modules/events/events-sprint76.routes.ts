@@ -376,10 +376,12 @@ const eventsSprint76Routes = async (fastify: FastifyInstance) => {
 
   /**
    * POST /events/:id/sectors
-   * Cria SETOR self-contained (pool compartilhado, preço inteira + meia legalmente pisada). Bank-free:
-   * preços são valores DECLARADOS de catálogo (Δbank=0). Autoridade = chave EXATA create_events sobre o
-   * DONO DO EVENTO (event.organizerActorId, server-resolved) — espelha a rota de ingresso; validate-before-
-   * mutate no service (piso legal da meia + meia<=inteira + reconciliação com max_attendees).
+   * Cria SETOR self-contained (pool compartilhado, preço inteira + meia legalmente pisada — meia =
+   * METADE EXATA da inteira, Lei 12.933/2013). Bank-free: preços são valores DECLARADOS de catálogo
+   * (Δbank=0). Autoridade = chave EXATA create_events sobre o DONO DO EVENTO (event.organizerActorId,
+   * server-resolved) — espelha a rota de ingresso; validate-before-mutate no service (validação de
+   * runtime do corpo + piso legal da meia + meia=metade exata + reconciliação ATÔMICA — transação +
+   * advisory lock — com max_attendees).
    */
   fastify.post<{
     Params: { id: string };

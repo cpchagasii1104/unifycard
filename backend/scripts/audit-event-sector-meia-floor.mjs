@@ -2,7 +2,10 @@
 // audit-event-sector-meia-floor.mjs — Guard da SLICE S3 (SETORES) do arco "evento em si".
 // O SETOR é SELF-CONTAINED (tabela event_sectors própria) com pool COMPARTILHADO (capacity), preço INTEIRA
 // e preço MEIA legalmente pisado. O piso legal da MEIA — meia_quota_bps BETWEEN 4000 AND 10000 (40%–100%) —
-// é HARD-LOCKED por lei (Lei 12.933/2013 + Decreto 8.537/2015) e NUNCA pode descer abaixo de 40%.
+// é HARD-LOCKED por lei (Lei 12.933/2013 + Decreto 8.537/2015) e NUNCA pode descer abaixo de 40%. A MEIA
+// tem que valer a METADE EXATA da inteira (não só "mais barata" — CHECK chk_event_sectors_meia_is_half_
+// inteira). A reconciliação SUM(capacity) <= max_attendees é ATÔMICA (transação + advisory lock), tanto na
+// criação/edição de setor quanto na baixa de events.max_attendees por baixo dos setores já persistidos.
 // Bank-free: inteira_price_cents/meia_price_cents são valores DECLARADOS de catálogo (Δbank=0); a VENDA, o
 // check de elegibilidade da meia e o decremento do pool = PORTA-01 (Fatia 2), FORA.
 //
@@ -14,8 +17,16 @@
 //      como WRITE-PATH na JSONB não-tipada event_occupancy_models.config.sectors (placeholder write-orphan);
 //  (c) um token bank/porta-01/ledger/sale aparecer no CAMINHO do setor (fronteira Bank-free) — _cents é
 //      PERMITIDO (preço DECLARADO), bank/ledger/venda/pedido/pagamento NÃO;
-//  (d) o writer (service) perder a RECONCILIAÇÃO com max_attendees (SECTOR_CAPACITY_EXCEEDS_EVENT +
-//      leitura de max_attendees) OU o ESPELHO do piso legal (SECTOR_MEIA_QUOTA_BELOW_LEGAL_FLOOR + 4000).
+//  (d) o writer (service+repository) perder a RECONCILIAÇÃO com max_attendees (SECTOR_CAPACITY_EXCEEDS_EVENT
+//      + leitura de max_attendees), a TRANSAÇÃO+ADVISORY LOCK que a serializa (BUG D1), OU o ESPELHO do piso
+//      legal (SECTOR_MEIA_QUOTA_BELOW_LEGAL_FLOOR + 4000);
+//  (e) a CHECK física "meia = METADE EXATA da inteira" (chk_event_sectors_meia_is_half_inteira) for perdida/
+//      enfraquecida de volta a um "meia <= inteira" (BUG E1), OU o writer perder o espelho
+//      SECTOR_MEIA_PRICE_NOT_HALF;
+//  (f) o helper canônico deriveMeiaTicketFloor (BUG E2 — piso legal da meia em CONTAGEM de ingressos) usar
+//      Math.floor (arredonda o PISO MÍNIMO legal para BAIXO — ilegal) em vez de Math.ceil, sumir, OU a
+//      derivação floor/ceil reaparecer INLINE fora do helper (region-anchored no arquivo math);
+//  (g) a migration de event_sectors perder RLS (ENABLE+FORCE+policy tenant_id, HARDEN E4).
 // Region-anchored; comment-aware (strip TS + strip SQL + strip de literais). Fail-closed.
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
@@ -42,7 +53,7 @@ const SYNONYM_COL = /\b(sector_capacity|meia_capacity|quota_pct|setor)\b/i;
 // Token bank/venda proibido no caminho do setor. _cents NÃO entra aqui (preço = DECLARADO, Δbank=0).
 const BANK_TOKEN = /\b(bank_ledger|bank_transactions|bank|ledger|payout|payable|receivable|refund\w*|settle\w*|ticket_sales|sale|order|payment_intent|porta[-_]?01)\b/i;
 
-// ══════════════════════ MIGRATION: DDL de event_sectors (piso legal + sinônimos + Bank-free) ═══════════
+// ══════════════════════ MIGRATION: DDL de event_sectors (piso legal + meia=metade + RLS + sinônimos + Bank-free) ═══
 {
   const MIG_DIR = join(ROOT, 'migrations');
   if (!existsSync(MIG_DIR)) {
@@ -84,10 +95,29 @@ const BANK_TOKEN = /\b(bank_ledger|bank_transactions|bank|ledger|payout|payable|
         }
       }
 
-      // Presença física da CHECK meia<=inteira (a meia nunca custa mais que a inteira).
-      if (!/chk_event_sectors_meia_le_inteira/i.test(sqlNoLit) ||
-          !/meia_price_cents\s*<=\s*inteira_price_cents/i.test(sqlNoLit)) {
-        note('CHECK-MEIA-LE', `migration ${f}: CHECK "meia <= inteira" ausente/alterada (chk_event_sectors_meia_le_inteira: meia_price_cents <= inteira_price_cents).`);
+      // (e) Presença física da CHECK "meia = METADE EXATA da inteira" (BUG E1 — Lei 12.933/2013). O
+      // nome canônico é chk_event_sectors_meia_is_half_inteira; a expressão física é uma divisão
+      // inteira (meia_price_cents = inteira_price_cents / 2), NUNCA um "<=" solto (isso reintroduziria
+      // a falsa "meia" barrada só contra ser MAIOR, não contra ser DIFERENTE da metade).
+      if (!/chk_event_sectors_meia_is_half_inteira/i.test(sqlNoLit) ||
+          !/meia_price_cents\s*=\s*inteira_price_cents\s*\/\s*2/i.test(sqlNoLit)) {
+        note('CHECK-MEIA-HALF', `migration ${f}: CHECK "meia = METADE EXATA da inteira" ausente/alterada (chk_event_sectors_meia_is_half_inteira: meia_price_cents = inteira_price_cents / 2 — Lei 12.933/2013).`);
+      }
+      // (e) anti-regressão: o antigo constraint fraco (chk_event_sectors_meia_le_inteira, "<=" solto
+      // sem o "=" de metade exata) reaparecendo é uma REGRESSÃO ao BUG E1 (falsa meia com 1% de desconto).
+      if (/chk_event_sectors_meia_le_inteira/i.test(sqlNoLit)) {
+        note('CHECK-MEIA-HALF', `migration ${f}: constraint fraco chk_event_sectors_meia_le_inteira ("meia <= inteira") reapareceu — REGRESSÃO ao BUG E1 (a lei exige METADE EXATA, não só "mais barata"); use chk_event_sectors_meia_is_half_inteira.`);
+      }
+
+      // (g) HARDEN E4 — RLS (ENABLE+FORCE+policy tenant_id) na tabela event_sectors, mesmo padrão
+      // canônico das ~93 tabelas tenant-owned (20260516100000_rls_critical_tables.sql). Checa contra
+      // `sql` (só comentários removidos) — sqlNoLit mascara os literais 'app.current_tenant' p/ ''.
+      if (!/ALTER\s+TABLE\s+event_sectors\s+ENABLE\s+ROW\s+LEVEL\s+SECURITY/i.test(sql) ||
+          !/ALTER\s+TABLE\s+event_sectors\s+FORCE\s+ROW\s+LEVEL\s+SECURITY/i.test(sql)) {
+        note('RLS-MISSING', `migration ${f}: event_sectors sem ENABLE+FORCE ROW LEVEL SECURITY (HARDEN E4 — paridade com as demais tabelas tenant-owned).`);
+      }
+      if (!/CREATE\s+POLICY\s+event_sectors_rls\s+ON\s+event_sectors[\s\S]*?current_setting\(\s*'app\.current_tenant'/i.test(sql)) {
+        note('RLS-MISSING', `migration ${f}: policy event_sectors_rls (tenant_id::text = current_setting('app.current_tenant', true)) ausente/alterada na DDL de event_sectors.`);
       }
     }
     if (!foundTable) note('MIGRATIONS', 'migration que cria a tabela event_sectors ausente.');
@@ -103,7 +133,7 @@ const BANK_TOKEN = /\b(bank_ledger|bank_transactions|bank|ledger|payout|payable|
     for (const f of readdirSync(SRC_DIR)) {
       if (!f.endsWith('.ts')) continue;
       // O próprio type-def do placeholder (occupancy.types.ts) é intocado — não é write-path.
-      if (f === 'occupancy.types.ts' || f === 'event-sector.repository.ts' || f === 'event-sector.service.ts') continue;
+      if (f === 'occupancy.types.ts' || f === 'event-sector.repository.ts' || f === 'event-sector.service.ts' || f === 'event-sector.math.ts') continue;
       const code = stripTs(readFileSync(join(SRC_DIR, f), 'utf8'));
       if (/event_occupancy_models/i.test(code) && SECTOR_ECON_COLS.test(code)) {
         note('JSONB-PLACEHOLDER', `${f}: eixo econômico do setor (inteira/meia/meia_quota_bps) acoplado a event_occupancy_models — o setor é SELF-CONTAINED em event_sectors; a JSONB config.sectors é placeholder write-orphan, NÃO reabastecer.`);
@@ -112,7 +142,7 @@ const BANK_TOKEN = /\b(bank_ledger|bank_transactions|bank|ledger|payout|payable|
   }
 }
 
-// ══════════════════════ WRITER (service): reconciliação max_attendees + espelho do piso legal ══════════
+// ══════════════════════ WRITER (service): validate-before-mutate — piso legal + meia=metade + runtime body ═══
 {
   const SVC_PATH = 'src/modules/events/event-sector.service.ts';
   const SVC_RAW = readOrFail(SVC_PATH, 'FILE');
@@ -122,19 +152,96 @@ const BANK_TOKEN = /\b(bank_ledger|bank_transactions|bank|ledger|payout|payable|
     if (!/SECTOR_MEIA_QUOTA_BELOW_LEGAL_FLOOR/.test(code) || !/\b4000\b/.test(code)) {
       note('WRITER-FLOOR', `${SVC_PATH}: writer perdeu o espelho do piso legal da meia (SECTOR_MEIA_QUOTA_BELOW_LEGAL_FLOOR sobre o floor 4000).`);
     }
-    // (d) espelho meia <= inteira.
-    if (!/SECTOR_MEIA_PRICE_EXCEEDS_INTEIRA/.test(code)) {
-      note('WRITER-MEIA-LE', `${SVC_PATH}: writer perdeu o espelho 400 "meia <= inteira" (SECTOR_MEIA_PRICE_EXCEEDS_INTEIRA).`);
+    // (e) espelho "meia = METADE EXATA" (BUG E1): código 400 específico + a divisão inteira /2 que
+    // computa a metade (Math.floor(inteiraPriceCents / 2) — arredonda para baixo, favorável ao
+    // consumidor). Um "<=" solto sem essa divisão seria REGRESSÃO ao check fraco antigo.
+    if (!/SECTOR_MEIA_PRICE_NOT_HALF/.test(code)) {
+      note('WRITER-MEIA-HALF', `${SVC_PATH}: writer perdeu o espelho 400 "meia = METADE EXATA" (SECTOR_MEIA_PRICE_NOT_HALF) — regressão ao BUG E1 (a lei exige metade, não só "mais barata").`);
     }
-    // (d) reconciliação com max_attendees: leitura do SSOT + o código do 400.
-    if (!/SECTOR_CAPACITY_EXCEEDS_EVENT/.test(code) || !/getEventMaxAttendees|max_attendees|maxAttendees/.test(code)) {
-      note('WRITER-RECONCILE', `${SVC_PATH}: writer perdeu a reconciliação com events.max_attendees (SECTOR_CAPACITY_EXCEEDS_EVENT sobre a soma de capacity vs max_attendees, SSOT).`);
+    if (!/inteiraPriceCents\s*\/\s*2/.test(code)) {
+      note('WRITER-MEIA-HALF', `${SVC_PATH}: writer perdeu a divisão inteira (inteiraPriceCents / 2) que computa a metade exata legal — sem ela o espelho do CHECK físico chk_event_sectors_meia_is_half_inteira fica incompleto.`);
+    }
+    // HARDEN E6 — validação de runtime do corpo (o generic do Fastify é só compile-time). O anchor é o
+    // nome do método deste próprio service (não impõe zod/schema — só exige QUE validação exista).
+    if (!/assertValidSectorBody/.test(code)) {
+      note('RUNTIME-VALIDATION', `${SVC_PATH}: writer perdeu a validação de runtime do corpo (HARDEN E6) — sectorNumber/capacity/meiaQuotaBps/inteiraPriceCents/meiaPriceCents precisam ser validados ANTES de qualquer query (não só pelo generic TS do Fastify, que é compile-time).`);
     }
     // (c) fronteira Bank-free no writer (código real, literais mascarados — as mensagens citam prosa).
     const codeNoStr = stripJsLiterals(code);
     const bk = codeNoStr.match(BANK_TOKEN);
     if (bk) {
       note('BANK-FRONTIER', `${SVC_PATH}: token '${bk[1] ?? bk[0]}' no writer do setor — preço = DECLARADO; venda/bank/ledger/porta-01 = PORTA-01, FORA (Δbank=0).`);
+    }
+  }
+}
+
+// ══════════════════════ WRITER (repository): reconciliação max_attendees ATÔMICA (BUG D1) ═══════════════
+{
+  const REPO_PATH = 'src/modules/events/event-sector.repository.ts';
+  const REPO_RAW = readOrFail(REPO_PATH, 'FILE');
+  if (REPO_RAW) {
+    const code = stripTs(REPO_RAW);
+    // (d) reconciliação com max_attendees: leitura do SSOT + o código do 400 — agora residem no
+    // repository (createSectorReconciled/updateSectorReconciled), não mais no service.
+    if (!/SECTOR_CAPACITY_EXCEEDS_EVENT/.test(code) || !/max_attendees|maxAttendees/.test(code)) {
+      note('WRITER-RECONCILE', `${REPO_PATH}: writer perdeu a reconciliação com events.max_attendees (SECTOR_CAPACITY_EXCEEDS_EVENT sobre a soma de capacity vs max_attendees, SSOT).`);
+    }
+    // (d) BUG D1 — a reconciliação PRECISA rodar sob transação + advisory xact lock por (tenant,event),
+    // mesma casa da trava de core/events/event.service.ts (createEventBoundToGroup). Sem isto, o SELECT
+    // SUM e o INSERT/UPDATE voltam a ser chamadas SEPARADAS (runQueryWithTenant/runQueriesWithTenant
+    // abrem um client NOVO cada) — TOCTOU real entre duas criações concorrentes.
+    if (!/pg_advisory_xact_lock/.test(code) || !/hashtextextended\(\s*'event_sector_capacity:/.test(code)) {
+      note('CONCURRENCY-LOCK', `${REPO_PATH}: reconciliação de capacity perdeu a serialização por pg_advisory_xact_lock(hashtextextended('event_sector_capacity:'||tenant||':'||event, 0)) — sem ela, duas criações/edições concorrentes de setor podem ambas passar o check SUM(capacity) <= max_attendees e ambas escrever (BUG D1, TOCTOU).`);
+    }
+    if (!/'BEGIN'/.test(code)) {
+      note('CONCURRENCY-LOCK', `${REPO_PATH}: reconciliação de capacity perdeu o BEGIN explícito de transação — sem ele, o advisory xact lock (que expira no COMMIT/ROLLBACK) não serializa nada.`);
+    }
+    // (c) fronteira Bank-free no repository (código real, literais mascarados).
+    const codeNoStr = stripJsLiterals(code);
+    const bk = codeNoStr.match(BANK_TOKEN);
+    if (bk) {
+      note('BANK-FRONTIER', `${REPO_PATH}: token '${bk[1] ?? bk[0]}' no repository do setor — preço = DECLARADO; venda/bank/ledger/porta-01 = PORTA-01, FORA (Δbank=0).`);
+    }
+  }
+}
+
+// ══════════════════════ BUG E2 — helper canônico deriveMeiaTicketFloor (ceil, nunca floor) ═══════════════
+{
+  const MATH_PATH = 'src/modules/events/event-sector.math.ts';
+  const MATH_RAW = readOrFail(MATH_PATH, 'FILE');
+  if (MATH_RAW) {
+    const code = stripTs(MATH_RAW);
+    if (!/export\s+function\s+deriveMeiaTicketFloor/.test(code)) {
+      note('MEIA-TICKET-FLOOR', `${MATH_PATH}: helper canônico deriveMeiaTicketFloor ausente/renomeado — a derivação meia_quota_bps → contagem de ingressos precisa de um único ponto de verdade EXPORTADO.`);
+    }
+    if (!/Math\.ceil/.test(code)) {
+      note('MEIA-TICKET-FLOOR', `${MATH_PATH}: deriveMeiaTicketFloor perdeu o Math.ceil — o piso/mínimo GARANTIDO da meia (Lei 12.933/2013) tem que arredondar PARA CIMA; arredondar para baixo (floor) pode devolver MENOS que os 40% mínimos exigidos por lei (confirmado: capacity=7,bps=4000 → floor=2=28.6%<40% ILEGAL; ceil=3=42.9%✓).`);
+    }
+    if (/Math\.floor/.test(code)) {
+      note('MEIA-TICKET-FLOOR', `${MATH_PATH}: Math.floor apareceu no helper da derivação de CONTAGEM de ingressos — essa derivação é um PISO/MÍNIMO legal e tem que arredondar para CIMA (Math.ceil), nunca para baixo (BUG E2).`);
+    }
+  }
+  // A derivação NÃO pode ser reinlinada fora do helper (region-anchored: qualquer arquivo .ts do módulo
+  // events, exceto o próprio helper, que combine capacity*meiaQuotaBps/10000 com Math.floor é a
+  // fossilização do BUG E2 fora do local canônico).
+  const SRC_DIR = join(ROOT, 'src', 'modules', 'events');
+  if (existsSync(SRC_DIR)) {
+    for (const f of readdirSync(SRC_DIR)) {
+      if (!f.endsWith('.ts') || f === 'event-sector.math.ts') continue;
+      const code = stripTs(readFileSync(join(SRC_DIR, f), 'utf8'));
+      if (/Math\.floor\s*\(\s*[\w.]*capacity[\s\S]{0,40}meiaQuotaBps[\s\S]{0,10}\/\s*10000/.test(code) ||
+          /Math\.floor\s*\(\s*[\w.]*meiaQuotaBps[\s\S]{0,60}capacity[\s\S]{0,10}\/\s*10000/.test(code)) {
+        note('MEIA-TICKET-FLOOR', `${f}: derivação capacity×meiaQuotaBps/10000 reinlineada com Math.floor FORA do helper canônico (event-sector.math.ts) — BUG E2 (piso legal arredondado para baixo).`);
+      }
+    }
+  }
+  // O E2E do setor precisa IMPORTAR o helper (não reinlinar a conta) — region-anchored no script E2E.
+  const E2E_PATH = 'src/scripts/validate-pipeline-e2e-event-sectors.ts';
+  const E2E_RAW = readOrFail(E2E_PATH, 'FILE');
+  if (E2E_RAW) {
+    const code = stripTs(E2E_RAW);
+    if (!/deriveMeiaTicketFloor/.test(code)) {
+      note('MEIA-TICKET-FLOOR', `${E2E_PATH}: E2E não importa/usa deriveMeiaTicketFloor — a prova da derivação da contagem de ingressos da meia precisa passar pelo helper canônico, não por conta inline (BUG E2).`);
     }
   }
 }
@@ -171,9 +278,24 @@ const BANK_TOKEN = /\b(bank_ledger|bank_transactions|bank|ledger|payout|payable|
   }
 }
 
+// ══════════════════════ BUG D2 — baixar events.max_attendees reconcilia contra event_sectors ═══════════════
+{
+  const CORE_PATH = 'src/core/events/event.service.ts';
+  const CORE_RAW = readOrFail(CORE_PATH, 'FILE');
+  if (CORE_RAW) {
+    const code = stripTs(CORE_RAW);
+    if (!/EVENT_MAX_ATTENDEES_BELOW_SECTOR_CAPACITY/.test(code)) {
+      note('MAX-ATTENDEES-RECONCILE', `${CORE_PATH}: updateEvent perdeu a reconciliação de max_attendees contra a soma de capacity já persistida em event_sectors (EVENT_MAX_ATTENDEES_BELOW_SECTOR_CAPACITY) — BUG D2 (baixar o teto por baixo dos setores existentes furava a invariante).`);
+    }
+    if (!/sumSectorCapacityByEvent/.test(code)) {
+      note('MAX-ATTENDEES-RECONCILE', `${CORE_PATH}: updateEvent perdeu a leitura da soma de capacity dos setores (eventSectorRepository.sumSectorCapacityByEvent) antes de aplicar um max_attendees não-nulo menor.`);
+    }
+  }
+}
+
 if (fails.length) {
   console.error('❌ audit-event-sector-meia-floor FALHOU:');
   for (const f of fails) console.error('  - ' + f);
   process.exit(1);
 }
-console.log('✅ audit-event-sector-meia-floor OK — setor SELF-CONTAINED (event_sectors) · piso legal da MEIA HARD-LOCKED (meia_quota_bps BETWEEN 4000 AND 10000 = 40%–100%, Lei 12.933/2013 + Decreto 8.537/2015, NUNCA < 4000) · nomes canônicos (sem sinônimo setor/sector_capacity/meia_capacity/quota_pct; sem write-path à JSONB event_occupancy_models.config.sectors) · fronteira Bank-free (_cents DECLARADO; sem bank/ledger/porta-01/venda) · writer com espelho do piso + reconciliação max_attendees (SSOT) + autoridade do dono do evento.');
+console.log('✅ audit-event-sector-meia-floor OK — setor SELF-CONTAINED (event_sectors) · piso legal da MEIA HARD-LOCKED (meia_quota_bps BETWEEN 4000 AND 10000 = 40%–100%, Lei 12.933/2013 + Decreto 8.537/2015, NUNCA < 4000) · MEIA = METADE EXATA da inteira (chk_event_sectors_meia_is_half_inteira, SECTOR_MEIA_PRICE_NOT_HALF) · deriveMeiaTicketFloor usa ceil (nunca floor) para o piso/mínimo legal em contagem de ingressos · reconciliação SUM(capacity)<=max_attendees ATÔMICA (transação+advisory lock) tanto na escrita de setor quanto na baixa de max_attendees · RLS (ENABLE+FORCE+policy) · nomes canônicos (sem sinônimo setor/sector_capacity/meia_capacity/quota_pct; sem write-path à JSONB event_occupancy_models.config.sectors) · fronteira Bank-free (_cents DECLARADO; sem bank/ledger/porta-01/venda) · validação de runtime do corpo (HARDEN E6) · autoridade do dono do evento.');

@@ -4,9 +4,11 @@
 // ROTA (espelha a rota de ingresso); este service NÃO re-verifica ownership — só valida regras e delega.
 //
 // Piso legal da MEIA (meia_quota_bps 4000..10000 = 40%–100%) HARD-LOCKED por lei (Lei 12.933/2013 +
-// Decreto 8.537/2015). Reconciliação: SUM(capacity dos setores) reconcilia A events.max_attendees (SSOT),
-// NUNCA ao lado dela. Bank-free: preços são valores DECLARADOS de catálogo (Δbank=0); venda/decremento/
-// check de elegibilidade da meia = PORTA-01 (Fatia 2), FORA.
+// Decreto 8.537/2015). MEIA = METADE EXATA da inteira (não só "mais barata" — ver assertMeiaIsExactlyHalf).
+// Reconciliação: SUM(capacity dos setores) reconcilia A events.max_attendees (SSOT), NUNCA ao lado dela —
+// serializada por transação + advisory lock no repository (createSectorReconciled/updateSectorReconciled)
+// contra a corrida TOCTOU entre o SELECT SUM e o INSERT/UPDATE. Bank-free: preços são valores DECLARADOS
+// de catálogo (Δbank=0); venda/decremento/check de elegibilidade da meia = PORTA-01 (Fatia 2), FORA.
 
 import { AppError } from '@core/errors';
 import {
@@ -35,54 +37,94 @@ class EventSectorService {
     }
   }
 
-  /** meia_price nunca maior que inteira_price (espelho da CHECK chk_event_sectors_meia_le_inteira). */
-  private assertMeiaLeInteira(meiaPriceCents: number, inteiraPriceCents: number): void {
-    if (meiaPriceCents > inteiraPriceCents) {
+  /**
+   * MEIA = METADE EXATA da inteira (Lei 12.933/2013) — espelho da CHECK física
+   * chk_event_sectors_meia_is_half_inteira (meia_price_cents = inteira_price_cents / 2). Divisão
+   * inteira (Math.floor para valores não-negativos) trunca em direção a zero — arredonda a meia PARA
+   * BAIXO quando a inteira é ímpar (nunca para cima): regra sempre favorável ao consumidor. Substitui
+   * o antigo assertMeiaLeInteira (meia <= inteira), que só barrava meia MAIOR e permitia uma falsa
+   * "meia" com apenas 1% de desconto — a lei exige METADE, não "mais barata".
+   */
+  private assertMeiaIsExactlyHalf(meiaPriceCents: number, inteiraPriceCents: number): void {
+    const exactHalf = Math.floor(inteiraPriceCents / 2);
+    if (meiaPriceCents !== exactHalf) {
       throw new AppError(
         400,
-        `SECTOR_MEIA_PRICE_EXCEEDS_INTEIRA: meia_price_cents (${meiaPriceCents}) não pode exceder inteira_price_cents (${inteiraPriceCents}).`,
-        'SECTOR_MEIA_PRICE_EXCEEDS_INTEIRA'
+        `SECTOR_MEIA_PRICE_NOT_HALF: meia_price_cents (${meiaPriceCents}) deve ser EXATAMENTE a metade de inteira_price_cents (${inteiraPriceCents}) — esperado ${exactHalf} (Lei 12.933/2013; divisão inteira arredonda para baixo, favorável ao consumidor). Recebido: ${meiaPriceCents}.`,
+        'SECTOR_MEIA_PRICE_NOT_HALF'
       );
     }
   }
 
   /**
-   * Reconciliação da capacidade (invariante cross-row, writer-enforced): SUM(capacity dos setores já
-   * persistidos, excluindo o próprio no UPDATE) + a nova capacity NÃO pode exceder events.max_attendees.
-   * events.max_attendees é o SSOT do evento inteiro — os setores reconciliam A ELE, nunca ao lado dele.
-   * max_attendees NULL = sem teto declarado (nada a reconciliar).
+   * HARDEN E6 — validação de RUNTIME do corpo (o generic do Fastify é só compile-time; sem isto, um
+   * body malformado — ex.: capacity: "abc" — chegava cru ao Postgres e vazava erro de driver). Roda
+   * ANTES de qualquer query. Mesmo estilo do resto deste service (validate-before-mutate com AppError
+   * + código específico) — não introduz zod/schema novo neste arquivo, que nunca os usou.
    */
-  private async assertCapacityReconciles(
-    tenantId: string,
-    eventId: string,
-    newCapacity: number,
-    excludeSectorId?: string
-  ): Promise<void> {
-    const maxAttendees = await eventSectorRepository.getEventMaxAttendees(tenantId, eventId);
-    if (maxAttendees === null || maxAttendees === undefined) return;
-    const existing = await eventSectorRepository.sumSectorCapacityByEvent(tenantId, eventId, excludeSectorId);
-    const total = existing + newCapacity;
-    if (total > maxAttendees) {
-      throw new AppError(
-        400,
-        `SECTOR_CAPACITY_EXCEEDS_EVENT: a soma da capacidade dos setores (${total}) excede events.max_attendees (${maxAttendees}). Os setores reconciliam A max_attendees (SSOT), nunca ao lado dela.`,
-        'SECTOR_CAPACITY_EXCEEDS_EVENT'
-      );
+  private assertValidSectorBody(input: {
+    sectorNumber?: number;
+    name?: string;
+    capacity?: number;
+    meiaQuotaBps?: number;
+    inteiraPriceCents?: number;
+    meiaPriceCents?: number;
+  }, opts: { partial: boolean }): void {
+    const isPosInt = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v) && v > 0;
+    const isNonNegInt = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v) && v >= 0;
+
+    const fail = (code: string, msg: string): never => {
+      throw new AppError(400, `${code}: ${msg}`, code);
+    };
+
+    if (!opts.partial || input.sectorNumber !== undefined) {
+      if (!isPosInt(input.sectorNumber)) fail('SECTOR_INVALID_SECTOR_NUMBER', 'sectorNumber deve ser um inteiro positivo.');
+    }
+    if (!opts.partial || input.name !== undefined) {
+      if (typeof input.name !== 'string' || input.name.trim() === '') fail('SECTOR_INVALID_NAME', 'name deve ser uma string não-vazia.');
+    }
+    if (!opts.partial || input.capacity !== undefined) {
+      if (!isPosInt(input.capacity)) fail('SECTOR_INVALID_CAPACITY', 'capacity deve ser um inteiro positivo.');
+    }
+    if (input.meiaQuotaBps !== undefined) {
+      // SÓ o FORMATO (inteiro) — o RANGE 40%–100% é regra LEGAL e pertence exclusivamente a
+      // assertMeiaQuotaFloor (SECTOR_MEIA_QUOTA_BELOW_LEGAL_FLOOR), que roda logo em seguida. Duplicar
+      // o range aqui com um código genérico SOMBREARIA a mensagem legal específica (a lei, não um
+      // formato inválido, é o motivo da rejeição) e tornaria assertMeiaQuotaFloor morto para esse caso.
+      if (!Number.isInteger(input.meiaQuotaBps)) {
+        fail('SECTOR_INVALID_MEIA_QUOTA_BPS', 'meiaQuotaBps deve ser um número inteiro (bps).');
+      }
+    }
+    if (!opts.partial || input.inteiraPriceCents !== undefined) {
+      if (!isNonNegInt(input.inteiraPriceCents)) fail('SECTOR_INVALID_INTEIRA_PRICE', 'inteiraPriceCents deve ser um inteiro não-negativo.');
+    }
+    if (!opts.partial || input.meiaPriceCents !== undefined) {
+      if (!isNonNegInt(input.meiaPriceCents)) fail('SECTOR_INVALID_MEIA_PRICE', 'meiaPriceCents deve ser um inteiro não-negativo.');
     }
   }
+
+  // Reconciliação da capacidade (invariante cross-row): SUM(capacity dos setores já persistidos,
+  // excluindo o próprio no UPDATE) + a nova capacity NÃO pode exceder events.max_attendees. events.
+  // max_attendees é o SSOT do evento inteiro — os setores reconciliam A ELE, nunca ao lado dele.
+  // max_attendees NULL = sem teto declarado (nada a reconciliar). BUG D1 (TOCTOU): o SELECT SUM e o
+  // INSERT/UPDATE eram DUAS chamadas separadas (runQueryWithTenant abre um client NOVO por chamada) —
+  // duas criações concorrentes podiam ambas passar o check e ambas inserir, furando a invariante.
+  // A correção agora vive no repository (createSectorReconciled/updateSectorReconciled), NUM ÚNICO
+  // client/transação com pg_advisory_xact_lock por (tenant,event) — mesma casa da trava de
+  // core/events/event.service.ts (createEventBoundToGroup).
 
   async createSector(
     tenantId: string,
     eventId: string,
     input: CreateEventSectorInput
   ): Promise<EventSector> {
+    this.assertValidSectorBody(input, { partial: false });
     // meia_quota_bps ausente = default legal 4000; validamos o valor EFETIVO contra o piso.
     const effectiveQuota = input.meiaQuotaBps ?? MEIA_QUOTA_LEGAL_FLOOR_BPS;
     this.assertMeiaQuotaFloor(effectiveQuota);
-    this.assertMeiaLeInteira(input.meiaPriceCents, input.inteiraPriceCents);
-    await this.assertCapacityReconciles(tenantId, eventId, input.capacity);
+    this.assertMeiaIsExactlyHalf(input.meiaPriceCents, input.inteiraPriceCents);
 
-    return eventSectorRepository.createSector(tenantId, eventId, input);
+    return eventSectorRepository.createSectorReconciled(tenantId, eventId, input);
   }
 
   async updateSector(
@@ -90,6 +132,7 @@ class EventSectorService {
     sectorId: string,
     input: UpdateEventSectorInput
   ): Promise<EventSector> {
+    this.assertValidSectorBody(input, { partial: true });
     const existing = await eventSectorRepository.getSectorById(tenantId, sectorId);
     if (!existing) {
       throw new AppError(404, 'SECTOR_NOT_FOUND: setor não encontrado.', 'SECTOR_NOT_FOUND');
@@ -102,15 +145,19 @@ class EventSectorService {
     const effectiveCapacity = input.capacity ?? existing.capacity;
 
     this.assertMeiaQuotaFloor(effectiveQuota);
-    this.assertMeiaLeInteira(effectiveMeia, effectiveInteira);
-    await this.assertCapacityReconciles(tenantId, existing.eventId, effectiveCapacity, sectorId);
+    this.assertMeiaIsExactlyHalf(effectiveMeia, effectiveInteira);
 
-    return eventSectorRepository.updateSector(tenantId, sectorId, input);
+    return eventSectorRepository.updateSectorReconciled(tenantId, sectorId, existing.eventId, input, effectiveCapacity);
   }
 
   async listSectors(tenantId: string, eventId: string): Promise<EventSector[]> {
     return eventSectorRepository.listSectorsByEvent(tenantId, eventId);
   }
 }
+
+// 🔴 E7 (auditoria blind): updateSector acima é DEAD CODE hoje — zero rota o expõe, zero caller.
+// Qualquer wiring FUTURO de rota para ele PRECISA repetir o gate de ownership (userCanActOnEventOwner
+// sobre event.organizerActorId, manage_events) NA ROTA, espelhando exatamente o padrão já SELADO de
+// POST /events/:id/sectors (events-sprint76.routes.ts) — este service NÃO reverifica autoridade.
 
 export const eventSectorService = new EventSectorService();

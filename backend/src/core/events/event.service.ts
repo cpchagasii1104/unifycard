@@ -9,6 +9,7 @@ import { socialPortsRegistry } from '@core/social/ports-registry';
 import { BadRequestError, NotFoundError, ForbiddenError } from '@core/errors';
 import { assertNeighborhoodRequiresCity, mapAddressTerritorialConstraintError } from '@core/location/address-territorial-errors';
 import { eventModeratorService } from './event-moderator.service';
+import { eventSectorRepository } from '@modules/events/event-sector.repository';
 import type {
   Event,
   CreateEventInput,
@@ -499,6 +500,18 @@ class EventService {
     if (input.maxAttendees !== undefined && input.maxAttendees !== null) {
       if (input.maxAttendees <= 0) {
         throw new BadRequestError('maxAttendees deve ser maior que zero');
+      }
+      // BUG D2 (auditoria blind): baixar max_attendees NÃO reconciliava contra os setores JÁ existentes
+      // (event_sectors.capacity) — um organizador podia criar setores somando 5000 e depois baixar o
+      // teto do evento para 100 por baixo deles, furando a invariante SUM(capacity) <= max_attendees que
+      // o writer de setor (event-sector.repository.createSectorReconciled) enforça DO OUTRO LADO. Setar
+      // maxAttendees = NULL (remover o teto) continua PERMITIDO — é o caso documentado "sem teto
+      // declarado", não um bug; só um valor NÃO-NULO abaixo da soma já persistida é rejeitado.
+      const existingSectorSum = await eventSectorRepository.sumSectorCapacityByEvent(tenantId, eventId);
+      if (input.maxAttendees < existingSectorSum) {
+        throw new BadRequestError(
+          `EVENT_MAX_ATTENDEES_BELOW_SECTOR_CAPACITY: max_attendees (${input.maxAttendees}) não pode ficar abaixo da soma de capacidade dos setores já persistidos (${existingSectorSum}). Os setores reconciliam A max_attendees (SSOT); baixar o teto por baixo deles fura a invariante.`
+        );
       }
     }
 

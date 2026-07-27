@@ -3,14 +3,24 @@
  * preço INTEIRA (cheio) e preço MEIA legalmente pisado. Prova, POR API DIRETA HTTP-real (app.inject na
  * rota REAL — "a verdade vive no backend"), que:
  *   (1) organizador cria evento (max_attendees=5000) e POSTA setor 1 (Arquibancada, cap 5000, quota 4000,
- *       inteira 70000, meia 35000) → 201; a linha persiste + teto de meia derivado = floor(5000*4000/10000)=2000;
+ *       inteira 70000, meia 35000) → 201; a linha persiste + piso legal de ingressos da meia derivado
+ *       via deriveMeiaTicketFloor(5000,4000)=2000 (helper canônico, ceil — ver BUG E2 abaixo);
  *   (2) meia_quota_bps=3000 (30%) → 400 SECTOR_MEIA_QUOTA_BELOW_LEGAL_FLOOR (piso legal: DB CHECK + espelho);
- *   (3) quota 4000 e 10000 (limites) → aceitos;
- *   (4) meia_price_cents > inteira_price_cents → 400 SECTOR_MEIA_PRICE_EXCEEDS_INTEIRA;
+ *   (3) quota 4000 e 10000 (limites) → aceitos (preços EXATAMENTE metade em ambos — BUG E1);
+ *   (4) meia_price_cents ≠ metade EXATA de inteira_price_cents → 400 SECTOR_MEIA_PRICE_NOT_HALF (BUG E1:
+ *       meia tem que ser a METADE EXATA, Lei 12.933/2013 — não só "mais barata"); inclui o caso odd-inteira
+ *       (floor consumer-favorável) e o caso even-inteira (aceito);
  *   (5) segundo setor fazendo SUM(capacity) > max_attendees → 400 SECTOR_CAPACITY_EXCEEDS_EVENT;
  *   (6) preços são DECLARADOS — ZERO linha em ticket_sales / bank / orders;
  *   (7) não-dono → 403 EVENT_SECTOR_ACTOR_NOT_AUTHORIZED, ZERO escrita;
- *   (8) Δbank=0.
+ *   (8) Δbank=0;
+ *   (9) BUG E2: deriveMeiaTicketFloor arredonda o PISO legal PARA CIMA (ceil) — capacity=7,bps=4000 → 3
+ *       (42.9% ≥ 40% ✓), NUNCA floor (que daria 2 = 28.6% < 40%, ILEGAL);
+ *   (10) BUG D1: DUAS criações de setor CONCORRENTES (capacities individualmente OK, somadas excedem
+ *        max_attendees) → exatamente 1 sucesso (201) + 1 rejeição (400 SECTOR_CAPACITY_EXCEEDS_EVENT) —
+ *        prova a transação+advisory lock contra a corrida TOCTOU;
+ *   (11) BUG D2: baixar events.max_attendees por baixo da soma de capacity já persistida em event_sectors
+ *        → 400 EVENT_MAX_ATTENDEES_BELOW_SECTOR_CAPACITY; subir/manter ≥ soma → 200; NULL (remover teto) → 200.
  * DB efêmera. NUNCA unificard_dev.
  */
 
@@ -19,6 +29,8 @@ import Fastify from 'fastify';
 import { pool } from '../core/database/pool';
 import { tenantService } from '../core/tenants/tenant.service';
 import { randomUUID } from 'crypto';
+import { deriveMeiaTicketFloor } from '../modules/events/event-sector.math';
+import { eventService } from '../core/events/event.service';
 
 const EXPECTED = process.env.EXPECTED_DATABASE_NAME || '';
 type Res = { label: string; ok: boolean; reason?: string };
@@ -165,9 +177,10 @@ async function main(): Promise<void> {
       const row = sector1Id
         ? (await pool.query(`SELECT sector_number, name, capacity, meia_quota_bps, inteira_price_cents::bigint AS inteira, meia_price_cents::bigint AS meia FROM event_sectors WHERE id = $1`, [sector1Id])).rows[0]
         : null;
-      // teto de meia derivado = floor(capacity * meia_quota_bps / 10000) — computado no assert (não é coluna).
-      const derivedMeiaCeiling = row ? Math.floor(Number(row.capacity) * Number(row.meia_quota_bps) / 10000) : -1;
-      record('(1) organizador cria setor 1 → 201 + row persiste + teto meia derivado floor(5000*4000/10000)=2000',
+      // BUG E2: piso legal de ingressos da meia = deriveMeiaTicketFloor(capacity, meia_quota_bps) — helper
+      // canônico (ceil), NUNCA Math.floor inline (ver checks (9) abaixo para a prova ceil×floor divergindo).
+      const derivedMeiaCeiling = row ? deriveMeiaTicketFloor(Number(row.capacity), Number(row.meia_quota_bps)) : -1;
+      record('(1) organizador cria setor 1 → 201 + row persiste + piso meia derivado deriveMeiaTicketFloor(5000,4000)=2000',
         r.statusCode === 201 && !!sector1Id && !!row &&
         row.sector_number === 1 && row.name === 'Arquibancada' && Number(row.capacity) === 5000 &&
         Number(row.meia_quota_bps) === 4000 && Number(row.inteira) === 70000 && Number(row.meia) === 35000 &&
@@ -199,24 +212,65 @@ async function main(): Promise<void> {
       });
       const r10000 = await call('POST', `/events/${eventBId}/sectors`, {
         userId: organizer.userId,
-        body: { sectorNumber: 2, name: 'Setor 10000', capacity: 10, meiaQuotaBps: 10000, inteiraPriceCents: 40000, meiaPriceCents: 40000 },
+        body: { sectorNumber: 2, name: 'Setor 10000', capacity: 10, meiaQuotaBps: 10000, inteiraPriceCents: 40000, meiaPriceCents: 20000 },
       });
       record('(3) meia_quota_bps 4000 e 10000 (limites da faixa legal) → aceitos (201)',
         r4000.statusCode === 201 && r10000.statusCode === 201,
         `status4000=${r4000.statusCode} status10000=${r10000.statusCode}`);
     }
 
-    // (4) meia_price_cents > inteira_price_cents → 400. eventB (folga; falha antes da reconciliação).
+    // (4) BUG E1 — meia ≠ METADE EXATA da inteira (Lei 12.933/2013): não basta ser "mais barata".
     {
+      // (4a) meia_price_cents (40000) > inteira_price_cents (30000) → 400. eventB (folga).
       const cBefore = await countSectorsB();
       const r = await call('POST', `/events/${eventBId}/sectors`, {
         userId: organizer.userId,
         body: { sectorNumber: 3, name: 'Invertido', capacity: 10, meiaQuotaBps: 5000, inteiraPriceCents: 30000, meiaPriceCents: 40000 },
       });
       const b = JSON.parse(r.body || '{}');
-      record('(4) meia_price_cents (40000) > inteira_price_cents (30000) → 400 SECTOR_MEIA_PRICE_EXCEEDS_INTEIRA, ZERO escrita',
-        r.statusCode === 400 && b?.code === 'SECTOR_MEIA_PRICE_EXCEEDS_INTEIRA' && (await countSectorsB()) === cBefore,
+      record('(4a) meia_price_cents (40000) > inteira_price_cents (30000) → 400 SECTOR_MEIA_PRICE_NOT_HALF, ZERO escrita',
+        r.statusCode === 400 && b?.code === 'SECTOR_MEIA_PRICE_NOT_HALF' && (await countSectorsB()) === cBefore,
         `status=${r.statusCode} code=${b?.code}`);
+    }
+    {
+      // (4b) fake "meia" de 1% de desconto — inteira=10000, meia=9900 (só "mais barata", NÃO metade
+      // exata = 5000) → 400 SECTOR_MEIA_PRICE_NOT_HALF. Este é o caso EXATO confirmado pela diretora:
+      // hoje (pré-fix) isso passava (9900 <= 10000).
+      const cBefore = await countSectorsB();
+      const r = await call('POST', `/events/${eventBId}/sectors`, {
+        userId: organizer.userId,
+        body: { sectorNumber: 4, name: 'FalsaMeia', capacity: 10, meiaQuotaBps: 4000, inteiraPriceCents: 10000, meiaPriceCents: 9900 },
+      });
+      const b = JSON.parse(r.body || '{}');
+      record('(4b) inteira=10000,meia=9900 (falsa meia, 1% de desconto) → 400 SECTOR_MEIA_PRICE_NOT_HALF, ZERO escrita',
+        r.statusCode === 400 && b?.code === 'SECTOR_MEIA_PRICE_NOT_HALF' && (await countSectorsB()) === cBefore,
+        `status=${r.statusCode} code=${b?.code}`);
+    }
+    {
+      // (4c) EXATAMENTE metade com inteira PAR — inteira=10000, meia=5000 → 201.
+      const r = await call('POST', `/events/${eventBId}/sectors`, {
+        userId: organizer.userId,
+        body: { sectorNumber: 5, name: 'MetadeExataPar', capacity: 10, meiaQuotaBps: 4000, inteiraPriceCents: 10000, meiaPriceCents: 5000 },
+      });
+      record('(4c) inteira=10000 (par), meia=5000 (metade EXATA) → 201',
+        r.statusCode === 201, `status=${r.statusCode} body=${r.body}`);
+    }
+    {
+      // (4d) EXATAMENTE metade com inteira ÍMPAR — inteira=10001, meia=5000 (floor(10001/2)=5000, NUNCA
+      // 5001) → 201. Prova o arredondamento CONSUMER-FAVORÁVEL: a meia arredonda PARA BAIXO, nunca para
+      // cima — 5001 (arredondado para cima) deve ser REJEITADO.
+      const rUp = await call('POST', `/events/${eventBId}/sectors`, {
+        userId: organizer.userId,
+        body: { sectorNumber: 6, name: 'MetadeImparArredondaCima', capacity: 10, meiaQuotaBps: 4000, inteiraPriceCents: 10001, meiaPriceCents: 5001 },
+      });
+      const rDown = await call('POST', `/events/${eventBId}/sectors`, {
+        userId: organizer.userId,
+        body: { sectorNumber: 7, name: 'MetadeImparFloor', capacity: 10, meiaQuotaBps: 4000, inteiraPriceCents: 10001, meiaPriceCents: 5000 },
+      });
+      const bUp = JSON.parse(rUp.body || '{}');
+      record('(4d) inteira ÍMPAR=10001: meia=5001 (arredondado p/ cima) → 400 SECTOR_MEIA_PRICE_NOT_HALF; meia=5000 (floor, consumer-favorável) → 201',
+        rUp.statusCode === 400 && bUp?.code === 'SECTOR_MEIA_PRICE_NOT_HALF' && rDown.statusCode === 201,
+        `up.status=${rUp.statusCode} up.code=${bUp?.code} down.status=${rDown.statusCode}`);
     }
 
     // (5) segundo setor fazendo SUM(capacity) > max_attendees (5000 já usado no setor 1) → 400.
@@ -257,6 +311,76 @@ async function main(): Promise<void> {
     record('(6) preços DECLARADOS — ZERO linha em ticket_sales/orders (venda = PORTA-01, FORA)',
       (await count('ticket_sales')) === ticketSalesBefore && (await count('orders')) === ordersBefore,
       `ticket_sales ${ticketSalesBefore}→${await count('ticket_sales')} orders ${ordersBefore}→${await count('orders')}`);
+
+    // (9) BUG E2 — deriveMeiaTicketFloor arredonda o PISO legal PARA CIMA (ceil), nunca para baixo (floor).
+    // Confirmado: capacity=7,bps=4000 (40%) → ceil=3 (42.9% ≥ 40% ✓); floor daria 2 (28.6% < 40% ✗ ILEGAL).
+    {
+      const ceilResult = deriveMeiaTicketFloor(7, 4000);
+      const floorWouldGive = Math.floor((7 * 4000) / 10000);
+      record('(9) deriveMeiaTicketFloor(7,4000)=3 (ceil, cumpre piso 40%); Math.floor daria 2 (28.6% < 40%, ILEGAL)',
+        ceilResult === 3 && floorWouldGive === 2,
+        `ceil=${ceilResult} floorWouldGive=${floorWouldGive}`);
+    }
+
+    // (10) BUG D1 — concorrência real: DUAS criações de setor CONCORRENTES no MESMO evento, cada uma
+    // individualmente dentro do teto (capacity=6 <= max_attendees=10), mas SOMADAS excedem (12 > 10).
+    // Sem a transação+advisory lock, ambas podiam ler o SUM=0 antes de qualquer INSERT e ambas passar.
+    {
+      const eventConcurrencyId = await seedPublishedEvent(TENANT, organizer.actorId, 10);
+      const countConcurrency = async (): Promise<number> =>
+        Number((await pool.query<{ n: string }>(`SELECT COUNT(*)::int AS n FROM event_sectors WHERE event_id = $1`, [eventConcurrencyId])).rows[0].n);
+
+      const bodyA = { sectorNumber: 1, name: 'Race-A', capacity: 6, meiaQuotaBps: 4000, inteiraPriceCents: 10000, meiaPriceCents: 5000 };
+      const bodyB = { sectorNumber: 2, name: 'Race-B', capacity: 6, meiaQuotaBps: 4000, inteiraPriceCents: 10000, meiaPriceCents: 5000 };
+      const race = await Promise.allSettled([
+        call('POST', `/events/${eventConcurrencyId}/sectors`, { userId: organizer.userId, body: bodyA }),
+        call('POST', `/events/${eventConcurrencyId}/sectors`, { userId: organizer.userId, body: bodyB }),
+      ]);
+      const statuses = race.map((r) => (r.status === 'fulfilled' ? r.value.statusCode : -1));
+      const codes = race.map((r) => {
+        if (r.status !== 'fulfilled') return 'REJECTED';
+        try { return JSON.parse(r.value.body || '{}')?.code ?? null; } catch { return null; }
+      });
+      const succeeded = statuses.filter((s) => s === 201).length;
+      const rejected400 = race.filter((r, i) => r.status === 'fulfilled' && statuses[i] === 400 && codes[i] === 'SECTOR_CAPACITY_EXCEEDS_EVENT').length;
+      const finalCount = await countConcurrency();
+      record('(10) 2 criações de setor CONCORRENTES (6+6=12 > max_attendees=10) → exatamente 1×201 + 1×400 SECTOR_CAPACITY_EXCEEDS_EVENT, ZERO furo da invariante',
+        succeeded === 1 && rejected400 === 1 && finalCount === 1,
+        `statuses=${JSON.stringify(statuses)} codes=${JSON.stringify(codes)} finalCount=${finalCount}`);
+    }
+
+    // (11) BUG D2 — baixar events.max_attendees NÃO reconciliava contra event_sectors já persistidos.
+    // Evento PRÓPRIO (DRAFT — evita a restrição de campos de evento PUBLICADO, ortogonal a este bug) com
+    // 1 setor de capacity=5000 já persistido (SUM=5000). Chamada DIRETA a eventService.updateEvent (mesma
+    // função corrigida — não é uma rota HTTP separada; o objetivo é provar a invariante do SERVICE, não
+    // uma camada de autoridade HTTP já coberta em outros lugares).
+    {
+      const eventD2Id = await seedDraftEvent(TENANT, organizer.actorId, 5000);
+      await call('POST', `/events/${eventD2Id}/sectors`, {
+        userId: organizer.userId,
+        body: { sectorNumber: 1, name: 'SetorD2', capacity: 5000, meiaQuotaBps: 4000, inteiraPriceCents: 10000, meiaPriceCents: 5000 },
+      });
+
+      let rejectedBelow = false;
+      let rejectedMessage = '';
+      try {
+        await eventService.updateEvent(TENANT, eventD2Id, { maxAttendees: 100 }, organizer.actorId);
+      } catch (e) {
+        rejectedBelow = true;
+        rejectedMessage = e instanceof Error ? e.message : String(e);
+      }
+      record('(11a) PATCH max_attendees=100 (< SUM(capacity)=5000 já persistida) → rejeitado EVENT_MAX_ATTENDEES_BELOW_SECTOR_CAPACITY',
+        rejectedBelow && /EVENT_MAX_ATTENDEES_BELOW_SECTOR_CAPACITY/.test(rejectedMessage),
+        `rejected=${rejectedBelow} message=${rejectedMessage}`);
+
+      const upOk = await eventService.updateEvent(TENANT, eventD2Id, { maxAttendees: 6000 }, organizer.actorId);
+      record('(11b) PATCH max_attendees=6000 (≥ SUM(capacity)=5000) → 200, aplicado',
+        upOk.maxAttendees === 6000, `maxAttendees=${upOk.maxAttendees}`);
+
+      const upNull = await eventService.updateEvent(TENANT, eventD2Id, { maxAttendees: null }, organizer.actorId);
+      record('(11c) PATCH max_attendees=null (remove o teto) → 200, PERMITIDO (não é o bug — é o caso "sem teto declarado")',
+        upNull.maxAttendees === null, `maxAttendees=${upNull.maxAttendees}`);
+    }
 
     // (8) Δbank=0.
     const bankAfter = await bankSnap();
