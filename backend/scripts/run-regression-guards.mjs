@@ -201,6 +201,12 @@ const CMDS = [
   "node scripts/audit-regional-fund-fk-canonical.mjs",
   "node scripts/audit-policy-immutability-and-split-snapshot.mjs",
   "node scripts/audit-bank-split-pipeline-consolidation.mjs",
+  // Tripwire GATE read-only (sessão 2026-07-27): o motor LEGADO bank-split-engine.service.ts
+  // segue de pé (deleção de módulo pré-existente = decisão própria, fora de escopo) mas contido —
+  // event_ticket/ride_payment/service_booking creditariam fundo NACIONAL único (getSystemAccount)
+  // sem território, ao contrário do canônico PE-3 (regional_fund_accounts). Só group_contribution
+  // é caller ratificado vivo; qualquer novo caminho de produção pro motor = FAIL fechado.
+  "node scripts/audit-bank-split-engine-context-containment.mjs",
   "node scripts/audit-bank-city-curitiba-foundation.mjs",
   "node scripts/audit-fiscal-provision-engine.mjs",
   "node scripts/audit-fiscal-economic-policy-composition.mjs",
