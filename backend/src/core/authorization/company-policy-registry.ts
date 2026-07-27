@@ -213,6 +213,12 @@ export const COMPANY_POLICY_REGISTRY: Record<PermissionKey, CompanyPolicyEntry> 
   'territory:deactivate_neighborhood': territory(),
   'territory:manage_neighborhood_aliases': territory(),
   'territory:register_neighborhood_succession': territory(),
+
+  // ECONOMIC POLICY (F-ECONOMIC-POLICY-ADMIN-FRONT Fatia 1, DECISION-0166 D6) — autoridade de
+  // REGRA (economic_policies/economic_policy_lines), NUNCA autoridade de dinheiro. Classificada
+  // manual() como as demais admin:view_* — atribuição institucional explícita, nunca por
+  // membership de empresa. NÃO entra em PORTA_HOLD_KEYS (não move dinheiro — ver permission-keys.ts).
+  'economic_policy:manage': manual(),
 };
 
 /**

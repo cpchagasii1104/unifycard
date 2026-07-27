@@ -273,6 +273,14 @@ const CMDS = [
   // composta perdida/enfraquecida, ON DELETE virando CASCADE/RESTRICT, fail-closed perdido, ou
   // category_id virando concept_id (boundary DECISION-0048). Bank-free (Δbank=0).
   "node scripts/audit-economic-policy-territorial-coherence.mjs",
+  // F-ECONOMIC-POLICY-ADMIN-FRONT FATIA 1 (authority key + read-only consumer) — a chave
+  // economic_policy:manage autoriza DEFINIR/LER a regra de split (economic_policies/
+  // economic_policy_lines), NUNCA mover dinheiro (DECISION-0166 D6). Morde: (a) a chave entrar em
+  // PORTA_HOLD_KEYS; (b) a chave e um token de writer do Bank no mesmo arquivo (fronteira RULE≠MONEY);
+  // (c) a rota admin perder requireRole(['admin'])/gate da chave, ou ler tenant de query/body; (d)
+  // qualquer rota de escrita (POST/PUT/PATCH/DELETE) na superfície admin de economic-policy, aqui ou
+  // gateada por esta chave em qualquer outro arquivo (esta fatia é READ-ONLY; escrita = Fatia 3).
+  "node scripts/audit-economic-policy-authority-boundary.mjs",
   // F-RUNNER-COVERAGE-VISIBILITY-ANTI-DRIFT (ROOT-003 R2): meta-guard que torna a cobertura efetiva
   // VISIVEL e FALHA em drift (guard novo sem wiring). Nao executa guards; deriva o alcance das fontes
   // reais (este CMDS[], os 2 agregadores, actor-writer). Deve ser a ULTIMA entrada (le o array acima).

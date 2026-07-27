@@ -15,10 +15,16 @@
 // - Qualquer divergência é erro arquitetural estrutural
 
 /**
- * Permission Keys v1.7
+ * Permission Keys v1.7 (+1 chave fora do ciclo do mapa — ver nota abaixo)
  *
  * Derivado de MAPA_CANONICO_PERMISSIONS_v1.md + DECISION-0189 (governança empresarial)
- * Total: 80 permissions (contagem REAL do union — o '62' histórico estava stale; auditado na F6 da DECISION-0189)
+ * Total: 81 permissions (80 do union v1.7 auditado na F6 da DECISION-0189 + 1:
+ * economic_policy:manage, F-ECONOMIC-POLICY-ADMIN-FRONT Fatia 1, DECISION-0166 D6).
+ *
+ * NOTA (mesma prática já em vigor para territory:* e company:* — nenhuma dessas foi
+ * retro-adicionada a MAPA_CANONICO_PERMISSIONS_v1.md, que está desatualizado desde antes de
+ * DECISION-0189): economic_policy:manage segue o mesmo precedente — declarada aqui + classificada
+ * em COMPANY_POLICY_REGISTRY, com a DECISION citada inline. Ver residual no relatório da fatia.
  *
  * Distribuição por domínio:
  * - feed: 2 permissions
@@ -32,6 +38,7 @@
  * - institutional: 5 permissions (1 original + 4 novas: admin:view_regional_fund, admin:view_consolidated_balance, admin:view_fund_reports, admin:view_audit_logs)
  * - marketplace: 14 permissions (10 originais + 4 novas: MARKETPLACE_STORE_CREATE, MARKETPLACE_STORE_VIEW, MY_ORDERS_VIEW, canonical_products:create)
  * - reports: 3 permissions (1 original + 2 novas: reports:view_operational, dashboard:view)
+ * - economic_policy: 1 permission (economic_policy:manage — Fatia 1 authority key, DECISION-0166 D6)
  */
 export type PermissionKey =
   // FEED (Social)
@@ -144,7 +151,26 @@ export type PermissionKey =
   | 'territory:correct_neighborhood'
   | 'territory:deactivate_neighborhood'
   | 'territory:manage_neighborhood_aliases'
-  | 'territory:register_neighborhood_succession';
+  | 'territory:register_neighborhood_succession'
+
+  // ECONOMIC POLICY (F-ECONOMIC-POLICY-ADMIN-FRONT Fatia 1, 2026-07-27) — CHAVE DE AUTORIDADE
+  // DE REGRA para o futuro front administrativo de percentuais de partilha (por cidade × categoria).
+  //
+  // 🔒 FRONTEIRA (DECISION-0166 D6, textual): "Admin configura policy; admin NÃO move dinheiro.
+  // O Bank executa." Esta chave autoriza DEFINIR/LER a REGRA (economic_policies /
+  // economic_policy_lines) — NUNCA pode gatear um writer do Bank (bankTransactionService,
+  // createTransaction*, transfer, bank_ledger|bank_transactions|bank_splits|bank_accounts).
+  // Boundary vigiada por `backend/scripts/audit-economic-policy-authority-boundary.mjs`.
+  //
+  // Nasce FORA de PORTA_HOLD_KEYS por construção (não move dinheiro) e DEVE permanecer fora —
+  // colocá-la no HOLD travaria a tela de regra atrás da porta de dinheiro (falha inversa).
+  //
+  // Autoridade hoje = platform-admin (DECISION-0177: fundo regional municipal é do platform).
+  // Um FUTURO 2º nível de autoridade (local/comunitário) sobre a regra de uma cidade é questão
+  // EM ABERTO — não decidida, não descartada, não desenhada aqui. Se essa fatia futura existir,
+  // o ponto de extensão é o gate desta rota (economic-policy-admin.routes.ts) e a classificação
+  // abaixo em COMPANY_POLICY_REGISTRY — não inventar um 2º mecanismo paralelo.
+  | 'economic_policy:manage';
 
 /**
  * Mapa de capabilities requeridas por permission
@@ -267,6 +293,11 @@ export const PERMISSION_CAPABILITIES: Record<PermissionKey, string | null> = {
   'territory:deactivate_neighborhood': null,
   'territory:manage_neighborhood_aliases': null,
   'territory:register_neighborhood_succession': null,
+
+  // ECONOMIC POLICY — atribuição manual/institucional (mesmo padrão de admin:view_*); NUNCA por
+  // membership de empresa. Enforcement real da rota é `requireRole(['admin'])` (RBAC V2) — ver
+  // nota de fronteira na declaração da chave acima e no gate da rota admin.
+  'economic_policy:manage': null,
 };
 
 /**

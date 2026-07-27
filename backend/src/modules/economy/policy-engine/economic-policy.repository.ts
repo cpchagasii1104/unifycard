@@ -269,6 +269,35 @@ class EconomicPolicyRepository {
   }
 
   /**
+   * ADMIN READ-ONLY (F-ECONOMIC-POLICY-ADMIN-FRONT Fatia 1, 2026-07-27): lista TODAS as
+   * economic_policies do tenant, qualquer status (inclui draft/deprecated) — a tela admin
+   * precisa enxergar regra ainda não ativa, não só a elegível-agora. Diferente de
+   * findEligiblePolicies (que exige moduleContext + status='active' + janela de vigência —
+   * é o resolver de RUNTIME, não a listagem administrativa).
+   *
+   * tenantId SEMPRE server-side (`req.tenant.id`, nunca query/body do cliente) — ver
+   * economic-policy-admin.routes.ts. Read-only: nenhum write nesta fatia.
+   */
+  async listPoliciesForTenant(tenantId: string): Promise<EconomicPolicy[]> {
+    const rows = await runQueriesWithTenant<EconomicPolicyRow>(
+      tenantId,
+      `
+      SELECT id, tenant_id, policy_code, version, policy_type, module_context,
+             vertical, actor_type, service_type, pricing_model, settlement_flow,
+             country, region, city, country_id, state_id, city_id,
+             category_id, channel, campaign_id,
+             priority, status, effective_from, effective_until,
+             metadata, created_by_actor_id, created_at, updated_at
+        FROM economic_policies
+       WHERE tenant_id = $1::uuid
+       ORDER BY created_at DESC
+      `,
+      [tenantId]
+    );
+    return rows.map(toEconomicPolicy);
+  }
+
+  /**
    * Carrega linhas de uma policy ordenadas por priority asc.
    */
   async findPolicyLines(tenantId: string, policyId: string): Promise<EconomicPolicyLine[]> {
