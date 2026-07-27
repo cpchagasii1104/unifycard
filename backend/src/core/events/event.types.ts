@@ -207,6 +207,10 @@ export interface CreateEventInput {
   // client transacional. Presentes juntos ou ausentes juntos (group_id sem actingUserId → 403).
   group_id?: string;
   actingUserId?: string;
+  // DT-EVENT-CREATE-TIMEZONE-DEFAULTS-UTC: IANA timezone do evento (ex.: "America/Sao_Paulo").
+  // Opcional — omitido preserva o DEFAULT 'UTC' de events.timezone (migration 20260525100000),
+  // exatamente o comportamento de hoje. Quando informado, PERSISTE (antes era sempre descartado).
+  timezone?: string;
 }
 
 /**

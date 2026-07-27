@@ -24,6 +24,9 @@ export interface CreateDraftInput {
     // A1b: contexto de grupo. O cliente só PROJETA o alvo; a AUTORIDADE (representar o group-actor) e o
     // vínculo governado vivem no backend (/v2/create → createEventBoundToGroup, F0-grupo). 403 se sem autoridade.
     group_id?: string;
+    // DT-EVENT-CREATE-TIMEZONE-DEFAULTS-UTC: IANA timezone do evento. Opcional — omitido cai no DEFAULT
+    // 'UTC' do banco (comportamento antigo, preservado).
+    timezone?: string;
   };
   event_id?: string;
 }

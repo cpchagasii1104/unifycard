@@ -189,6 +189,10 @@ export default function EventCreationGuidedFlow({ initialAudienceKeys, groupId }
           actor_type: activeActor.actor_type as 'user' | 'page',
           visibility: visibility,
           title: 'Rascunho de evento',
+          // DT-EVENT-CREATE-TIMEZONE-DEFAULTS-UTC: plataforma regional Brazil-first; sem resolução de
+          // fuso por cidade ainda (residual), então o rascunho já nasce com o fuso correto em vez do
+          // UTC do DEFAULT do banco. Nenhuma UI nova — só o valor enviado ao criar.
+          timezone: 'America/Sao_Paulo',
           // A1b: quando aberto com contexto de grupo (/events/new?group_id=X), PROJETA o alvo ao writer
           // governado; o backend prova a autoridade (representar o group-actor) e cria o vínculo (F0-grupo).
           ...(groupId ? { group_id: groupId } : {}),

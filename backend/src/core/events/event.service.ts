@@ -255,7 +255,13 @@ class EventService {
     // FASE 5: datetimeStart e datetimeEnd são opcionais (ETAPA 0 não requer datas)
     const datetimeStart = input.datetimeStart || null;
     const datetimeEnd = input.datetimeEnd || null;
-    
+    // DT-EVENT-CREATE-TIMEZONE-DEFAULTS-UTC: normalização MÍNIMA e honesta (não é validador de IANA
+    // completo) — mesmo padrão já usado no domínio de eventos para o mesmo tipo de campo opcional
+    // (ver modules/events/events.service.ts#timezoneForRow). String vazia/whitespace é tratada como
+    // "não informado" e cai no MESMO 'UTC' que o DEFAULT da coluna já aplicava — Δ comportamento ZERO
+    // para quem nunca mandou nada; quem manda um valor não-vazio agora o vê persistido.
+    const timezone = (input.timezone && String(input.timezone).trim()) || 'UTC';
+
     const insertEventSql = `
       INSERT INTO events (
         tenant_id,
@@ -267,13 +273,14 @@ class EventService {
         description,
         datetime_start,
         datetime_end,
+        timezone,
         status,
         visibility,
         ticket_price_cents,
         max_attendees,
         metadata
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
       RETURNING *
     `;
     const insertEventParams = [
@@ -286,6 +293,7 @@ class EventService {
       input.description || null,
       datetimeStart,
       datetimeEnd,
+      timezone,
       'draft', // Sempre começa como draft
       visibility,
       input.ticketPriceCents || null,
@@ -464,8 +472,14 @@ class EventService {
 
     // 4. Validar que não está publicado (ou permitir atualização de campos específicos)
     if (event.status === 'published') {
-      // Permitir atualização apenas de campos específicos quando publicado
-      const allowedFields = ['description', 'max_attendees', 'metadata'];
+      // Permitir atualização apenas de campos específicos quando publicado.
+      // DT-EVENT-PUBLISHED-UPDATE-ALLOWLIST-CASE-MISMATCH: `input` é UpdateEventInput — suas chaves
+      // SEMPRE chegam em camelCase (o de-para snake_case→camelCase já ocorre na fronteira HTTP, em
+      // event.routes.ts). Comparar contra nomes em snake_case aqui nunca casava (ex.: `max_attendees`
+      // vs a chave real `maxAttendees`) → hasDisallowedFields dava sempre true e TODO patch a um evento
+      // publicado era rejeitado, mesmo os 3 campos que este allow-list pretende permitir. Fix = mesma
+      // lista conceitual, escrita nos nomes que `Object.keys(input)` realmente produz.
+      const allowedFields = ['description', 'maxAttendees', 'metadata'];
       const hasDisallowedFields = Object.keys(input).some(
         key => !allowedFields.includes(key)
       );

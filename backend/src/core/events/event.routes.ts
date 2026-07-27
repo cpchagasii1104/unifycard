@@ -92,6 +92,8 @@ interface CreateEventBodyRaw {
   ticket_price_cents?: number | null;
   max_attendees?: number | null;
   metadata?: Record<string, unknown> | null;
+  // DT-EVENT-CREATE-TIMEZONE-DEFAULTS-UTC: opcional; omitido preserva o DEFAULT 'UTC' do banco.
+  timezone?: string | null;
 }
 
 function toCreateEventInput(body: CreateEventBodyRaw): CreateEventInput {
@@ -108,6 +110,7 @@ function toCreateEventInput(body: CreateEventBodyRaw): CreateEventInput {
     ticketPriceCents: body.ticket_price_cents ?? undefined,
     maxAttendees: body.max_attendees ?? undefined,
     metadata: body.metadata ?? undefined,
+    timezone: body.timezone ?? undefined,
   };
 }
 
@@ -1429,6 +1432,8 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
             ticket_price_cents: { type: ['integer', 'null'], minimum: 0 },
             max_attendees: { type: ['integer', 'null'], minimum: 1 },
             metadata: { type: ['object', 'null'] },
+            // DT-EVENT-CREATE-TIMEZONE-DEFAULTS-UTC: opcional; omitido preserva o DEFAULT 'UTC' do banco.
+            timezone: { type: ['string', 'null'] },
           },
         },
       },
@@ -2374,6 +2379,8 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
                 visibility: { type: 'string', enum: ['public', 'connections', 'only_me'] },
                 max_attendees: { type: ['number', 'null'] },
                 group_id: { type: ['string', 'null'], format: 'uuid' },
+                // DT-EVENT-CREATE-TIMEZONE-DEFAULTS-UTC: opcional; omitido preserva o DEFAULT 'UTC' do banco.
+                timezone: { type: ['string', 'null'] },
               },
             },
             event_id: { type: ['string', 'null'], format: 'uuid' },
@@ -2440,6 +2447,9 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
                 // autoridade (representar o group-actor) é provada no writer transacional.
                 group_id: rawEvent.group_id ?? rawEvent.groupId ?? rawBody?.group_id ?? undefined,
                 actingUserId: req.user.userId,
+                // DT-EVENT-CREATE-TIMEZONE-DEFAULTS-UTC: opcional; omitido preserva o DEFAULT 'UTC' do
+                // banco (createEvent normaliza e cai no default quando ausente/vazio).
+                timezone: rawEvent.timezone ?? undefined,
               }
             : undefined,
         } as CreateDraftInput;
