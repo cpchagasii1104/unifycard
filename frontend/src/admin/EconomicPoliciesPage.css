@@ -1,0 +1,97 @@
+/* F-ECONOMIC-POLICY-ADMIN-FRONT FATIA 3 — escopo local .econ-policies (CSS hand-rolled, mesmo
+   padrão de ServiceCurationQueue.css / CategoryReviewQueue.css — sem biblioteca de UI). */
+
+.econ-policies { max-width: 1080px; margin: 0 auto; padding: 24px 16px 64px; }
+
+.econ-policies__head h1 { font-size: 1.4rem; margin: 0 0 6px; }
+.econ-policies__head p { color: #556; font-size: 0.9rem; margin: 0 0 14px; max-width: 760px; }
+.econ-policies__head p code { background: #eef0f6; padding: 1px 5px; border-radius: 4px; }
+
+.econ-muted { color: #778; font-size: 0.88rem; }
+.econ-error { color: #b3261e; font-size: 0.9rem; }
+
+.econ-btn {
+  border: 0; border-radius: 8px; padding: 8px 14px; font-size: 0.85rem; cursor: pointer;
+  background: #eef0f6; color: #223;
+}
+.econ-btn:disabled { opacity: 0.5; cursor: default; }
+.econ-btn--primary { background: #1a5fb4; color: #fff; }
+.econ-btn--activate { background: #1a7f37; color: #fff; }
+.econ-btn--danger { background: #fff; color: #b3261e; border: 1px solid #e0b4b0; }
+.econ-btn--ghost { background: transparent; color: #1a5fb4; border: 1px solid #cdd4e6; }
+
+.econ-groups { display: flex; flex-direction: column; gap: 22px; margin-top: 18px; }
+.econ-group__title { font-size: 1.05rem; margin: 0 0 8px; font-family: monospace; color: #333; }
+
+.econ-version-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+
+.econ-version-card {
+  border: 1px solid #e3e6ee; border-radius: 12px; background: #fff; padding: 14px 16px;
+}
+.econ-version-card__head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.econ-version-tag { font-family: monospace; font-weight: 600; color: #334; }
+.econ-version-module { color: #667; font-size: 0.82rem; background: #f3f4f8; padding: 2px 8px; border-radius: 6px; }
+.econ-version-type { color: #667; font-size: 0.82rem; }
+
+.econ-badge { font-size: 0.72rem; font-weight: 700; padding: 3px 9px; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.02em; }
+.econ-badge--active { background: #e3f6e9; color: #1a7f37; }
+.econ-badge--draft { background: #fff3d6; color: #8a5a00; }
+.econ-badge--deprecated { background: #eee; color: #778; }
+
+.econ-version-card__selectors {
+  display: flex; gap: 16px; flex-wrap: wrap; font-size: 0.82rem; color: #556; margin-bottom: 10px;
+}
+
+.econ-lines-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; margin-bottom: 10px; }
+.econ-lines-table th, .econ-lines-table td { text-align: left; padding: 5px 8px; border-bottom: 1px solid #f0f1f5; }
+.econ-lines-table th { color: #889; font-weight: 600; }
+
+.econ-version-card__footer { border-top: 1px dashed #eceef4; padding-top: 8px; }
+.econ-change-reason { font-size: 0.85rem; margin: 0 0 4px; color: #334; }
+.econ-meta { font-size: 0.76rem; color: #889; margin: 0; }
+.econ-meta code { font-family: monospace; }
+
+/* ── Modal do formulário ─────────────────────────────────────────────────────────────────── */
+.econ-modal-backdrop {
+  position: fixed; inset: 0; background: rgba(20, 24, 40, 0.45); display: flex;
+  align-items: flex-start; justify-content: center; padding: 32px 16px; overflow-y: auto; z-index: 50;
+}
+.econ-modal {
+  background: #fff; border-radius: 14px; padding: 22px 24px 26px; max-width: 900px; width: 100%;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+}
+.econ-modal__head { display: flex; flex-direction: column; gap: 4px; margin-bottom: 14px; position: relative; }
+.econ-modal__head h2 { margin: 0; font-size: 1.2rem; }
+.econ-modal__head .econ-btn { position: absolute; top: 0; right: 0; }
+
+.econ-form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px 16px; }
+
+.econ-field { display: flex; flex-direction: column; gap: 4px; font-size: 0.82rem; color: #445; }
+.econ-field span { font-weight: 600; color: #334; }
+.econ-field input, .econ-field select, .econ-field textarea {
+  padding: 7px 10px; border: 1px solid #d5d9e4; border-radius: 8px; font-size: 0.85rem; font-family: inherit;
+}
+.econ-field--wide { grid-column: 1 / -1; margin-top: 14px; }
+.econ-field-hint { align-self: center; margin-top: 4px; }
+
+.econ-advanced { margin-top: 14px; border-top: 1px solid #eceef4; padding-top: 10px; }
+.econ-advanced summary { cursor: pointer; font-size: 0.85rem; color: #1a5fb4; margin-bottom: 8px; }
+
+.econ-lines-title { margin: 18px 0 8px; font-size: 1rem; }
+.econ-lines-editor { display: flex; flex-direction: column; gap: 12px; }
+.econ-line-row { border: 1px solid #e3e6ee; border-radius: 10px; padding: 12px; background: #fafbfd; }
+.econ-line-row__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px 14px; margin-bottom: 8px; }
+
+.econ-sum-indicator {
+  margin-top: 14px; padding: 10px 14px; border-radius: 8px; font-weight: 600; font-size: 0.9rem;
+}
+.econ-sum-indicator--ok { background: #e3f6e9; color: #1a7f37; }
+.econ-sum-indicator--bad { background: #fdecea; color: #b3261e; }
+
+.econ-modal__actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+
+@media (prefers-color-scheme: dark) {
+  .econ-modal { background: #1c1f2b; color: #e6e8f0; }
+  .econ-version-card { background: #1c1f2b; border-color: #2c3040; }
+  .econ-field input, .econ-field select, .econ-field textarea { background: #12141c; border-color: #2c3040; color: #e6e8f0; }
+}
