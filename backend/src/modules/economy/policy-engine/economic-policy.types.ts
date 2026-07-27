@@ -160,6 +160,11 @@ export interface EconomicPolicy {
   effectiveUntil: string | null;
   metadata: Record<string, unknown>;
   createdByActorId: string | null;
+  /** FATIA 2 (2026-07-27) — ARTIGO XI: justificativa do autor para esta versão. Ver
+   *  migration 20260727110000. Mandatório por camada de aplicação no write API admin
+   *  (POST /economy/admin/policies); NULLABLE no schema por compatibilidade com chamadores
+   *  pré-existentes de economicPolicyRepository.createPolicy fora deste escopo. */
+  changeReason: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -321,6 +326,10 @@ export interface CreateEconomicPolicyInput {
   metadata?: Record<string, unknown>;
   createdByActorId?: string | null;
   version?: number;
+  /** FATIA 2 (2026-07-27) — ver EconomicPolicy.changeReason. Opcional aqui (compatibilidade com
+   *  chamadores pré-existentes fora do write API admin); o write API novo sempre o preenche e o
+   *  valida como obrigatório ANTES de chamar o repository (ver assertCreatePolicyVersionRequestValid). */
+  changeReason?: string | null;
 }
 
 export interface CreateEconomicPolicyLineInput {

@@ -1,11 +1,13 @@
 /**
- * E2E — F-ECONOMIC-POLICY-ADMIN-FRONT FATIA 1 (authority key + read-only consumer).
+ * E2E — F-ECONOMIC-POLICY-ADMIN-FRONT FATIA 1 (authority key + read-only consumer) + FATIA 2
+ * (write API versionado).
  *
  * Prova, via HTTP real (app.inject, JWT real, sem frontend), que a chave `economic_policy:manage`
- * (permission-keys.ts) NÃO é vocabulário fantasma: ela gateia de fato o único consumidor desta
- * fatia — `GET /economy/admin/policies` — que lista economic_policies (+ linhas) do tenant
- * autenticado. READ-ONLY: nenhuma escrita é exercida ou possível nesta fatia.
+ * (permission-keys.ts) NÃO é vocabulário fantasma: ela gateia de fato os três consumidores desta
+ * superfície — `GET /economy/admin/policies` (Fatia 1), `POST /economy/admin/policies` e
+ * `POST /economy/admin/policies/:id/activate` (Fatia 2).
  *
+ * FATIA 1 (leitura):
  *   A · ADMIN do tenant GETa a lista → 200, enxerga as próprias policies fixture (draft).
  *   B · NÃO-ADMIN autenticado do MESMO tenant GETa → 403 (assert de autoridade load-bearing).
  *   C · Sem Authorization header → 401.
@@ -14,8 +16,24 @@
  *   E · Δbank = 0 (fatia é Bank-free).
  *   F · Guard estrutural (audit-economic-policy-authority-boundary) verde.
  *
- * As policies seedadas são FIXTURES DE TESTE (status='draft', policy_code prefixado 'e2e-'), SEM
- * nenhum percentual real — a decisão soberana dos números fica para a Fatia 5 (Clayton).
+ * FATIA 2 (escrita versionada):
+ *   G · ADMIN publica uma versão nova com linhas → 201; version=1, createdByActorId=o PRÓPRIO
+ *       actor do admin (self-bound), changeReason persistido.
+ *   H · Artigo V: ativar (draft→active) funciona uma vez (200); tentar ativar de novo a MESMA
+ *       policy (já 'active') → 409 com mensagem clara apontando para publicar versão nova — nunca
+ *       o erro cru do gatilho de imutabilidade do banco.
+ *   I · changeReason ausente/vazio → 400 (Artigo XI).
+ *   J · linhas cuja soma de bps não fecha 10000 → 400.
+ *   K · combinação territorial incoerente (estado de outro país da cidade) → 400 limpo, nunca 500
+ *       (a FK composta da Fatia 0 traduzida honestamente).
+ *   L · NÃO-ADMIN tentando publicar → 403 (mesmo invariante da Fatia 1, agora na escrita).
+ *   M · publicar uma SEGUNDA versão do MESMO policyCode incrementa version (2) e NÃO altera a
+ *       primeira linha (prova de acréscimo apenas — as duas coexistem).
+ *   N · Δbank = 0 ao final de toda a Fatia 2 (nenhuma linha nova em bank_transactions/bank_ledger/
+ *       bank_splits).
+ *
+ * As policies seedadas são FIXTURES DE TESTE (policy_code prefixado 'e2e-'), SEM nenhum
+ * percentual real de produto — a decisão soberana dos números fica para a Fatia 5 (Clayton).
  *
  * 🔒 DB EFÊMERA (wrapper run-economic-policy-authority-ephemeral.ps1). NUNCA unificard_dev.
  */
@@ -187,6 +205,194 @@ async function main(): Promise<void> {
     let guard = false;
     try { execSync('node scripts/audit-economic-policy-authority-boundary.mjs', { cwd, encoding: 'utf8' }); guard = true; } catch { guard = false; }
     record('F guard audit-economic-policy-authority-boundary verde', guard);
+
+    // ══════════════════════════════ FATIA 2 — write API versionado ══════════════════════════════
+    console.log('\n— FATIA 2: write API versionado (POST + ativação) —');
+
+    const bankBeforeFatia2 = await bankSnapshot();
+    const FATIA2_MODULE = 'e2e_fatia2_fixture';
+    const validLines = [
+      { lineType: 'revenue_share', destinationType: 'receiver_actor', bps: 8000, appliesTo: 'gross_transaction' },
+      { lineType: 'platform_fee', destinationType: 'platform_fees', bps: 2000, appliesTo: 'gross_transaction' },
+    ];
+
+    // G · publicação básica → 201, version=1, autor self-bound, changeReason persistido.
+    const codeG = `e2e-fatia2-basic-${Date.now()}`;
+    const rG = await app.inject({
+      method: 'POST',
+      url: '/economy/admin/policies',
+      headers: ADMIN_A.headers,
+      payload: {
+        policyCode: codeG,
+        policyType: 'COMMISSION_SPLIT',
+        moduleContext: FATIA2_MODULE,
+        effectiveFrom: new Date(Date.now() - 60_000).toISOString(),
+        changeReason: 'E2E fixture — comprovação de publicação de versão nova.',
+        lines: validLines,
+      },
+    });
+    const bodyG = rG.statusCode === 201 ? rG.json() : undefined;
+    record(
+      'G publicação básica → 201, version=1, createdByActorId=próprio admin, changeReason persistido, status=draft',
+      rG.statusCode === 201 &&
+        bodyG?.data?.version === 1 &&
+        bodyG?.data?.status === 'draft' &&
+        bodyG?.data?.createdByActorId === ADMIN_A.actorId &&
+        bodyG?.data?.changeReason === 'E2E fixture — comprovação de publicação de versão nova.' &&
+        Array.isArray(bodyG?.data?.lines) &&
+        bodyG.data.lines.length === 2,
+      `status=${rG.statusCode} body=${rG.body?.slice(0, 300)}`
+    );
+    const policyGId: string | undefined = bodyG?.data?.id;
+
+    // H · Artigo V: ativação funciona uma vez; ativar de novo (já active) → 409 limpo.
+    const rH1 = await app.inject({ method: 'POST', url: `/economy/admin/policies/${policyGId}/activate`, headers: ADMIN_A.headers });
+    record('H1 primeira ativação (draft→active) → 200', rH1.statusCode === 200 && rH1.json()?.data?.status === 'active', `status=${rH1.statusCode} body=${rH1.body?.slice(0, 200)}`);
+    const rH2 = await app.inject({ method: 'POST', url: `/economy/admin/policies/${policyGId}/activate`, headers: ADMIN_A.headers });
+    const bodyH2 = rH2.statusCode === 409 ? rH2.json() : undefined;
+    record(
+      'H2 ativar de novo a MESMA policy (já active) → 409 limpo, mensagem aponta para versão nova (não é o erro cru do gatilho de imutabilidade)',
+      rH2.statusCode === 409 && /nova/i.test(String(bodyH2?.message ?? '')) && !/raise_exception|USING ERRCODE/i.test(String(bodyH2?.message ?? '')),
+      `status=${rH2.statusCode} body=${rH2.body?.slice(0, 300)}`
+    );
+
+    // I · changeReason ausente/vazio → 400 (Artigo XI).
+    const rI = await app.inject({
+      method: 'POST',
+      url: '/economy/admin/policies',
+      headers: ADMIN_A.headers,
+      payload: {
+        policyCode: `e2e-fatia2-no-reason-${Date.now()}`,
+        policyType: 'COMMISSION_SPLIT',
+        moduleContext: FATIA2_MODULE,
+        effectiveFrom: new Date(Date.now() - 60_000).toISOString(),
+        changeReason: '',
+        lines: validLines,
+      },
+    });
+    record('I changeReason vazio → 400 (Artigo XI)', rI.statusCode === 400, `status=${rI.statusCode} body=${rI.body?.slice(0, 200)}`);
+
+    // J · linhas cuja soma de bps não fecha 10000 → 400.
+    const rJ = await app.inject({
+      method: 'POST',
+      url: '/economy/admin/policies',
+      headers: ADMIN_A.headers,
+      payload: {
+        policyCode: `e2e-fatia2-bad-sum-${Date.now()}`,
+        policyType: 'COMMISSION_SPLIT',
+        moduleContext: FATIA2_MODULE,
+        effectiveFrom: new Date(Date.now() - 60_000).toISOString(),
+        changeReason: 'E2E fixture — soma de bps deliberadamente incorreta.',
+        lines: [
+          { lineType: 'revenue_share', destinationType: 'receiver_actor', bps: 9000, appliesTo: 'gross_transaction' },
+          { lineType: 'platform_fee', destinationType: 'platform_fees', bps: 2000, appliesTo: 'gross_transaction' },
+        ],
+      },
+    });
+    record('J soma de bps = 11000 (≠10000) → 400', rJ.statusCode === 400, `status=${rJ.statusCode} body=${rJ.body?.slice(0, 250)}`);
+
+    // K · combinação territorial incoerente → 400 limpo, nunca 500.
+    const countryRow = await pool.query<{ country_id: string }>(`SELECT country_id::text AS country_id FROM countries WHERE iso_alpha2 = 'BR' LIMIT 1`);
+    const countryId = countryRow.rows[0]?.country_id;
+    let statusK = -1;
+    let bodyKRaw = '';
+    if (countryId) {
+      const statePR = await pool.query<{ state_id: string }>(`SELECT state_id::text AS state_id FROM states WHERE country_id = $1::uuid AND abbreviation = 'PR' LIMIT 1`, [countryId]);
+      const stateSP = await pool.query<{ state_id: string }>(`SELECT state_id::text AS state_id FROM states WHERE country_id = $1::uuid AND abbreviation = 'SP' LIMIT 1`, [countryId]);
+      const cityCuritiba = statePR.rows[0]
+        ? await pool.query<{ city_id: string }>(`SELECT city_id::text AS city_id FROM cities WHERE state_id = $1::uuid AND name = 'Curitiba' LIMIT 1`, [statePR.rows[0].state_id])
+        : { rows: [] as Array<{ city_id: string }> };
+      if (stateSP.rows[0] && cityCuritiba.rows[0]) {
+        const rK = await app.inject({
+          method: 'POST',
+          url: '/economy/admin/policies',
+          headers: ADMIN_A.headers,
+          payload: {
+            policyCode: `e2e-fatia2-territory-incoherent-${Date.now()}`,
+            policyType: 'COMMISSION_SPLIT',
+            moduleContext: FATIA2_MODULE,
+            countryId,
+            stateId: stateSP.rows[0].state_id, // São Paulo...
+            cityId: cityCuritiba.rows[0].city_id, // ...mas Curitiba pertence ao Paraná — INCOERENTE.
+            effectiveFrom: new Date(Date.now() - 60_000).toISOString(),
+            changeReason: 'E2E fixture — combinação territorial deliberadamente incoerente.',
+            lines: validLines,
+          },
+        });
+        statusK = rK.statusCode;
+        bodyKRaw = rK.body?.slice(0, 250) ?? '';
+      }
+    }
+    record(
+      'K estado de outro país da cidade (FK composta) → 400 limpo (nunca 500)',
+      statusK === 400,
+      `status=${statusK} body=${bodyKRaw}`
+    );
+
+    // L · NÃO-ADMIN tentando publicar → 403 (mesmo invariante da Fatia 1, agora na escrita).
+    const rL = await app.inject({
+      method: 'POST',
+      url: '/economy/admin/policies',
+      headers: NON_ADMIN_A.headers,
+      payload: {
+        policyCode: `e2e-fatia2-non-admin-${Date.now()}`,
+        policyType: 'COMMISSION_SPLIT',
+        moduleContext: FATIA2_MODULE,
+        effectiveFrom: new Date(Date.now() - 60_000).toISOString(),
+        changeReason: 'E2E fixture — não deveria nunca gravar.',
+        lines: validLines,
+      },
+    });
+    record('L NÃO-ADMIN tentando publicar → 403', rL.statusCode === 403, `status=${rL.statusCode}`);
+
+    // M · publicar uma SEGUNDA versão do MESMO policyCode incrementa version e não altera a primeira.
+    const codeM = `e2e-fatia2-versioning-${Date.now()}`;
+    const rM1 = await app.inject({
+      method: 'POST',
+      url: '/economy/admin/policies',
+      headers: ADMIN_A.headers,
+      payload: {
+        policyCode: codeM,
+        policyType: 'COMMISSION_SPLIT',
+        moduleContext: FATIA2_MODULE,
+        effectiveFrom: new Date(Date.now() - 60_000).toISOString(),
+        changeReason: 'E2E fixture — primeira versão desta regra.',
+        lines: validLines,
+      },
+    });
+    const bodyM1 = rM1.statusCode === 201 ? rM1.json() : undefined;
+    const rM2 = await app.inject({
+      method: 'POST',
+      url: '/economy/admin/policies',
+      headers: ADMIN_A.headers,
+      payload: {
+        policyCode: codeM,
+        policyType: 'COMMISSION_SPLIT',
+        moduleContext: FATIA2_MODULE,
+        effectiveFrom: new Date(Date.now() - 30_000).toISOString(),
+        changeReason: 'E2E fixture — segunda versão, ajuste de regra.',
+        lines: validLines,
+      },
+    });
+    const bodyM2 = rM2.statusCode === 201 ? rM2.json() : undefined;
+    record(
+      'M1 segunda publicação do mesmo policyCode → 201, version=2, id diferente da primeira',
+      rM2.statusCode === 201 && bodyM2?.data?.version === 2 && bodyM2?.data?.id !== bodyM1?.data?.id,
+      `statusM1=${rM1.statusCode} statusM2=${rM2.statusCode} v1=${bodyM1?.data?.version} v2=${bodyM2?.data?.version}`
+    );
+
+    const rListM = await app.inject({ method: 'GET', url: '/economy/admin/policies', headers: ADMIN_A.headers });
+    const listM = ((rListM.json()?.data ?? []) as Array<{ id: string; version: number; changeReason: string | null }>);
+    const rowM1 = listM.find((p) => p.id === bodyM1?.data?.id);
+    record(
+      'M2 a PRIMEIRA linha continua presente e intacta após a segunda publicação (acréscimo, não substituição)',
+      !!rowM1 && rowM1.version === 1 && rowM1.changeReason === 'E2E fixture — primeira versão desta regra.',
+      `rowM1=${JSON.stringify(rowM1)}`
+    );
+
+    // N · Δbank = 0 ao final de toda a Fatia 2.
+    const bankAfterFatia2 = await bankSnapshot();
+    record('N Δbank = 0 ao longo de toda a Fatia 2', bankAfterFatia2 === bankBeforeFatia2, `${bankBeforeFatia2} → ${bankAfterFatia2}`);
   } finally {
     await app.close();
   }
@@ -199,7 +405,11 @@ async function main(): Promise<void> {
     await pool.end();
     process.exit(1);
   }
-  console.log('✨ economic_policy:manage não é vocabulário fantasma — gateia de fato GET /economy/admin/policies (admin/não-admin/anônimo/cross-tenant provados); Δbank=0.');
+  console.log(
+    '✨ economic_policy:manage não é vocabulário fantasma — gateia de fato GET/POST /economy/admin/policies ' +
+    'e POST .../activate (admin/não-admin/anônimo/cross-tenant provados; Artigo V sem edição de policy ativa; ' +
+    'Artigo XI changeReason obrigatório; versionamento por acréscimo provado); Δbank=0.'
+  );
   await pool.end();
   process.exit(0);
 }

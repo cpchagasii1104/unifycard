@@ -4,7 +4,8 @@
 // Apenas reads + creates necessários para a fatia substrate.
 // Sem updates/deletes nesta fase (gestão admin é PE-Painel futuro).
 
-import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
+import type { PoolClient } from 'pg';
+import { runQueryWithTenant, runQueriesWithTenant, getClientWithTenant } from '@core/database/pool';
 import type {
   EconomicPolicy,
   EconomicPolicyLine,
@@ -49,6 +50,8 @@ interface EconomicPolicyRow {
   effective_until: Date | null;
   metadata: any;
   created_by_actor_id: string | null;
+  // FATIA 2 (2026-07-27) — ARTIGO XI. Ver migration 20260727110000.
+  change_reason: string | null;
   created_at: Date;
   updated_at: Date;
 }
@@ -137,6 +140,7 @@ function toEconomicPolicy(row: EconomicPolicyRow): EconomicPolicy {
     effectiveUntil: row.effective_until?.toISOString() ?? null,
     metadata: row.metadata ?? {},
     createdByActorId: row.created_by_actor_id,
+    changeReason: row.change_reason ?? null,
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
   };
@@ -229,7 +233,7 @@ class EconomicPolicyRepository {
              country, region, city, country_id, state_id, city_id,
              category_id, channel, campaign_id,
              priority, status, effective_from, effective_until,
-             metadata, created_by_actor_id, created_at, updated_at
+             metadata, created_by_actor_id, change_reason, created_at, updated_at
         FROM economic_policies
        WHERE tenant_id = $1::uuid
          AND module_context = $2
@@ -287,7 +291,7 @@ class EconomicPolicyRepository {
              country, region, city, country_id, state_id, city_id,
              category_id, channel, campaign_id,
              priority, status, effective_from, effective_until,
-             metadata, created_by_actor_id, created_at, updated_at
+             metadata, created_by_actor_id, change_reason, created_at, updated_at
         FROM economic_policies
        WHERE tenant_id = $1::uuid
        ORDER BY created_at DESC
@@ -413,21 +417,21 @@ class EconomicPolicyRepository {
         country, region, city, country_id, state_id, city_id,
         category_id, channel, campaign_id,
         priority, status, effective_from, effective_until,
-        metadata, created_by_actor_id
+        metadata, created_by_actor_id, change_reason
       ) VALUES (
         $1::uuid, $2, $3, $4, $5,
         $6, $7, $8, $9, $10,
         $11, $12, $13, $14::uuid, $15::uuid, $16::uuid,
         $17::uuid, $18, $19::uuid,
         $20, $21, $22, $23,
-        $24::jsonb, $25::uuid
+        $24::jsonb, $25::uuid, $26
       )
       RETURNING id, tenant_id, policy_code, version, policy_type, module_context,
                 vertical, actor_type, service_type, pricing_model, settlement_flow,
                 country, region, city, country_id, state_id, city_id,
                 category_id, channel, campaign_id,
                 priority, status, effective_from, effective_until,
-                metadata, created_by_actor_id, created_at, updated_at
+                metadata, created_by_actor_id, change_reason, created_at, updated_at
       `,
       [
         input.tenantId,
@@ -458,10 +462,204 @@ class EconomicPolicyRepository {
         input.effectiveUntil ?? null,
         JSON.stringify(input.metadata ?? {}),
         input.createdByActorId ?? null,
+        // FATIA 2 (2026-07-27) — ver EconomicPolicy.changeReason; opcional aqui só para não
+        // quebrar chamadores pré-existentes fora do write API admin (ver types.ts).
+        input.changeReason ?? null,
       ]
     );
     if (!row) throw new Error('createPolicy: insert failed');
     return toEconomicPolicy(row);
+  }
+
+  /**
+   * FATIA 2 (F-ECONOMIC-POLICY-ADMIN-FRONT) — cria uma NOVA VERSÃO de policy + suas linhas,
+   * ATOMICAMENTE (uma transação: falha em qualquer INSERT desfaz tudo). Artigo V ("não existe
+   * ajuste administrativo"): esta é a ÚNICA forma de gravar uma regra nova — nunca edita uma
+   * policy existente.
+   *
+   * `version` é SEMPRE calculado aqui (nunca aceito do caller) — MAX(version) do mesmo
+   * (tenant_id, policy_code) + 1, sob `pg_advisory_xact_lock` para serializar publicações
+   * concorrentes do MESMO policy_code no MESMO tenant (o UNIQUE (tenant_id, policy_code, version)
+   * continua como rede de segurança final — ver translatePolicyWriteError na rota).
+   *
+   * `status` sempre nasce 'draft' aqui — ativação é uma transição EXPLÍCITA separada
+   * (ver activatePolicy) e nunca acontece implicitamente na criação.
+   */
+  async createPolicyVersionWithLines(
+    tenantId: string,
+    policyInput: Omit<CreateEconomicPolicyInput, 'tenantId' | 'version' | 'status' | 'country' | 'region' | 'city'> & {
+      changeReason: string;
+    },
+    linesInput: Array<Omit<CreateEconomicPolicyLineInput, 'policyId'>>
+  ): Promise<{ policy: EconomicPolicy; lines: EconomicPolicyLine[] }> {
+    const client: PoolClient = await getClientWithTenant(tenantId);
+    try {
+      await client.query('BEGIN');
+
+      // Serializa por (tenant, policy_code) — o GUC de tenant já isola por tenant; o lock aqui
+      // evita que duas publicações concorrentes do MESMO policy_code calculem a MESMA próxima
+      // versão antes de qualquer uma delas commitar.
+      await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [
+        `economic_policy_version:${tenantId}:${policyInput.policyCode}`,
+      ]);
+
+      const versionRes = await client.query<{ next_version: number }>(
+        `SELECT COALESCE(MAX(version), 0) + 1 AS next_version
+           FROM economic_policies
+          WHERE tenant_id = $1::uuid AND policy_code = $2`,
+        [tenantId, policyInput.policyCode]
+      );
+      const version = versionRes.rows[0]?.next_version ?? 1;
+
+      const policyRes = await client.query<EconomicPolicyRow>(
+        `
+        INSERT INTO economic_policies (
+          tenant_id, policy_code, version, policy_type, module_context,
+          vertical, actor_type, service_type, pricing_model, settlement_flow,
+          country_id, state_id, city_id, category_id, channel, campaign_id,
+          priority, status, effective_from, effective_until,
+          metadata, created_by_actor_id, change_reason
+        ) VALUES (
+          $1::uuid, $2, $3, $4, $5,
+          $6, $7, $8, $9, $10,
+          $11::uuid, $12::uuid, $13::uuid, $14::uuid, $15, $16::uuid,
+          $17, 'draft', $18, $19,
+          $20::jsonb, $21::uuid, $22
+        )
+        RETURNING id, tenant_id, policy_code, version, policy_type, module_context,
+                  vertical, actor_type, service_type, pricing_model, settlement_flow,
+                  country, region, city, country_id, state_id, city_id,
+                  category_id, channel, campaign_id,
+                  priority, status, effective_from, effective_until,
+                  metadata, created_by_actor_id, change_reason, created_at, updated_at
+        `,
+        [
+          tenantId,
+          policyInput.policyCode,
+          version,
+          policyInput.policyType,
+          policyInput.moduleContext,
+          policyInput.vertical ?? null,
+          policyInput.actorType ?? null,
+          policyInput.serviceType ?? null,
+          policyInput.pricingModel ?? null,
+          policyInput.settlementFlow ?? null,
+          policyInput.countryId ?? null,
+          policyInput.stateId ?? null,
+          policyInput.cityId ?? null,
+          policyInput.categoryId ?? null,
+          policyInput.channel ?? null,
+          policyInput.campaignId ?? null,
+          policyInput.priority ?? 0,
+          policyInput.effectiveFrom,
+          policyInput.effectiveUntil ?? null,
+          JSON.stringify(policyInput.metadata ?? {}),
+          policyInput.createdByActorId ?? null,
+          policyInput.changeReason,
+        ]
+      );
+      const policyRow = policyRes.rows[0];
+      if (!policyRow) throw new Error('createPolicyVersionWithLines: policy insert failed');
+
+      const lineRows: EconomicPolicyLineRow[] = [];
+      for (const line of linesInput) {
+        const lineRes = await client.query<EconomicPolicyLineRow>(
+          `
+          INSERT INTO economic_policy_lines (
+            policy_id, line_type, destination_type, destination_key,
+            regional_origin_basis, regional_level,
+            bps, fixed_amount_cents, applies_to,
+            condition_type, condition_json, priority, metadata
+          ) VALUES (
+            $1::uuid, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb, $12, $13::jsonb
+          )
+          RETURNING id, policy_id, line_type, destination_type, destination_key,
+                    regional_origin_basis, regional_level,
+                    bps, fixed_amount_cents::text AS fixed_amount_cents, applies_to,
+                    condition_type, condition_json, priority, metadata, created_at
+          `,
+          [
+            policyRow.id,
+            line.lineType,
+            line.destinationType,
+            line.destinationKey ?? null,
+            line.regionalOriginBasis ?? null,
+            line.regionalLevel ?? null,
+            line.bps ?? null,
+            line.fixedAmountCents ?? null,
+            assertWritableAppliesTo(line.appliesTo),
+            line.conditionType ?? null,
+            JSON.stringify(line.conditionJson ?? {}),
+            line.priority ?? 0,
+            JSON.stringify(line.metadata ?? {}),
+          ]
+        );
+        const lineRow = lineRes.rows[0];
+        if (!lineRow) throw new Error('createPolicyVersionWithLines: line insert failed');
+        lineRows.push(lineRow);
+      }
+
+      await client.query('COMMIT');
+      return { policy: toEconomicPolicy(policyRow), lines: lineRows.map(toEconomicPolicyLine) };
+    } catch (err) {
+      try {
+        await client.query('ROLLBACK');
+      } catch {
+        /* noop — a conexão já está inválida; o erro original é o que importa. */
+      }
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * FATIA 2 — carrega uma policy por id (qualquer status), para a rota de ativação decidir a
+   * mensagem de erro certa (não encontrada vs. status incompatível) sem deixar o erro cru do
+   * banco vazar.
+   */
+  async findPolicyById(tenantId: string, policyId: string): Promise<EconomicPolicy | undefined> {
+    const row = await runQueryWithTenant<EconomicPolicyRow>(
+      tenantId,
+      `
+      SELECT id, tenant_id, policy_code, version, policy_type, module_context,
+             vertical, actor_type, service_type, pricing_model, settlement_flow,
+             country, region, city, country_id, state_id, city_id,
+             category_id, channel, campaign_id,
+             priority, status, effective_from, effective_until,
+             metadata, created_by_actor_id, change_reason, created_at, updated_at
+        FROM economic_policies
+       WHERE id = $1::uuid AND tenant_id = $2::uuid
+      `,
+      [policyId, tenantId]
+    );
+    return row ? toEconomicPolicy(row) : undefined;
+  }
+
+  /**
+   * FATIA 2 — a ÚNICA transição de status que este write API executa: draft → active. Não é uma
+   * edição de campo genérica (Artigo V: não existe ajuste administrativo) — é uma ação de ciclo
+   * de vida própria, condicionada por WHERE status='draft'. Se 0 linhas forem afetadas, a rota
+   * consulta findPolicyById para compor uma mensagem 4xx honesta (não encontrada vs. já não é
+   * mais draft) — o trigger de imutabilidade nunca chega a ser acionado por esta rota.
+   */
+  async activatePolicy(tenantId: string, policyId: string): Promise<EconomicPolicy | undefined> {
+    const row = await runQueryWithTenant<EconomicPolicyRow>(
+      tenantId,
+      `
+      UPDATE economic_policies
+         SET status = 'active'
+       WHERE id = $1::uuid AND tenant_id = $2::uuid AND status = 'draft'
+      RETURNING id, tenant_id, policy_code, version, policy_type, module_context,
+                vertical, actor_type, service_type, pricing_model, settlement_flow,
+                country, region, city, country_id, state_id, city_id,
+                category_id, channel, campaign_id,
+                priority, status, effective_from, effective_until,
+                metadata, created_by_actor_id, change_reason, created_at, updated_at
+      `,
+      [policyId, tenantId]
+    );
+    return row ? toEconomicPolicy(row) : undefined;
   }
 
   async createPolicyLine(

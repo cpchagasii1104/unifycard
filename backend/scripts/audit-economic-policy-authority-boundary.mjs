@@ -1,11 +1,15 @@
 #!/usr/bin/env node
-// audit-economic-policy-authority-boundary.mjs — Guard da F-ECONOMIC-POLICY-ADMIN-FRONT FATIA 1
-// (authority key + read-only consumer).
+// audit-economic-policy-authority-boundary.mjs — Guard da F-ECONOMIC-POLICY-ADMIN-FRONT.
+// FATIA 1 (authority key + read-only consumer) EVOLUÍDO para FATIA 2 (write API versionado) —
+// mesmo guard, escopo estendido (a escrita chegou de forma GOVERNADA; o guard passa a vigiar
+// a DISCIPLINA da escrita, não mais a ausência dela).
 //
-// A chave `economic_policy:manage` (permission-keys.ts) autoriza DEFINIR/LER a REGRA de split
-// (economic_policies/economic_policy_lines) — NUNCA autoriza MOVER DINHEIRO (DECISION-0166 D6:
-// "Admin configura policy; admin NÃO move dinheiro. O Bank executa."). Esta fatia é SÓ leitura
-// (GET /economy/admin/policies); a escrita (Fatia 3) e a tela (Fatia 4) são fatias FUTURAS.
+// A chave `economic_policy:manage` (permission-keys.ts) autoriza DEFINIR/LER a REGRA de divisão
+// de valores (economic_policies/economic_policy_lines) — NUNCA autoriza MOVER DINHEIRO
+// (DECISION-0166 D6: "Admin configura policy; admin NÃO move dinheiro. O Bank executa."). A
+// Fatia 1 era SÓ leitura; a Fatia 2 adiciona a publicação de VERSÕES NOVAS (nunca edição de uma
+// policy existente — Artigo V) e a ativação (draft→active, única transição permitida). A tela
+// (Fatia 4) continua fatia FUTURA.
 //
 // MORDE se:
 //  (a) `economic_policy:manage` aparecer dentro do array PORTA_HOLD_KEYS (company-policy-registry.ts)
@@ -16,14 +20,30 @@
 //      do Bank (bankTransactionService, createTransaction*, transfer, bank_ledger, bank_transactions,
 //      bank_splits, bank_accounts) — a chave gateando um caminho que toca o Bank rompe a fronteira
 //      RULE≠MONEY;
+//  (b2) QUALQUER arquivo do write path desta fatia (rota, repository, validação) referenciar um
+//      token de writer do Bank fora de comentário — mesma fronteira RULE≠MONEY, agora vigiada nos
+//      arquivos de escrita independentemente de conterem o literal da chave;
 //  (c) a rota admin (economic-policy-admin.routes.ts) perder o gate de autoridade REAL
 //      (requireRole(['admin'])) OU o segundo gate explícito da chave (requirePermission(...)), OU
 //      passar a ler o tenant de req.query/req.body em vez de req.tenant.id (mesma disciplina de
 //      DT-INTERNAL-SSOT-ADMIN-TENANT-QUERY-HYGIENE);
-//  (d) uma rota de ESCRITA (POST/PUT/PATCH/DELETE) aparecer na superfície admin de economic-policy
-//      (economic-policy-admin.routes.ts) — esta fatia é READ-ONLY por construção; escrita = Fatia 3,
-//      com seu próprio GATE/GO/proof, nunca introduzida por baixo aqui — OU se, em QUALQUER outro
-//      arquivo do repositório, uma rota de escrita for gateada pela chave sem essa disciplina.
+//  (d) uma rota PUT/PATCH/DELETE aparecer na superfície admin de economic-policy — Artigo V ("não
+//      existe ajuste administrativo"): esta superfície NUNCA edita uma policy existente, só
+//      publica versões novas (POST) e ativa (POST .../activate). Ou se uma rota POST aparecer em
+//      um path diferente dos dois mandatados (drift de superfície não revisado) — OU se, em
+//      QUALQUER outro arquivo do repositório, uma rota de escrita for gateada pela chave sem essa
+//      disciplina;
+//  (e) createdByActorId/tenantId passarem a ser lidos de req.body em vez de
+//      req.actionContext.actorId / req.tenant.id (autoria e tenant sempre server-derived —
+//      Artigo I, "não existem contas-deus");
+//  (f) changeReason deixar de ser obrigatório na validação de escrita (Artigo XI — "emendas
+//      públicas, justificadas, nunca silenciosas");
+//  (g) o repository passar a executar UPDATE em economic_policies fora do padrão exato
+//      "SET status = 'active' ... WHERE ... status = 'draft'" — qualquer outro UPDATE seria uma
+//      edição de policy existente por baixo da trava de imutabilidade (Artigo V);
+//  (h) a função assertPolicyLinesValid (ponto de extensão único de limites) perder a checagem de
+//      faixa de bps (0..10000), a checagem de soma fechando 10000, ou a exigência de linha
+//      revenue_share — a regressão silenciosa do único portão de percentual.
 //
 // Region-anchored (regionBetween, mesmo helper de audit-event-sector-meia-floor.mjs); comment/
 // literal-aware (strip TS antes de qualquer match de código real). Fail-closed.
@@ -61,6 +81,10 @@ const BANK_TOKEN = /\b(bankTransactionService|createTransaction\w*|bank_ledger|b
 const REGISTRY_PATH = 'src/core/authorization/company-policy-registry.ts';
 const ROUTE_PATH = 'src/modules/economy/policy-engine/economic-policy-admin.routes.ts';
 const KEYS_PATH = 'src/core/authorization/permission-keys.ts';
+const REPO_PATH = 'src/modules/economy/policy-engine/economic-policy.repository.ts';
+const VALIDATION_PATH = 'src/modules/economy/policy-engine/economic-policy-write-validation.ts';
+/** Os únicos 3 arquivos do WRITE PATH desta fatia — usados pelos checks (b2)/(e)/(f)/(g)/(h). */
+const WRITE_PATH_FILES = [ROUTE_PATH, REPO_PATH, VALIDATION_PATH];
 
 // ══════════════════════ (a) PORTA_HOLD_KEYS NÃO pode conter a chave ═══════════════════════════
 {
@@ -123,6 +147,19 @@ const KEYS_PATH = 'src/core/authorization/permission-keys.ts';
   }
 }
 
+// ══════════════════════ (b2) RULE≠MONEY nos arquivos do WRITE PATH — independente do literal da chave ═══
+{
+  for (const rel of WRITE_PATH_FILES) {
+    const raw = readOrFail(rel, 'FILE');
+    if (!raw) continue;
+    const code = stripTs(raw);
+    const bk = code.match(BANK_TOKEN);
+    if (bk) {
+      note('RULE-VS-MONEY-WRITE-PATH', `${rel}: token de writer do Bank ('${bk[0]}') encontrado fora de comentário — o write path desta fatia grava REGRA (economic_policies/economic_policy_lines), nunca pode tocar o Bank (RULE≠MONEY, DECISION-0166 D6, Lei 5).`);
+    }
+  }
+}
+
 // ══════════════════════ (c) rota admin: gate real presente + tenant SEMPRE de req.tenant ═══════════
 {
   const raw = readOrFail(ROUTE_PATH, 'FILE');
@@ -144,15 +181,27 @@ const KEYS_PATH = 'src/core/authorization/permission-keys.ts';
   }
 }
 
-// ══════════════════════ (d) esta fatia é READ-ONLY: nenhuma rota de escrita na superfície admin ═══
+// ══════════════════════ (d) Artigo V: nunca PUT/PATCH/DELETE; POST só nos 2 paths mandatados ═══════
 {
   const raw = readOrFail(ROUTE_PATH, 'FILE');
   if (raw) {
     const code = stripTs(raw);
-    const WRITE_METHOD = /fastify\.(post|put|patch|delete)\s*[<(]/;
-    const wm = code.match(WRITE_METHOD);
-    if (wm) {
-      note('WRITE-ROUTE-FORBIDDEN', `${ROUTE_PATH}: método de escrita '${wm[1]}' encontrado — Fatia 1 é READ-ONLY por construção; a escrita (POST/PUT/PATCH/DELETE) é a Fatia 3, com seu próprio GATE/GO/proof (nunca introduzida por baixo aqui).`);
+    const EDIT_METHOD = /fastify\.(put|patch|delete)\s*[<(]/;
+    const em = code.match(EDIT_METHOD);
+    if (em) {
+      note('EDIT-ROUTE-FORBIDDEN', `${ROUTE_PATH}: método de EDIÇÃO '${em[1]}' encontrado — esta superfície nunca edita uma policy existente (Artigo V, "não existe ajuste administrativo"); toda mudança de regra é POST de uma versão nova.`);
+    }
+    const postPaths = [...code.matchAll(/fastify\.post[^(]*\(\s*(['"])([^'"]+)\1/g)].map((m) => m[2]);
+    const ALLOWED_POST_PATHS = new Set(['/admin/policies', '/admin/policies/:id/activate']);
+    for (const p of postPaths) {
+      if (!ALLOWED_POST_PATHS.has(p)) {
+        note('POST-PATH-DRIFT', `${ROUTE_PATH}: POST em path não mandatado '${p}' — os únicos 2 paths de escrita previstos pela Fatia 2 são ${[...ALLOWED_POST_PATHS].join(' e ')}.`);
+      }
+    }
+    for (const expected of ALLOWED_POST_PATHS) {
+      if (!postPaths.includes(expected)) {
+        note('POST-PATH-MISSING', `${ROUTE_PATH}: POST '${expected}' esperado pela Fatia 2 não foi encontrado.`);
+      }
     }
   }
   // Repo-wide: nenhuma OUTRA rota de escrita gateada por esta chave.
@@ -176,7 +225,81 @@ const KEYS_PATH = 'src/core/authorization/permission-keys.ts';
       const code = stripTs(readFileSync(abs, 'utf8'));
       if (!KEY_LITERAL_RE.test(code)) continue;
       if (/fastify\.(post|put|patch|delete)\s*[<(]/.test(code)) {
-        note('WRITE-ROUTE-FORBIDDEN', `${rel}: referencia '${KEY}' e registra rota de ESCRITA — a chave desta fatia só autoriza a superfície READ-ONLY (economic-policy-admin.routes.ts); qualquer escrita é Fatia 3, com GATE/GO próprios.`);
+        note('WRITE-ROUTE-FORBIDDEN', `${rel}: referencia '${KEY}' e registra rota de ESCRITA — o write path desta chave é exclusivamente economic-policy-admin.routes.ts; qualquer outra rota é drift não revisado.`);
+      }
+    }
+  }
+}
+
+// ══════════════════════ (e) autoria/tenant SEMPRE server-derived — nunca do corpo da requisição ═══
+{
+  const raw = readOrFail(ROUTE_PATH, 'FILE');
+  if (raw) {
+    const code = stripTs(raw);
+    // Self-bound (R8F, mesmo padrão de core/plan/plan.routes.ts): actor do PRÓPRIO admin
+    // resolvido de req.user.userId via findByUserId — NUNCA de actionContext.actorId (canal
+    // client-declared, DECISION-0113 canal-1). Ver audit-actor-authority-boundary.mjs.
+    if (!/findByUserId\(\s*tenantId\s*,\s*req\.user\.userId\s*\)/.test(code)) {
+      note('AUTHOR-SOURCE-MISSING', `${ROUTE_PATH}: nenhuma resolução self-bound de actor (findByUserId(tenantId, req.user.userId)) encontrada — created_by_actor_id precisa ser SEMPRE o actor do PRÓPRIO admin autenticado, nunca actionContext.actorId (Artigo I + DECISION-0113 canal-1).`);
+    }
+    if (/actionContext\??\.actorId/.test(code)) {
+      note('AUTHOR-CLIENT-DECLARED-CHANNEL', `${ROUTE_PATH}: actionContext.actorId (canal client-declared) foi reintroduzido — a autoria desta escrita é self-bound (req.user.userId), nunca um actorId declarado pelo cliente (DECISION-0113 canal-1, audit-actor-authority-boundary.mjs).`);
+    }
+    if (/req\.body[^\n;]*createdByActorId/i.test(code) || /req\.body[^\n;]*\.actorId/i.test(code)) {
+      note('AUTHOR-SCOPE-LEAK', `${ROUTE_PATH}: createdByActorId/actorId parece ser lido de req.body — autoria é SEMPRE server-derived (Artigo I, "não existem contas-deus").`);
+    }
+  }
+}
+
+// ══════════════════════ (f) Artigo XI: changeReason obrigatório na validação de escrita ═══════════
+{
+  const raw = readOrFail(VALIDATION_PATH, 'FILE');
+  if (raw) {
+    const code = stripTs(raw);
+    const region = regionBetween(code, 'export function assertCreatePolicyVersionRequestValid', '\n}');
+    if (!region) {
+      note('CHANGE-REASON-REGION', `${VALIDATION_PATH}: função assertCreatePolicyVersionRequestValid não encontrada (marcador ausente).`);
+    } else if (!/changeReason/.test(region) || !/badRequest/.test(region)) {
+      note('CHANGE-REASON-NOT-MANDATORY', `${VALIDATION_PATH}: assertCreatePolicyVersionRequestValid não parece rejeitar changeReason ausente/vazio com HttpError.badRequest — Artigo XI exige justificativa obrigatória em toda versão nova.`);
+    }
+  }
+}
+
+// ══════════════════════ (g) repository: único UPDATE em economic_policies é a ativação draft→active ═
+{
+  const raw = readOrFail(REPO_PATH, 'FILE');
+  if (raw) {
+    const code = stripTs(raw);
+    const updateMatches = [...code.matchAll(/UPDATE\s+economic_policies\b/gi)];
+    for (const m of updateMatches) {
+      // Janela de contexto após o UPDATE (até 400 chars) para validar o padrão exato permitido.
+      const window = code.slice(m.index, m.index + 400);
+      const isActivationPattern =
+        /SET\s+status\s*=\s*'active'/i.test(window) && /status\s*=\s*'draft'/i.test(window);
+      if (!isActivationPattern) {
+        note('UPDATE-BEYOND-ACTIVATION', `${REPO_PATH}: UPDATE em economic_policies fora do padrão exato de ativação (SET status='active' ... WHERE status='draft') — qualquer outro UPDATE seria edição de policy existente por baixo da trava de imutabilidade (Artigo V).`);
+      }
+    }
+  }
+}
+
+// ══════════════════════ (h) assertPolicyLinesValid mantém faixa/soma/revenue_share — ponto de extensão ═
+{
+  const raw = readOrFail(VALIDATION_PATH, 'FILE');
+  if (raw) {
+    const code = stripTs(raw);
+    const region = regionBetween(code, 'export function assertPolicyLinesValid', '\nexport function');
+    if (!region) {
+      note('BPS-VALIDATION-REGION', `${VALIDATION_PATH}: função assertPolicyLinesValid não encontrada (marcador ausente) — o ponto de extensão único de limites precisa existir e ser nomeado assim.`);
+    } else {
+      if (!/[<>]=?\s*10000/.test(region) && !/10000/.test(region)) {
+        note('BPS-RANGE-MISSING', `${VALIDATION_PATH}: assertPolicyLinesValid não parece validar a faixa 0..10000 de bps.`);
+      }
+      if (!/bpsSum\s*!==\s*10000/.test(region) && !/10000/.test(region)) {
+        note('BPS-SUM-MISSING', `${VALIDATION_PATH}: assertPolicyLinesValid não parece exigir que a soma dos bps feche 10000.`);
+      }
+      if (!/revenue_share/.test(region)) {
+        note('REVENUE-SHARE-MISSING', `${VALIDATION_PATH}: assertPolicyLinesValid não parece exigir uma linha revenue_share para absorver o resíduo de arredondamento (K_pe_7).`);
       }
     }
   }
@@ -200,8 +323,11 @@ if (fails.length > 0) {
 }
 console.log(
   "GATE OK [economic-policy-authority-boundary] — 'economic_policy:manage' nasce FORA de " +
-  'PORTA_HOLD_KEYS (RULE≠MONEY); nunca compartilha arquivo com um token de writer do Bank; a rota ' +
-  "admin (economic-policy-admin.routes.ts) mantém requireRole(['admin']) + gate explícito da chave, " +
-  'tenant sempre de req.tenant.id (nunca query/body); superfície é READ-ONLY (zero rota POST/PUT/' +
-  'PATCH/DELETE gateada por esta chave, aqui ou em qualquer outro arquivo).'
+  'PORTA_HOLD_KEYS (RULE≠MONEY); nunca compartilha arquivo com um token de writer do Bank, nos 3 ' +
+  "arquivos do write path; a rota admin mantém requireRole(['admin']) + gate explícito da chave, " +
+  'tenant sempre de req.tenant.id e autor sempre SELF-BOUND (req.user.userId via findByUserId, ' +
+  'nunca actionContext.actorId — DECISION-0113 canal-1); zero rota PUT/PATCH/DELETE (Artigo V); ' +
+  'POST restrito aos 2 paths mandatados (versão nova + ' +
+  'ativação draft→active); changeReason obrigatório (Artigo XI); o único UPDATE em ' +
+  'economic_policies é a ativação; assertPolicyLinesValid preserva faixa/soma/revenue_share.'
 );
