@@ -1,5 +1,35 @@
 # REMEDIATION DT LOG
 
+## GATE-READONLY · INVENTÁRIO GRUPO+INDICAÇÃO — **O MODELO DE CLAYTON JÁ É LEI PROMULGADA** (2026-07-27)
+**Clayton corrigiu a direção: "o sistema já está sendo desenvolvido há muito tempo; use o que já foi feito, não reinvente a roda." A direção havia declarado "falta o resolvedor" e começado a propor mecânica nova (vagas grupo-1/grupo-2, o que fazer com vaga vazia). GATE de INVENTÁRIO-PRIMEIRO-DESENHO-NUNCA aberto para provar o que já existe. Resultado: a correção estava certa, e por margem maior do que a própria direção supunha.**
+
+### 🔴 O ACHADO CENTRAL — o "modelo novo" descrito por Clayton JÁ FOI RATIFICADO POR ELE, EM DOIS DOCUMENTOS
+1. **`docs/01_normative/CONTRATO_GRUPOS_V2.md` — LEI VIGENTE desde 2026-05-31**, com cláusula própria: *"qualquer implementação que contradiga este contrato é BUG por definição"*. Já decide: split de grupo é **fração de receita, não contribuição/depósito** (`:39-45,103-112`); roteamento é **PULL por membership** (é membro? é elegível? prioridade?) com **fallback pro fundo regional da região do usuário**; dois bolsos por grupo. **E revoga explicitamente o modelo que a direção estava prestes a reconstruir:** *"`user_group_allocations` NÃO é fonte do split comunitário (modelo PUSH/declarativo, natureza econômica diferente; tratar como dívida a aposentar ou reclassificar)"* (`:107`).
+2. **`DECISION-0166` D8 (ratificada 2026-07-10)** promulga literalmente o painel que Clayton acabou de descrever: *"o painel admin deve permitir ativar/desativar redirecionamentos: planeta·país·estado·cidade·bairro·indicação·grupos·sistema/expansão… o admin pode ajustar percentuais dentro de limites governados"* (`:178-190`), sempre por nova versão de policy (append-only).
+
+**Consequência de método:** o que Clayton descreveu como desenho de produto **não é frente de desenho — é implementação de norma já promulgada e nunca construída**. A direção estava a um passo de criar uma **segunda verdade** concorrente com a própria lei da casa. Registrado como o **6º modo de falha** da lei histórica (duplicar, não amputar) — o inverso dos 5 casos anteriores, todos de amputação.
+
+### ❌ A PERGUNTA "E SE A VAGA FICAR VAZIA?" JÁ TINHA RESPOSTA — DUAS VEZES
+A direção perguntou a Clayton o que fazer quando o usuário não tem grupo. Fato: **a tabela `user_group_allocations` NÃO EXISTE no banco vivo.** A migration só existe em `backend/migrations_archive/0051_…` — pasta que **o runner oficial não aplica** (`00_AGENT_PROTOCOL §17`; `migrate.ts` só lê `backend/migrations/`). O repositório faz probe explícito (`user-group-allocation.repository.ts:15-20`, `to_regclass`) e retorna `[]` quando ausente, o que faz o passo 3 do motor legado (`bank-split-engine.service.ts:203-206`) **nunca disparar para ninguém**. **Hoje 100% do remanescente pós-indicação cai sempre no `regional_fund`** (passo 4, `:234-257`). Ou seja: o comportamento já é definido, já é fail-safe, e o "buraco de desenho" era inexistente. Violou também `feedback_nao_perguntar_o_que_a_norma_ja_decidiu`.
+
+### ⚠️ CONTRADIÇÃO REAL COM DECISÃO JÁ RATIFICADA — cap de grupos: Clayton disse 2, a norma diz 3
+Clayton falou "até dois grupos". O cap de participação **já é 3**, ratificado (D12/DECISION-0188) e **vivo em produção** com trigger/lock/idempotência (`groups.service.ts:201-215,486-490`). Reduzir para 2 **não é configuração** — contradiz decisão materializada e exigiria decisão soberana nova + migration de dado (usuários com 3 memberships ativas). **Não executar sem ratificação expressa.**
+
+### 🟡 AMBIGUIDADE DE BASE DE CÁLCULO (a mais cara se passar batido)
+Clayton descreveu a fatia do grupo como **"parte do lucro gerado pelo usuário"**. A DECISION-0166 D1 (ratificada) fixa a base como a **comissão UnifiCard**, e a ordem D7 é fiscal → comissão distribuível → fundos/grupos/indicação/sistema. **"Lucro do usuário" e "comissão UnifiCard" podem não ser a mesma base** — e a diferença muda o valor de cada fatia. Precisa ser desambiguado antes de qualquer material.
+
+### ✅ INVENTÁRIO — MOVER, não CONSTRUIR
+- **`referrer_actor_wallet` = MOVER.** A resolução já existe e funciona no motor legado (`bank-split-engine.service.ts:172-200` via `ensureActorWalletAccount`). O PE-3 tem o vocabulário (`economic-policy.types.ts:35`) mas não o resolver (`SUPPORTED_DESTINATION_TYPES`, `service-payment-execution.service.ts:48-53`, fail-closed `:103-108`). Trabalho = portar lógica provada, não autorar.
+- **`group_wallet` = MOVER parcial + 1 peça faltante.** O padrão de wallet já existe e é provado; **a fonte de membership já existe e está VIVA**: `groupActorMembershipRepository.listByMember` (`group-actor-membership.repository.ts:175`), pós-cutover D9.2-B, com `group_members` **CONGELADA read-only desde 2026-07-23**. Falta só a conta `group_community_fund` provisionada (`DT-GROUP-ACTOR-WALLET-NOT-PROVISIONED`, OPEN).
+- **Níveis territoriais (planeta→bairro) = JÁ EXISTEM** (`economic-policy.types.ts:128`). **Tela por cidade/categoria = JÁ EXISTE E ESTÁ WIRED** (`EconomicPoliciesPage.tsx:212-414`, selada hoje).
+- **Indicação: 5% HARDCODED** (`bank-split-engine.service.ts:23`), **janela de 1 ano HARDCODED na leitura** (`referral-helper.service.ts:61-68`). Clayton falou "um ou dois anos"; a DECISION-0139 registra janela de **5 anos como PENDENTE, nunca promulgada** (`:60-67`) — **ninguém pode tratar como decidida**.
+
+### GENUINAMENTE AUSENTE (lista curta e provada)
+Resolver PE-3 para `group_wallet`/`referrer_actor_wallet` · conta `group_community_fund` provisionada · materialização de `line_type='group_allocation'` (existe no enum, allowlist vazia, fail-closed) · dupla-ponta comprador+prestador (coerente com o adiamento do próprio Clayton) · "grupo prioritário" quando o usuário é membro de vários (Camada 3 do CONTRATO_GRUPOS_V2, sem coluna).
+
+### 🔑 PERGUNTAS QUE SÓ CLAYTON RESPONDE
+(1) cap 2 ou 3 (contradiz D12)? (2) base = comissão UnifiCard (D1 ratificada) ou "lucro"? (3) "grupo 1/grupo 2" = fatias fixas do bolo, ou os até-3 grupos dividem a mesma fatia (modelo já revogado)? (4) o percentual herdado 5%/até-3%-grupos/mín-2%-regional (pendência #5 do CONTRATO_GRUPOS_V2) segue válido ou é substituído pelo admin-configurável? (5) confirmar formalmente o adiamento da dupla-ponta, para virar decisão registrada e não lacuna.
+
 ## GATE-READONLY · EXCISÃO DO MOTOR DE SPLIT LEGADO (Porta-01 passo 2) — MAPA + **2 CORREÇÕES À DIREÇÃO** (2026-07-27)
 **Clayton autorizou "apaga o motor inteiro". A direção abriu GATE antes de qualquer escrita. O GATE corrigiu a direção em dois pontos materiais — registrado aqui porque errar o enquadramento de uma operação no dinheiro é o tipo de erro que este cartório existe para não repetir.**
 
