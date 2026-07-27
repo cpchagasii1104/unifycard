@@ -426,11 +426,22 @@ export default function EconomicPoliciesPage() {
   const everyLineHasValue = form.lines.every(
     (l) => (l.valueMode === 'bps' ? l.bps !== null : l.fixedAmountCents !== null)
   );
+  // Espelha EXATAMENTE assertLineShapeValid (economic-policy-write-validation.ts:234-246): toda
+  // linha regional_fund exige regionalLevel; e exige regionalOriginBasis SE não houver
+  // destinationKey. O backend continua a autoridade (fail-closed no 400); isto só evita a viagem
+  // ao servidor para descobrir o mesmo erro.
+  const invalidRegionalFundLines = form.lines.filter(
+    (l) =>
+      l.lineType === 'regional_fund' &&
+      (!l.regionalLevel || (!l.destinationKey.trim() && !l.regionalOriginBasis))
+  );
+  const everyRegionalFundLineValid = invalidRegionalFundLines.length === 0;
 
   const canSubmit =
     hasAnyLine &&
     everyLineHasValue &&
     sumOk &&
+    everyRegionalFundLineValid &&
     form.policyCode.trim().length > 0 &&
     form.moduleContext.trim().length > 0 &&
     form.effectiveFrom.trim().length > 0 &&
@@ -956,6 +967,14 @@ export default function EconomicPoliciesPage() {
                     ? `Total: ${(bpsSum / 100).toFixed(2)}% ✗ — precisa fechar exatamente 100%`
                     : 'Falta uma linha revenue_share entre as linhas percentuais ✗'}
             </div>
+
+            {!everyRegionalFundLineValid && (
+              <div className="econ-sum-indicator econ-sum-indicator--bad">
+                {`Linha(s) regional_fund incompleta(s) (#${invalidRegionalFundLines
+                  .map((l) => form.lines.indexOf(l) + 1)
+                  .join(', #')}) — nível regional é sempre obrigatório; origem regional é obrigatória quando não há chave de destino ✗`}
+              </div>
+            )}
 
             <label className="econ-field econ-field--wide">
               <span>Justificativa da mudança (change_reason) * — obrigatória, vira histórico permanente</span>
