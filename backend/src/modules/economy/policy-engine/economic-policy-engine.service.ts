@@ -32,15 +32,19 @@ import type {
 
 // Lista canônica de seletores opcionais (NULL = any). Specificity =
 // count(seletores NOT NULL na policy).
+//
+// FATIA 0 (2026-07-27, frente economic-policy): country/region/city (TEXT livre) DEPRECATED —
+// substituídos por countryId/stateId/cityId (Location Core governado, FK). Specificity NUNCA
+// mais conta os campos TEXT (ver COMMENT ON COLUMN da migration 20260727100000).
 const SELECTOR_FIELDS: Array<keyof EconomicPolicy> = [
   'vertical',
   'actorType',
   'serviceType',
   'pricingModel',
   'settlementFlow',
-  'country',
-  'region',
-  'city',
+  'countryId',
+  'stateId',
+  'cityId',
   'categoryId',
   'channel',
   'campaignId',

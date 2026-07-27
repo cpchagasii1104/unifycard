@@ -265,6 +265,14 @@ const CMDS = [
   // inalcançável). Morde regressão do 501, contenção movida pra depois de um await, citação DECISION-0190
   // removida, drift no universo de sub-rotas, ou over-broadening nas 3 rotas fora do mapa (advance/GETs).
   "node scripts/audit-economic-v2-containment.mjs",
+  // FATIA 0 (frente economic-policy, MATERIAL) — economic_policies convergiu os seletores
+  // territoriais de TEXTO livre (country/region/city) para o Location Core governado
+  // (country_id/state_id/city_id, FKs simples + compostas hierárquicas MATERIAL mirror de
+  // regional_fund_accounts, ON DELETE SET NULL). country/region/city TEXT ficam DEPRECATED
+  // (COMMENT ON COLUMN, não dropados — Lei 4). Morde regressão de specificity por TEXT, FK
+  // composta perdida/enfraquecida, ON DELETE virando CASCADE/RESTRICT, fail-closed perdido, ou
+  // category_id virando concept_id (boundary DECISION-0048). Bank-free (Δbank=0).
+  "node scripts/audit-economic-policy-territorial-coherence.mjs",
   // F-RUNNER-COVERAGE-VISIBILITY-ANTI-DRIFT (ROOT-003 R2): meta-guard que torna a cobertura efetiva
   // VISIVEL e FALHA em drift (guard novo sem wiring). Nao executa guards; deriva o alcance das fontes
   // reais (este CMDS[], os 2 agregadores, actor-writer). Deve ser a ULTIMA entrada (le o array acima).

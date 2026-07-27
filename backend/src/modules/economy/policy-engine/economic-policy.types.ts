@@ -139,9 +139,18 @@ export interface EconomicPolicy {
   serviceType: string | null;
   pricingModel: string | null;
   settlementFlow: string | null;
+  /** @deprecated FATIA 0 (2026-07-27) — substituído por countryId (Location Core). Não usar em código novo. */
   country: string | null;
+  /** @deprecated FATIA 0 (2026-07-27) — substituído por stateId (Location Core; "region" corresponde a "state"). Não usar em código novo. */
   region: string | null;
+  /** @deprecated FATIA 0 (2026-07-27) — substituído por cityId (Location Core). Não usar em código novo. */
   city: string | null;
+  /** FK governada countries(country_id) — Location Core (DECISION-0020). Seletor territorial canônico. */
+  countryId: string | null;
+  /** FK governada states(state_id) — Location Core (DECISION-0020). Corresponde semanticamente a "region". */
+  stateId: string | null;
+  /** FK governada cities(city_id) — Location Core (DECISION-0020). */
+  cityId: string | null;
   categoryId: string | null;
   channel: string | null;
   campaignId: string | null;
@@ -230,9 +239,18 @@ export interface PolicyResolutionInput {
   serviceType?: string;
   pricingModel?: string;
   settlementFlow?: string;
+  /** @deprecated FATIA 0 (2026-07-27) — substituído por countryId (Location Core). Não usar em código novo. */
   country?: string;
+  /** @deprecated FATIA 0 (2026-07-27) — substituído por stateId (Location Core; "region" corresponde a "state"). Não usar em código novo. */
   region?: string;
+  /** @deprecated FATIA 0 (2026-07-27) — substituído por cityId (Location Core). Não usar em código novo. */
   city?: string;
+  /** FK governada countries(country_id) — Location Core (DECISION-0020). Seletor territorial canônico. */
+  countryId?: string;
+  /** FK governada states(state_id) — Location Core (DECISION-0020). Corresponde semanticamente a "region". */
+  stateId?: string;
+  /** FK governada cities(city_id) — Location Core (DECISION-0020). */
+  cityId?: string;
   categoryId?: string;
   channel?: string;
   campaignId?: string;
@@ -281,9 +299,18 @@ export interface CreateEconomicPolicyInput {
   serviceType?: string | null;
   pricingModel?: string | null;
   settlementFlow?: string | null;
+  /** @deprecated FATIA 0 (2026-07-27) — substituído por countryId (Location Core). Não usar em código novo. */
   country?: string | null;
+  /** @deprecated FATIA 0 (2026-07-27) — substituído por stateId (Location Core; "region" corresponde a "state"). Não usar em código novo. */
   region?: string | null;
+  /** @deprecated FATIA 0 (2026-07-27) — substituído por cityId (Location Core). Não usar em código novo. */
   city?: string | null;
+  /** FK governada countries(country_id) — Location Core (DECISION-0020). Seletor territorial canônico. */
+  countryId?: string | null;
+  /** FK governada states(state_id) — Location Core (DECISION-0020). Corresponde semanticamente a "region". */
+  stateId?: string | null;
+  /** FK governada cities(city_id) — Location Core (DECISION-0020). */
+  cityId?: string | null;
   categoryId?: string | null;
   channel?: string | null;
   campaignId?: string | null;

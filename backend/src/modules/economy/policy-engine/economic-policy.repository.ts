@@ -33,9 +33,13 @@ interface EconomicPolicyRow {
   service_type: string | null;
   pricing_model: string | null;
   settlement_flow: string | null;
+  // DEPRECATED (FATIA 0, 2026-07-27) — substituídos por country_id/state_id/city_id abaixo.
   country: string | null;
   region: string | null;
   city: string | null;
+  country_id: string | null;
+  state_id: string | null;
+  city_id: string | null;
   category_id: string | null;
   channel: string | null;
   campaign_id: string | null;
@@ -121,6 +125,9 @@ function toEconomicPolicy(row: EconomicPolicyRow): EconomicPolicy {
     country: row.country,
     region: row.region,
     city: row.city,
+    countryId: row.country_id,
+    stateId: row.state_id,
+    cityId: row.city_id,
     categoryId: row.category_id,
     channel: row.channel,
     campaignId: row.campaign_id,
@@ -219,7 +226,8 @@ class EconomicPolicyRepository {
       `
       SELECT id, tenant_id, policy_code, version, policy_type, module_context,
              vertical, actor_type, service_type, pricing_model, settlement_flow,
-             country, region, city, category_id, channel, campaign_id,
+             country, region, city, country_id, state_id, city_id,
+             category_id, channel, campaign_id,
              priority, status, effective_from, effective_until,
              metadata, created_by_actor_id, created_at, updated_at
         FROM economic_policies
@@ -233,9 +241,9 @@ class EconomicPolicyRepository {
          AND (service_type IS NULL OR service_type = $6)
          AND (pricing_model IS NULL OR pricing_model = $7)
          AND (settlement_flow IS NULL OR settlement_flow = $8)
-         AND (country IS NULL OR country = $9)
-         AND (region IS NULL OR region = $10)
-         AND (city IS NULL OR city = $11)
+         AND (country_id IS NULL OR country_id = $9::uuid)
+         AND (state_id IS NULL OR state_id = $10::uuid)
+         AND (city_id IS NULL OR city_id = $11::uuid)
          AND (category_id IS NULL OR category_id = $12::uuid)
          AND (channel IS NULL OR channel = $13)
          AND (campaign_id IS NULL OR campaign_id = $14::uuid)
@@ -249,9 +257,9 @@ class EconomicPolicyRepository {
         input.serviceType ?? null,
         input.pricingModel ?? null,
         input.settlementFlow ?? null,
-        input.country ?? null,
-        input.region ?? null,
-        input.city ?? null,
+        input.countryId ?? null,
+        input.stateId ?? null,
+        input.cityId ?? null,
         input.categoryId ?? null,
         input.channel ?? null,
         input.campaignId ?? null,
@@ -373,19 +381,22 @@ class EconomicPolicyRepository {
       INSERT INTO economic_policies (
         tenant_id, policy_code, version, policy_type, module_context,
         vertical, actor_type, service_type, pricing_model, settlement_flow,
-        country, region, city, category_id, channel, campaign_id,
+        country, region, city, country_id, state_id, city_id,
+        category_id, channel, campaign_id,
         priority, status, effective_from, effective_until,
         metadata, created_by_actor_id
       ) VALUES (
         $1::uuid, $2, $3, $4, $5,
         $6, $7, $8, $9, $10,
-        $11, $12, $13, $14::uuid, $15, $16::uuid,
-        $17, $18, $19, $20,
-        $21::jsonb, $22::uuid
+        $11, $12, $13, $14::uuid, $15::uuid, $16::uuid,
+        $17::uuid, $18, $19::uuid,
+        $20, $21, $22, $23,
+        $24::jsonb, $25::uuid
       )
       RETURNING id, tenant_id, policy_code, version, policy_type, module_context,
                 vertical, actor_type, service_type, pricing_model, settlement_flow,
-                country, region, city, category_id, channel, campaign_id,
+                country, region, city, country_id, state_id, city_id,
+                category_id, channel, campaign_id,
                 priority, status, effective_from, effective_until,
                 metadata, created_by_actor_id, created_at, updated_at
       `,
@@ -400,9 +411,15 @@ class EconomicPolicyRepository {
         input.serviceType ?? null,
         input.pricingModel ?? null,
         input.settlementFlow ?? null,
+        // DEPRECATED (FATIA 0): country/region/city TEXT mantidos graváveis apenas para não
+        // quebrar callers históricos ainda não migrados; NÃO participam da specificity do
+        // resolver (ver SELECTOR_FIELDS em economic-policy-engine.service.ts).
         input.country ?? null,
         input.region ?? null,
         input.city ?? null,
+        input.countryId ?? null,
+        input.stateId ?? null,
+        input.cityId ?? null,
         input.categoryId ?? null,
         input.channel ?? null,
         input.campaignId ?? null,
