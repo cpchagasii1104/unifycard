@@ -51,6 +51,10 @@ import {
   assertCreatePolicyVersionRequestValid,
   type CreatePolicyVersionRequestBody,
 } from './economic-policy-write-validation';
+import {
+  REGIONAL_ORIGIN_BASIS_RESOLVABLE_MVP,
+  REGIONAL_FUND_LEVEL_RESOLVABLE_MVP,
+} from './economic-policy.types';
 
 /** Chave de autoridade desta fatia — DECISION-0166 D6 (define REGRA; nunca move dinheiro). */
 const ECONOMIC_POLICY_MANAGE_KEY: PermissionKey = 'economic_policy:manage';
@@ -109,6 +113,34 @@ const economicPolicyAdminRoutes: FastifyPluginAsync = async (fastify) => {
     },
     requirePermission(ECONOMIC_POLICY_MANAGE_KEY),
   ];
+
+  /**
+   * GET /economy/admin/regional-fund-vocabulary
+   * READ-ONLY. Expõe o subconjunto de regionalOriginBasis/regionalLevel que o resolver de
+   * pagamento (service-payment-execution.service.ts, byte-pinned) REALMENTE resolve hoje —
+   * REGIONAL_ORIGIN_BASIS_RESOLVABLE_MVP / REGIONAL_FUND_LEVEL_RESOLVABLE_MVP
+   * (economic-policy.types.ts), a declaração guard-policiada contra o resolver. O painel admin
+   * DEVE construir seus seletores a partir DESTA rota — nunca de uma lista própria — para nunca
+   * oferecer uma combinação que o resolver rejeitaria em tempo de pagamento real. Mesmo gate das
+   * demais rotas desta superfície (é vocabulário de configuração, não dado sensível, mas a
+   * superfície inteira é admin-gated por padrão).
+   */
+  fastify.get(
+    '/admin/regional-fund-vocabulary',
+    { preHandler: adminGate },
+    async (req, reply) => {
+      if (!req.user || !req.tenant?.id) {
+        return reply.status(401).send({ ok: false, message: 'Não autenticado' });
+      }
+      return reply.send({
+        ok: true,
+        data: {
+          regionalOriginBasisResolvable: REGIONAL_ORIGIN_BASIS_RESOLVABLE_MVP,
+          regionalFundLevelResolvable: REGIONAL_FUND_LEVEL_RESOLVABLE_MVP,
+        },
+      });
+    }
+  );
 
   /**
    * GET /economy/admin/policies

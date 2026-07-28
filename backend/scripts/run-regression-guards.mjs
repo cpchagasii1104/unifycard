@@ -210,6 +210,13 @@ const CMDS = [
   "node scripts/audit-bank-city-curitiba-foundation.mjs",
   "node scripts/audit-fiscal-provision-engine.mjs",
   "node scripts/audit-fiscal-economic-policy-composition.mjs",
+  // F-REGIONAL-FUND-PUBLISH-TIME-CONTAINMENT (2026-07-27): o resolver de pagamento
+  // (resolveRegionalFundDestination, byte-pinned pelo guard acima) rejeita 3/7 valores de
+  // regionalOriginBasis e segura (HOLD) o nível neighborhood — sem este guard, a declaração
+  // guard-policiada REGIONAL_ORIGIN_BASIS_RESOLVABLE_MVP/REGIONAL_FUND_LEVEL_RESOLVABLE_MVP
+  // (economic-policy.types.ts) poderia divergir do resolver em silêncio e reabrir o buraco
+  // "policy publicável garantida a falhar quando o dinheiro se move".
+  "node scripts/audit-regional-fund-resolvable-basis-declaration.mjs",
   "node scripts/audit-fiscal-tax-reserve-bank-substrate.mjs",
   "node scripts/audit-b-city-regional-treasury-grant-substrate.mjs",
   "node scripts/audit-group-institutional-binding.mjs",

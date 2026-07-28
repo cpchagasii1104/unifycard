@@ -160,6 +160,16 @@ interface AdminPolicyEnvelope {
   data: EconomicPolicy;
 }
 
+export interface RegionalFundVocabulary {
+  regionalOriginBasisResolvable: RegionalOriginBasis[];
+  regionalFundLevelResolvable: RegionalFundLevel[];
+}
+
+interface RegionalFundVocabularyEnvelope {
+  ok: boolean;
+  data: RegionalFundVocabulary;
+}
+
 /**
  * GET /economy/admin/policies — lista as economic_policies (+linhas) do tenant autenticado.
  * admin-gated no backend (requireRole(['admin']) + economic_policy:manage); 401/403 propagam via
@@ -202,5 +212,19 @@ export async function activateEconomicPolicy(id: string): Promise<EconomicPolicy
     method: 'POST',
   });
   const result: AdminPolicyEnvelope = await response.json();
+  return result.data;
+}
+
+/**
+ * GET /economy/admin/regional-fund-vocabulary — o subconjunto de regionalOriginBasis/
+ * regionalLevel que o resolver de pagamento REALMENTE resolve hoje (declaração guard-policiada
+ * contra o resolver, backend/.../economic-policy.types.ts). O formulário desta tela DEVE construir
+ * os seletores de linha regional_fund a partir desta chamada — nunca de uma lista própria — para
+ * nunca oferecer uma combinação que o backend rejeitaria ao publicar (ou, pior, que o resolver
+ * rejeitaria só quando o dinheiro já estivesse se movendo).
+ */
+export async function getRegionalFundVocabulary(): Promise<RegionalFundVocabulary> {
+  const response = await apiFetch('/economy/admin/regional-fund-vocabulary');
+  const result: RegionalFundVocabularyEnvelope = await response.json();
   return result.data;
 }

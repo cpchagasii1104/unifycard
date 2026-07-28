@@ -393,6 +393,153 @@ async function main(): Promise<void> {
     // N · Δbank = 0 ao final de toda a Fatia 2.
     const bankAfterFatia2 = await bankSnapshot();
     record('N Δbank = 0 ao longo de toda a Fatia 2', bankAfterFatia2 === bankBeforeFatia2, `${bankBeforeFatia2} → ${bankAfterFatia2}`);
+
+    // ═══════════════ F-REGIONAL-FUND-PUBLISH-TIME-CONTAINMENT (2026-07-27) ══════════════════
+    // Clayton podia publicar (201) uma regional_fund line cujo basis/level o resolver de
+    // pagamento (byte-pinned) rejeita incondicionalmente — a policy nasceria garantida a falhar
+    // quando o dinheiro se movesse. O + P + Q provam que a fronteira de publicação agora barra
+    // isso ANTES da gravação, e que o painel tem de onde ler o vocabulário resolvível real.
+    console.log('\n— REGIONAL-FUND-PUBLISH-TIME-CONTAINMENT: fail-closed no publish + vocabulário server-driven —');
+    const bankBeforeRF = await bankSnapshot();
+    const countRfLines = async (code: string): Promise<number> =>
+      count(
+        `SELECT count(*)::text n FROM economic_policy_lines l
+           JOIN economic_policies p ON p.id = l.policy_id
+          WHERE p.policy_code = $1`,
+        [code]
+      );
+
+    // O · regionalOriginBasis='service_location' (resolver rejeita incondicionalmente,
+    //     POLICY_BASIS_UNSUPPORTED_MVP) → 400 no PUBLISH, mensagem pt-BR clara, ZERO linhas gravadas.
+    const codeO = `e2e-regional-fund-unsupported-basis-${Date.now()}`;
+    const rO = await app.inject({
+      method: 'POST',
+      url: '/economy/admin/policies',
+      headers: ADMIN_A.headers,
+      payload: {
+        policyCode: codeO,
+        policyType: 'COMMISSION_SPLIT',
+        moduleContext: FATIA2_MODULE,
+        effectiveFrom: new Date(Date.now() - 60_000).toISOString(),
+        changeReason: 'E2E fixture — regional_fund com basis NÃO resolvível (service_location).',
+        lines: [
+          { lineType: 'revenue_share', destinationType: 'receiver_actor', bps: 8000, appliesTo: 'gross_transaction' },
+          {
+            lineType: 'regional_fund',
+            destinationType: 'regional_fund',
+            regionalOriginBasis: 'service_location',
+            regionalLevel: 'city',
+            bps: 2000,
+            appliesTo: 'gross_transaction',
+          },
+        ],
+      },
+    });
+    const bodyO = (() => { try { return rO.json(); } catch { return undefined; } })();
+    const rowsO = await countRfLines(codeO);
+    record(
+      "O regionalOriginBasis='service_location' (não resolvível hoje) → 400 pt-BR no publish, zero linhas gravadas",
+      rO.statusCode === 400 &&
+        /economic_policy:/.test(String(bodyO?.message ?? '')) &&
+        /service_location/.test(String(bodyO?.message ?? '')) &&
+        /não é resolvível/.test(String(bodyO?.message ?? '')) &&
+        rowsO === 0,
+      `status=${rO.statusCode} rows=${rowsO} body=${rO.body?.slice(0, 300)}`
+    );
+
+    // P · regionalLevel='neighborhood' (HOLD 501 no resolver) → 400 no PUBLISH também.
+    const codeP0 = `e2e-regional-fund-neighborhood-hold-${Date.now()}`;
+    const rP0 = await app.inject({
+      method: 'POST',
+      url: '/economy/admin/policies',
+      headers: ADMIN_A.headers,
+      payload: {
+        policyCode: codeP0,
+        policyType: 'COMMISSION_SPLIT',
+        moduleContext: FATIA2_MODULE,
+        effectiveFrom: new Date(Date.now() - 60_000).toISOString(),
+        changeReason: 'E2E fixture — regional_fund com level em HOLD (neighborhood).',
+        lines: [
+          { lineType: 'revenue_share', destinationType: 'receiver_actor', bps: 8000, appliesTo: 'gross_transaction' },
+          {
+            lineType: 'regional_fund',
+            destinationType: 'regional_fund',
+            regionalOriginBasis: 'payer_identity_residence',
+            regionalLevel: 'neighborhood',
+            bps: 2000,
+            appliesTo: 'gross_transaction',
+          },
+        ],
+      },
+    });
+    const bodyP0 = (() => { try { return rP0.json(); } catch { return undefined; } })();
+    const rowsP0 = await countRfLines(codeP0);
+    record(
+      "P0 regionalLevel='neighborhood' (HOLD no resolver) → 400 pt-BR no publish, zero linhas gravadas",
+      rP0.statusCode === 400 && /HOLD/.test(String(bodyP0?.message ?? '')) && rowsP0 === 0,
+      `status=${rP0.statusCode} rows=${rowsP0} body=${rP0.body?.slice(0, 300)}`
+    );
+
+    // P · regionalOriginBasis='payer_identity_residence' + regionalLevel='city' (AMBOS resolvíveis)
+    //     → 201, publica normalmente (Δ=0 no caminho suportado — nada regrediu para quem já era válido).
+    const codeP = `e2e-regional-fund-resolvable-${Date.now()}`;
+    const rP = await app.inject({
+      method: 'POST',
+      url: '/economy/admin/policies',
+      headers: ADMIN_A.headers,
+      payload: {
+        policyCode: codeP,
+        policyType: 'COMMISSION_SPLIT',
+        moduleContext: FATIA2_MODULE,
+        effectiveFrom: new Date(Date.now() - 60_000).toISOString(),
+        changeReason: 'E2E fixture — regional_fund com basis+level resolvíveis (payer_identity_residence + city).',
+        lines: [
+          { lineType: 'revenue_share', destinationType: 'receiver_actor', bps: 8000, appliesTo: 'gross_transaction' },
+          {
+            lineType: 'regional_fund',
+            destinationType: 'regional_fund',
+            regionalOriginBasis: 'payer_identity_residence',
+            regionalLevel: 'city',
+            bps: 2000,
+            appliesTo: 'gross_transaction',
+          },
+        ],
+      },
+    });
+    const bodyP = rP.statusCode === 201 ? rP.json() : undefined;
+    const rowsP = await countRfLines(codeP);
+    record(
+      "P regionalOriginBasis='payer_identity_residence' + regionalLevel='city' (ambos resolvíveis) → 201, 2 linhas gravadas",
+      rP.statusCode === 201 && bodyP?.data?.status === 'draft' && rowsP === 2,
+      `status=${rP.statusCode} rows=${rowsP} body=${rP.body?.slice(0, 300)}`
+    );
+
+    // Q · GET /economy/admin/regional-fund-vocabulary → 200, exatamente o subconjunto resolvível
+    //     (nunca os 7/5 físicos inteiros) — é a fonte que o painel admin usa para montar o seletor.
+    const rQ = await app.inject({ method: 'GET', url: '/economy/admin/regional-fund-vocabulary', headers: ADMIN_A.headers });
+    const bodyQ = rQ.statusCode === 200 ? rQ.json() : undefined;
+    const basisQ: string[] = bodyQ?.data?.regionalOriginBasisResolvable ?? [];
+    const levelQ: string[] = bodyQ?.data?.regionalFundLevelResolvable ?? [];
+    record(
+      'Q GET /economy/admin/regional-fund-vocabulary → 200, basis resolvível = 4 valores (service_location/transaction_location/explicit_economic_region EXCLUÍDOS)',
+      rQ.statusCode === 200 &&
+        basisQ.length === 4 &&
+        basisQ.includes('payer_identity_residence') &&
+        !basisQ.includes('service_location') &&
+        !basisQ.includes('transaction_location') &&
+        !basisQ.includes('explicit_economic_region'),
+      `status=${rQ.statusCode} basis=${JSON.stringify(basisQ)}`
+    );
+    record(
+      "Q2 level resolvível = 4 valores (neighborhood EXCLUÍDO)",
+      levelQ.length === 4 && levelQ.includes('city') && !levelQ.includes('neighborhood'),
+      `level=${JSON.stringify(levelQ)}`
+    );
+    const rQNoAuth = await app.inject({ method: 'GET', url: '/economy/admin/regional-fund-vocabulary' });
+    record('Q3 sem Authorization → 401 (mesmo gate das demais rotas admin)', rQNoAuth.statusCode === 401, `status=${rQNoAuth.statusCode}`);
+
+    const bankAfterRF = await bankSnapshot();
+    record('R Δbank = 0 em todo o bloco regional-fund-publish-time-containment', bankAfterRF === bankBeforeRF, `${bankBeforeRF} → ${bankAfterRF}`);
   } finally {
     await app.close();
   }

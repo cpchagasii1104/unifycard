@@ -31,6 +31,7 @@ import {
   listEconomicPolicies,
   createEconomicPolicyVersion,
   activateEconomicPolicy,
+  getRegionalFundVocabulary,
   type EconomicPolicy,
   type EconomicPolicyLine,
   type EconomicPolicyLineType,
@@ -38,6 +39,7 @@ import {
   type EconomicPolicyAppliesToWritable,
   type RegionalOriginBasis,
   type RegionalFundLevel,
+  type RegionalFundVocabulary,
   type EconomicPolicyType,
   type PolicyLineRequestBody,
   type CreatePolicyVersionRequestBody,
@@ -86,11 +88,18 @@ const APPLIES_TO: { value: EconomicPolicyAppliesToWritable; label: string }[] = 
 
 // ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
 // ║ STATUS:  CONTIDO
-// ║ NORMA:   backend/.../service-payment-execution.service.ts (resolver, byte-pinned)
-// ║ NÃO:     assumir que os 7 valores abaixo resolvem em pagamento real (3 não têm fonte material)
-// ║ EM VEZ:  ver relatório da executora 2026-07-27 (POLICY_BASIS_UNSUPPORTED_MVP) antes de publicar
+// ║ NORMA:   backend/.../economic-policy.types.ts (REGIONAL_*_RESOLVABLE_MVP, guard-policiada)
+// ║ NÃO:     usar os 7/5 valores abaixo como OPÇÕES do seletor — são só texto de rótulo (pt-BR)
+// ║ EM VEZ:  seletor filtra por regionalVocab (GET /economy/admin/regional-fund-vocabulary)
 // ╚════════════════════════════════════════════════════════════════
-const REGIONAL_ORIGIN_BASIS: { value: RegionalOriginBasis; label: string }[] = [
+//
+// Os dois arrays abaixo são DICIONÁRIOS DE RÓTULO (pt-BR), não a lista de opções oferecidas — eles
+// cobrem os 7/5 valores FÍSICOS (para rotular histórico antigo, caso alguma linha rara já tenha um
+// basis/level hoje não resolvível) mas o formulário NUNCA itera sobre eles diretamente para montar
+// as opções de um <select>; ele itera sobre `regionalVocab` (estado carregado do backend via
+// getRegionalFundVocabulary — ver useEffect abaixo), e usa labelFor(REGIONAL_ORIGIN_BASIS_LABELS, …)
+// só para traduzir o value já filtrado em texto legível.
+const REGIONAL_ORIGIN_BASIS_LABELS: { value: RegionalOriginBasis; label: string }[] = [
   { value: 'payer_identity_residence', label: 'Residência de identidade do pagador' },
   { value: 'receiver_identity_residence', label: 'Residência de identidade do recebedor' },
   { value: 'receiver_company_operational', label: 'Operação da empresa recebedora' },
@@ -100,7 +109,7 @@ const REGIONAL_ORIGIN_BASIS: { value: RegionalOriginBasis; label: string }[] = [
   { value: 'explicit_economic_region', label: 'Região econômica explícita' },
 ];
 
-const REGIONAL_LEVELS: { value: RegionalFundLevel; label: string }[] = [
+const REGIONAL_LEVEL_LABELS: { value: RegionalFundLevel; label: string }[] = [
   { value: 'planet', label: 'Planeta' },
   { value: 'country', label: 'País' },
   { value: 'state', label: 'Estado' },
@@ -308,6 +317,11 @@ export default function EconomicPoliciesPage() {
   const [categoryOptions, setCategoryOptions] = useState<{ id: string; label: string }[]>([]);
   const [categoryPickerBlocked, setCategoryPickerBlocked] = useState(false);
 
+  // Vocabulário RESOLVÍVEL de regional_fund (basis/level) — SEMPRE server-driven (GET
+  // /economy/admin/regional-fund-vocabulary), NUNCA uma lista própria desta tela (ver ORIENTAÇÃO
+  // CANÔNICA acima). null enquanto carrega; o seletor fica desabilitado até chegar.
+  const [regionalVocab, setRegionalVocab] = useState<RegionalFundVocabulary | null>(null);
+
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<FormDraft>(emptyForm());
 
@@ -336,6 +350,20 @@ export default function EconomicPoliciesPage() {
     void (async () => {
       const list = await getCountries();
       setCountries(list);
+    })();
+  }, []);
+
+  // Vocabulário RESOLVÍVEL de regional_fund — carregado uma vez do backend (fonte única; ver
+  // ORIENTAÇÃO CANÔNICA acima). Falha silenciosa deixa regionalVocab null — o seletor fica
+  // desabilitado em vez de cair para uma lista local inventada.
+  useEffect(() => {
+    void (async () => {
+      try {
+        const vocab = await getRegionalFundVocabulary();
+        setRegionalVocab(vocab);
+      } catch {
+        setRegionalVocab(null);
+      }
     })();
   }, []);
 
@@ -942,24 +970,32 @@ export default function EconomicPoliciesPage() {
                           <select
                             value={line.regionalLevel}
                             onChange={(e) => updateLine(line.key, { regionalLevel: e.target.value as RegionalFundLevel })}
+                            disabled={!regionalVocab}
                           >
                             <option value="">— selecione —</option>
-                            {REGIONAL_LEVELS.map((t) => (
-                              <option key={t.value} value={t.value}>{t.label}</option>
+                            {(regionalVocab?.regionalFundLevelResolvable ?? []).map((value) => (
+                              <option key={value} value={value}>{labelFor(REGIONAL_LEVEL_LABELS, value)}</option>
                             ))}
                           </select>
+                          {!regionalVocab && (
+                            <span className="econ-muted econ-field-hint">Carregando níveis resolvíveis…</span>
+                          )}
                         </label>
                         <label className="econ-field">
                           <span>Origem regional (se sem chave de destino) *</span>
                           <select
                             value={line.regionalOriginBasis}
                             onChange={(e) => updateLine(line.key, { regionalOriginBasis: e.target.value as RegionalOriginBasis })}
+                            disabled={!regionalVocab}
                           >
                             <option value="">— selecione —</option>
-                            {REGIONAL_ORIGIN_BASIS.map((t) => (
-                              <option key={t.value} value={t.value}>{t.label}</option>
+                            {(regionalVocab?.regionalOriginBasisResolvable ?? []).map((value) => (
+                              <option key={value} value={value}>{labelFor(REGIONAL_ORIGIN_BASIS_LABELS, value)}</option>
                             ))}
                           </select>
+                          {!regionalVocab && (
+                            <span className="econ-muted econ-field-hint">Carregando origens resolvíveis…</span>
+                          )}
                         </label>
                       </>
                     )}

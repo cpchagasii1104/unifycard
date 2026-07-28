@@ -21,6 +21,8 @@
 import { HttpError } from '@core/errors/http-error';
 import {
   ECONOMIC_POLICY_APPLIES_TO_WRITABLE,
+  REGIONAL_ORIGIN_BASIS_RESOLVABLE_MVP,
+  REGIONAL_FUND_LEVEL_RESOLVABLE_MVP,
   type EconomicPolicyLineType,
   type EconomicPolicyDestinationType,
   type RegionalOriginBasis,
@@ -56,9 +58,10 @@ const DESTINATION_TYPES: readonly EconomicPolicyDestinationType[] = [
 
 // ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
 // ║ STATUS:  CONTIDO
-// ║ NORMA:   src/modules/services/service-payment-execution.service.ts (resolver, byte-pinned)
-// ║ NÃO:     tratar os 7/5 valores abaixo como "suportados" — é o CHECK físico do Postgres
-// ║ EM VEZ:  cheque resolveRegionalFundDestination p/ o subconjunto realmente resolvível hoje
+// ║ NORMA:   economic-policy.types.ts (REGIONAL_*_RESOLVABLE_MVP, guard-policiada); resolver
+// ║          byte-pinned continua a autoridade de comportamento
+// ║ NÃO:     tratar os 7/5 valores abaixo como "publicáveis" — é só o CHECK físico do Postgres
+// ║ EM VEZ:  assertLineShapeValid abaixo já rejeita no publish via REGIONAL_*_RESOLVABLE_MVP
 // ╚════════════════════════════════════════════════════════════════
 /** Enum canônico DECISION-0049 (migration 20260530567000). */
 const REGIONAL_ORIGIN_BASIS_VALUES: readonly RegionalOriginBasis[] = [
@@ -249,6 +252,36 @@ function assertLineShapeValid(line: PolicyLineRequestBody, idx: number): void {
     throw HttpError.badRequest(
       `economic_policy: linha ${idx} — regional_fund sem destinationKey exige regionalOriginBasis (DECISION-0049).`
     );
+  }
+
+  // ── Fail-closed na FRONTEIRA de publicação, não em tempo de pagamento real ─────────────────
+  // Os dois campos acima já validaram que basis/level são valores FÍSICOS válidos (CHECK do
+  // Postgres). Isso não basta: o resolver de pagamento (byte-pinned, fora de alcance aqui) REJEITA
+  // incondicionalmente 3 dos 7 valores de basis e SEGURA (HOLD, 501) o nível 'neighborhood' — sem
+  // este check, uma policy publicável hoje ficaria garantida a falhar quando o dinheiro se move.
+  // REGIONAL_ORIGIN_BASIS_RESOLVABLE_MVP / REGIONAL_FUND_LEVEL_RESOLVABLE_MVP são a DECLARAÇÃO
+  // guard-policiada (economic-policy.types.ts) do que o resolver hoje resolve de fato.
+  if (line.lineType === 'regional_fund') {
+    if (
+      line.regionalOriginBasis != null &&
+      !(REGIONAL_ORIGIN_BASIS_RESOLVABLE_MVP as readonly string[]).includes(line.regionalOriginBasis)
+    ) {
+      throw HttpError.badRequest(
+        `economic_policy: linha ${idx} — regionalOriginBasis='${line.regionalOriginBasis}' não é resolvível ` +
+          'hoje pelo pagador (o resolver de pagamento rejeita este valor em tempo de execução — ' +
+          `DECISION-0049, MVP). Use uma das bases resolvíveis: ${REGIONAL_ORIGIN_BASIS_RESOLVABLE_MVP.join(', ')}.`
+      );
+    }
+    if (
+      line.regionalLevel != null &&
+      !(REGIONAL_FUND_LEVEL_RESOLVABLE_MVP as readonly string[]).includes(line.regionalLevel)
+    ) {
+      throw HttpError.badRequest(
+        `economic_policy: linha ${idx} — regionalLevel='${line.regionalLevel}' está em HOLD no resolver de ` +
+          'pagamento (nível neighborhood, DECISION-0166 D4 — catálogo de bairros governado, mas resolver ' +
+          `ainda não religado a ele). Use um dos níveis resolvíveis: ${REGIONAL_FUND_LEVEL_RESOLVABLE_MVP.join(', ')}.`
+      );
+    }
   }
 }
 

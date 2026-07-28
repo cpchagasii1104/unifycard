@@ -127,6 +127,56 @@ export type RegionalOriginBasis =
  */
 export type RegionalFundLevel = 'planet' | 'country' | 'state' | 'city' | 'neighborhood';
 
+// ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+// ║ STATUS:  CANÔNICO (declaração guard-policiada — autoridade real é o resolver, não aqui)
+// ║ NORMA:   backend/scripts/audit-regional-fund-resolvable-basis-declaration.mjs
+// ║ NÃO:     editar as 2 constantes abaixo sem o resolver ter mudado de fato (guard morde RED)
+// ║ EM VEZ:  mudar o resolver primeiro, então rodar o guard para recomputar/confirmar aqui
+// ╚════════════════════════════════════════════════════════════════
+// ── REGIONAL FUND RESOLVER — subconjunto RESOLVÍVEL hoje (DECLARADO, guard-policiado, NÃO fonte) ──
+//
+// A frente "regional-fund publish-time containment" (2026-07-27) fechou o buraco em que o painel
+// oferecia os 7/5 valores físicos acima mas o resolver de pagamento (resolveRegionalFundDestination,
+// service-payment-execution.service.ts) rejeitava 3 deles e segurava 1 nível incondicionalmente —
+// Clayton podia publicar uma policy garantida a falhar quando o dinheiro se movesse. O resolver é
+// BYTE-PINNED por audit-fiscal-economic-policy-composition.mjs (BYTE_INTACT.F.SPE) — fora de
+// alcance para esta frente, mesmo comentário. As duas constantes abaixo são a alternativa: uma
+// DECLARAÇÃO derivada e POLICIADA, nunca uma segunda verdade. O guard
+// `audit-regional-fund-resolvable-basis-declaration.mjs` lê o resolver READ-ONLY, extrai
+// comportamentalmente (a) quais valores de basis ele rejeita incondicionalmente com
+// POLICY_BASIS_UNSUPPORTED_MVP e (b) se regionalLevel='neighborhood' ainda é HOLD fail-closed
+// (REGIONAL_FUND_NEIGHBORHOOD_HOLD/501), e FALHA (RED) se as constantes abaixo divergirem do que o
+// resolver hoje realmente resolve. O resolver — nunca esta constante — é a autoridade; editar aqui
+// sem o resolver mudar de fato (ou vice-versa, sem atualizar aqui) quebra o guard. Consumidores
+// (economic-policy-write-validation.ts no publish; GET /economy/admin/regional-fund-vocabulary
+// para o painel) DEVEM importar destas constantes — é PROIBIDO reimplementar a lista em outro lugar
+// (isso recriaria exatamente a segunda verdade que esta frente existe para eliminar).
+
+/** Subconjunto de RegionalOriginBasis que o resolver hoje RESOLVE de fato (não lança
+ *  POLICY_BASIS_UNSUPPORTED_MVP). service_location / transaction_location / explicit_economic_region
+ *  ficam de fora — sem fonte material no schema (PE-5-RESOLVER-V2; ver comentário no resolver). */
+export const REGIONAL_ORIGIN_BASIS_RESOLVABLE_MVP = [
+  'payer_identity_residence',
+  'receiver_identity_residence',
+  'receiver_company_operational',
+  'receiver_company_hq',
+] as const;
+export type RegionalOriginBasisResolvableMvp = (typeof REGIONAL_ORIGIN_BASIS_RESOLVABLE_MVP)[number];
+
+/** Subconjunto de RegionalFundLevel que o resolver hoje RESOLVE de fato. 'neighborhood' está em
+ *  HOLD fail-closed (REGIONAL_FUND_NEIGHBORHOOD_HOLD, 501, DECISION-0166 D4) — o CATÁLOGO de
+ *  bairros em si já foi governado (frente N3: 75 bairros oficiais de Curitiba selados), mas o
+ *  resolver de pagamento não foi religado a ele; religar é decisão soberana futura, fora do escopo
+ *  desta frente (a justificativa original do hold — "catálogo não governado" — está PARCIALMENTE
+ *  desatualizada; o hold em si continua vigente até decisão explícita). */
+export const REGIONAL_FUND_LEVEL_RESOLVABLE_MVP = [
+  'planet',
+  'country',
+  'state',
+  'city',
+] as const;
+export type RegionalFundLevelResolvableMvp = (typeof REGIONAL_FUND_LEVEL_RESOLVABLE_MVP)[number];
+
 export interface EconomicPolicy {
   id: string;
   tenantId: string;
