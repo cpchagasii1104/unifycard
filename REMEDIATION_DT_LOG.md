@@ -1,5 +1,30 @@
 # REMEDIATION DT LOG
 
+## F-REGIONAL-BASIS-MVP-GAP — 🔴 O PAINEL DEIXAVA PUBLICAR POLICY IRRESOLÚVEL — ✅ SELADA · **SEM QUEBRAR O LACRE** (2026-07-27)
+**Defeito achado pela auditoria independente e não registrado por ninguém: o painel oferecia os 7 valores de `regionalOriginBasis` e os 5 de `regionalLevel` como opções equivalentes, mas o resolver rejeita 3 basis incondicionalmente (`POLICY_BASIS_UNSUPPORTED_MVP`) e `neighborhood` (501). Clayton — que tem acesso real desde a Fatia 4 — podia publicar hoje uma policy garantidamente irresolúvel, e só descobriria quando dinheiro fosse mover.**
+
+### ⛔ 1ª TENTATIVA: A EXECUTORA PAROU — E ESTAVA CERTA
+Ela mapeou 3 caminhos e **recusou os 3**: todos exigiam editar `service-payment-execution.service.ts`, **byte-pinned** por `audit-fiscal-economic-policy-composition.mjs`. O mandato proibia **as duas** saídas fáceis ("tocar o pin" e "duplicar a verdade"), e ela parou em vez de escolher uma. **Recusa correta, registrada como precedente** — material `e64a30b12` foi só 2 cabeçalhos, zero código executável.
+
+### ✅ A DIREÇÃO ACHOU UM 4º CAMINHO — E DECIDIU **NÃO** RECONCILIAR O LACRE
+A direção **podia** ter quebrado o pin (o precedente é dela, da Fatia 0 desta mesma sessão). **Optou por não.** Razão registrada: *quebrar lacre vira hábito — se toda vez que ele atrapalha há uma boa justificativa, ele deixa de ser proteção e vira formalidade.* O 4º caminho: **declarar num módulo livre + guard que lê o arquivo lacrado e trava se divergirem.** A verdade não é copiada — é **derivada e policiada**.
+- **Declaração** em `economic-policy.types.ts`, espelhando **a convenção que já existia** para `applies_to` (físico/gravável/legado) — não inventou padrão.
+- **Guard novo** `audit-regional-fund-resolvable-basis-declaration.mjs`: isola o texto de `resolveRegionalFundDestination` (**read-only, nunca importa nem executa**), percorre a cadeia `if/else-if` marcando cada branch `basis === '…'` cujo corpo lança `POLICY_BASIS_UNSUPPORTED_MVP`, e confere o branch `neighborhood` (501). **Se o motor ganhar ou perder um valor e ninguém atualizar a declaração, a suíte fica VERMELHA.** É a diferença entre cópia que apodrece e cópia que não pode apodrecer.
+- **Runner 224 → 225.**
+
+### 🔴 VERIFICAÇÃO DE 1ª MÃO DA DIREÇÃO
+- **Lacre INTACTO** — `git diff` entre BASE e FINAL não toca nenhum dos 2 arquivos pinados ✓ · o guard do lacre **passa (EXIT=0)** ✓
+- **O guard novo MORDE** — a direção **corrompeu ela mesma a declaração** (injetou `transaction_location` no conjunto resolvível) → **EXIT=1**, com a diferença exata impressa (`declarado {…, transaction_location} == esperado {…}`); restaurado → **EXIT=0**; árvore limpa ✓
+- **Suíte completa rodada pela direção: 225 COMMANDS OK, drift 0** ✓
+
+### ✅ FECHAMENTO EM DUAS CAMADAS, COMO MANDA "A VERDADE VIVE NO BACKEND"
+- **Backend autoritativo:** `economic-policy-write-validation.ts` **rejeita no publish** com mensagem pt-BR nomeando as bases válidas — fail-closed **na fronteira**, em vez de aceitar e falhar quando o dinheiro move. Provado: `service_location` → **400 + zero linhas gravadas**; `payer_identity_residence`+`city` → **201, 2 linhas** (Δ=0 no caminho suportado).
+- **Frontend derivado:** o painel passou a buscar `GET /economy/admin/regional-fund-vocabulary` e monta os selects **só** com o que o servidor devolve; os arrays locais viraram **apenas rótulos pt-BR**, nunca fonte de opção. E2E confirma 4/4 valores e 401 sem auth.
+- **Δ=0 sobre dado existente:** conferido no banco — a única linha `regional_fund` viva é exatamente `payer_identity_residence`/`city`; **zero** linhas usavam qualquer valor irresolúvel. A validação nova não quebra republicação de nada.
+
+### ⚠️ FLAGRADO, NÃO REABERTO — `neighborhood`
+Mantido **fora** do conjunto resolvível (o HOLD 501 segue vivo). Registrado em comentário: a justificativa original do hold (*"catálogo de bairros não governado"*) está **parcialmente vencida** — N3 selou os 75 bairros de Curitiba —, **mas o resolver nunca foi religado ao catálogo**. Religar é decisão soberana futura, fora desta fatia. **Não improvisado.**
+
 ## 📌 DOUTRINA REGISTRADA (NÃO virou DECISION — ver por quê) — **VERIFICABILIDADE PÚBLICA** (Clayton, 2026-07-27)
 **Deliberadamente NÃO redigida como DECISION nova: a direção tem 3 decisões em correção após veredito C/B/C. Escrever uma quarta antes de corrigir as anteriores repetiria exatamente o achado da auditoria — norma acumulando mais rápido que verificação. Registrada aqui para entrar no arco de correção junto com as outras.**
 
