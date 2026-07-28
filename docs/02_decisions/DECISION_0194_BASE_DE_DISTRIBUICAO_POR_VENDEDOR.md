@@ -75,6 +75,24 @@ valor bruto da transação
 
 **Portanto o painel reparte `commission_distributable`** — o que sobra depois de pagar quem entregou, o processador e o Fisco. Todo percentual que Clayton configurar mede **esse** bolo.
 
+### D1.3 — É AJUSTÁVEL, SIM — MAS EM OUTRO PAINEL, E A SEPARAÇÃO PROTEGE (Clayton, 2026-07-27)
+
+> *"Isso precisa ser ajustável pelo painel admin, pois o mercado pode mudar, e estamos falando em redistribuição de LUCRO."*
+
+**O enquadramento "redistribuição de LUCRO" passa a ser o frame governante desta decisão.** O que se reparte é **excedente**, nunca faturamento. Custo, adquirente e Fisco saem antes **porque não são lucro** — não por burocracia.
+
+**E a exigência de ajustabilidade já está atendida — verificado, não presumido:**
+- `actor_fiscal_profiles` (migration `20260710130000`) é a **casa canônica única do enquadramento fiscal**, ancorada em `fiscal_identities` (CNPJ+KYB, nunca texto solto). Regimes governados: `MEI · SIMPLES_NACIONAL · LUCRO_PRESUMIDO · LUCRO_REAL · OTHER`. **Versionada e imutável quando ativa — mudança = nova versão**, exatamente a mesma disciplina da policy econômica. Guarda `configured_by_actor_id` e `source` (nota do contador). Fail-closed explícito: *"o sistema NÃO inventa regime: sem perfil ativo = `fiscal_config_missing`"*.
+- `tax_rules` (migration `20260710140000`, + modo de arredondamento governado em `20260715100000`) é onde vive a **alíquota**.
+- **Estado real hoje (medido pela direção): 0 perfis fiscais, 0 regras fiscais.** A máquina está completa e **vazia** — por isso a camada fiscal está inerte e fail-closed.
+
+**Por que NÃO no mesmo painel da distribuição — a separação é proteção, não burocracia:**
+- O painel fiscal responde **"quanto devemos?"** — estimativa de obrigação legal.
+- O painel de distribuição responde **"como repartimos o que é nosso?"** — escolha soberana.
+- Se fossem a mesma tela e o mesmo bolo, **baixar a provisão fiscal pareceria aumentar o fundo regional**. Não aumenta: seria **subprovisionar** — a conta chega igual, e chega depois, contra um fundo que já foi distribuído. **Imposto não compete com a comunidade pelo mesmo bolo; ele forma o bolo.**
+
+Portanto: **ajustável sim, versionado sim, auditável sim — na casa fiscal.** O painel de percentuais reparte `commission_distributable`, e todo número que Clayton configurar lá mede **lucro**.
+
 **⚠️ Verificar quando a fase 4e abrir (não decidido aqui):** a cascata D7 está escrita para o caso de **comissão**. No caso **plataforma vendedora** (D1), não há comissão — a receita é o próprio bruto. Presume-se que `tax_reserve` incida sobre essa receita, mas isso **não foi verificado nesta decisão** e não deve ser assumido por quem for materializar.
 
 **⚠️ QUESTÃO ABERTA, NÃO DECIDIDA AQUI — custo é PERCENTUAL ou FATO?**
