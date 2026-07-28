@@ -88,7 +88,7 @@ O anticorpo acima **não é cumprível hoje**: reconciliar declarado×realizado 
 
 Clayton pediu para conferir na norma antes de modelar. **A cascata já estava fixada; a escolha da base, não — e é esta decisão que a fecha.**
 
-**DECISION-0166 D7** fixa a cascata do valor, e imposto vem **ANTES** da distribuição social:
+**DECISION-0166 D7** fixa a cascata do valor, e imposto vem **ANTES** da distribuição social — **estendida abaixo por ESTA decisão** nas duas últimas linhas (custo operacional e excedente), que **não** vêm de D7 e estão etiquetadas com a sua fonte real:
 ```
 valor bruto da transação
 → taxas externas de pagamento (adquirente etc.)
@@ -132,7 +132,7 @@ valor bruto da transação
 - O painel de distribuição responde **"como repartimos o que é nosso?"** — escolha soberana.
 - Se fossem a mesma tela e o mesmo bolo, **baixar a provisão fiscal pareceria aumentar o fundo regional**. Não aumenta: seria **subprovisionar** — a conta chega igual, e chega depois, contra um fundo que já foi distribuído. **Imposto não compete com a comunidade pelo mesmo bolo; ele forma o bolo.**
 
-Portanto: **ajustável sim, versionado sim, auditável sim — na casa fiscal.** O painel de percentuais reparte `commission_distributable`, e todo número que Clayton configurar lá mede **lucro**.
+Portanto: **ajustável sim, versionado sim, auditável sim — na casa fiscal.** O painel de percentuais reparte o **EXCEDENTE DISTRIBUÍVEL** (D1.2); `commission_distributable` segue sendo o valor **selado da 0179** do qual o excedente deriva — e todo número que Clayton configurar lá mede **lucro**.
 
 **⚠️ Verificar quando a fase 4e abrir (não decidido aqui):** a cascata D7 está escrita para o caso de **comissão**. No caso **plataforma vendedora** (D1), não há comissão — a receita é o próprio bruto. Presume-se que `tax_reserve` incida sobre essa receita, mas isso **não foi verificado nesta decisão** e não deve ser assumido por quem for materializar.
 

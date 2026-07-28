@@ -190,3 +190,51 @@ Este parecer executou código real uma única vez, em função pura (`calculateP
 - **O restante do repositório** por outros efeitos do commit — conferi os 4 arquivos do stat; não varri além deles.
 
 **VEREDITO DO PASSE: AINDA NÃO — C-8, C-9, C-10. O resto está confirmado, por leitura e por execução.**
+
+---
+---
+
+# APÊNDICE 2 — PASSE FINAL (RODADA 3, 2026-07-28, sobre `81de891ba`)
+
+**Escopo estrito:** C-8, C-9, C-10 — mais a caça a defeito novo e a varredura de resíduo refeita por conceito, com critérios meus. Nada acima desta linha foi alterado.
+
+## A. INTEGRIDADE (verificada, não presumida)
+
+- Commit `81de891ba` toca **3 arquivos, todos docs** (cartório · decisão · este parecer) — nenhum código, nenhum pinado. O acréscimo a este parecer é o **meu Apêndice 1**, committado sem edição (`git diff 81de891ba -- <este arquivo>` = 0 linhas). `PROVADO`.
+- `git diff --check` limpo. `PROVADO`.
+- **"Excedente distribuível" NÃO foi fiado em código nem promovido a conceito de SSOT:** grep por `excedente` em `backend/src`, `frontend/src` e `packages` devolve apenas usos **pré-existentes e sem relação** (`asset.types.ts:34`, entrada de assets em `governed-vocabularies.manifest.ts:248`, `fiscal-identity-economic-activity.service.ts:46`, rentals). Nenhum campo novo, nenhum manifesto tocado (o commit é docs-only). O termo vive só na decisão e no cartório, como vocabulário da emenda de Clayton. `PROVADO`.
+- Runner completo e typecheck: **não reexecutei** — o commit é docs-only e não pode afetar guard de código, mas a alegação "225 OK / drift 0" da direção segue como alegação. `NÃO AUDITADO`.
+
+## B. AS TRÊS CORREÇÕES
+
+- **C-8 — CONFIRMADA.** Cascata de D1.2 (`:92-100`): `… → comissão DISTRIBUÍVEL (0179: equação verbatim) → − custo operacional (D1.1) → = EXCEDENTE DISTRIBUÍVEL ← é ISTO que o painel reparte` — a equação selada preservada na letra, o custo deduzido **depois** dela, o excedente com o nome da emenda. Bloco `:102` nomeia o defeito contra a direção e declara `commission_distributable` **não redefinido**; `:115` declara o fechamento da escolha de D7 como **ato desta decisão**; `:117` fixa "o painel reparte o EXCEDENTE DISTRIBUÍVEL" e "não é sinônimo". A ressalva `:104` ("NÃO DECIDIDO AQUI: qual valor chega ao motor... não fia campo nenhum... não deve presumir a equivalência") é **suficiente** — nomeia a lacuna, atribui a fase (4e, GATE/GO) e proíbe a presunção. *Observação não-bloqueante:* o fence de `:92-100` ainda é introduzido por "`DECISION-0166 D7` fixa a cascata" (`:91`) contendo duas linhas que não são de D7 — cada uma **etiquetada** com a fonte real e desambiguada por `:102`/`:115`, logo nenhuma afirmação falsa resta; forma ideal seria "fixa a cascata (estendida abaixo por esta decisão, linhas marcadas)". Recomendação, não exigência.
+- **C-9 — CONFIRMADA.** `D1:32`: "sai ANTES da distribuição, como dedução pré-distributiva não-votável e visível (D1.1) — nunca como fatia dentro do que se reparte". Cita D1.1 para o que D1.1 agora diz.
+- **C-10 — CONFIRMADA.** `D3:159`: "opera sobre o bruto **após as deduções pré-distributivas de D1.1** (imposto, taxa de adquirente e custo operacional) — nunca sobre o bruto cru".
+
+## C. A VIA (i) SEM CONSULTAR CLAYTON — JULGAMENTO EXPLÍCITO, PORQUE FOI PEDIDO
+
+**Concordo: era determinado pela norma, não escolha da direção.** A via (ii) (restringir o custo pré-distributivo ao caso plataforma-vendedora) **estreitaria o alcance da emenda de Clayton**, cujas palavras são gerais (*"o custo operacional do sistema precisa manter ele vivo"*) e cuja cascata registrada não distingue caso — **isso sim** seria a direção decidindo doutrina. A via (i) não decide nada novo: preserva a equação selada da 0179 (que não admite segunda definição), preserva o alcance integral da emenda, e usa o **vocabulário do próprio Clayton** ("EXCEDENTE DISTRIBUÍVEL", cartório `:201`). Interseção de duas normas vigentes com um único ponto — executá-la é obediência, não deliberação. `PROVADO` (textual).
+
+## D. VARREDURA DE RESÍDUO REFEITA POR CONTA PRÓPRIA (por conceito: *quem reparte o quê* · *sobre o bruto* · *dentro de/fatia* · *distribuível/excedente*)
+
+Varri todas as ocorrências do conceito no documento: `:49` ✓ · `:57` ✓ · `:63-67` (retratação, histórica) ✓ · `:75` ✓ · `:92-100` ✓ · `:104` ✓ · `:110` ("bolo distribuível" genérico) ✓ · `:113-115` ✓ · `:117` ✓ · `:123` ("o que se reparte é excedente") ✓ · `:157` ✓ · `:159` ✓ · `:161` (cita a ordem de D7 sem inserção) ✓ · `:233`/`:239` ✓ · `:245` (quote de 0179 D10) ✓. **Uma sobreviveu à varredura da direção:**
+
+### 🔴 ND-4 — `D1.3:135` AINDA DIZ "O PAINEL DE PERCENTUAIS REPARTE `commission_distributable`"
+- **Alegação:** a frase de fechamento de D1.3 (`:135` — "O painel de percentuais reparte `commission_distributable`, e todo número que Clayton configurar lá mede lucro") contradiz frontalmente o `:117` novo ("o painel reparte o **EXCEDENTE DISTRIBUÍVEL** ... `commission_distributable` ... **não é sinônimo** de excedente"). Mesmo verbo, mesmo sujeito, objetos distintos, no mesmo documento — **exatamente a segunda verdade que C-8 existe para matar**, recriada 18 linhas abaixo da cura. É resíduo estale, não intenção: a própria D1.3 diz o certo em `:123`. E enquanto `:135` viver, a ressalva `:104` não basta — um implementador citando `:135` fiaria o painel em `commission_distributable` com respaldo textual.
+- **Grau:** `PROVADO`. **Gravidade:** 🔴 média — uma linha, mas é a repetição do gênero ND-1/ND-2 no terceiro passe consecutivo.
+- **Correção C-11 (uma linha):** reescrever `:135` para "O painel de percentuais reparte o **excedente distribuível** (D1.2); `commission_distributable` segue sendo o valor selado da 0179 do qual ele deriva — e todo número que Clayton configurar mede **lucro**."
+
+**Nenhum outro defeito novo encontrado em C-8/C-9/C-10.** C-9 e C-10 são limpas; o bloco C-8 em si é limpo (afora a observação não-bloqueante do §B).
+
+## E. VEREDITO DO PASSE FINAL
+
+**AINDA NÃO SELÁVEL — por UMA linha: C-11 (`D1.3:135`).** Digo com todas as letras, como pedido: as três correções entraram e entraram **bem**; a via (i) era a única legal; o vocabulário novo não vazou para código nem virou SSOT; a ressalva de não-equivalência é suficiente **depois** de C-11. Mas esta casa acabou de registrar, no mesmo cartório, que "varredura de resíduo deve buscar o conceito, não a string" — e o conceito ainda tem uma ocorrência com o sentido velho, no fecho de uma seção governante. Selar com ela viva seria selar com verificação pela metade pela terceira vez. **Aplicada e confirmada C-11 — que é um diff de uma linha — não resta nenhum impedimento meu ao selo. A decisão, no mérito, está pronta; Clayton sela.**
+
+## F. NÃO VERIFICADO NESTE PASSE
+
+- Runner completo (225) e typecheck — commit docs-only, mas não reexecutei; alegação segue alegação.
+- Estado de banco — zero SELECT, como nas rodadas anteriores.
+- GOs de Clayton — aceitos do cartório.
+- Fora do documento da decisão, do cartório (topo) e do grep de `excedente`, não varri o repositório por outros efeitos.
+
+**VEREDITO: AINDA NÃO — somente C-11. Após C-11, selável, sem ressalvas minhas.**
