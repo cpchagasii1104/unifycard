@@ -108,8 +108,17 @@ export function assertWritableAppliesTo(value: string | null | undefined): Econo
  * mixed_policy NÃO está aqui: composição é via MÚLTIPLAS linhas
  * regional_fund, cada uma com seu basis próprio.
  *
- * Resolver dinâmico ainda NÃO implementado (frente futura). PE-3
- * continua FAIL-CLOSED em regional_fund.
+ * ⚠️ CORRIGIDO 2026-07-28 (4ª auditoria da DECISION-0194, achado F8 — a
+ * redação anterior dizia "Resolver dinâmico ainda NÃO implementado (frente
+ * futura). PE-3 continua FAIL-CLOSED em regional_fund", e isso MENTE hoje).
+ * Verdade verificada: o resolver EXISTE e resolve — `resolveRegionalFundDestination`
+ * (service-payment-execution.service.ts:228), chamado em :201-202, com
+ * `regional_fund` em SUPPORTED_DESTINATION_TYPES desde DECISION-0051 (:54-61).
+ * O fail-closed remanescente é PARCIAL, não geral: vale só para os basis sem
+ * fonte material (POLICY_BASIS_UNSUPPORTED_MVP) e para regionalLevel
+ * 'neighborhood' (HOLD 501). O conjunto resolvível vive em
+ * REGIONAL_ORIGIN_BASIS_RESOLVABLE_MVP / REGIONAL_FUND_LEVEL_RESOLVABLE_MVP
+ * abaixo — declaração policiada por guard contra o motor.
  */
 export type RegionalOriginBasis =
   | 'payer_identity_residence'

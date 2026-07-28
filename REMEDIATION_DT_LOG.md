@@ -1,5 +1,41 @@
 # REMEDIATION DT LOG
 
+## 🟡 4ª AUDITORIA INDEPENDENTE DA `DECISION-0194` — **VEREDITO B** · AS 7 CORREÇÕES FORAM APLICADAS · **AGUARDA CONFIRMAÇÃO E SELO DE CLAYTON** (2026-07-28)
+**Registrado DURANTE a fatia. Direção nova assumiu, Clayton deu GO para a auditoria e depois para a correção. Parecer completo: `docs/04_audit/YALA4_AUDITORIA_DECISION_0194_2026-07-28.md`.**
+
+### 🔑 O QUE A DIREÇÃO NOVA ACHOU ANTES DE DESPACHAR — A PERGUNTA NÃO ESTAVA PENDENTE
+A direção anterior encerrou pedindo a Clayton que escolhesse entre 3 caminhos para *"100% de quê?"*. **Ele já tinha escolhido**: a `DECISION-0194 D2` (*"Todas as linhas de uma policy medem a MESMA base. É vedado que uma policy contenha linhas com `applies_to` divergentes"*) É a opção A, escrita em 27/07 com as palavras dele, com a saída para o caso misto já dada em D3 (duas etapas encadeadas). **Não havia decisão pendente — havia decisão SEM AUTORIDADE.** A pergunta foi retirada em vez de devolvida pela terceira sessão seguida.
+
+### ⚔️ MANDATO ADVERSARIAL — E O AUDITOR ATACOU A METADE QUE A DIREÇÃO NÃO TINHA PROVADO
+Ordem literal: *"tente derrubar; veredito A só é legítimo se você atacou e não conseguiu — e diga o que atacou."* Modelo diferente do que escreveu. Resultados dos ataques:
+- **Rodou o motor real por conta própria** — os 4 números da prova da direção (`100→1`, `7→1`, `999→1`, `12345→1`) reproduzem exatos; `bps=0` passa na validação.
+- **Atacou o DESTINO, que a direção nunca provou** (provou só a absorção): o roteamento é por `destinationType`, não `lineType` (`service-payment-execution.service.ts:137-152`) — o centavo cai em `platform_fees`, não no bolso do Actor. **Mecanismo sobreviveu.**
+- **Atacou por drift NEGATIVO** (linha fixa + absorvedora única): o motor **lança `CALCULATION_INVALID`** — fail-closed. A absorvedora `bps=0` é **mais dura que o status quo**: torna explícita uma corrupção que hoje seria silenciosa.
+- **Refez a aritmética da errata do zero:** `3,33× MAIOR` está **CERTO**; nenhuma passagem invertida sobrou no repo.
+
+### ✅ A1 RESOLVIDO — **NÃO HÁ COLISÃO COM A `DECISION-0178` SELADA**
+A direção entregou o próprio julgamento **como ALVO, não como conclusão**, e ele resistiu. `0178 D8:208` lista campos do `EconomicPolicyEvaluationContext`; *"as mesmas **três** bases"* são os três **valores** que viajam juntos no contexto (`grossTransactionCents`/`commissionGrossCents`/`commissionDistributableCents`), **não** direito de misturar bases por linha. **A 0178 é SILENTE sobre mistura intra-policy** — D2 decide em espaço aberto, o que é o **oposto** do defeito da 0192 D5 (emenda vestida de leitura harmonizadora). O agrupador selado se comporta identicamente com base única (chave `${base}:${cents}` ⇒ 1 grupo). **Porém a própria 0194 declarava desacordo "com 0178 D8"** — concessão herdada da 2ª auditoria e incorporada **sem re-verificação**. Corrigido (F3).
+
+### 🔴 OS 3 ACHADOS GRAVES — E O PRIMEIRO É UMA TAREFA QUE FICOU PARADA
+- **F1 (PROVADO, alta):** a 0194 continha **TRÊS posições incompatíveis** sobre custo operacional. A **emenda de Clayton de 27/07** (*"custo sai ANTES, não-votável e visível"*, cartório `:189-233`) foi registrada com a nota *"entra assim que o parecer voltar"* — **três pareceres voltaram e ela nunca entrou**, enquanto D1.1 e D3 seguiam dizendo o contrário. A 2ª auditoria já havia acusado nominalmente a não-entrada.
+- **F2 (PROVADO, média-alta):** resíduo da reescrita anterior — a mesma seção afirmava *"custo institucional ZERO / C-4 fechado DE VERDADE"* e terminava com *"o absorvedor da Etapa 2 não existe até lá"*, **falso sob a BIS e falso no código**. Reproduzia em espelho o padrão que a 2ª auditoria já reprovara.
+- **F3/F4 (PROVADO, média):** C-3 errava o alvo do desacordo; e o **topo deste cartório continha a afirmação falsa** de que C-2/C-3/C-6 permaneciam abertos (corrigido no lugar, abaixo).
+
+### ✅ AS 7 CORREÇÕES — APLICADAS (docs-only + 1 comentário de código)
+1. **Emenda de Clayton aplicada:** D1.1 reescrita (custo **pré-distributivo, não-votável, VISÍVEL**, com cascata, precedente `Lei 5.764/71 art. 28`, anticorpo declarado×realizado, e a **retratação registrada, não apagada**); `custo do projeto/expansão` removido da lista da Etapa 2 em D3; cascata de D1.2 atualizada.
+2. **Resíduo expurgado:** a "regra unificada" rebaixada a **glosa não-normativa** (a regra é `CORE_SPLIT_PAGAMENTO_CANONICO.md:94`, e basta); C-5 declarado **RESOLVIDO** — não há lacuna de vocabulário, o absorvedor existe hoje.
+3. **Alvo do desacordo renomeado** em C-3: é com a **capacidade** do código selado e com a **ausência de trava** em `assertPolicyLinesValid`, não com texto da 0178. Harmonizado com D6.
+4. **Esta linha do cartório corrigida** (vereditos textuais fechados; condições materiais abertas).
+5. **`:150` precisado:** a exigência de `revenue_share` é **condicional a existir linha com bps** (`economic-policy-write-validation.ts:192,200-206`), não *"toda policy"* — policy só-`fixedAmountCents` escapa da trava de escrita e falha só em runtime. **Buraco da validação registrado como achado, não remediado aqui.**
+6. **D1.2 precisado:** `0166 D7` deixava *"comissão bruta ou líquida"* **em aberto** (`:171-172`); **esta decisão fecha** em `commission_distributable`, exercendo a *"policy explícita futura"* prevista em `0166 D1`. Era sobre-alegação dizer "já estava decidido".
+7. **F7** anotado na D3.1-BIS (a garantia de destino é **por-consumidor**: `marketplace-fee-policy.ts:62-64` classifica por `lineType` e contaria o centavo como net do Actor) · **F8** corrigido: comentário que **mentia** em `economic-policy.types.ts:108-112` (*"resolver dinâmico ainda NÃO implementado; PE-3 continua FAIL-CLOSED"*) — falso: o resolver existe (`service-payment-execution.service.ts:228`, chamado em `:201`), o fail-closed é **parcial**. Arquivo **não é byte-pinado** (verificado contra `BYTE_INTACT`, que cobre engine/SPE/guard-bcity).
+
+### ➕ ACRÉSCIMO DA DIREÇÃO QUE O PARECER NÃO PEDIU (e que muda o peso de D1.1)
+A própria emenda de Clayton declara que **depende materialmente da frente de resultado** (`cartório :233`): reconciliar declarado×realizado **exige apuração**, e não há conceito de período nem DRE (`platform_ops` é nome sem fiação). Sem isso, custo não-votável seria **poder sem contrapartida**. Por isso D1.1 foi escrita **com a dependência declarada no corpo**: enquanto a frente de resultado não existir, **nenhum custo pré-distributivo pode ser declarado não-votável**. Sem essa trava, a seção se leria como descrição do presente — o defeito A4 que o próprio mandato mandava caçar.
+
+### ⛔ O QUE **NÃO** FOI FEITO
+Zero migration · zero banco · zero motor · zero guard · **nenhum arquivo byte-pinado tocado** · policy nenhuma ativada · `GO RETOMAR MATERIAL FISCAL-4E` **não emitido**. A 0194 segue **NÃO-SELADA**: a direção corrigiu e **não sela o que escreveu** — falta passe de confirmação independente e o selo de Clayton.
+
 ## ✅ D3.1 REESCRITA — A SOBRA DO CENTAVO SEM QUEBRAR NADA (Clayton confirmou, 2026-07-28)
 **Registrado DURANTE a fatia, não depois — o defeito de processo nº 1 da 2ª auditoria foi exatamente não registrar o passe de correção.**
 
@@ -10,7 +46,8 @@
 - **Reconcilia as duas decisões de Clayton**, que a 3ª auditoria provou colidirem no texto anterior: o custo **substantivo** continua pré-distributivo e não-votável; a linha absorvedora tem bps=0, **não disputa o bolo e não conta custo duas vezes**.
 - **Fecha o veredito C-4 materialmente** (não só em doutrina): a Etapa 2 agora **tem** a linha `revenue_share` que o writer exige, e a validação aceitou — provado.
 - **Alternativa registrada, não descartada:** Clayton havia pedido **conta dedicada de sobras, movível só por ele**. A direção levantou o preço (abrir o lacre + vocabulário novo por DECISION + migration + governança própria para um saldo de centavos) e Clayton, **informado do custo**, confirmou a rota do custo. A conta dedicada segue legítima como frente própria.
-- **Estado da 0194:** segue **NÃO-SELADA** e sem autoridade. Esta reescrita fecha 1 dos defeitos graves; os demais vereditos (C-2 allowlist vazia, C-3 colisão multi-base, C-6 livre escolha de `applies_to` viva) **permanecem abertos**.
+- **Estado da 0194:** segue **NÃO-SELADA** e sem autoridade. Esta reescrita fecha 1 dos defeitos graves.
+- **🔴 CORREÇÃO DESTA LINHA (4ª auditoria, 2026-07-28, achado F4 — a redação anterior era FALSA).** Dizia que *"os vereditos C-2, C-3 e C-6 permanecem abertos"*. **Não permanecem:** os três eram defeitos **do TEXTO** e o texto os fechou em **D5.4** — a 2ª auditoria já havia verificado (*"C-2/C-3/C-6 da 0194 fecharam com precisão"*) e a 4ª re-confirmou lendo o documento atual. O que **permanece aberto** são as **condições MATERIAIS** subjacentes, que a decisão difere por desenho: **allowlist vazia** (`fiscal-reserve-bank-composition.service.ts:17`) · **agrupador multi-base vivo** (`fiscal-economic-policy-composition.service.ts:180,222-229`) · **`<select>` de `applies_to` livre** no painel. O erro era conservador (subdeclarava progresso), mas o dano é concreto: a próxima instância, lendo o topo com memória zero, refaria as três correções — ou pior, as refaria diferente.
 
 ## 🔴🔴🔴 3ª AUDITORIA INDEPENDENTE — **CÓDIGO E ESTADO** · **DOIS SELOS DA DIREÇÃO SÃO FALSOS** (2026-07-28)
 **Clayton mandou auditar o material da sessão e rever o plano. A auditoria examinou CÓDIGO e ESTADO (as duas anteriores examinaram doutrina). Derrubou dois selos da direção — ambos VERIFICADOS EM 1ª MÃO pela direção antes deste registro. Este é o registro mais importante da sessão, e é contra a direção.**

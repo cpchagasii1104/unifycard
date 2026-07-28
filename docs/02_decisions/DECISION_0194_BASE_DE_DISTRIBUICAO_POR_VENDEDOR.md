@@ -1,6 +1,7 @@
 # DECISION-0194 — BASE DA DISTRIBUIÇÃO É DETERMINADA POR QUEM VENDE (e nunca se mistura)
 
-**Data:** 2026-07-27 · **Status:** 🔴 **CORRIGIDA após auditoria independente (2026-07-27) — AGUARDANDO RE-AUDITORIA.** NÃO-SELADA. SELF-SEAL NÃO PERMITIDO. **NÃO é autoridade até novo parecer.**
+**Data:** 2026-07-27 · **Status:** 🟡 **CORRIGIDA após a 4ª AUDITORIA INDEPENDENTE (veredito B, 2026-07-28) — AGUARDANDO PASSE DE CONFIRMAÇÃO E SELO DE CLAYTON.** NÃO-SELADA. SELF-SEAL NÃO PERMITIDO. **NÃO é autoridade até o selo.**
+**Histórico de pareceres:** 1ª auditoria (2026-07-27) = **C** · 2ª (2026-07-28) = **C, "piorou"** · 3ª (2026-07-28, código e estado) = derrubou 2 selos da direção · **4ª (2026-07-28, adversarial) = B, selável após 7 correções nomeadas** — parecer em `docs/04_audit/YALA4_AUDITORIA_DECISION_0194_2026-07-28.md`. As 7 correções foram aplicadas em 2026-07-28; **quem confirma não é quem corrigiu.**
 **Modo:** DOCS-ONLY · ZERO CÓDIGO/MIGRATION/GUARD/BANCO · não abre PORTA-1 · **não emite o gatilho `GO RETOMAR MATERIAL FISCAL-4E`**.
 **Deriva de / subordinada a:** [[DECISION-0166]] **D1** (base = comissão UnifiCard, *"salvo policy explícita futura"* — esta decisão É essa policy explícita) · [[DECISION-0165]] D1 · [[DECISION-0178]] (vocabulário `applies_to`: `gross_transaction` · `commission_gross` · `commission_distributable`) · [[DECISION-0192]] (sujeito territorial) · Lei 5 · Artigo V.
 **Origem:** decisão soberana direta de Clayton, 2026-07-27, em resposta à pergunta doutrinária devolvida pelo STOP da executora (registrado no cartório em `874ac3a08`).
@@ -36,26 +37,56 @@ Esta é exatamente a **"policy explícita futura"** que a DECISION-0166 D1 antec
 
 ---
 
-## D1.1 — CUSTO OPERACIONAL É LINHA EXPLÍCITA, NUNCA PREMISSA (Clayton, 2026-07-27)
+## D1.1 — CUSTO OPERACIONAL É DEDUÇÃO PRÉ-DISTRIBUTIVA, NÃO-VOTÁVEL E VISÍVEL (Clayton, 2026-07-27 · **EMENDA APLICADA 2026-07-28**)
 
-> *"Só que se for a plataforma, essa divisão entre os 100 reais terá o custo operacional."*
+> *"O custo operacional mantém o sistema vivo. Se estiver alto, a sociedade precisa entender e ver."*
 
-**Faturamento não é lucro.** Quando a plataforma vende, o bruto continua sendo a **base**, mas entre as fatias que somam 100% **obrigatoriamente existe uma linha de custo operacional** — o que custou entregar aquele valor (produto, logística, infraestrutura, operação).
+**Faturamento não é lucro.** Quando a plataforma vende, o bruto **não é sobra**: houve custo para entregar aquilo (produto, logística, infraestrutura, operação). Esse custo **sai ANTES da distribuição**, junto do imposto e da taxa de adquirente — **forma a base, não compete por voto**:
+
+```
+Receita → − taxa de adquirente → − imposto (não votável, visível)
+        → − custo operacional (não votável, VISÍVEL)
+        → = EXCEDENTE DISTRIBUÍVEL   ← é ISTO que a votação reparte
+```
 
 **Regra unificada que emerge daqui — os dois casos de D1 são a MESMA regra:**
 
 > **Distribui-se o que sobra depois de pagar quem entregou.**
 
 - Vendedor externo → quem entregou é o **Actor**, e a parte dele sai antes (é a Etapa 1);
-- Plataforma vendedora → quem entregou é a **própria plataforma**, e o custo dela sai como **linha de custo operacional** dentro da distribuição.
+- Plataforma vendedora → quem entregou é a **própria plataforma**, e o custo dela sai **antes**, formando a base — não como fatia dentro dela.
 
-Não são dois modelos: é um só, com dois nomes para "o que custou entregar".
+Não são dois modelos: é um só, com dois nomes para "o que custou entregar" — e em **ambos** o que custou entregar sai **antes** do que se reparte.
 
-**Por que linha explícita e não dedução silenciosa:** um custo descontado antes, fora do split, é invisível — a comunidade veria "10% para o fundo regional" sem saber que a base já tinha sido reduzida em segredo. Como linha, ele aparece, é auditável, e permite dizer honestamente *"hoje X% cobre o custo do projeto; conforme escalar, isso cai e o fundo sobe"* — que é mais forte que esconder. Coerente com a exigência de transparência de Clayton (saldos visíveis) e com o Artigo XI.
+### 🔴 RETRATAÇÃO — A REDAÇÃO ANTERIOR DESTA SEÇÃO ESTAVA ERRADA (registrada, não apagada)
+
+A versão original afirmava que o custo operacional era **linha explícita DENTRO dos 100% distribuíveis**, justificando-a como mais transparente que uma dedução silenciosa. **Clayton corrigiu em 2026-07-27** (`REMEDIATION_DT_LOG.md:189-233`), e a correção é substantiva, não editorial:
+
+> **Fatia dentro do bolo é fatia votável.** Uma votação poderia zerá-la e **matar a estrutura que gera o bolo**. Não é hipótese de má-fé: é aritmética de incentivo — o problema clássico da comunidade que vota o próprio orçamento e sufoca a infraestrutura.
+
+**O erro da direção foi confundir *onde fica na cascata* com *se aparece*.** Sai antes **e** é publicado — as duas coisas são compatíveis, e a redação anterior tratava-as como excludentes.
+
+**Precedente legal (não é invenção):** `Lei 5.764/71 art. 28` já obriga, em cooperativa, **Fundo de Reserva ≥10%** e **FATES ≥5%**, e **a assembleia não pode votar contra**. Os cooperados decidem o resto; não decidem extinguir o que sustenta a operação.
+
+### 🛡️ O ANTICORPO OBRIGATÓRIO — a proteção não pode virar privilégio
+
+Custo não-votável **cria um poder novo**: quem o define poderia declarar 90% e sufocar a comunidade. A proteção só é legítima acompanhada de **reconciliação publicada**:
+
+> **Declarado × realizado.** Reservou 15%, gastou 8% → **a diferença aparece e RETORNA ao excedente.**
+
+Fecha as duas pontas: o operador **não pode ser sufocado** (custo sai antes do voto) e **não pode abusar** (excesso é visível e volta).
+
+**Publicar exige quatro coisas** (ver ≠ entender): (1) **decomposição** por item, nunca caixa-preta; (2) **reconciliação** declarado×realizado; (3) **trajetória** histórica — a curva descendo é o argumento; (4) **razão** em linguagem leiga.
+
+**Manutenção e expansão não são a mesma linha.** Manutenção presta contas por **gasto**; expansão presta contas por **resultado** (investido + objetivo declarado + o que produziu). Fundir as duas esconde a expansão dentro do custo e nenhuma fica auditável — e *"expansão"* é o rótulo mais abusável de qualquer organização.
+
+### ⚠️ DEPENDÊNCIA MATERIAL DECLARADA — ESTA SEÇÃO **NÃO** DESCREVE O PRESENTE
+
+O anticorpo acima **não é cumprível hoje**: reconciliar declarado×realizado exige apuração de resultado, e o sistema **não tem conceito de período nem DRE** (`platform_ops` é nome sem fiação). Portanto esta seção é **prescrição**, não descrição: enquanto a frente de resultado não existir, **nenhum custo pré-distributivo pode ser declarado como não-votável**, porque a contrapartida que o legitima não pode ser prestada. A doutrina fica fixada; a autorização material depende de frente própria, com GATE e GO próprios.
 
 ### 🔴 D1.2 — IMPOSTO **NÃO** É CUSTO OPERACIONAL. A NORMA JÁ RESOLVE (verificado, não inventado)
 
-Clayton pediu para conferir na norma antes de modelar. **Já estava decidido, e em dois lugares.**
+Clayton pediu para conferir na norma antes de modelar. **A cascata já estava fixada; a escolha da base, não — e é esta decisão que a fecha.**
 
 **DECISION-0166 D7** fixa a cascata do valor, e imposto vem **ANTES** da distribuição social:
 ```
@@ -63,17 +94,20 @@ valor bruto da transação
 → taxas externas de pagamento (adquirente etc.)
 → comissão UnifiCard bruta
 → reserva/obrigação fiscal
+→ custo operacional (D1.1 — não-votável, visível)
 → comissão DISTRIBUÍVEL          ← é ISTO que o painel reparte
 ```
 
 **DECISION-0179** define `tax_reserve` com todas as negações necessárias: *"segregação interna de uma obrigação fiscal estimada… **decomposição interna de `commission_gross`**, nunca cobrança adicional; **NÃO é `economic_policy_line`; NÃO é policy configurável**; NÃO é imposto pago/recolhimento."* Equação vinculante já promulgada: **`commission_gross = tax_reserve + commission_distributable`**.
 
-**Três consequências que esta decisão apenas REAFIRMA (não cria):**
+**Três consequências que esta decisão REAFIRMA (não cria):**
 1. **Imposto não é linha de policy e não deve ser configurável no painel.** Ele decorre da realidade fiscal, não de escolha do admin. Um percentual de imposto ajustável seria ficção contábil.
-2. **Imposto ≠ custo operacional.** Custo operacional é linha **dentro** dos 100% distribuíveis (D1.1); imposto é dedução **anterior** que forma a base. Confundi-los faria o imposto competir com o fundo regional pelo mesmo bolo — e sair do bolo errado.
+2. **Imposto ≠ custo operacional — mas ambos são anteriores.** São deduções distintas (uma é obrigação legal, a outra é o que custou operar) e **nenhuma das duas compete no bolo distribuível**: imposto por `tax_reserve` (0179), custo operacional por D1.1 acima. Tratá-los como fatias faria qualquer um deles disputar o mesmo bolo do fundo regional — e sair do bolo errado.
 3. **Taxa de adquirente (maquininha/gateway) também é anterior**, e igualmente não é escolha: é o que o processador cobrou de fato.
 
-**Portanto o painel reparte `commission_distributable`** — o que sobra depois de pagar quem entregou, o processador e o Fisco. Todo percentual que Clayton configurar mede **esse** bolo.
+**🔴 O QUE ESTA DECISÃO FECHA (e que 0166 D7 deixara EXPRESSAMENTE em aberto):** o próprio D7 diz *"A base distribuível pode ser **comissão bruta ou comissão líquida**, conforme policy versionada — nunca implícita"* (`DECISION_0166…md:171-172`), e a allowlist de `DECISION-0179 D10` restringe *"no material 4e inicial"*, não para sempre. A escolha entre bruta e líquida era, portanto, **uma decisão em aberto — não uma coisa já decidida que bastasse verificar.**
+
+**Esta decisão a fecha em `commission_distributable`**, em harmonia com a cascata D7, com a 0179 e com a allowlist D10 — exercendo exatamente a *"policy explícita futura"* que `DECISION-0166 D1` previa. **Portanto o painel reparte `commission_distributable`** — o que sobra depois de pagar quem entregou, o processador, o Fisco e o custo de operar. Todo percentual que Clayton configurar mede **esse** bolo.
 
 ### D1.3 — É AJUSTÁVEL, SIM — MAS EM OUTRO PAINEL, E A SEPARAÇÃO PROTEGE (Clayton, 2026-07-27)
 
@@ -113,7 +147,7 @@ Consequência: onde hoje se imaginaria uma policy mista, o desenho correto é **
 ## D3 — O MODELO É DE DUAS ETAPAS
 
 1. **Etapa 1 — repartição da venda:** define quanto fica com o vendedor externo e quanto é **comissão da plataforma** (ex.: 80% Actor / 20% comissão). A taxa de comissão **varia por cidade e categoria**, configurável no painel.
-2. **Etapa 2 — distribuição do que é da plataforma:** reparte **100% daquele bolo** entre fundo regional (multinível, DECISION-0166 D2), indicação, grupos, reserva e **custo do projeto/expansão**. Também varia por cidade e categoria.
+2. **Etapa 2 — distribuição do que é da plataforma:** reparte **100% daquele bolo** entre fundo regional (multinível, DECISION-0166 D2), indicação, grupos e reserva. Também varia por cidade e categoria. **Custo operacional e expansão NÃO entram nesta lista** — são dedução pré-distributiva (D1.1), já descontada antes de a Etapa 2 começar; incluí-los aqui seria contá-los duas vezes **e** devolvê-los ao alcance do voto.
 
 Quando a **plataforma vende**, a Etapa 1 **não existe** (não há terceiro a remunerar) e a Etapa 2 opera sobre o bruto.
 
@@ -147,7 +181,11 @@ Portanto: os valores herdados (já marcados **NÃO RATIFICADOS**) devem ser **re
 
 > *"A sobra do centavo pode ir para a parte que trata dos custos do sistema."*
 
-**Fecha o veredito C-4 da auditoria**, que provou que a Etapa 2 de D3 **não podia sequer ser gravada**: o writer selado exige que **toda** policy tenha ao menos uma linha `revenue_share` (`economic-policy-write-validation.ts:191-197`), e a Etapa 2 (fundo · indicação · grupos · reserva · custo) **não tem nenhuma**. A exigência não é burocracia — é **estrutural**: a primeira linha `revenue_share` é quem **absorve o drift de arredondamento** (`K_pe_7`, `economic-policy-engine.service.ts:274-296`). Sem absorvedor, o resto do centavo **não tem dono**, e o cálculo falha `DRIFT_NO_REVENUE_SHARE`.
+**Fecha o veredito C-4 da auditoria**, que provou que a Etapa 2 de D3 **não podia sequer ser gravada**: o writer selado exige ao menos uma linha `revenue_share` **sempre que a policy tiver alguma linha com `bps`** — a checagem está atrás de `if (hasBpsLine)` (`economic-policy-write-validation.ts:192`) e é aplicada em `:200-206`. Como a Etapa 2 (fundo · indicação · grupos · reserva) é expressa em percentual, a exigência **incide integralmente** sobre ela, e a Etapa 2 **não tinha nenhuma** linha `revenue_share`.
+
+**Precisão de escopo (correção pós-4ª auditoria):** a exigência **não** vale para *"toda"* policy, como a redação anterior afirmava. Uma policy composta **só** de `fixedAmountCents` escapa da trava de escrita e é publicável **sem** `revenue_share` — falhando apenas em runtime, com `DRIFT_NO_REVENUE_SHARE`. **Isso não enfraquece a doutrina desta seção; é um buraco da validação de escrita**, registrado aqui como achado e não remediado por esta decisão.
+
+A exigência não é burocracia — é **estrutural**: a primeira linha `revenue_share` é quem **absorve o drift de arredondamento** (`K_pe_7`, `economic-policy-engine.service.ts:274-296`). Sem absorvedor, o resto do centavo **não tem dono**, e o cálculo falha `DRIFT_NO_REVENUE_SHARE`.
 
 **Decisão (mecanismo REESCRITO em 2026-07-28 após a 3ª auditoria — ver D3.1-BIS abaixo, que substitui o texto original desta seção).**
 
@@ -183,13 +221,15 @@ E `assertPolicyLinesValid` **aceita `bps = 0`** — verificado. *(Erratum de mé
 
 **Decisão de Clayton sobre a alternativa (registrada):** Clayton havia pedido uma **conta dedicada de sobras, movível só por ele**. A direção levantou o custo — destino novo exigiria **abrir o arquivo byte-pinado**, valor novo de vocabulário por DECISION, migration, e governança própria para um saldo de centavos — e Clayton, informado do preço, **confirmou a rota do custo** (*"o que é mais simples e que já funciona?"* → *"sim, confirmado"*). A conta dedicada permanece **legítima e possível**, como frente própria com decisão nomeada, não descartada.
 
-**Regra unificada que emerge — não são duas regras, é uma:**
-> **A sobra de centavo fica com quem ENTREGOU naquela etapa.**
-> Etapa 1 → entregou o vendedor externo → sobra vai para `revenue_share` (o Actor). Etapa 2 → entregou a plataforma → sobra vai para a linha de custo operacional.
+**A regra normativa é UMA, e não é desta decisão:** `CORE_SPLIT_PAGAMENTO_CANONICO.md:94` — *drift para `revenue_share[0]`* — vale nas duas etapas, sem exceção e sem emenda. O que esta seção decide é **para onde aponta o `destinationType`** daquela linha na Etapa 2: a conta de custo/taxa da plataforma.
 
-Consistente com a regra já promulgada em `CORE_SPLIT_PAGAMENTO_CANONICO.md:94` (*drift para `revenue_share[0]`*), que é a instância dessa mesma regra na Etapa 1. E **honesta na direção**: a plataforma fica com as migalhas do arredondamento, não a comunidade.
+*(Glosa não-normativa, para leitura humana: o efeito prático é que a sobra de centavo fica com quem entregou naquela etapa — o Actor na Etapa 1, a plataforma na Etapa 2. Isto é **descrição do efeito**, não regra autônoma; a regra é a do `CORE:94`. A redação anterior enunciava esta glosa como se fosse regra unificada própria, e mandava a sobra para uma "linha de custo operacional" que, sob a D1.1 emendada, **não existe dentro do split**. Resíduo expurgado em 2026-07-28.)*
 
-**⚠️ LACUNA MATERIAL DECLARADA, NÃO AUTORIZADA AQUI (veredito C-5):** `EconomicPolicyLineType` (`economic-policy.types.ts:18-26`) **não possui `operational_cost`** — existem `revenue_share · platform_fee · regional_fund · reserve · referral · group_allocation · channel_commission · custom`. Criar valor novo de vocabulário **exige DECISION nomeada** (`DECISION-0179` proíbe *"ampliação sem nova DECISION/versionamento"*). **Esta decisão declara a doutrina; NÃO cria o `line_type`, NÃO autoriza escrita, e proíbe expressamente a alternativa por omissão de usar `custom`** — que dissolveria a auditabilidade que D1.1 invoca como justificação. Materializar exige GATE + GO próprios, e o absorvedor da Etapa 2 **não existe até lá**.
+E **honesta na direção**: a plataforma fica com as migalhas do arredondamento, não a comunidade.
+
+**⚠️ NOTA DE ESCOPO DA GARANTIA DE DESTINO (4ª auditoria, F7):** a promessa *"o centavo vai para a conta de custo"* vale no caminho **PE-3 / `service_execution`**, onde o roteamento é por `destinationType` (`service-payment-execution.service.ts:137-152`). O **segundo consumidor** do motor, `marketplace-fee-policy.ts:62-64`, classifica splits por `lineType` e contaria uma linha `revenue_share` bps=0 como parte **líquida do Actor**, não como custo da plataforma. Não afeta a Etapa 2 (`moduleContext` distinto, e aquele consumidor calcula taxa sem mover destino), mas **a garantia é por-consumidor, não universal** — quem materializar em outro caminho precisa verificar, não presumir.
+
+**✅ VEREDITO C-5 RESOLVIDO — NÃO HÁ MAIS LACUNA DE VOCABULÁRIO.** A redação anterior declarava que faltava o `line_type` `operational_cost` em `EconomicPolicyLineType` (`economic-policy.types.ts:18-26`) e concluía que *"o absorvedor da Etapa 2 não existe até lá"*. **Ambas as afirmações caíram:** sob a D1.1 emendada **não existe linha de custo dentro do split**, logo `operational_cost` deixou de ser pré-requisito de qualquer coisa nesta decisão; e o absorvedor **existe hoje** — é a linha `revenue_share` bps=0, aceita pela validação de escrita e calculada pelo motor real, provado acima e re-provado de forma independente pela 4ª auditoria. **Nenhum valor novo de vocabulário é criado ou necessário aqui**, e permanece proibida a alternativa por omissão de usar `custom`.
 
 ---
 
@@ -197,7 +237,15 @@ Consistente com a regra já promulgada em `CORE_SPLIT_PAGAMENTO_CANONICO.md:94` 
 
 **C-2 · COLISÃO NÃO NOMEADA COM `DECISION-0179 D10` (allowlist selada).** D10 fixa: *"No material 4e inicial, **só entram no Bank**: `tax_reserve` e linhas originadas de **`commission_distributable`**. Linhas sobre `gross_transaction`/`commission_gross` **permanecem fora** até nova allowlist decidida"*; e **proíbe** *"qualquer `line_type` sobre `gross_transaction` materializado por conveniência"*. **D1 (plataforma vende → incide sobre o bruto) e a Etapa 1 de D3 são exatamente linhas sobre `gross_transaction`.** A redação original citava a 0179 apenas para `tax_reserve` e **nunca mencionou D10**. Pior: o estado material é ainda mais restritivo — **a allowlist está VAZIA** (`fiscal-reserve-bank-composition.service.ts:17`, DECISION-0183 D9), logo **nenhuma** linha de **nenhuma** base materializa no Bank hoje. **Correção:** fica declarado que o caso plataforma-vendedora e a Etapa 1 estão **fora da allowlist vigente**, e que sua materialização exige **decisão de allowlist própria** — que **não** é o GO 4e e **não** é emitida aqui.
 
-**C-3 · D2 PROÍBE O QUE CÓDIGO SELADO IMPLEMENTA — e a direção tinha o fato à mão.** `fiscal-economic-policy-composition.service.ts:180,222-229` **agrupa linhas por base** e chama o motor **por grupo**, com comentário citando D12; e `DECISION-0178 D8` pressupõe seleção de base **por linha**. **A afirmação original de que *"DECISION-0178 permanece íntegra"* é verdadeira quanto ao vocabulário e FALSA quanto à composição.** Agravante registrado: o cartório da mesma sessão, dez linhas acima da redação, já registrava *"multi-base já é o desenho previsto"* — **redigiu-se com o fato disponível e omitiu-se**. **Correção:** D2 (base única por policy) **está em desacordo declarado** com `fiscal-economic-policy-composition.service.ts` e com 0178 D8. O que acontece com o agrupamento por base — morre, vira defesa em profundidade, ou exige emenda à 0178 — **não é decidido aqui** e é pré-requisito de qualquer materialização de D2.
+**C-3 · D2 RESTRINGE O QUE CÓDIGO SELADO TORNA POSSÍVEL — e a direção tinha o fato à mão.** `fiscal-economic-policy-composition.service.ts:180,222-229` **agrupa linhas por base** e chama o motor **por grupo**, com comentário citando D12. Agravante registrado: o cartório da mesma sessão, dez linhas acima da redação, já registrava *"multi-base já é o desenho previsto"* — **redigiu-se com o fato disponível e omitiu-se**.
+
+**🔴 CORREÇÃO DO ALVO (4ª auditoria, F3) — a redação anterior errava contra quem D2 diverge.** Ela declarava desacordo *"com 0178 D8"*. **Isso é textualmente falso**, e a 4ª auditoria verificou lendo o artigo: `DECISION_0178 D8:208` lista propriedades do `EconomicPolicyEvaluationContext`, e *"as mesmas **três** bases"* são os três **valores** do contrato (`grossTransactionCents` / `commissionGrossCents` / `commissionDistributableCents`) que viajam juntos no contexto — **não** um direito de a policy misturar bases nas suas linhas. **A 0178 é SILENTE sobre mistura intra-policy.**
+
+**O desacordo REAL de D2 é com dois fatos materiais, não com norma selada:**
+1. a **capacidade** multi-base do código selado (`fiscal-economic-policy-composition.service.ts:180,222-229`) — capacidade, não permissão promulgada;
+2. a **ausência de trava de base única** em `assertPolicyLinesValid` (`economic-policy-write-validation.ts:158-179`), que hoje soma bps de todas as linhas sem olhar `applies_to`.
+
+**Consequência:** D2 decide num espaço que a 0178 deixou aberto — é **restrição declarada em espaço não decidido**, não emenda vestida de leitura harmonizadora (o defeito pelo qual a 0192 D5 foi reprovada). Por isso `D6` (*"DECISION-0178 permanece íntegra"*) e este artigo **não se contradizem**: a 0178 segue íntegra, e o que fica dormente sob D2 é uma **capacidade de código**, não um artigo. O que acontece com o agrupamento por base — morre, vira defesa em profundidade, ou é religado por decisão futura — **não é decidido aqui** e é pré-requisito de qualquer materialização de D2.
 
 **C-6 · D4 DESCREVIA COMO FUTURO O QUE JÁ ESTAVA NO AR.** D4 (*"`applies_to` não deve ser de livre escolha do admin"*) foi redigida como risco teórico. Estado material no mesmo dia: `EconomicPoliciesPage.tsx` **é um `<select>` por linha**, e o writer aceita qualquer das 3 bases graváveis, linha a linha, **com Clayton já possuindo acesso real** (Fatia 4 selada). **Correção:** o risco de D4 **é atual, não futuro**. Registra-se que, diferentemente do defeito irmão de `regionalOriginBasis` — **fechado em `6ccdadf11`** com declaração policiada por guard —, a livre escolha de `applies_to` **permanece aberta** e não foi remediada por esta decisão.
 
