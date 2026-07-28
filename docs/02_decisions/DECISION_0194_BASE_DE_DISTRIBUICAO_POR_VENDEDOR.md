@@ -28,11 +28,33 @@ O campo `applies_to` existe para declarar a base (DECISION-0178), mas **o motor 
 > **A base da distribuição é determinada por QUEM VENDE.**
 
 - **Vendedor EXTERNO** (Actor: PF, PJ, banda, artista, prestador): a redistribuição incide **exclusivamente sobre a comissão da plataforma**. O Actor recebe sua parte **antes**, e ela **não entra no split de distribuição**.
-- **A própria PLATAFORMA é a vendedora/organizadora**: a redistribuição incide sobre o **bruto** da venda — porque não há prestador externo a remunerar; a plataforma **é** o prestador, e o valor inteiro é distribuível.
+- **A própria PLATAFORMA é a vendedora/organizadora**: a redistribuição incide sobre o **bruto** da venda — porque não há prestador externo a remunerar. **Mas o bruto NÃO é sobra:** a plataforma teve **custo operacional** para entregar aquilo, e esse custo é uma **linha explícita dentro da distribuição** (D1.1). Faturamento não é lucro.
 
 **Exemplo governante (palavras de Clayton):** *"Um Actor vende um produto ou ingresso por 100 reais e foi configurado que, para aquela cidade e categoria, a comissão é 20%. Ou seja, **somente os 20 reais entrarão para o split de divisão**. Se for a plataforma vendendo, o split entra sobre os 100 reais."*
 
 Esta é exatamente a **"policy explícita futura"** que a DECISION-0166 D1 antecipou e deixou em aberto. Não há contradição: D1 permanece a regra do caso externo; esta decisão nomeia o caso em que a plataforma vende.
+
+---
+
+## D1.1 — CUSTO OPERACIONAL É LINHA EXPLÍCITA, NUNCA PREMISSA (Clayton, 2026-07-27)
+
+> *"Só que se for a plataforma, essa divisão entre os 100 reais terá o custo operacional."*
+
+**Faturamento não é lucro.** Quando a plataforma vende, o bruto continua sendo a **base**, mas entre as fatias que somam 100% **obrigatoriamente existe uma linha de custo operacional** — o que custou entregar aquele valor (produto, logística, infraestrutura, operação).
+
+**Regra unificada que emerge daqui — os dois casos de D1 são a MESMA regra:**
+
+> **Distribui-se o que sobra depois de pagar quem entregou.**
+
+- Vendedor externo → quem entregou é o **Actor**, e a parte dele sai antes (é a Etapa 1);
+- Plataforma vendedora → quem entregou é a **própria plataforma**, e o custo dela sai como **linha de custo operacional** dentro da distribuição.
+
+Não são dois modelos: é um só, com dois nomes para "o que custou entregar".
+
+**Por que linha explícita e não dedução silenciosa:** um custo descontado antes, fora do split, é invisível — a comunidade veria "10% para o fundo regional" sem saber que a base já tinha sido reduzida em segredo. Como linha, ele aparece, é auditável, e permite dizer honestamente *"hoje X% cobre o custo do projeto; conforme escalar, isso cai e o fundo sobe"* — que é mais forte que esconder. Coerente com a exigência de transparência de Clayton (saldos visíveis) e com o Artigo XI.
+
+**⚠️ QUESTÃO ABERTA, NÃO DECIDIDA AQUI — custo é PERCENTUAL ou FATO?**
+Uma linha de policy expressa **percentual**. Mas custo operacional pode ser **fato daquela transação** (a plataforma comprou o produto por R$ 60 e vendeu por R$ 100 → o custo é R$ 60, não "60%"). Percentual funciona para **rateio de overhead**; não funciona para **custo de mercadoria variável**. Se o UnifiCard vier a revender bens com custo unitário variável, o modelo de policy **sozinho não expressa isso** e será preciso decidir se o custo real entra como fato antes do split (reduzindo a base) ou se permanece rateio percentual. **Não resolver isto antes de vender com custo variável é criar o risco de distribuir dinheiro que não existe.** Registrado como decisão futura de Clayton, não como lacuna esquecida.
 
 ---
 
