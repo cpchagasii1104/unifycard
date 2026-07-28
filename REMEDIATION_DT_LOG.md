@@ -12,6 +12,26 @@ A sociedade **não escreve** — mas **vê tudo**, inclusive o que o administrad
 
 **Ressalva registrada pela direção, aceita como complemento e não como objeção:** Clayton afirmou *"se a própria sociedade levar à falência um sistema, quer dizer que não estávamos preparados"*. A parte central é correta — esconder consequência não ensina. Mas **falência não ensina, encerra**: a lição custa tudo e quem paga não é necessariamente quem votou (é o prestador que não recebeu, a cidade seguinte que nunca existiu). Aprendizado exige **errar e continuar** — por isso a reserva obrigatória (emenda pendente) **não contradiz a autogestão: é o que permite o experimento durar** o suficiente para a sociedade aprender. Desenho: **vê tudo desde já, decide progressivamente mais**, com o irreversível protegido.
 
+### D-C · MECANISMO DE DEFESA: VETO FUNDAMENTADO (Clayton, 2026-07-27)
+> *"Depois de votação, um economista etcétera rejeitar — e se o sistema rejeitar, ele explicar para a sociedade por que aquilo não foi aprovado. Pode ser que decisões coletivas sejam erradas realmente, mas aí é o sistema com pessoas preparadas mostrando: o caminho não é por aqui por causa disto."*
+
+**Premissa que decide tudo:** veto **sem explicação é chave-mestra** (Artigo I proíbe). Trocar *"o povo decide"* por *"o especialista decide"* não é mais seguro — é menos honesto. A exigência de explicar, que Clayton intuiu, é o que impede isso; falta a peça da reversibilidade.
+
+**🔴 SÃO DOIS VETOS, E FUNDI-LOS É O PERIGO:**
+| | Veto por **IMPOSSIBILIDADE** | Veto por **MÉRITO** |
+|---|---|---|
+| natureza | objetivo, verificável (*"derruba a reserva de 4,2 para 0,8 meses; eis o cálculo"*) | juízo (*"acho ruim investir nisso agora"*) |
+| quem exerce | **o próprio sistema, automaticamente** — é aritmética, não pessoa | humano preparado |
+| reversível por voto? | **NÃO** — não se vota para quebrar a lei nem gastar o que não existe | **SIM**, por maioria qualificada |
+
+**Por que fundir é o risco:** o especialista **veste opinião de impossibilidade**. *"Não é viável"* soa técnico e é irrespondível — **é assim que tecnocracia derrota democracia**, sempre com boa intenção. A tipificação do veto é o anticorpo.
+
+**O automático já existe pela metade — e é o mais forte.** O sistema **já recusa** fail-closed (split que não soma, residência irresolvível, policy sem `revenue_share`). Falta **tornar a recusa legível**: hoje devolve código de erro; deve devolver *"rejeitado porque X, eis a conta, confira"*. **Fail-closed com explicação publicada É o mecanismo de defesa descrito — sem depender de alguém estar disponível, de bom humor ou ser honesto.**
+
+**A explicação fica ANEXADA, não só publicada.** Vídeo/publicação servem para **alcançar**; se a razão viver só lá, **ela some** e em dois anos ninguém sabe por que a proposta caiu. A justificativa do veto pertence ao **registro da decisão**, com a mesma permanência do voto — a comunidade **consulta** em vez de lembrar.
+
+**Consequência de longo prazo (a mais valiosa):** um **histórico de vetos com motivo** permite auditar os vetadores. Depois de N vetos dá para ver se acertaram — e se alguém erra sistematicamente, isso também fica visível. **Quem veta também presta contas.** Sem isso, o veto é poder sem contrapartida, que é a definição do que este sistema existe para não ter.
+
 ### D-B · TRANSPARENTE NO FRONTEND, MAS A VERDADE VIVE NO BACKEND
 > *"Transparente no frontend, mas a verdade vive no backend."*
 
