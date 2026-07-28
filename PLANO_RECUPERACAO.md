@@ -547,17 +547,29 @@ Exemplo já classificado no Anexo A: RFQ → candidato a `CORREÇÃO DIRETA` (de
 
 | # | Rodada | Escopo | Status |
 |---|---|---|---|
-| 0 | Base transversal | Entrypoints, plugins globais, auth, tenant, action context, registro final de rotas, jobs/workers, feature flags, gates/runner, migrations — não precisa concluir tudo, só saber o que aparece em toda jornada | **PENDENTE** |
-| 1 | Cadastro, login e nascimento da identidade | registro → autenticação → identidade global → user tenant-scoped → Actor PF → sessão → contexto de tenant → primeiro acesso | **PENDENTE** |
-| 2 | Actor e projeção mínima de perfil | identity → Actor resolvido → Actor ativo no contexto → perfil/read model → troca de Actor → projeção no frontend | **PENDENTE** |
-| 3 | Código de indicação (primeira metade, sem dinheiro) | geração → titular → compartilhamento → entrada no cadastro → validação → atribuição → persistência → idempotência → antiautoindicação. Recompensa/comissão/split fica FORA (vai para a Rodada 10) | **PENDENTE** |
-| 4 | Autoridade e permissões | Identity → Actor → vínculo → capability/grant → operação → revalidação no service → evento | **PENDENTE** |
-| 5 | Criação e ciclo de empresa | PF responsável → dados fiscais → criação da empresa → Actor page → gestor inicial → capabilities → convite → aceite → alteração/revogação → publicação pela empresa. DECISION-0189D não é reaberta — é dependência a verificar por composição | **PENDENTE** |
-| 6 | Criação e ciclo de grupos | Actor criador → grupo → Group Actor → membership → convite → entrada → authority → delegação institucional → saída/revogação → publicação em nome do grupo | **PENDENTE** |
-| 7 | Perfil completo, página do Actor e compositor | Actor → capabilities → blocos disponíveis → página universal → compositor → intents → publicação → projeções | **PENDENTE** |
-| 8 | Busca, categorias e navegação | consulta → intenção → contexto → TREE → CONCEPT → resultado → página/ação | **PENDENTE** |
-| 9 | Jornadas operacionais (serviço/produto/locação/evento/demanda/agenda) | publicação → descoberta → intenção → autoridade → disponibilidade/recurso → estado → evento → consequência econômica futura | **PARCIAL — Eventos já tem um primeiro mapa no Anexo A (topologia de rota); falta a jornada causal completa fim-a-fim e as outras famílias (serviço/produto/locação/demanda/agenda)** |
-| 10 | Dinheiro, fiscal, território e indicação financeira | fato de negócio → obrigação econômica → policy → território → fiscal → instrução Bank → ledger/split → projeção → reversão (inclui recompensa de indicação, comissões, fundo regional, fiscal reserve, payout, invoice, refund, chargeback, reconciliação, transparência) | **PENDENTE — inclui abrir os handlers de `economic/v2` do Anexo A** |
+> 🔴 **TABELA RECONCILIADA EM 2026-07-28 — a versão anterior estava FALSA.** Ela marcava 9 das 11 rodadas como `PENDENTE` enquanto o próprio corpo deste documento, ~100 linhas abaixo, registra a Rodada 0 **CONCLUÍDA** (10/10 itens, 2026-07-20) e as Rodadas 1-10 fechadas por checkpoint. Uma instância nova que lesse só a tabela reabriria ~2000 linhas de trabalho já feito. **Este era o artefato mais perigoso do documento.**
+
+| # | Rodada | Escopo | Status REAL (2026-07-28) |
+|---|---|---|---|
+| 0 | Base transversal | Entrypoints, plugins, auth, tenant, action context, rotas, jobs/workers, feature flags, gates/runner, migrations | ✅ **CONCLUÍDA (10/10 itens, 2026-07-20)** — produziu ROOT-001..004 |
+| 1 | Cadastro, login e nascimento da identidade | registro → autenticação → identidade global → user tenant-scoped → Actor PF → sessão → contexto | 🟡 **PARCIAL — fechada por checkpoint** (não é "não iniciada") |
+| 2 | Actor e projeção mínima de perfil | identity → Actor resolvido → Actor ativo → perfil/read model → troca de Actor → projeção | 🟡 **PARCIAL — fechada por checkpoint** (FIND-015) |
+| 3 | Código de indicação (sem dinheiro) | geração → titular → compartilhamento → cadastro → validação → atribuição → idempotência | 🟡 **PARCIAL — fechada por checkpoint** (FIND-016) |
+| 4 | Autoridade e permissões | Identity → Actor → vínculo → capability/grant → operação → revalidação → evento | 🟡 **PARCIAL** (FIND-017; ⚠️ o número **"152 callers"** citado adiante está **REFUTADO** — o real é **126 arquivos / 570 ocorrências**, rederivado do zero pelo AUDIT-004) |
+| 5 | Criação e ciclo de empresa | PF responsável → dados fiscais → empresa → Actor page → gestor → capabilities → convite → revogação | 🟡 **PARCIAL — fechada por checkpoint** |
+| 6 | Criação e ciclo de grupos | Actor criador → grupo → Group Actor → membership → convite → authority → delegação → saída | 🟡 **PARCIAL** (FIND-018, FIND-019) |
+| 7 | Perfil completo, página do Actor e compositor | Actor → capabilities → blocos → página universal → compositor → intents → publicação | 🟡 **PARCIAL — fechada por checkpoint** |
+| 8 | Busca, categorias e navegação | consulta → intenção → contexto → TREE → CONCEPT → resultado | 🟡 **PARCIAL — fechada por checkpoint** |
+| 9 | Jornadas operacionais | publicação → descoberta → intenção → autoridade → disponibilidade → estado → evento → consequência | 🟡 **PARCIAL** — Eventos mapeado (Anexo A); faltam serviço/produto/locação/demanda/agenda fim-a-fim |
+| 10 | Dinheiro, fiscal, território e indicação financeira | fato → obrigação → policy → território → fiscal → Bank → ledger/split → projeção → reversão | 🟡 **PARCIAL — 5 passos feitos, PAUSADA por decisão de escopo.** ⚠️ Muito trabalho posterior (27-28/07) NÃO está refletido nos FINDs |
+
+**⚠️ O QUE ESTE DOCUMENTO NÃO SABE (última edição substantiva: 2026-07-21):**
+- **AUDIT-004 rodou em 21/07 e achou RISCO CRÍTICO VIVO** — personificação de actor em `services.routes.ts` availability: qualquer usuário autenticado editava a agenda de **outro** ator (violação do Artigo I). **Contido e selado em 22/07** (`canRepresentActor` fail-closed, `services.routes.ts:314-333`). **§C.6 ainda descreve AUDIT-004 como "fechado, aguardando GO" — está errado.**
+- **DECISION-0190 foi IMPLEMENTADA em código em 27/07** (`a0fdbd9e9`): 8 rotas `economic/v2` retornam `501` como primeira instrução, com guard no runner. **Fecha FIND-020, FIND-021 e FIND-022**, que o §C.1 ainda marca como abertos/"sob decisão Clayton".
+- **Sessão de 27-28/07:** conservação de centavo provada e guardada · transparência regional (que **nunca funcionara** — estourava erro) corrigida · motor legado de split cercado por tripwire · painel econômico com acesso real · 3 DECISIONs (0192/0193/0194) **reprovadas em 2 auditorias independentes** · e um **STOP vivo** por corrupção silenciosa multi-base no split.
+- **ROOT-003 reconciliado:** "84 guards fora do runner" ≠ "84 sem execução" — 77 rodam via agregadores fail-closed. Classificação final `PARTIALLY_RESOLVED_AND_CONTAINED` (selos `fe13af59f`, `229f86f87`). Runner hoje: **225** comandos.
+
+**Consultar o CARTÓRIO (`REMEDIATION_DT_LOG.md`, topo), não este documento, para o estado de 2026-07-22 em diante.**
 
 ## B.4 — Formato obrigatório de cada rodada
 
@@ -1790,9 +1802,9 @@ Cada achado com: título · origem · classificação · confiança · fila · c
 | FIND-017 | `hasCapabilityGrant` definido mas ainda não aplicado a rota de negócio | R4/passo2-3 | PROV | INVESTIGAÇÃO | — | aberto (by design) |
 | FIND-018 | Nascimento de grupo NÃO-atômico (grupo criado antes do Group Actor, sem rollback) | R6/passo1 | FI | HARDEN | — | aberto |
 | FIND-019 | `requesterMatchesOwnerActor` = autoridade paralela ao canônico + escrita em checagem + confusão de IDs; rota real protege hoje | R6/passo2-3 | FI | HARDEN | ROOT-004 (parente) | aberto |
-| FIND-020 | 🔴 `economic/v2/payment/execute`: rota promete "sandbox, no real money" mas service documenta "ledger sempre real" | R10/passo2 | PROV | AUDITORIA_CRÍTICA | — | **sob decisão Clayton** |
-| FIND-021 | `economic/v2` inteiro: sem feature flag, zero caller frontend, alcançável só via API direta | R10/passo3 | PROV | AUDITORIA_CRÍTICA | — | aberto |
-| FIND-022 | refund/chargeback: sem `sandbox_mode` nenhum (não prometem nada, mas agem sobre dinheiro) | R10/passo4 | PROV | AUDITORIA_CRÍTICA | — | aberto |
+| FIND-020 | 🔴 `economic/v2/payment/execute`: rota promete "sandbox" mas service documenta "ledger sempre real" | R10/passo2 | PROV | AUDITORIA_CRÍTICA | — | ✅ **FECHADO POR SELO+MATERIAL (reconciliado 2026-07-28)** — DECISION-0190 selada e IMPLEMENTADA em `a0fdbd9e9`: 501 como 1ª instrução em 8 rotas + guard no runner |
+| FIND-021 | `economic/v2` inteiro: sem feature flag, zero caller frontend, alcançável só via API direta | R10/passo3 | PROV | AUDITORIA_CRÍTICA | — | ✅ **FECHADO POR SELO+MATERIAL (mesma frente, reconciliado 2026-07-28)** |
+| FIND-022 | refund/chargeback: sem `sandbox_mode` nenhum (não prometem nada, mas agem sobre dinheiro) | R10/passo4 | PROV | AUDITORIA_CRÍTICA | — | ✅ **FECHADO POR SELO+MATERIAL (refund/chargeback estão entre as 8 rotas contidas)** |
 | FIND-023 | Contrato Território→Bank: produtor provado correto, consumidor/execução NÃO auditado | R10/passo5 | PROV (produtor) / NÃO AUD (consumidor) | PROVA_RUNTIME/AUDITORIA_PROFUNDA | — | parcial |
 | FIND-024 | RFQ: contrato frontend/backend incompatível (prefix `/api` mismatch nos 2 lados), jornada viva | Anexo A | PROV | CORREÇÃO_DIRETA | — | aberto |
 | FIND-025 | UnifyBank aliasado em `/bank`+`/admin` (mesmo plugin 2x, todas as rotas duplicadas) | Anexo A | PROV | HARDEN/DECIDE | — | aberto |
@@ -1859,7 +1871,7 @@ Fórmula: `risco soberano × reachability × capacidade de efeito × ausência d
 5. **ROOT-001 (tenant-loop)** — risco financeiro só se workers religados; contido hoje por default-off (menor urgência imediata, mas bloqueia habilitar workers).
 6. **Correções localizadas** (FIND-024 RFQ, FIND-005 log, FIND-006 CPF pós-decisão, FIND-018 grupo não-atômico, FIND-019 authority Grupos, FIND-010 flags, FIND-003 request-id, FIND-002/014/026 órfãos, FIND-027 frontend×contido, FIND-025 aliases) — depois dos estruturais.
 
-## C.6 — Pacotes de handoff
+## C.6 — ⚠️ **DESATUALIZADO: AUDIT-004 JÁ RODOU (2026-07-21), achou RISCO CRÍTICO VIVO e foi CONTIDO E SELADO (2026-07-22). Não é mais "aguardando GO".** — Pacotes de handoff
 
 **Campos fixos obrigatórios de todo pacote** (Clayton): `BASE/HEAD · MODO · DENOMINADOR · ARQUIVOS INICIAIS · ESCOPO POSITIVO · ESCOPO NEGATIVO · PROVAS EXIGIDAS · CRITÉRIO PASS · CRITÉRIO FAIL · CRITÉRIO STOP · FORMATO DE SAÍDA · DEPENDÊNCIAS DE OUTROS PACOTES`.
 
@@ -2527,7 +2539,7 @@ MATERIAL EXECUTION NOT AUTHORIZED
 F-EVENT-ECONOMIC-V2-HONEST-CONTAINMENT CLOSED
 ```
 
-## C.16 — AUDIT-002 · Reconciliação do denominador e alcançabilidade real dos guards na CI (ROOT-003 · R2) · 2026-07-20/21
+## C.16-bis — AUDIT-002 · Reconciliação do denominador e alcançabilidade real dos guards na CI (ROOT-003 · R2) · 2026-07-20/21
 
 `HEAD auditado: fe13af59f` (branch `rescue-structural`). Auditoria independente **Opus 4.8** — "AUDIT-002 · Reconciliação do denominador e alcançabilidade real dos guards na CI". **Veredito A — DENOMINADOR RECONCILIADO.** Zero alteração de código/migration/runner/guard durante a auditoria. Este registro é **docs-only** e **não substitui, apaga nem invalida** os achados de qualidade de F-1 a F-5 — corrige exclusivamente o **eixo de enforcement** que os acompanhava.
 
