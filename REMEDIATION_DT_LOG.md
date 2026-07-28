@@ -1,5 +1,29 @@
 # REMEDIATION DT LOG
 
+## ⛔ STOP · `applies_to` NO MOTOR VIVO — **A DIREÇÃO PROPÔS VIOLAÇÃO DE FASE; A EXECUTORA RECUSOU E ESTAVA CERTA** (2026-07-27)
+**A direção mapeou que `economic-policy-engine.service.ts` ignora `applies_to`, chamou isso de "arma carregada", obteve GO de Clayton e despachou a ligação ao seletor selado. A executora PAROU antes de qualquer edição. `BASE = FINAL = ff9e18cfc`, zero linha alterada, zero commit. A recusa está correta em TRÊS níveis independentes — todos verificados em 1ª mão pela direção.**
+
+### ❌ NÍVEL 1 — o trabalho pedido é MATERIAL 4E, não 4D-2
+`DECISION-0178` **D7**, verificado literalmente pela direção (`:178`): *"Fixa-se: em 4d-2, `FiscalEconomicPolicyCompositionService` **NÃO** será ligado a nenhum caller monetário vivo. Particularmente, **não religar em 4d-2**: `service-payment-execution` · … · qualquer pipeline que escreva Bank. **Religar caller vivo em 4d-2 é violação de fase** (expande reachability — proibido pelo GATE)."* E a mesma decisão atribui a religação a **4e**. **A direção despachou exatamente o que a norma nomeia como violação de fase.**
+
+### ❌ NÍVEL 2 — o GO recebido NÃO era o gatilho exigido
+`DECISION-0179/0182/0183` represam o material 4E sob **gatilho humano literal**: `GO RETOMAR MATERIAL FISCAL-4E` — **5 ocorrências no cartório**, conferidas pela direção. O GO de Clayton foi *"respeitando normas, leis, nomenclaturas e toda a matemática lógica existente"* — **condição genérica de qualidade, não o gatilho nomeado**. A executora distinguiu as duas coisas; a direção não tinha distinguido. **Lição institucional: um GO genuíno de Clayton NÃO satisfaz automaticamente um gatilho nomeado — o represamento existe justamente para exigir que o soberano saiba QUAL porta está abrindo.**
+
+### ❌ NÍVEL 3 — o guard que morde isso está VIVO E VERDE HOJE
+`audit-fiscal-economic-policy-composition.mjs`: **R1** (`:140-142`) falha se qualquer caller monetário referenciar `fiscalEconomicPolicyCompositionService`, com comentário no próprio guard *"proibido em 4d-2 — reachability é 4e"*; **B1** (`:149-166`) pina por sha256 os 2 arquivos protegidos; **B2** (`:167-171`) escaneia por token. Reusar `selectAppliesToBaseCents` via import no motor vivo dispararia **R1+B1+B2 simultaneamente**. E `DECISION-0178 D14.C` já prescrevia a conduta: *"Se a execução provar impossibilidade material dessa preservação → STOP e retornar ao GATE."* Foi exatamente o que ela fez.
+
+### 🔴 E O ACHADO QUE JUSTIFICA O REPRESAMENTO — a ligação ARMARIA corrupção silenciosa de dinheiro
+A direção havia levantado a dúvida multi-base ("70% do bruto + 30% da comissão não fecham o bruto"). **A realidade é pior e está no código.** Verificado em 1ª mão (`fiscal-economic-policy-composition.service.ts:176-196`): a composição selada **AGRUPA as linhas POR BASE** (`positiveGroups`, chave `${base}:${cents}`) e chama `calculatePolicySplits(cents, group)` **separadamente por grupo**, deliberadamente *"REUSAR a aritmética canônica — sem duplicar o motor"*. Ou seja: **multi-base já é o desenho previsto**, e `assertPolicyLinesValid` **não exige** base única (soma os bps de TODAS as linhas exigindo 10000, sem olhar `applies_to`).
+**A colisão:** `calculatePolicySplits` calcula `drift = amountCents − Σ(linhas)` e despeja o drift **inteiro** na primeira `revenue_share` — mecanismo `K_pe_7`, desenhado **exclusivamente para resíduo de centavos de arredondamento**. Se um sub-grupo por base somar, digamos, 7000 bps (porque os outros 3000 pertencem a outra base), o drift **não é 1-2 centavos: é 30% do valor daquele grupo**, absorvido em silêncio como se fosse arredondamento. **Sem erro, sem alarme.** Ligar o motor vivo antes de resolver isso seria **armar a arma, não desarmá-la** — o oposto exato do que a direção anunciou a Clayton que estava fazendo.
+
+### ✅ CONDUTA CORRETA REGISTRADA COMO PRECEDENTE
+Executora: parou **antes** de editar, levantou a lista de callers por precaução sem usá-la, **não inventou** restrição de base única por conta própria (proibido no mandato e respeitado), não tocou o guard, não deixou cabeçalho `ORIENTAÇÃO CANÔNICA` (§7.1/D5.2 exige *arquivo tocado em trabalho real*; a execução foi 100% leitura — **julgamento correto**). Runner conferido no HEAD intocado: **224 OK**, byte-pins intactos, conservação 96/96.
+**Erro da DIREÇÃO, registrado sem atenuação:** mapeou barato e corretamente que o campo é ignorado, mas **não consultou a norma que governa a fase** antes de propor a ligação, e apresentou a Clayton como "Δ=0, seguro, e a espera aumenta o risco" algo que era violação de fase represada por 3 decisões. O mapeamento estava certo; **a conclusão operacional, errada**. O rito funcionou: quem estava embaixo segurou quem estava em cima.
+
+### 🔑 DEVOLVIDO A CLAYTON — duas perguntas, nesta ordem
+1. **Doutrina de conservação multi-base** (precede tudo): uma policy pode misturar bases? Se pode, o que "100%" significa — e o `drift` do motor precisa ser redefinido antes de qualquer religação, porque hoje ele confunde "resto de centavo" com "parcela de outra base". **Isto é decisão institucional, não engenharia.**
+2. **Só depois**, e apenas se ele quiser abrir a fase: o gatilho literal `GO RETOMAR MATERIAL FISCAL-4E`, ciente de que abre reachability monetária represada desde a 0178.
+
 ## F-MONEY-CENT-CONSERVATION — "A LINGUAGEM DO DINHEIRO É ÚNICA E FECHA O CENTAVO" — ✅ SELADA · VERIFICAÇÃO DE 1ª MÃO (2026-07-27)
 **Mandato de Clayton: *"preciso que a linguagem de código sobre o dinheiro seja única, do banco, calcule os centavos, não dê margem pra cento e um por cento."* Metade já era enforçada (soma 10000 bps na escrita, Fatia 2). A outra metade — **conservação de CENTAVOS no cálculo** — nunca tinha sido provada. Agora está.**
 - **Material:** `44aff4fdf` (pai `f14073820`), 7 arquivos +253/-8. Runner **223 → 224**.
