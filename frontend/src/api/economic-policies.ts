@@ -164,9 +164,16 @@ interface AdminPolicyEnvelope {
  * GET /economy/admin/policies — lista as economic_policies (+linhas) do tenant autenticado.
  * admin-gated no backend (requireRole(['admin']) + economic_policy:manage); 401/403 propagam via
  * apiFetch (lançado como Error — ver mapEconomicPolicyError no consumidor).
+ *
+ * `includeDeprecated` (default true — espelha o default do backend, nenhuma mudança de
+ * comportamento por omissão): passe `false` para esconder versões `deprecated` (ruído histórico
+ * não-acionável, ex.: fixtures E2E). Filtro de LEITURA — nenhuma policy é apagada.
  */
-export async function listEconomicPolicies(): Promise<EconomicPolicy[]> {
-  const response = await apiFetch('/economy/admin/policies');
+export async function listEconomicPolicies(
+  opts: { includeDeprecated?: boolean } = {}
+): Promise<EconomicPolicy[]> {
+  const qs = opts.includeDeprecated === false ? '?includeDeprecated=false' : '';
+  const response = await apiFetch(`/economy/admin/policies${qs}`);
   const body: AdminPoliciesEnvelope = await response.json();
   return body?.data ?? [];
 }

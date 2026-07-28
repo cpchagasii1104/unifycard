@@ -113,7 +113,14 @@ const economicPolicyAdminRoutes: FastifyPluginAsync = async (fastify) => {
   /**
    * GET /economy/admin/policies
    * Lista as economic_policies (+ linhas) do TENANT AUTENTICADO. READ-ONLY.
-   * Nenhum filtro de escopo aceito via query/body — tenant é SEMPRE req.tenant.id.
+   * Nenhum filtro de ESCOPO (tenant) aceito via query/body — tenant é SEMPRE req.tenant.id.
+   *
+   * Query opcional `includeDeprecated` (legibilidade do painel — Task 2, 2026-07-27): NÃO é
+   * filtro de escopo, é filtro de STATUS. Default preserva a resposta ATUAL (todos os status,
+   * igual a antes desta mudança) — só `?includeDeprecated=false` some com `deprecated` (histórico
+   * não-acionável; nenhuma linha é apagada, só não listada nesta chamada). Outros consumidores
+   * desta rota (ex.: harness E2E validate-pipeline-e2e-economic-policy-authority.ts) que não
+   * passam o parâmetro continuam vendo exatamente o shape de antes.
    */
   fastify.get(
     '/admin/policies',
@@ -123,8 +130,10 @@ const economicPolicyAdminRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(401).send({ ok: false, message: 'Não autenticado' });
       }
       const tenantId = req.tenant.id;
+      const includeDeprecatedQuery = (req.query as Record<string, unknown> | undefined)?.includeDeprecated;
+      const includeDeprecated = includeDeprecatedQuery !== 'false' && includeDeprecatedQuery !== '0';
       try {
-        const policies = await economicPolicyRepository.listPoliciesForTenant(tenantId);
+        const policies = await economicPolicyRepository.listPoliciesForTenant(tenantId, { includeDeprecated });
         const withLines = await Promise.all(
           policies.map(async (policy) => ({
             ...policy,

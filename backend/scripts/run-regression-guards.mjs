@@ -287,6 +287,14 @@ const CMDS = [
   // qualquer rota de escrita (POST/PUT/PATCH/DELETE) na superfície admin de economic-policy, aqui ou
   // gateada por esta chave em qualquer outro arquivo (esta fatia é READ-ONLY; escrita = Fatia 3).
   "node scripts/audit-economic-policy-authority-boundary.mjs",
+  // MANDATO CLAYTON (2ª metade — "calcule os centavos, não dê margem pra cento e um por cento"):
+  // a 1ª metade (policy lines somam 10000 bps na escrita) já era enforced por
+  // assertPolicyLinesValid; esta prova a 2ª metade nunca provada antes — o CÁLCULO conserva
+  // centavos EXATOS para qualquer amount/config. Não lexical: importa e EXECUTA
+  // economicPolicyEngineService.calculatePolicySplits() real (não reimplementa) contra 96 casos
+  // hostis (8 configs × 12 amounts, incluindo as 3 policies legacy_baseline_* semeadas de fato).
+  // Roda via tsx (import de módulo .ts). Morde: sum(lines)!==total, linha negativa, linha>total.
+  "node --import tsx scripts/audit-economic-policy-split-cent-conservation.mjs",
   // F-RUNNER-COVERAGE-VISIBILITY-ANTI-DRIFT (ROOT-003 R2): meta-guard que torna a cobertura efetiva
   // VISIVEL e FALHA em drift (guard novo sem wiring). Nao executa guards; deriva o alcance das fontes
   // reais (este CMDS[], os 2 agregadores, actor-writer). Deve ser a ULTIMA entrada (le o array acima).

@@ -305,18 +305,23 @@ export default function EconomicPoliciesPage() {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<FormDraft>(emptyForm());
 
+  // Legibilidade do painel (Task 2, 2026-07-27): `deprecated` é histórico não-acionável (ex.:
+  // fixtures E2E `*_e2e_*`) — escondido por padrão para Clayton achar as poucas policies reais;
+  // toggle revela de volta (leitura, nunca deleção — nenhuma linha é tocada).
+  const [showDeprecated, setShowDeprecated] = useState(false);
+
   const load = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
     try {
-      const data = await listEconomicPolicies();
+      const data = await listEconomicPolicies({ includeDeprecated: showDeprecated });
       setPolicies(data);
     } catch (err) {
       setLoadError(friendlyErrorMessage(err));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [showDeprecated]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -557,6 +562,14 @@ export default function EconomicPoliciesPage() {
         <button className="econ-btn econ-btn--primary" onClick={openNewPolicyForm}>
           + Publicar nova policy / versão
         </button>
+        <label className="econ-toggle-deprecated">
+          <input
+            type="checkbox"
+            checked={showDeprecated}
+            onChange={(e) => setShowDeprecated(e.target.checked)}
+          />
+          Mostrar versões <code>deprecated</code> (histórico)
+        </label>
       </header>
 
       {loading && <p className="econ-muted">Carregando políticas…</p>}

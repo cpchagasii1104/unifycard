@@ -281,8 +281,19 @@ class EconomicPolicyRepository {
    *
    * tenantId SEMPRE server-side (`req.tenant.id`, nunca query/body do cliente) — ver
    * economic-policy-admin.routes.ts. Read-only: nenhum write nesta fatia.
+   *
+   * F-CENT-CONSERVATION-GUARD TASK 2 (legibilidade do painel, 2026-07-27): `opts.includeDeprecated`
+   * é OPCIONAL e por padrão `true` — chamador que não passa `opts` continua vendo exatamente o que
+   * via antes (seed-economic-policies-legacy-baseline.ts depende disso para idempotência: precisa
+   * enxergar QUALQUER status já semeado, inclusive deprecated). Só o caller que passar
+   * `{ includeDeprecated: false }` explicitamente (a rota admin, quando `?includeDeprecated=false`)
+   * deixa de ver `deprecated` — filtro de leitura, não deleção (nenhuma linha é tocada).
    */
-  async listPoliciesForTenant(tenantId: string): Promise<EconomicPolicy[]> {
+  async listPoliciesForTenant(
+    tenantId: string,
+    opts: { includeDeprecated?: boolean } = {}
+  ): Promise<EconomicPolicy[]> {
+    const includeDeprecated = opts.includeDeprecated ?? true;
     const rows = await runQueriesWithTenant<EconomicPolicyRow>(
       tenantId,
       `
@@ -294,9 +305,10 @@ class EconomicPolicyRepository {
              metadata, created_by_actor_id, change_reason, created_at, updated_at
         FROM economic_policies
        WHERE tenant_id = $1::uuid
+         AND ($2::boolean OR status <> 'deprecated')
        ORDER BY created_at DESC
       `,
-      [tenantId]
+      [tenantId, includeDeprecated]
     );
     return rows.map(toEconomicPolicy);
   }
