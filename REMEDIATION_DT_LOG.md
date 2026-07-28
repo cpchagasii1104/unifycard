@@ -1,5 +1,35 @@
 # REMEDIATION DT LOG
 
+## 🔴🔴 2ª AUDITORIA INDEPENDENTE — **0192 B · 0193 B · 0194 C (PIOROU)** · E O PASSE DE CORREÇÃO NÃO TINHA CARTÓRIO (2026-07-28)
+**A direção corrigiu as três decisões (`cc43a3fb1` + `c5b2957da`) e submeteu a 2ª auditoria. Veredito: nenhuma selável. 0192 subiu C→B, 0193 continua B, e 0194 SAIU PIOR DO QUE ENTROU. Registrado integralmente — inclusive os 7 defeitos NOVOS que a própria correção introduziu.**
+
+### 🔴 DEFEITO DE PROCESSO Nº 1 — ESTA ENTRADA NÃO EXISTIA
+`c5b2957da` alterou **somente os dois .md de decisão**. **Zero linhas no cartório** sobre D1-BIS, D5-BIS, D5-TER, B-1..B-5, D3.1 ou D5.4. O topo do cartório continuava dizendo *"NENHUMA SELÁVEL"* **sem registro de que houve correção** — e `CLAUDE.md §7` manda escrever no cartório **durante** a fatia. Nas palavras da auditoria: *"uma correção que não está no cartório não aconteceu, para o único leitor que importa — a próxima instância, que chega com memória zero e lê o topo."* **A direção pregou isso o dia inteiro e falhou nisso.**
+
+### 🔴 DEFEITO NOVO GRAVE — D3.1 FOI CONSTRUÍDA SOBRE PREMISSA QUE CLAYTON JÁ TINHA CORRIGIDO
+`REMEDIATION_DT_LOG.md` (emenda pendente, 2026-07-27) registra, sob o título **"CORRIGE ERRO DA DIREÇÃO EM D1.1"**: custo operacional como linha **DENTRO** dos 100% está *"errado, e perigoso"* — fatia dentro do bolo é fatia **votável**; Clayton mandou o custo sair **ANTES**, formando a base. **A D3.1 (2026-07-28) elegeu como absorvedor do resto exatamente essa linha, dentro dos 100%.** Se a emenda entrar, **o absorvedor escolhido deixa de existir** e a Etapa 2 volta a não ter dono para o centavo. A emenda dizia *"entra assim que o parecer voltar"* — o parecer voltou, as correções foram aplicadas, **e a emenda não entrou**. **Decisão nova erguida sobre premissa que o dono já havia revogado, com o registro 30 linhas acima.**
+
+### 🔴 DEFEITO NOVO GRAVE — D3.1 EMENDA REGRA PROMULGADA E CHAMA DE "CONSISTÊNCIA"
+`CORE_SPLIT_PAGAMENTO_CANONICO.md:94` promulga *"drift para `revenue_share[0]`"*, materializado incondicionalmente **por `line_type`** em `economic-policy-engine.service.ts:278-284`. D3.1 afirma ser *"consistente… a instância dessa mesma regra na Etapa 1"*. **Não é instância — é substituição:** a regra vigente não fala em "quem entregou", fala em `revenue_share[0]`, sempre. **É exatamente o defeito de Artigo XI que a 1ª auditoria achou em 0192 D5 (emenda vestida de leitura harmonizadora), reproduzido um documento adiante, no mesmo commit da correção.** E o próprio cartório já cravara: *"criar um fundo de restos seria SUBSTITUIR uma regra já promulgada — decisão distributiva, não conveniência técnica."*
+
+### 🔴 D3.1 SE ANUNCIA COMO FECHAMENTO E SE DESMENTE NO FIM
+Abre com **"Fecha o veredito C-4"** e termina com *"o absorvedor da Etapa 2 não existe até lá"*. **C-4 era que a Etapa 2 não pode ser gravada — e continua não podendo.** Leitor apressado lê o negrito e conclui resolvido. E a lacuna declarada nomeia **1 de 4** pré-requisitos: falta dizer que (a) o writer exige `revenue_share` **especificamente**, logo criar o `line_type` **não basta**; (b) o motor despeja o drift em `revenueShareIndex` **em arquivo BYTE-PINADO**; (c) `CORE_SPLIT_PAGAMENTO_CANONICO.md:94` é normativo e precisa de emenda explícita. **No mesmo dia em que a B-5 da 0193 fixou "quando o arquivo está pinado, prevalece o pin".**
+
+### 🔴 DEMAIS DEFEITOS NOVOS INTRODUZIDOS PELA CORREÇÃO
+- **Cabeçalho FALSO criado sob a lei que proíbe cabeçalho falso:** `EconomicPoliciesPage.tsx:91` tem `NORMA: backend/.../economic-policy.types.ts` — **caminho elidido com reticências literais, não existe fisicamente.** D5.2 chama isso de *"pior que ausente"*.
+- **A gramática de B-3 não é satisfeita por NENHUM dos 4 exemplares do repositório** — e **3 deles a direção escreveu depois da auditoria**. Fixou-se regra que o repo inteiro viola, sem mandar reconciliar nada, e o guard prometido ficaria vermelho no dia 1. Bônus: `economic-policy.types.ts:131` põe parêntese **dentro de `STATUS`**, que é vocabulário fechado.
+- **Vocabulário não-selado propagado para CÓDIGO depois de a auditoria marcá-lo como paralelo:** os 4 blocos, incluindo dois com `STATUS: CONTIDO` — termo que a própria B-4 declara **sem origem** no registro existente.
+- **Trabalho material sem GO registrado:** `df4b9e754` (+533 linhas) e `6ccdadf11` narram STOP e "4º caminho" **sem registrar GO de Clayton**. *(Houve GO verbal — "pode seguir com o que é necessário" — mas o rito exige registro, e o registro não existe.)*
+- **`CLAUDE.md §6` continua propagando a 0193 sem tarja**, citando *"DECISION-0193 · protocolo §7.1"* como norma da casa. Marcou-se o §7.1 e o roteamento da 0192; **esqueceu-se este.**
+- **Narração inflada:** *"a verdade não é copiada"* é **falso como enunciado** — o guard `audit-regional-fund-resolvable-basis-declaration.mjs:116,120` **hardcoda** o conjunto esperado. São **três** cópias, todas policiadas. Não é perigoso (falha fechado nos dois sentidos), mas a frase excedeu o fato.
+
+### ✅ O QUE A 2ª AUDITORIA CONFIRMOU (verificado materialmente por ela)
+Lacre **INTACTO** — os 4 sha256 recomputados batem ✓ · runner **225** ✓ · o guard novo roda 15/15 e a extração lexical funciona ✓ · errata aritmética **correta e única no repo** (varredura: nenhuma passagem viva com o sentido invertido) ✓ · D5-BIS é **harmonização genuína**, não reversão com rótulo novo — e a instrução de Clayton que a sustenta **é anterior à auditoria**, gravada em 2 lugares independentes ✓ · as 3 invariantes de D5-TER existem ✓ · a lacuna de vocabulário PJ é **exata** ✓ · C-2/C-3/C-6 da 0194 fecharam com precisão, e C-3 **não decide** o destino do código agrupador ✓ · **as auto-acusações da direção resistem à releitura sem suavização — "o ponto mais forte do conjunto"**.
+**Ressalva sobre o guard novo:** frágil por construção (o próprio arquivo admite), depende de indentação; **só é seguro porque o resolver está pinado e o pin morde primeiro.** ⚠️ **Quem um dia reconciliar aquele pin não pode supor que este guard cobre a retaguarda.**
+
+### 🔑 A PERGUNTA QUE VOLTA PARA CLAYTON
+Duas decisões dele colidem e **a direção não pode escolher**: a emenda diz **custo sai ANTES** da distribuição (não-votável); a decisão de 28/07 diz **a sobra do centavo vai para o custo**. Reconciliação provável — a sobra vai para a **CONTA de custo** (destino), sem que exista uma **LINHA de custo dentro do percentual distribuível**. Mas isso é leitura, e leitura de doutrina alheia foi exatamente o erro de hoje. **Confirmar antes de reescrever D3.1.**
+
 ## F-REGIONAL-BASIS-MVP-GAP — 🔴 O PAINEL DEIXAVA PUBLICAR POLICY IRRESOLÚVEL — ✅ SELADA · **SEM QUEBRAR O LACRE** (2026-07-27)
 **Defeito achado pela auditoria independente e não registrado por ninguém: o painel oferecia os 7 valores de `regionalOriginBasis` e os 5 de `regionalLevel` como opções equivalentes, mas o resolver rejeita 3 basis incondicionalmente (`POLICY_BASIS_UNSUPPORTED_MVP`) e `neighborhood` (501). Clayton — que tem acesso real desde a Fatia 4 — podia publicar hoje uma policy garantidamente irresolúvel, e só descobriria quando dinheiro fosse mover.**
 

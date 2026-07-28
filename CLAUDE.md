@@ -59,6 +59,8 @@ Ao despachar subagente, escreva o mandato como **inventário-primeiro, desenho-n
 
 ## 6. A regra do acesso (DECISION-0193 · protocolo §7.1)
 
+⚠️ **DECISION-0193 está NÃO-SELADA (veredito B em 2 auditorias) — isto é orientação, não lei, até correção+selo.**
+
 **Tocou um arquivo em trabalho real e descobriu qual norma o governa? Deixe a migalha antes de sair** — 5 linhas, teto duro:
 
 ```

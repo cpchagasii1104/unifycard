@@ -88,7 +88,7 @@ const APPLIES_TO: { value: EconomicPolicyAppliesToWritable; label: string }[] = 
 
 // ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
 // ║ STATUS:  CONTIDO
-// ║ NORMA:   backend/.../economic-policy.types.ts (REGIONAL_*_RESOLVABLE_MVP, guard-policiada)
+// ║ NORMA:   backend/src/modules/economy/policy-engine/economic-policy.types.ts (REGIONAL_*_RESOLVABLE_MVP, guard-policiada)
 // ║ NÃO:     usar os 7/5 valores abaixo como OPÇÕES do seletor — são só texto de rótulo (pt-BR)
 // ║ EM VEZ:  seletor filtra por regionalVocab (GET /economy/admin/regional-fund-vocabulary)
 // ╚════════════════════════════════════════════════════════════════
