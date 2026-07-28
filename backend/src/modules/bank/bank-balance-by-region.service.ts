@@ -1,6 +1,13 @@
 // backend/src/modules/bank/bank-balance-by-region.service.ts
 // READ-MODEL: Consolidação de Balanço Financeiro por Região
 // Status: READ-MODEL PURO (não CORE, não fonte de verdade, não decisório)
+//
+// ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+// ║ STATUS:  CANÔNICO
+// ║ NORMA:   DECISION-0166 D3 · SSOT_REGISTRY_UNIFICARD.md §5.10-5.12 (Lei 7 — identidade ≠ string)
+// ║ NÃO:     identificar fundo regional por metadata/owner_id string em bank_accounts
+// ║ EM VEZ:  regional_fund_accounts (FK) JOIN bank_accounts — ver bank-account.service.ts§lookupRegionalFundAccount
+// ╚════════════════════════════════════════════════════════════════
 
 import { runQueriesWithTenant } from '@core/database/pool';
 import { bankAccountRepository } from './bank-account.repository';
@@ -58,15 +65,20 @@ export interface RegionalFundHistory {
  * - Nunca substitui o ledger
  * - Ledger é a única fonte da verdade
  * - Este é apenas um READ-MODEL para visualização administrativa
- * - FONTE CANÔNICA: conta de sistema regional_fund
+ * - FONTE CANÔNICA: regional_fund_accounts (FK territorial, DECISION-0166 D3) JOIN bank_accounts
+ *   — NUNCA metadata/owner_id string (Lei 7 / SSOT_REGISTRY §5.10-5.12)
  * - Histórico via bank_ledger + bank_transactions (NÃO criar nova fonte de verdade)
  */
 class BankBalanceByRegionService {
   /**
    * Lista todos os fundos regionais (READ-MODEL)
-   * 
-   * FONTE CANÔNICA: contas de sistema com owner_type='system' e tipo 'regional_fund'
-   * 
+   *
+   * FONTE CANÔNICA: regional_fund_accounts (FK territorial) JOIN bank_accounts
+   * (owner_type='system'). regionId = city_id quando presente, senão scope_level — mesma
+   * convenção já ratificada no read-model irmão de consolidação por conta (DECISION-0177 D10).
+   * Sem catálogo de nomes territoriais religado aqui: regionName permanece ausente (honesto,
+   * não inventado) até frente própria acoplar country/state/city para exibição.
+   *
    * @param tenantId - ID do tenant
    * @param currency - Moeda (opcional)
    * @returns Lista de fundos regionais
@@ -75,16 +87,16 @@ class BankBalanceByRegionService {
     tenantId: string,
     currency?: BankCurrency
   ): Promise<RegionalFundInfo[]> {
-    // Buscar todas as contas de sistema regional_fund
+    // Buscar todas as contas de fundo regional via FK canônica (regional_fund_accounts)
     const { getClientWithTenant } = await import('@core/database/pool');
     const client = await getClientWithTenant(tenantId);
 
-    let query = `
-      SELECT account_id, owner_id
-      FROM bank_accounts
-      WHERE tenant_id = $1
-        AND owner_type = 'system'
-        AND metadata->>'systemAccountType' = 'regional_fund'
+    const query = `
+      SELECT rfa.bank_account_id::text AS account_id, ba.owner_id, rfa.city_id::text AS city_id, rfa.scope_level
+      FROM regional_fund_accounts rfa
+      JOIN bank_accounts ba ON ba.id = rfa.bank_account_id AND ba.tenant_id = rfa.tenant_id
+      WHERE rfa.tenant_id = $1
+        AND ba.owner_type = 'system'
     `;
 
     const params: any[] = [tenantId];
@@ -92,6 +104,8 @@ class BankBalanceByRegionService {
     const result = await client.query<{
       account_id: string;
       owner_id: string;
+      city_id: string | null;
+      scope_level: string;
     }>(query, params);
 
     client.release();
@@ -133,7 +147,7 @@ class BankBalanceByRegionService {
         [tenantId, row.account_id]
       );
 
-      const regionId = row.owner_id;
+      const regionId = row.city_id ?? row.scope_level;
       const regionName = undefined;
 
       funds.push({
@@ -152,11 +166,13 @@ class BankBalanceByRegionService {
 
   /**
    * Obtém informações de um fundo regional específico (READ-MODEL)
-   * 
-   * FONTE CANÔNICA: conta de sistema regional_fund
-   * 
+   *
+   * FONTE CANÔNICA: regional_fund_accounts (FK territorial) JOIN bank_accounts.
+   * regionId aceito = city_id (quando o escopo tem cidade) OU scope_level (planet/country/
+   * state/neighborhood, que hoje não têm city_id) — mesma convenção do listRegionalFunds acima.
+   *
    * @param tenantId - ID do tenant
-   * @param regionId - ID da região
+   * @param regionId - city_id OU scope_level (ver convenção acima)
    * @param currency - Moeda (opcional, default: BRL)
    * @returns Informações do fundo regional
    */
@@ -165,23 +181,25 @@ class BankBalanceByRegionService {
     regionId: string,
     currency: BankCurrency = 'BRL'
   ): Promise<RegionalFundInfo | null> {
-    // Buscar conta de sistema regional_fund para a região
+    // Buscar conta de fundo regional via FK canônica (regional_fund_accounts)
     const { getClientWithTenant } = await import('@core/database/pool');
     const client = await getClientWithTenant(tenantId);
 
     const result = await client.query<{
       account_id: string;
       owner_id: string;
+      city_id: string | null;
+      scope_level: string;
     }>(
       `
-      SELECT account_id, owner_id
-      FROM bank_accounts
-      WHERE tenant_id = $1
-        AND owner_type = 'system'
-        AND metadata->>'systemAccountType' = 'regional_fund'
+      SELECT rfa.bank_account_id::text AS account_id, ba.owner_id, rfa.city_id::text AS city_id, rfa.scope_level
+      FROM regional_fund_accounts rfa
+      JOIN bank_accounts ba ON ba.id = rfa.bank_account_id AND ba.tenant_id = rfa.tenant_id
+      WHERE rfa.tenant_id = $1
+        AND ba.owner_type = 'system'
         AND (
-          metadata->>'regionId' = $2
-          OR owner_id = $2
+          rfa.city_id::text = $2
+          OR (rfa.city_id IS NULL AND rfa.scope_level = $2)
         )
       LIMIT 1
       `,
