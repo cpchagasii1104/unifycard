@@ -1,9 +1,9 @@
 # DECISION-0192 — DOUTRINA DO SUJEITO TERRITORIAL DO FUNDO REGIONAL (o comprador financia a própria comunidade)
 
-**Data:** 2026-07-27 · **Status:** REDIGIDA — DOUTRINA DECIDIDA POR CLAYTON; AGUARDANDO AUDITORIA INDEPENDENTE ANTES DE QUALQUER ENFORCEMENT MATERIAL. **NÃO-SELADA. SELF-SEAL NÃO PERMITIDO.**
+**Data:** 2026-07-27 · **Status:** 🔴 **VEREDITO C na auditoria independente de 2026-07-27 — CORRIGIDA (D1-BIS · D5-BIS · D5-TER), AGUARDANDO RE-AUDITORIA.** NÃO-SELADA. SELF-SEAL NÃO PERMITIDO. **NÃO é autoridade de roteamento até novo parecer.**
 **Base:** HEAD `229652a9d7f05e8a30a46037858251a8098ab5fe` (branch `rescue-structural`). Denominador NÃO-STALE.
 **Modo:** DOCS-ONLY · ZERO CÓDIGO/MIGRATION/GUARD/BANCO · PORTA-1 FECHADA · não semeia policy · não autoriza execução material.
-**Deriva de / subordinada a:** [[DECISION-0049]] (`regionalOriginBasis`) · [[DECISION-0166]] D2/D3/D6 (nível territorial; admin configura policy, admin não move dinheiro) · [[DECISION-0177]] D2/D6 (sujeito territorial = Actor comprador, escopo estreito) · [[DECISION-0048]] (categoria seleciona policy, não calcula split) · Lei 5 · Lei 7 · Artigo V · Artigo XI.
+**Deriva de / subordinada a:** [[DECISION-0049]] (`regionalOriginBasis`) · [[DECISION-0166]] **D0** (PF=residência · **PJ=endereço fiscal/HQ** — ramo PJ INTOCADO por esta decisão, ver D1-BIS) · **D8** (*"ajustar percentuais dentro de limites governados"* — ver D5-BIS) · D2/D3/D6 (nível territorial; admin configura policy, admin não move dinheiro) · [[DECISION-0177]] D2/D6 (sujeito territorial = Actor comprador, escopo estreito) · [[DECISION-0048]] (categoria seleciona policy, não calcula split) · Lei 5 · Lei 7 · Artigo V · Artigo XI.
 **Origem probatória:** GATE read-only "os ajustes conectam às contas certas?" (2026-07-27, registrado em `6567cf068`) + decisão soberana direta de Clayton na mesma data.
 
 ---
@@ -30,7 +30,14 @@ Isso não é bug: é **ausência de norma** num ponto onde a norma decide para q
 
 > **O sujeito territorial do fundo regional é o COMPRADOR. Quem gasta financia a própria comunidade.**
 
-Canonicamente: para toda linha de policy com `line_type='regional_fund'`, o valor doutrinário de `regionalOriginBasis` é **`payer_identity_residence`** (`economic-policy.types.ts:114-121`).
+Canonicamente: para linha de policy com `line_type='regional_fund'` **cujo pagador seja PESSOA FÍSICA**, o valor doutrinário de `regionalOriginBasis` é **`payer_identity_residence`** (`economic-policy.types.ts:114-121`).
+
+### 🔴 D1-BIS — ESCOPO É PF. O RAMO PJ DA DECISION-0166 D0 PERMANECE ÍNTEGRO (correção pós-auditoria, veredito C-2)
+**A redação original dizia "para toda linha de policy" e a palavra "PJ" não aparecia uma única vez.** Isso **apagava silenciosamente** o ramo pessoa jurídica da `DECISION-0166 D0` (ratificada), que fixa: *"PF: residência canônica … **PJ: endereço cadastral/fiscal canônico (HQ/fiscal)**"*. Efeito material do erro: PJ compradora sem `address_assignments` role `RESIDENCE` cairia em `POLICY_REGIONAL_ORIGIN_UNRESOLVABLE` **para sempre** — e a D4 abaixo proíbe expressamente cair no endereço da empresa.
+
+**Correção:** esta decisão governa **exclusivamente o caso PF**, que é exatamente o que sua prova E2E (D3) demonstra. **A DECISION-0166 D0 permanece VIGENTE E INTOCADA quanto a PJ.** Esta decisão não a revoga, não a substitui e não a interpreta.
+
+**Lacuna registrada, não resolvida aqui:** o vocabulário `RegionalOriginBasis` **não possui valor algum para "endereço fiscal/HQ do PAGADOR"** — só existem `receiver_company_operational` e `receiver_company_hq`, ambos do recebedor. Logo o ramo PJ de D0 **nunca teve vocabulário para ser expresso**. O substrato de resolução, esse, **já existe e não foi usado**: `actor-territorial-resolver.ts:13` expõe `ACTOR_FISCAL_HQ`. **Materializar PJ exige criar um 8º valor de `RegionalOriginBasis`, o que é ato de DECISION nomeada própria — não desta.** Até lá, **PJ compradora está fora do escopo desta doutrina**, e nenhum implementador deve deduzir que `payer_identity_residence` se aplica a ela.
 
 **Justificativa registrada (Artigo XI):** a fatia regional existe para que o consumo de uma comunidade retorne a essa comunidade. Ancorar no comprador significa que o dinheiro fica **onde o consumo aconteceu** — o município cuja população movimenta a plataforma é o município que capitaliza. A base alternativa (`receiver_identity_residence`) reforçaria regiões que exportam trabalho, e é uma tese legítima, **mas não é a tese desta plataforma**.
 
@@ -42,7 +49,9 @@ Canonicamente: para toda linha de policy com `line_type='regional_fund'`, o valo
 
 A DECISION-0177 D2/D6 já fixou o sujeito territorial como **Actor comprador**, porém **com ressalva explícita de escopo estreito**: valia para a combinação selada `regional_fund` × `commission_distributable` na campanha B-CITY-2, e **não** como regra geral.
 
-Esta decisão **generaliza aquele precedente para toda policy**, na mesma direção. Não há reversão nem conflito: a 0177 permanece vigente no seu escopo, e a 0192 estende o mesmo critério ao universo que a tela de administração agora torna livremente criável.
+Esta decisão **estende aquele precedente a toda policy cujo pagador seja PF** (ver D1-BIS), na mesma direção. Não há reversão nem conflito: a 0177 permanece vigente no seu escopo, e a 0192 estende o mesmo critério ao universo PF que a tela de administração agora torna livremente criável.
+
+**⚠️ Correção pós-auditoria:** a redação original dizia *"generaliza para toda policy"*. Com o escopo corrigido para PF em D1-BIS, **"toda policy" seria falso** — PJ permanece governada pela `DECISION-0166 D0` e sem vocabulário para ser expressa. Corrigido para não deixar duas afirmações incompatíveis dentro do mesmo documento.
 
 ---
 
@@ -75,9 +84,23 @@ Nada nesta decisão cria fallback. Permanecem integralmente vigentes, e **é ved
 
 Perguntado se um administrador pode publicar uma policy com fundo regional = 0%, Clayton decidiu: **sim — liberdade total.**
 
-Registra-se, portanto, que **não existe piso para o fundo regional nem teto para a taxa da plataforma**, e que **essa ausência é uma decisão, não uma lacuna**. Nenhuma auditoria futura deve tratá-la como esquecimento a ser "corrigido" por conta própria; instituir piso ou teto exige **decisão soberana nova e expressa**.
+Registra-se, portanto, que **hoje não existe piso para o fundo regional nem teto para a taxa da plataforma**, e que **essa ausência é estado deliberado, não esquecimento**. Nenhuma auditoria futura deve "corrigi-la" por conta própria; instituir piso ou teto exige **ato soberano expresso de Clayton**.
 
-A única invariante econômica que permanece obrigatória e materialmente travada é a **soma exata de 10000 bps** (`assertPolicyLinesValid`), porque não fechar 100% não é liberdade — é incoerência contábil que zeraria ou negativaria a fatia do prestador **no momento do pagamento real**, e não na configuração.
+### 🔴 D5-BIS — RELAÇÃO COM A DECISION-0166 D8 (correção pós-auditoria, veredito C-1)
+**A redação original omitia a `DECISION-0166 D8` do bloco "deriva de" e declarava a ausência de limites como permanente** — o que, na prática, **revertia silenciosamente um artigo RATIFICADO**, violando o Artigo XI (*emendas explícitas, públicas, justificadas, nunca silenciosas*). Agravante: o ponto de extensão que esta D5 invoca **nomeia D8 no próprio comentário** (`economic-policy-write-validation.ts:7-9`) — a colisão estava a uma linha de ser vista, e não foi.
+
+**`DECISION-0166 D8` diz:** *"O admin pode ajustar percentuais **dentro de limites governados** (tetos/pisos definidos por regra, ex.: teto máximo de comissão)."*
+
+**Leitura harmonizadora, que é a correção — e NÃO uma revogação:** D8 estabelece que limites governados **podem existir** e que o admin opera dentro deles. **Nenhum limite foi instituído até hoje.** Portanto D8 permanece **integralmente vigente e não revogada**: hoje o conjunto de limites é vazio, e operar sem limites é operar dentro de um conjunto vazio — não é operar contra D8.
+
+**O que Clayton efetivamente decidiu foi "não agora", não "nunca".** Suas palavras foram *"pode seguir sem teto/piso, **deixe de forma que eu possa configurar**"* — que pressupõe configurabilidade futura, exatamente o que D8 prevê. A redação original transformou um "ainda não" em "jamais", e isso era erro da direção, não decisão de Clayton.
+
+**Consequência:** instituir tetos/pisos **não exige revogar nada** — exige apenas o ato soberano de instituí-los, no ponto de extensão já nomeado e ainda vazio.
+
+### 🔴 D5-TER — CORREÇÃO FACTUAL SOBRE AS INVARIANTES (veredito C-3)
+A redação original afirmava que a soma de 10000 bps era *"a única invariante econômica obrigatória e materialmente travada"*. **Falso.** `economic-policy-write-validation.ts` impõe hoje, no mínimo, mais três travas materiais: (1) **toda** policy exige ao menos uma linha `revenue_share` (`:191-197`) — sem ela o cálculo falha `DRIFT_NO_REVENUE_SHARE` em pagamento real; (2) `regional_fund` exige `regionalLevel` (`:234-238`); (3) `regionalLevel` é **proibido** nas demais linhas (`:239-241`). A liberdade real do admin é **menor** do que esta decisão afirmava — e afirmar liberdade maior que a real é o tipo de imprecisão que faz alguém desenhar contra o sistema.
+
+A soma exata de 10000 bps permanece obrigatória porque não fechar 100% não é liberdade — é incoerência contábil que zeraria ou negativaria a fatia do prestador **no momento do pagamento real**, e não na configuração.
 
 O ponto de extensão nomeado para teto/piso permanece disponível e **vazio por decisão** (`economic-policy-write-validation.ts`).
 
