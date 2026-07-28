@@ -1,7 +1,16 @@
 # DECISION-0194 — BASE DA DISTRIBUIÇÃO É DETERMINADA POR QUEM VENDE (e nunca se mistura)
 
-**Data:** 2026-07-27 · **Status:** 🟡 **CORRIGIDA após a 4ª AUDITORIA INDEPENDENTE (veredito B, 2026-07-28) — AGUARDANDO PASSE DE CONFIRMAÇÃO E SELO DE CLAYTON.** NÃO-SELADA. SELF-SEAL NÃO PERMITIDO. **NÃO é autoridade até o selo.**
-**Histórico de pareceres:** 1ª auditoria (2026-07-27) = **C** · 2ª (2026-07-28) = **C, "piorou"** · 3ª (2026-07-28, código e estado) = derrubou 2 selos da direção · **4ª (2026-07-28, adversarial) = B, selável após 7 correções nomeadas** — parecer em `docs/04_audit/YALA4_AUDITORIA_DECISION_0194_2026-07-28.md`. As 7 correções foram aplicadas em 2026-07-28; **quem confirma não é quem corrigiu.**
+**Data:** 2026-07-27 · **Status:** ✅ **SELADA por Clayton em 2026-07-28** — auditoria independente adversarial (4 rodadas, modelo diferente da direção) declarou **SELÁVEL**; o selo é ato de Clayton, não da direção. **É AUTORIDADE CITÁVEL a partir desta data.**
+**Histórico de pareceres:** 1ª (2026-07-27) = **C** · 2ª (2026-07-28) = **C, "piorou"** · 3ª (2026-07-28, código e estado) = derrubou 2 selos da direção · 4ª (2026-07-28, adversarial) = **B** → 7 correções → **ND-1/2/3** (defeitos introduzidos pela própria direção ao corrigir, um deles redefinindo termo selado) → C-8/9/10 → **ND-4** → C-11 → **SELÁVEL**. Parecer + 3 apêndices em `docs/04_audit/YALA4_AUDITORIA_DECISION_0194_2026-07-28.md`.
+
+> ### ⚠️ O QUE ESTE SELO **NÃO** DIZ — leia antes de citar
+> **Selar esta decisão tornou a DOUTRINA autoridade. NÃO significa que o sistema se comporta assim.** A decisão difere a materialização **por desenho próprio**, e as condições materiais seguem **ABERTAS**:
+> - **D2 (base única)** é regra — e `assertPolicyLinesValid` **não tem trava de base única** (`economic-policy-write-validation.ts:158-179`).
+> - **D4 (`applies_to` derivado do servidor)** é regra — e o motor **ignora o campo por completo** (zero ocorrências em `economic-policy-engine.service.ts`); o painel segue com `<select>` livre.
+> - A **allowlist do Bank está VAZIA** (`fiscal-reserve-bank-composition.service.ts:17`) e o **agrupador multi-base segue vivo** (`fiscal-economic-policy-composition.service.ts:180,222-229`).
+> - O gatilho **`GO RETOMAR MATERIAL FISCAL-4E` NÃO foi emitido** por este selo. Selar doutrina **não abre** fase material.
+>
+> **Quem ler "SELADA" e presumir conformidade do código estará repetindo o erro dos dois selos falsos de 2026-07-28.** A lei existe; a fiação, não. Cada item acima exige GATE e GO próprios.
 **Modo:** DOCS-ONLY · ZERO CÓDIGO/MIGRATION/GUARD/BANCO · não abre PORTA-1 · **não emite o gatilho `GO RETOMAR MATERIAL FISCAL-4E`**.
 **Deriva de / subordinada a:** [[DECISION-0166]] **D1** (base = comissão UnifiCard, *"salvo policy explícita futura"* — esta decisão É essa policy explícita) · [[DECISION-0165]] D1 · [[DECISION-0178]] (vocabulário `applies_to`: `gross_transaction` · `commission_gross` · `commission_distributable`) · [[DECISION-0192]] (sujeito territorial) · Lei 5 · Artigo V.
 **Origem:** decisão soberana direta de Clayton, 2026-07-27, em resposta à pergunta doutrinária devolvida pelo STOP da executora (registrado no cartório em `874ac3a08`).

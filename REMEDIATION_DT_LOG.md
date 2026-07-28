@@ -1,5 +1,36 @@
 # REMEDIATION DT LOG
 
+## ✅✅ **SELO — `DECISION-0194` SELADA POR CLAYTON** (2026-07-28) · A PRIMEIRA DECISÃO DESTE ARCO A CHEGAR AO SELO
+**Ato de Clayton, palavra literal: *"pode selar"*. A direção NÃO se autosselou em momento algum — escreveu as correções e devolveu a verificação a auditoria independente, modelo diferente, mandato adversarial, quatro rodadas.**
+
+### ✅ O QUE ESTE SELO ESTABELECE
+A **doutrina** da `DECISION-0194` é **autoridade citável** a partir de 2026-07-28. Em particular:
+- **D1 · a base da distribuição é determinada por QUEM VENDE** — vendedor externo → incide sobre a comissão; plataforma vendedora → sobre o bruto.
+- **D1.1 · custo operacional é dedução PRÉ-DISTRIBUTIVA, não-votável e VISÍVEL** (emenda de Clayton de 27/07, que estivera parada três pareceres) — com o anticorpo obrigatório *declarado × realizado* e **dependência material declarada** da frente de resultado.
+- **D2 · uma base por policy; misturar é proibido.** É a resposta à pergunta *"100% de quê?"* — e era decisão de Clayton desde 27/07, apenas sem autoridade.
+- **D3 · o modelo é de duas etapas encadeadas**, cada uma fechando 100% do próprio bolo.
+- **D3.1-BIS · a sobra do centavo** é absorvida por linha `revenue_share` com `bps=0` cujo destino é a conta de custo — provado no motor real, sem `line_type` novo, sem tocar arquivo lacrado.
+- **D4 · `applies_to` é DERIVADO de quem vende, nunca livre escolha do admin.**
+- **`commission_distributable` NÃO foi redefinido** — a equação selada da `DECISION-0179` permanece intacta; o valor pós-custo chama-se **EXCEDENTE DISTRIBUÍVEL**.
+
+### 🔴 O QUE ESTE SELO **NÃO** ESTABELECE — e o que a próxima instância NÃO pode presumir
+**Doutrina selada ≠ sistema conforme.** As condições materiais seguem **ABERTAS por desenho**, cada uma exigindo GATE e GO próprios:
+| Regra selada | Estado do código HOJE |
+|---|---|
+| D2 — base única | `assertPolicyLinesValid` **não tem trava de base única** (`economic-policy-write-validation.ts:158-179`) |
+| D4 — base derivada do servidor | motor **ignora `applies_to`** (zero ocorrências); painel com `<select>` livre |
+| materialização no Bank | **allowlist VAZIA** (`fiscal-reserve-bank-composition.service.ts:17`) |
+| base única na composição | **agrupador multi-base VIVO** (`fiscal-economic-policy-composition.service.ts:180,222-229`) |
+
+**O gatilho `GO RETOMAR MATERIAL FISCAL-4E` NÃO foi emitido por este selo.** PORTA-01 fechada · nenhuma policy ativada · `bank_ledger`/`bank_transactions`/`bank_splits` = **0** · zero migration · zero banco · nenhum arquivo byte-pinado tocado em todo o arco.
+
+### 📌 O QUE ESTE ARCO ENSINOU (e é o que vale mais que a decisão)
+1. **A pergunta não estava pendente — a decisão é que estava sem autoridade.** A direção anterior devolveu a Clayton uma escolha que ele já fizera e que estava escrita na própria 0194. Antes de perguntar, exaurir `02_decisions`.
+2. **Quem escreve a correção não enxerga o próprio resíduo** — nem varrendo por string, nem por conceito. A direção falhou nas duas formas, em rodadas consecutivas. **A varredura tem que ser de terceiro.**
+3. **Título que promete mais que o corpo é lido primeiro e citado depois.** A direção cometeu isso contra si mesma no cabeçalho da rodada 3, e corrigiu.
+4. **Regra de parada declarada ANTES do resultado.** A direção fixou publicamente: *"se o delta voltar limpo, sela; se voltar sujo, é problema estrutural, não remendo"* — para não poder mover a trave depois. Voltou limpo; selou.
+5. **Selo falso é pior que dívida aberta** — por isso este selo declara acima, em tabela, exatamente o que ele NÃO cobre.
+
 ## 🟡 4ª AUDITORIA INDEPENDENTE DA `DECISION-0194` — **VEREDITO B** · AS 7 CORREÇÕES FORAM APLICADAS · **AGUARDA CONFIRMAÇÃO E SELO DE CLAYTON** (2026-07-28)
 **Registrado DURANTE a fatia. Direção nova assumiu, Clayton deu GO para a auditoria e depois para a correção. Parecer completo: `docs/04_audit/YALA4_AUDITORIA_DECISION_0194_2026-07-28.md`.**
 
