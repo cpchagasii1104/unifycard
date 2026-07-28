@@ -1,5 +1,30 @@
 # REMEDIATION DT LOG
 
+## 📌 DOUTRINA REGISTRADA (NÃO virou DECISION — ver por quê) — **VERIFICABILIDADE PÚBLICA** (Clayton, 2026-07-27)
+**Deliberadamente NÃO redigida como DECISION nova: a direção tem 3 decisões em correção após veredito C/B/C. Escrever uma quarta antes de corrigir as anteriores repetiria exatamente o achado da auditoria — norma acumulando mais rápido que verificação. Registrada aqui para entrar no arco de correção junto com as outras.**
+
+### D-A · ESCRITA GOVERNADA · LEITURA UNIVERSAL
+> *"Por mais que a sociedade não consiga alterar configurações, as configurações de fundos e extratos precisam aparecer para a sociedade. (…) Por mais que a sociedade não tenha acesso, precisa ser transparente."*
+
+A sociedade **não escreve** — mas **vê tudo**, inclusive o que o administrador fez, quando e por quê. **Poder sem veto, com visibilidade total.** É a forma de prestação de contas adequada a este estágio, e o mecanismo pedagógico: sociedade que não vê consequência de decisão coletiva nunca aprende a decidir.
+
+**Fronteira única — institucional é público, pessoal é privado:** saldo dos fundos · histórico de policy com autor/motivo · destino de cada fatia · votações e resultados · custo declarado×realizado → **públicos**. Extrato individual, CPF, saldo de pessoa → **privados**. Não é limitação da ideia: sem essa fronteira, transparência vira vigilância (e LGPD proíbe). A comunidade vê **as contas da comunidade**, não a vida do vizinho.
+
+**Ressalva registrada pela direção, aceita como complemento e não como objeção:** Clayton afirmou *"se a própria sociedade levar à falência um sistema, quer dizer que não estávamos preparados"*. A parte central é correta — esconder consequência não ensina. Mas **falência não ensina, encerra**: a lição custa tudo e quem paga não é necessariamente quem votou (é o prestador que não recebeu, a cidade seguinte que nunca existiu). Aprendizado exige **errar e continuar** — por isso a reserva obrigatória (emenda pendente) **não contradiz a autogestão: é o que permite o experimento durar** o suficiente para a sociedade aprender. Desenho: **vê tudo desde já, decide progressivamente mais**, com o irreversível protegido.
+
+### D-B · TRANSPARENTE NO FRONTEND, MAS A VERDADE VIVE NO BACKEND
+> *"Transparente no frontend, mas a verdade vive no backend."*
+
+Reafirma norma já vigente da casa (*frontend nunca cria verdade, projeta verdade resolvida*) — **mas aplicada à transparência pública ela ganha peso de anticorpo, não de estilo:**
+
+**Transparência calculada no frontend NÃO é transparência — é renderização.** Se a tela somar transações para exibir o saldo do fundo, **o operador altera o que a comunidade vê editando o frontend, sem tocar no ledger.** É a forma mais barata de corromper um sistema honesto: ninguém precisa mexer em dinheiro para mudar o número na tela. **O número que a comunidade vê tem que sair da mesma fonte de onde o dinheiro sai.**
+
+**Regra material para a leitura pública:** deriva do SSOT sempre (saldo ← `bank_ledger`; conta do fundo ← `regional_fund_accounts` por FK; histórico ← versões de policy). **Vedado cache, tabela-espelho ou número pré-calculado que possa divergir** — divergência silenciosa é precisamente o que a comunidade não tem como detectar.
+
+**Prova material de hoje (não é teoria):** `bank-balance-by-region.service.ts` lia `metadata->>'systemAccountType'`, campo que **ninguém preenchia** — projeção **desconectada da verdade**, que **estourava erro em toda chamada** e ninguém notou. **Projeção que deriva do ledger conta a verdade; projeção paralela mente com boa intenção — e a segunda é pior, porque parece funcionar.**
+
+**Degrau que separa "ver" de "conferir" (requisito, não enfeite):** publicar a **derivação junto do número**. Não *"fundo de Curitiba: R$ X"*, mas de quais transações ele veio. Assim a comunidade **soma** em vez de **confiar** — que é o objetivo declarado da arquitetura inteira.
+
 ## 🔴 AUDITORIA INDEPENDENTE (YALA) DAS 3 DECISIONS DE HOJE — **0192=C · 0193=B · 0194=C · NENHUMA SELÁVEL** (2026-07-27)
 **A direção submeteu suas próprias três decisões a auditoria independente antes de codificá-las. O parecer reprovou duas e condicionou a terceira. Registrado integralmente, sem atenuação — inclusive as inexatidões nos selos que a própria direção escreveu hoje.**
 
