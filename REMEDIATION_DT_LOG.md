@@ -1,5 +1,35 @@
 # REMEDIATION DT LOG
 
+## 📌 EMENDA PENDENTE À DECISION-0194 — CUSTO OPERACIONAL É PRÉ-DISTRIBUTIVO E NÃO-VOTÁVEL (Clayton, 2026-07-27)
+**NÃO aplicada ao documento ainda, DE PROPÓSITO: a DECISION-0194 está sob AUDITORIA INDEPENDENTE neste momento, e emendar documento sob auditoria transforma o parecer em alvo móvel. Registrada aqui para entrar assim que o parecer voltar.**
+
+### Decisão de Clayton
+> *"Eu preciso poder configurar as porcentagens, mesmo que as votações coloquem normas. Mas o custo operacional do sistema precisa manter ele vivo, mesmo que a sociedade veja a porcentagem necessária para os custos operacionais (exemplo para aprendizados de governos). (…) O custo operacional mantém o sistema vivo. Se estiver alto, a sociedade precisa entender e ver."*
+
+### 🔴 CORRIGE ERRO DA DIREÇÃO EM D1.1
+A direção registrou custo operacional como **linha DENTRO dos 100% distribuíveis**. **Errado, e perigoso:** fatia dentro do bolo é fatia **votável** — uma votação poderia zerá-la e **matar a estrutura que gera o bolo**. Não é hipótese de má-fé: é aritmética de incentivo, o problema clássico de comunidade que vota o próprio orçamento e sufoca a infraestrutura.
+
+**Correção:** custo operacional sai **ANTES**, junto com imposto e taxa de adquirente — forma a base, não compete por voto.
+```
+Receita → − imposto (não votável, visível) → − custo operacional (não votável, VISÍVEL)
+        → = EXCEDENTE DISTRIBUÍVEL   ← é isto que a votação reparte
+```
+**"Antes" ≠ escondido.** A direção havia confundido *onde fica na cascata* com *se aparece*. Sai antes **e** é publicado.
+
+### ⚖️ PRECEDENTE LEGAL (não é invenção)
+**Lei 5.764/71 art. 28** já obriga, em cooperativa: **Fundo de Reserva ≥10%** das sobras e **FATES ≥5%** — e **a assembleia NÃO pode votar contra**. Os cooperados decidem o resto; não decidem extinguir o que sustenta a operação. Mesmo princípio do condomínio: a assembleia decide muito, mas não vota se paga a manutenção do elevador.
+
+### 🛡️ O ANTICORPO OBRIGATÓRIO — a proteção não pode virar privilégio
+Custo não-votável **cria um poder novo**: quem o define poderia declarar 90% e sufocar a comunidade. Portanto a proteção só é legítima acompanhada de **reconciliação publicada**:
+> **Declarado × realizado.** Reservou 15%, gastou 8% → **a diferença aparece e RETORNA ao excedente.**
+
+Fecha as duas pontas: o operador **não pode ser sufocado** (custo sai antes do voto) e **não pode abusar** (excesso é visível e volta).
+
+### 👁️ "VER" NÃO É "ENTENDER" — 4 requisitos da publicação
+Número solto e alto **gera desconfiança**, porque a comunidade não tem como julgar se é caro ou justo. Publicar exige: (1) **decomposição** (servidor + equipe + ferramentas, cada um com valor — nunca caixa-preta); (2) **reconciliação** declarado×realizado; (3) **trajetória** histórica — *a curva descendo é o argumento*, e é o que prova que o ganho de escala está sendo repassado, não retido; (4) **razão** em linguagem leiga ("somos N pessoas para processar X; dobrando o volume cai para Y%").
+
+**Consequência de arquitetura:** isso exige a camada de RESULTADO que o GATE de hoje provou não existir (zero conceito de período, zero DRE, `platform_ops` é nome sem fiação). **Reconciliar declarado×realizado é impossível sem apuração.** Portanto esta emenda **depende materialmente** da frente de resultado — não pode ser cumprida só com policy.
+
 ## ⛔ STOP · `applies_to` NO MOTOR VIVO — **A DIREÇÃO PROPÔS VIOLAÇÃO DE FASE; A EXECUTORA RECUSOU E ESTAVA CERTA** (2026-07-27)
 **A direção mapeou que `economic-policy-engine.service.ts` ignora `applies_to`, chamou isso de "arma carregada", obteve GO de Clayton e despachou a ligação ao seletor selado. A executora PAROU antes de qualquer edição. `BASE = FINAL = ff9e18cfc`, zero linha alterada, zero commit. A recusa está correta em TRÊS níveis independentes — todos verificados em 1ª mão pela direção.**
 
