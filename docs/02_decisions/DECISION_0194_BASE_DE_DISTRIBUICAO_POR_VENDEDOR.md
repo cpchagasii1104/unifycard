@@ -1,6 +1,6 @@
 # DECISION-0194 — BASE DA DISTRIBUIÇÃO É DETERMINADA POR QUEM VENDE (e nunca se mistura)
 
-**Data:** 2026-07-27 · **Status:** REDIGIDA — DOUTRINA DECIDIDA POR CLAYTON; AGUARDANDO AUDITORIA INDEPENDENTE ANTES DE ENFORCEMENT MATERIAL. **NÃO-SELADA. SELF-SEAL NÃO PERMITIDO.**
+**Data:** 2026-07-27 · **Status:** 🔴 **CORRIGIDA após auditoria independente (2026-07-27) — AGUARDANDO RE-AUDITORIA.** NÃO-SELADA. SELF-SEAL NÃO PERMITIDO. **NÃO é autoridade até novo parecer.**
 **Modo:** DOCS-ONLY · ZERO CÓDIGO/MIGRATION/GUARD/BANCO · não abre PORTA-1 · **não emite o gatilho `GO RETOMAR MATERIAL FISCAL-4E`**.
 **Deriva de / subordinada a:** [[DECISION-0166]] **D1** (base = comissão UnifiCard, *"salvo policy explícita futura"* — esta decisão É essa policy explícita) · [[DECISION-0165]] D1 · [[DECISION-0178]] (vocabulário `applies_to`: `gross_transaction` · `commission_gross` · `commission_distributable`) · [[DECISION-0192]] (sujeito territorial) · Lei 5 · Artigo V.
 **Origem:** decisão soberana direta de Clayton, 2026-07-27, em resposta à pergunta doutrinária devolvida pelo STOP da executora (registrado no cartório em `874ac3a08`).
@@ -140,6 +140,34 @@ Aritmeticamente o dinheiro até coincide (a comissão é 30%; 3/30 = 10%, 10/30 
 **Por que a inversão era grave e não editorial:** este artigo é o que ordena reexpressar os números herdados antes de qualquer ativação. Um implementador lendo *"o fundo recebe 3× menos"* **corrigiria PARA CIMA** uma fatia que já está 3,33× **acima** do pretendido — triplicando um erro que já era triplo, numa decisão sobre para onde vai dinheiro. Registrado sem atenuação: a direção comunicou o erro invertido também verbalmente a Clayton antes da auditoria o apanhar.
 
 Portanto: os valores herdados (já marcados **NÃO RATIFICADOS**) devem ser **reexpressos em duas etapas** antes de qualquer ativação. **Nenhuma policy herdada deve ser ativada na forma atual.** Reexpressar não é ratificar — os números seguem sendo herança até Clayton publicar os seus.
+
+---
+
+## 🔴 D3.1 — QUEM ABSORVE A SOBRA DE CENTAVO NA ETAPA 2 (decisão soberana de Clayton, 2026-07-28)
+
+> *"A sobra do centavo pode ir para a parte que trata dos custos do sistema."*
+
+**Fecha o veredito C-4 da auditoria**, que provou que a Etapa 2 de D3 **não podia sequer ser gravada**: o writer selado exige que **toda** policy tenha ao menos uma linha `revenue_share` (`economic-policy-write-validation.ts:191-197`), e a Etapa 2 (fundo · indicação · grupos · reserva · custo) **não tem nenhuma**. A exigência não é burocracia — é **estrutural**: a primeira linha `revenue_share` é quem **absorve o drift de arredondamento** (`K_pe_7`, `economic-policy-engine.service.ts:274-296`). Sem absorvedor, o resto do centavo **não tem dono**, e o cálculo falha `DRIFT_NO_REVENUE_SHARE`.
+
+**Decisão: na Etapa 2, o absorvedor é a LINHA DE CUSTO OPERACIONAL da plataforma.**
+
+**Regra unificada que emerge — não são duas regras, é uma:**
+> **A sobra de centavo fica com quem ENTREGOU naquela etapa.**
+> Etapa 1 → entregou o vendedor externo → sobra vai para `revenue_share` (o Actor). Etapa 2 → entregou a plataforma → sobra vai para a linha de custo operacional.
+
+Consistente com a regra já promulgada em `CORE_SPLIT_PAGAMENTO_CANONICO.md:94` (*drift para `revenue_share[0]`*), que é a instância dessa mesma regra na Etapa 1. E **honesta na direção**: a plataforma fica com as migalhas do arredondamento, não a comunidade.
+
+**⚠️ LACUNA MATERIAL DECLARADA, NÃO AUTORIZADA AQUI (veredito C-5):** `EconomicPolicyLineType` (`economic-policy.types.ts:18-26`) **não possui `operational_cost`** — existem `revenue_share · platform_fee · regional_fund · reserve · referral · group_allocation · channel_commission · custom`. Criar valor novo de vocabulário **exige DECISION nomeada** (`DECISION-0179` proíbe *"ampliação sem nova DECISION/versionamento"*). **Esta decisão declara a doutrina; NÃO cria o `line_type`, NÃO autoriza escrita, e proíbe expressamente a alternativa por omissão de usar `custom`** — que dissolveria a auditabilidade que D1.1 invoca como justificação. Materializar exige GATE + GO próprios, e o absorvedor da Etapa 2 **não existe até lá**.
+
+---
+
+## 🔴 D5.4 — DEMAIS CORREÇÕES PÓS-AUDITORIA (veredito C, 2026-07-27)
+
+**C-2 · COLISÃO NÃO NOMEADA COM `DECISION-0179 D10` (allowlist selada).** D10 fixa: *"No material 4e inicial, **só entram no Bank**: `tax_reserve` e linhas originadas de **`commission_distributable`**. Linhas sobre `gross_transaction`/`commission_gross` **permanecem fora** até nova allowlist decidida"*; e **proíbe** *"qualquer `line_type` sobre `gross_transaction` materializado por conveniência"*. **D1 (plataforma vende → incide sobre o bruto) e a Etapa 1 de D3 são exatamente linhas sobre `gross_transaction`.** A redação original citava a 0179 apenas para `tax_reserve` e **nunca mencionou D10**. Pior: o estado material é ainda mais restritivo — **a allowlist está VAZIA** (`fiscal-reserve-bank-composition.service.ts:17`, DECISION-0183 D9), logo **nenhuma** linha de **nenhuma** base materializa no Bank hoje. **Correção:** fica declarado que o caso plataforma-vendedora e a Etapa 1 estão **fora da allowlist vigente**, e que sua materialização exige **decisão de allowlist própria** — que **não** é o GO 4e e **não** é emitida aqui.
+
+**C-3 · D2 PROÍBE O QUE CÓDIGO SELADO IMPLEMENTA — e a direção tinha o fato à mão.** `fiscal-economic-policy-composition.service.ts:180,222-229` **agrupa linhas por base** e chama o motor **por grupo**, com comentário citando D12; e `DECISION-0178 D8` pressupõe seleção de base **por linha**. **A afirmação original de que *"DECISION-0178 permanece íntegra"* é verdadeira quanto ao vocabulário e FALSA quanto à composição.** Agravante registrado: o cartório da mesma sessão, dez linhas acima da redação, já registrava *"multi-base já é o desenho previsto"* — **redigiu-se com o fato disponível e omitiu-se**. **Correção:** D2 (base única por policy) **está em desacordo declarado** com `fiscal-economic-policy-composition.service.ts` e com 0178 D8. O que acontece com o agrupamento por base — morre, vira defesa em profundidade, ou exige emenda à 0178 — **não é decidido aqui** e é pré-requisito de qualquer materialização de D2.
+
+**C-6 · D4 DESCREVIA COMO FUTURO O QUE JÁ ESTAVA NO AR.** D4 (*"`applies_to` não deve ser de livre escolha do admin"*) foi redigida como risco teórico. Estado material no mesmo dia: `EconomicPoliciesPage.tsx` **é um `<select>` por linha**, e o writer aceita qualquer das 3 bases graváveis, linha a linha, **com Clayton já possuindo acesso real** (Fatia 4 selada). **Correção:** o risco de D4 **é atual, não futuro**. Registra-se que, diferentemente do defeito irmão de `regionalOriginBasis` — **fechado em `6ccdadf11`** com declaração policiada por guard —, a livre escolha de `applies_to` **permanece aberta** e não foi remediada por esta decisão.
 
 ---
 
