@@ -1,5 +1,14 @@
 # REMEDIATION DT LOG
 
+## F-TRANSPARENCY-BY-REGION — 🔴 DT FECHADA · **A TELA NUNCA FUNCIONOU (não era "mostra zero" — ESTOURAVA)** — ✅ SELADA · VERIFICAÇÃO DE 1ª MÃO (2026-07-27)
+**Fecha `DT-BANK-BALANCE-BY-REGION-READMODEL-METADATA-DESALINHADO`. Material `3ca1df864` (pai `b0eecffae`), 1 arquivo, +42/-24.**
+- **🔴 ERRATA CONTRA A DIREÇÃO — o diagnóstico estava BRANDO DEMAIS.** A direção registrou que o read-model *"mostraria ZERO fundos havendo dinheiro real"*, por filtrar `metadata->>'systemAccountType'` que o fluxo canônico não preenche. **A realidade é pior e foi confirmada pela direção no banco:** `bank_accounts` **não tem coluna `metadata`** e **não tem coluna `account_id`** — só `id`. A query antiga **lançava exceção em toda chamada**: `coluna "account_id" não existe`. **A tela de transparência por região NUNCA funcionou** — não devolvia número errado, quebrava. Lição: "read-model desalinhado" era eufemismo; havia código morto-por-erro num caminho que ninguém exercitou porque ninguém ainda olhou a tela.
+- **Correção = convergência, não autoria:** passou a ler a fonte canônica `regional_fund_accounts JOIN bank_accounts ON ba.id = rfa.bank_account_id`, **reusando o padrão de `lookupRegionalFundAccount`** e a convenção `regionId = city_id ?? scope_level` **já ratificada** em `bank-balance-consolidation.service.ts` (DECISION-0177 D10) — sem inventar esquema de chave regional novo. Conforme Lei 7 + `SSOT_REGISTRY §5.10-5.12` (identidade nunca por metadata/string).
+- **Verificação de 1ª mão da DIREÇÃO (no banco, não no relatório):** colunas de `bank_accounts` = só `id` ✓ · query antiga → **`coluna "account_id" não existe`** ✓ · query nova → devolve o fundo de Curitiba (`scope_level=city`, `city_id=9d431002…`, conta `bfc8705b…`) ✓ · **runner 224 OK** rodado pela direção ✓ · `financial-vocabulary 3889/3889` (a executora teve de reescrever um comentário que inflava o vocabulário — ratchet mantido).
+- **✅ PRIMEIRA APLICAÇÃO REAL DA REGRA DO ACESSO (DECISION-0193 D5.2):** a executora deixou cabeçalho `ORIENTAÇÃO CANÔNICA` no arquivo que tocou (STATUS `CANÔNICO`; NORMA DECISION-0166 D3 + SSOT_REGISTRY §5.10-5.12; NÃO identidade por metadata/owner_id; **EM VEZ** nomeando o join canônico) — **de carona no trabalho, sem campanha**, exatamente como a lei prevê. **E corrigiu comentário que apontava para o nada** ("FONTE CANÔNICA: conta de sistema regional_fund" — vago o bastante para não ser mentira dura, mas não verificável), reescrevendo para nomear a tabela real. A obrigação de corrigir comentário enganoso funcionou na primeira oportunidade.
+- **Irmãos NÃO têm o defeito** (verificado): `transparency.service.ts` e `bank-balance-consolidation.service.ts` já leem `regional_fund_accounts` por FK. **Só este arquivo estava quebrado.**
+- **⚠️ LIMITAÇÃO HERDADA, declarada e NÃO corrigida:** para escopos que não sejam `city`, a chave `regionId` cai em `scope_level`, que **não é único** — dois fundos de `country`/`state` colidiriam. Pré-existe no irmão já ratificado; inerte hoje (1 linha, city). Corrigir exige compor `country_id`/`state_id` na chave = **decisão de desenho, não troca mecânica de join**. Registrada, não improvisada.
+
 ## 📌 EMENDA PENDENTE À DECISION-0194 — CUSTO OPERACIONAL É PRÉ-DISTRIBUTIVO E NÃO-VOTÁVEL (Clayton, 2026-07-27)
 **NÃO aplicada ao documento ainda, DE PROPÓSITO: a DECISION-0194 está sob AUDITORIA INDEPENDENTE neste momento, e emendar documento sob auditoria transforma o parecer em alvo móvel. Registrada aqui para entrar assim que o parecer voltar.**
 
@@ -27,6 +36,22 @@ Fecha as duas pontas: o operador **não pode ser sufocado** (custo sai antes do 
 
 ### 👁️ "VER" NÃO É "ENTENDER" — 4 requisitos da publicação
 Número solto e alto **gera desconfiança**, porque a comunidade não tem como julgar se é caro ou justo. Publicar exige: (1) **decomposição** (servidor + equipe + ferramentas, cada um com valor — nunca caixa-preta); (2) **reconciliação** declarado×realizado; (3) **trajetória** histórica — *a curva descendo é o argumento*, e é o que prova que o ganho de escala está sendo repassado, não retido; (4) **razão** em linguagem leiga ("somos N pessoas para processar X; dobrando o volume cai para Y%").
+
+### 🌱 EXPANSÃO É PARTE DO CUSTO — E PRESTA CONTAS DE OUTRO JEITO (Clayton, 2026-07-27)
+> *"Sem o sistema vivo (custos operacionais) o sistema não sobrevive. (…) O custo operacional tem que pensar em expansão."*
+
+**Manutenção e expansão NÃO são a mesma linha** — e o erro de fundi-las é que a expansão se esconde dentro do custo e nenhuma das duas fica auditável:
+| | Manutenção | Expansão |
+|---|---|---|
+| natureza | manter vivo o que existe | **aposta** em capacidade futura |
+| proporcional a | volume atual | nada — é decisão deliberada |
+| **presta contas por** | **declarado × GASTO** | **investido × O QUE GEROU** |
+
+**Precedente legal na MESMA cláusula:** `Lei 5.764/71 art. 28, I` — o Fundo de Reserva obrigatório serve para *"reparar perdas e atender ao **desenvolvimento de suas atividades**"*. Desenvolvimento das atividades **é** expansão. Não é categoria nova nem exceção a justificar: o cooperativismo brasileiro já ratificou que crescer é despesa legítima e protegida do voto.
+
+**Argumento de legitimidade perante a comunidade:** comunidade que vota para maximizar a fatia de hoje **vota contra o próprio futuro** (sem expansão o bolo nunca cresce). Mas isso não se sustenta por discurso — só por evidência do tipo *"investimos R$ X para abrir a cidade Y; hoje Y movimenta Z e a fatia da comunidade de lá é W"*. Aí expansão deixa de ser custo tolerado e vira investimento cobrado.
+
+**🔴 RISCO NOMEADO:** *"expansão"* é o rótulo mais abusável de qualquer organização — manutenção se confere contra nota fiscal, expansão justifica quase tudo. **Por isso a contrapartida é DIFERENTE, não a mesma:** manutenção presta contas por **gasto**; expansão presta contas por **resultado** (valor investido + objetivo declarado + o que produziu). Sem essa assimetria, a linha que mantém o sistema vivo vira a linha que o corrompe.
 
 **Consequência de arquitetura:** isso exige a camada de RESULTADO que o GATE de hoje provou não existir (zero conceito de período, zero DRE, `platform_ops` é nome sem fiação). **Reconciliar declarado×realizado é impossível sem apuração.** Portanto esta emenda **depende materialmente** da frente de resultado — não pode ser cumprida só com policy.
 
