@@ -53,6 +53,30 @@ Não são dois modelos: é um só, com dois nomes para "o que custou entregar".
 
 **Por que linha explícita e não dedução silenciosa:** um custo descontado antes, fora do split, é invisível — a comunidade veria "10% para o fundo regional" sem saber que a base já tinha sido reduzida em segredo. Como linha, ele aparece, é auditável, e permite dizer honestamente *"hoje X% cobre o custo do projeto; conforme escalar, isso cai e o fundo sobe"* — que é mais forte que esconder. Coerente com a exigência de transparência de Clayton (saldos visíveis) e com o Artigo XI.
 
+### 🔴 D1.2 — IMPOSTO **NÃO** É CUSTO OPERACIONAL. A NORMA JÁ RESOLVE (verificado, não inventado)
+
+Clayton pediu para conferir na norma antes de modelar. **Já estava decidido, e em dois lugares.**
+
+**DECISION-0166 D7** fixa a cascata do valor, e imposto vem **ANTES** da distribuição social:
+```
+valor bruto da transação
+→ taxas externas de pagamento (adquirente etc.)
+→ comissão UnifiCard bruta
+→ reserva/obrigação fiscal
+→ comissão DISTRIBUÍVEL          ← é ISTO que o painel reparte
+```
+
+**DECISION-0179** define `tax_reserve` com todas as negações necessárias: *"segregação interna de uma obrigação fiscal estimada… **decomposição interna de `commission_gross`**, nunca cobrança adicional; **NÃO é `economic_policy_line`; NÃO é policy configurável**; NÃO é imposto pago/recolhimento."* Equação vinculante já promulgada: **`commission_gross = tax_reserve + commission_distributable`**.
+
+**Três consequências que esta decisão apenas REAFIRMA (não cria):**
+1. **Imposto não é linha de policy e não deve ser configurável no painel.** Ele decorre da realidade fiscal, não de escolha do admin. Um percentual de imposto ajustável seria ficção contábil.
+2. **Imposto ≠ custo operacional.** Custo operacional é linha **dentro** dos 100% distribuíveis (D1.1); imposto é dedução **anterior** que forma a base. Confundi-los faria o imposto competir com o fundo regional pelo mesmo bolo — e sair do bolo errado.
+3. **Taxa de adquirente (maquininha/gateway) também é anterior**, e igualmente não é escolha: é o que o processador cobrou de fato.
+
+**Portanto o painel reparte `commission_distributable`** — o que sobra depois de pagar quem entregou, o processador e o Fisco. Todo percentual que Clayton configurar mede **esse** bolo.
+
+**⚠️ Verificar quando a fase 4e abrir (não decidido aqui):** a cascata D7 está escrita para o caso de **comissão**. No caso **plataforma vendedora** (D1), não há comissão — a receita é o próprio bruto. Presume-se que `tax_reserve` incida sobre essa receita, mas isso **não foi verificado nesta decisão** e não deve ser assumido por quem for materializar.
+
 **⚠️ QUESTÃO ABERTA, NÃO DECIDIDA AQUI — custo é PERCENTUAL ou FATO?**
 Uma linha de policy expressa **percentual**. Mas custo operacional pode ser **fato daquela transação** (a plataforma comprou o produto por R$ 60 e vendeu por R$ 100 → o custo é R$ 60, não "60%"). Percentual funciona para **rateio de overhead**; não funciona para **custo de mercadoria variável**. Se o UnifiCard vier a revender bens com custo unitário variável, o modelo de policy **sozinho não expressa isso** e será preciso decidir se o custo real entra como fato antes do split (reduzindo a base) ou se permanece rateio percentual. **Não resolver isto antes de vender com custo variável é criar o risco de distribuir dinheiro que não existe.** Registrado como decisão futura de Clayton, não como lacuna esquecida.
 
