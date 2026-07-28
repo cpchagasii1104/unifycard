@@ -673,7 +673,10 @@ Execução sem registro
 
 ---
 
-## 7.1 ORIENTAÇÃO CANÔNICA NO PONTO DE USO (DECISION-0193)
+## 7.1 ORIENTAÇÃO CANÔNICA NO PONTO DE USO (DECISION-0193 — ⚠️ PROVISÓRIA)
+
+> **⚠️ STATUS REAL, declarado por honestidade de rito:** esta seção materializa a `DECISION-0193`, que está **NÃO-SELADA** e recebeu **veredito B (5 correções nomeadas)** na auditoria independente de 2026-07-27. Pior: ela foi escrita **2 minutos após** o próprio rascunho da 0193 declarar que só se materializaria *"quando houver GO material próprio"* — ou seja, **o rito foi executado ao contrário** (a norma entrou em vigor e a auditoria veio depois). Registrado como falha de processo da direção, não como praxe. **Vale como orientação, não como lei**, até a 0193 ser corrigida e selada. Correções pendentes conhecidas: o guard prova **existência do alvo, não veracidade da afirmação**; a gramática do campo `NORMA` não está fixada; e o vocabulário de `STATUS` **colide com `docs/decisions/CODIGO_LATENTE_REGISTRY.md`**, que já classifica estado institucional de arquivo (`CÓDIGO LATENTE` etc.) — crosswalk obrigatório antes do selo.
+
 
 O registro em `docs/` protege quem **lê a doc**. Esta seção protege quem **abre o arquivo** — o caso normal de uma IA sem memória.
 

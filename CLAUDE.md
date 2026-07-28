@@ -27,7 +27,7 @@ Ao despachar subagente, escreva o mandato como **inventário-primeiro, desenho-n
 | **Qualquer coisa** | `docs/01_normative/00_AGENT_PROTOCOL.md` §2.2 (prova de rastreabilidade) + §2.3.2 (GATE antes de alterar tabela/SSOT) |
 | **Dinheiro / split / saldo** | pacote §8 obrigatório: `SSOT_EXCLUSIVE_BANK_RULE.md` · `SSOT_CONTRACT.md` · `SSOT_REGISTRY_UNIFICARD.md` · `PROHIBITED_STRUCTURES.md` |
 | **Percentuais / política econômica** | `DECISION-0166` — D1 base · D6 *admin configura, admin NÃO move dinheiro* · D7 ordem · D8 painel |
-| **Fundo regional / território** | `DECISION-0049` · `DECISION-0192` (sujeito territorial = **comprador**) · `DECISION-0177` |
+| **Fundo regional / território** | `DECISION-0049` · `DECISION-0177` · ⚠️ `DECISION-0192` **NÃO-SELADA · REPROVADA (veredito C) na auditoria de 2026-07-27** — reverte silenciosamente 0166 D8 e apaga o ramo PJ de 0166 D0. **NÃO é autoridade de roteamento até correção+selo.** Vale 0166/0177. |
 | **Grupos / economia de grupo** | 🔴 `docs/01_normative/CONTRATO_GRUPOS_V2.md` — **é LEI**, com cláusula *"implementação que contradiga é BUG por definição"* |
 | **Categoria no split** | `DECISION-0048` — categoria **seleciona** policy; **não** calcula split; **não** é identidade |
 | **Ontologia / N0-N1-N2** | `18_DOMAIN_ONTOLOGY_UNIFICARD.md` — N0/N1/N2 são **navegação** e **NUNCA** participam de roteamento financeiro |

@@ -133,7 +133,11 @@ Enforcement futuro (sem GO aqui): a base deve ser **resolvida pelo servidor** a 
 
 A policy semeada `legacy_baseline_event_ticket_curitiba` (70% organizador · 3% taxa · 10% fundo regional · 17% reserva, todas `gross_transaction`) **colapsa as duas etapas numa só**: trata destinos de Etapa 2 como percentuais do **bruto**.
 
-Aritmeticamente o dinheiro até coincide (a comissão é 30%; 3/30 = 10%, 10/30 = 33,3%, 17/30 = 56,7% dessa comissão). **Mas a expressão está errada, e a expressão é o que Clayton configura.** Se ele definir "10% para o fundo" pensando em 10% da comissão, mas o número viver na régua do bruto, a fatia real do fundo fica **três vezes menor** que a pretendida.
+Aritmeticamente o dinheiro até coincide (a comissão é 30%; 3/30 = 10%, 10/30 = 33,3%, 17/30 = 56,7% dessa comissão). **Mas a expressão está errada, e a expressão é o que Clayton configura.**
+
+**🔴 ERRATA (auditoria independente, 2026-07-27) — a direção havia escrito o SENTIDO DO DANO INVERTIDO.** O texto original afirmava que a fatia do fundo ficaria *"três vezes menor"* que a pretendida. **É o contrário.** Com os números da própria policy semeada (comissão = 30% do bruto): pretendido = 10% da comissão = 0,10 × 0,30 = **3% do bruto**; real = **10% do bruto**. Real ÷ pretendido = **3,33× MAIOR**, não menor.
+
+**Por que a inversão era grave e não editorial:** este artigo é o que ordena reexpressar os números herdados antes de qualquer ativação. Um implementador lendo *"o fundo recebe 3× menos"* **corrigiria PARA CIMA** uma fatia que já está 3,33× **acima** do pretendido — triplicando um erro que já era triplo, numa decisão sobre para onde vai dinheiro. Registrado sem atenuação: a direção comunicou o erro invertido também verbalmente a Clayton antes da auditoria o apanhar.
 
 Portanto: os valores herdados (já marcados **NÃO RATIFICADOS**) devem ser **reexpressos em duas etapas** antes de qualquer ativação. **Nenhuma policy herdada deve ser ativada na forma atual.** Reexpressar não é ratificar — os números seguem sendo herança até Clayton publicar os seus.
 
