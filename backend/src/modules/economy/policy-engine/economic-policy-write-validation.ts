@@ -54,6 +54,12 @@ const DESTINATION_TYPES: readonly EconomicPolicyDestinationType[] = [
   'custom',
 ];
 
+// ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+// ║ STATUS:  CONTIDO
+// ║ NORMA:   src/modules/services/service-payment-execution.service.ts (resolver, byte-pinned)
+// ║ NÃO:     tratar os 7/5 valores abaixo como "suportados" — é o CHECK físico do Postgres
+// ║ EM VEZ:  cheque resolveRegionalFundDestination p/ o subconjunto realmente resolvível hoje
+// ╚════════════════════════════════════════════════════════════════
 /** Enum canônico DECISION-0049 (migration 20260530567000). */
 const REGIONAL_ORIGIN_BASIS_VALUES: readonly RegionalOriginBasis[] = [
   'payer_identity_residence',

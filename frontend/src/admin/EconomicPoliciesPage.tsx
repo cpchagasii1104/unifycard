@@ -84,6 +84,12 @@ const APPLIES_TO: { value: EconomicPolicyAppliesToWritable; label: string }[] = 
   { value: 'commission_distributable', label: 'Sobre a comissão distribuível' },
 ];
 
+// ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+// ║ STATUS:  CONTIDO
+// ║ NORMA:   backend/.../service-payment-execution.service.ts (resolver, byte-pinned)
+// ║ NÃO:     assumir que os 7 valores abaixo resolvem em pagamento real (3 não têm fonte material)
+// ║ EM VEZ:  ver relatório da executora 2026-07-27 (POLICY_BASIS_UNSUPPORTED_MVP) antes de publicar
+// ╚════════════════════════════════════════════════════════════════
 const REGIONAL_ORIGIN_BASIS: { value: RegionalOriginBasis; label: string }[] = [
   { value: 'payer_identity_residence', label: 'Residência de identidade do pagador' },
   { value: 'receiver_identity_residence', label: 'Residência de identidade do recebedor' },
