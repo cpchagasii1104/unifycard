@@ -1,5 +1,17 @@
 # REMEDIATION DT LOG
 
+## ✅ D3.1 REESCRITA — A SOBRA DO CENTAVO SEM QUEBRAR NADA (Clayton confirmou, 2026-07-28)
+**Registrado DURANTE a fatia, não depois — o defeito de processo nº 1 da 2ª auditoria foi exatamente não registrar o passe de correção.**
+
+- **O que estava errado (3ª auditoria):** a D3.1 original inventava um `line_type` `operational_cost` **que não existe** e **emendava `CORE_SPLIT_PAGAMENTO_CANONICO.md:94`** (*"drift para `revenue_share[0]`"*) chamando de "consistência" — substituição vestida de instância, o mesmo defeito de Artigo XI pelo qual a 0192 D5 já fora reprovada.
+- **O mecanismo correto USA a norma em vez de substituí-la:** linha `lineType='revenue_share'` com **`bps = 0`** e `destinationType` apontando para a conta de custo (`platform_fees`). `lineType` e `destinationType` são campos independentes: **zero por cento do bolo, cem por cento do resto.**
+- **PROVA DE 1ª MÃO (motor real):** `total=100→absorveu 1` · `7→1` · `999→1` · `12345→1`, soma exata nos quatro; e `assertPolicyLinesValid` **aceita `bps=0`**. *(Errata de método: a primeira prova da direção usou um valor que dividia exato e não gerava sobra — teste inútil, refeito.)*
+- **Custo institucional: ZERO.** Sem `line_type` novo, sem tocar arquivo byte-pinado, sem emenda a norma, sem migration. Reusa destino já provisionado e já suportado pelo PE-3.
+- **Reconcilia as duas decisões de Clayton**, que a 3ª auditoria provou colidirem no texto anterior: o custo **substantivo** continua pré-distributivo e não-votável; a linha absorvedora tem bps=0, **não disputa o bolo e não conta custo duas vezes**.
+- **Fecha o veredito C-4 materialmente** (não só em doutrina): a Etapa 2 agora **tem** a linha `revenue_share` que o writer exige, e a validação aceitou — provado.
+- **Alternativa registrada, não descartada:** Clayton havia pedido **conta dedicada de sobras, movível só por ele**. A direção levantou o preço (abrir o lacre + vocabulário novo por DECISION + migration + governança própria para um saldo de centavos) e Clayton, **informado do custo**, confirmou a rota do custo. A conta dedicada segue legítima como frente própria.
+- **Estado da 0194:** segue **NÃO-SELADA** e sem autoridade. Esta reescrita fecha 1 dos defeitos graves; os demais vereditos (C-2 allowlist vazia, C-3 colisão multi-base, C-6 livre escolha de `applies_to` viva) **permanecem abertos**.
+
 ## 🔴🔴🔴 3ª AUDITORIA INDEPENDENTE — **CÓDIGO E ESTADO** · **DOIS SELOS DA DIREÇÃO SÃO FALSOS** (2026-07-28)
 **Clayton mandou auditar o material da sessão e rever o plano. A auditoria examinou CÓDIGO e ESTADO (as duas anteriores examinaram doutrina). Derrubou dois selos da direção — ambos VERIFICADOS EM 1ª MÃO pela direção antes deste registro. Este é o registro mais importante da sessão, e é contra a direção.**
 

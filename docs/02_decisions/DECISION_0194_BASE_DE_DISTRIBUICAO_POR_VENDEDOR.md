@@ -149,7 +149,39 @@ Portanto: os valores herdados (já marcados **NÃO RATIFICADOS**) devem ser **re
 
 **Fecha o veredito C-4 da auditoria**, que provou que a Etapa 2 de D3 **não podia sequer ser gravada**: o writer selado exige que **toda** policy tenha ao menos uma linha `revenue_share` (`economic-policy-write-validation.ts:191-197`), e a Etapa 2 (fundo · indicação · grupos · reserva · custo) **não tem nenhuma**. A exigência não é burocracia — é **estrutural**: a primeira linha `revenue_share` é quem **absorve o drift de arredondamento** (`K_pe_7`, `economic-policy-engine.service.ts:274-296`). Sem absorvedor, o resto do centavo **não tem dono**, e o cálculo falha `DRIFT_NO_REVENUE_SHARE`.
 
-**Decisão: na Etapa 2, o absorvedor é a LINHA DE CUSTO OPERACIONAL da plataforma.**
+**Decisão (mecanismo REESCRITO em 2026-07-28 após a 3ª auditoria — ver D3.1-BIS abaixo, que substitui o texto original desta seção).**
+
+### 🔴 D3.1-BIS — O MECANISMO CORRETO: LINHA `revenue_share` COM **bps = 0** E DESTINO NA CONTA DE CUSTO
+
+**A redação anterior desta seção estava errada em dois pontos graves, ambos apontados pela 3ª auditoria e aqui retratados sem atenuação:**
+1. **Inventava um `line_type` `operational_cost` que não existe** — e criar valor de vocabulário exige DECISION nomeada (`DECISION-0179`).
+2. **Emendava norma promulgada chamando de "consistência":** `CORE_SPLIT_PAGAMENTO_CANONICO.md:94` fixa *"drift para `revenue_share[0]`"*, e o texto original propunha "quem entregou naquela etapa" como se fosse a mesma regra. **Não era instância — era substituição**, exatamente o defeito de Artigo XI pelo qual a 0192 D5 já havia sido reprovada, reproduzido um documento adiante.
+
+**O mecanismo correto usa a regra promulgada, não a substitui:**
+
+> **Na Etapa 2, a sobra é absorvida por uma linha `lineType='revenue_share'` com `bps = 0` cujo `destinationType` aponta para a conta de custo/taxa da plataforma.**
+
+`lineType` e `destinationType` são campos **independentes**. `revenue_share` é o tipo que a norma já elege como absorvedor do drift; o destino é para onde vai. Uma linha com **zero por cento do bolo** recebe **cem por cento do resto**.
+
+**PROVA DE 1ª MÃO DA DIREÇÃO (motor real, não leitura de código):**
+```
+linha bps=0 · revenue_share · destino platform_fees   +   fundo 3333 bps   +   indicação 6667 bps
+total=  100 → soma 100 ✓ | absorvedora recebeu 1
+total=    7 → soma   7 ✓ | absorvedora recebeu 1
+total=  999 → soma 999 ✓ | absorvedora recebeu 1
+total=12345 → soma 12345 ✓ | absorvedora recebeu 1
+```
+E `assertPolicyLinesValid` **aceita `bps = 0`** — verificado. *(Erratum de método registrado: a primeira tentativa de prova da direção usou um valor que dividia exato e portanto não gerava sobra — teste inútil, refeito com valores que produzem resto.)*
+
+**Custo institucional deste mecanismo: ZERO.** Nenhum `line_type` novo · nenhuma mudança no motor · **nenhum arquivo byte-pinado tocado** · nenhuma emenda a norma promulgada · nenhuma migration. Usa `platform_fees`, que já existe, já é provisionada e já está em `SUPPORTED_DESTINATION_TYPES` do PE-3.
+
+**Reconcilia as duas decisões de Clayton sem contradição** — o ponto que a 3ª auditoria provou estar quebrado no texto anterior:
+- **"O custo operacional sai ANTES, não é votável"** (emenda de 2026-07-27) → o custo **substantivo** é dedução pré-distributiva, fora do split, protegido do voto. **Intacto.**
+- **"A sobra do centavo vai para a parte que trata dos custos"** (2026-07-28) → a linha absorvedora tem **bps = 0**, logo **não disputa o bolo** e **não conta custo duas vezes**; ela só roteia o resíduo para a mesma conta.
+
+**FECHA O VEREDITO C-4 DE VERDADE** (a 3ª auditoria mandou não repetir a alegação falsa): C-4 era *"a Etapa 2 não pode ser gravada porque o writer exige uma linha `revenue_share`"*. Com este mecanismo a Etapa 2 **tem** uma linha `revenue_share` — e a validação de escrita **aceitou**, provado acima. **A impossibilidade material foi removida, não apenas respondida em doutrina.**
+
+**Decisão de Clayton sobre a alternativa (registrada):** Clayton havia pedido uma **conta dedicada de sobras, movível só por ele**. A direção levantou o custo — destino novo exigiria **abrir o arquivo byte-pinado**, valor novo de vocabulário por DECISION, migration, e governança própria para um saldo de centavos — e Clayton, informado do preço, **confirmou a rota do custo** (*"o que é mais simples e que já funciona?"* → *"sim, confirmado"*). A conta dedicada permanece **legítima e possível**, como frente própria com decisão nomeada, não descartada.
 
 **Regra unificada que emerge — não são duas regras, é uma:**
 > **A sobra de centavo fica com quem ENTREGOU naquela etapa.**
