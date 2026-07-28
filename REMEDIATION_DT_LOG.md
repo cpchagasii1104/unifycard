@@ -33,6 +33,23 @@ A direção entregou o próprio julgamento **como ALVO, não como conclusão**, 
 ### ➕ ACRÉSCIMO DA DIREÇÃO QUE O PARECER NÃO PEDIU (e que muda o peso de D1.1)
 A própria emenda de Clayton declara que **depende materialmente da frente de resultado** (`cartório :233`): reconciliar declarado×realizado **exige apuração**, e não há conceito de período nem DRE (`platform_ops` é nome sem fiação). Sem isso, custo não-votável seria **poder sem contrapartida**. Por isso D1.1 foi escrita **com a dependência declarada no corpo**: enquanto a frente de resultado não existir, **nenhum custo pré-distributivo pode ser declarado não-votável**. Sem essa trava, a seção se leria como descrição do presente — o defeito A4 que o próprio mandato mandava caçar.
 
+### 🔴 PASSE DE CONFIRMAÇÃO (rodada 2, mesmo auditor, 2026-07-28) — **AINDA NÃO SELÁVEL** · A CORREÇÃO DA DIREÇÃO INTRODUZIU UMA SEGUNDA VERDADE
+**As 7 entraram e 6 entraram bem. A nº 1 introduziu defeito NOVO — e é do gênero mais caro da casa. Registrado contra a direção, sem atenuação.**
+
+- **🔴 ND-1 (PROVADO, média-alta) — A DIREÇÃO REDEFINIU UM TERMO SELADO.** A cascata que a direção escreveu em D1.2 inseria `custo operacional` **acima** da linha `comissão DISTRIBUÍVEL`, implicando `distributable = bruto − imposto − custo`. **Colide com a equação SELADA da `DECISION-0179`** — `commission_gross = tax_reserve + commission_distributable` — que o próprio documento cita **duas linhas abaixo**. Era, na letra, **segunda definição para termo já promulgado**, cometida no mesmo passe em que a direção corrigia esse exato defeito em outros. *(Paternidade compartilhada: o auditor assinou que sua correção 1(c) era ambígua — "antes do distribuível" — e induziu. A direção não usa isso como atenuante: quem escreveu a linha foi a direção.)*
+- **ND-2 (PROVADO, média):** `D1:32` ainda trazia *"linha explícita dentro da distribuição (D1.1)"* — a formulação **revogada**, citando D1.1 para o oposto do que D1.1 agora fixa. **O grep de resíduo da direção falhou por ser estreito demais:** procurou as frases exatas que ela sabia ter escrito, não o conceito. Lição registrada — varredura de resíduo deve buscar o **conceito**, não a string.
+- **ND-3 (PROVADO, baixa):** `D3:152` dizia *"a Etapa 2 opera sobre o bruto"* sem as deduções pré-distributivas.
+
+**✅ C-8 · C-9 · C-10 APLICADAS (2026-07-28).** A reconciliação **não foi escolha da direção** — a norma decide: a equação da 0179 está **selada** e não pode ser redefinida; a emenda de Clayton manda o custo sair antes da distribuição. A única leitura que preserva as duas usa **o vocabulário do próprio Clayton**, cuja cascata já termina em *"= EXCEDENTE DISTRIBUÍVEL ← é isto que a votação reparte"*:
+```
+… → comissão DISTRIBUÍVEL (0179, INTACTA) → − custo operacional (D1.1) → = EXCEDENTE DISTRIBUÍVEL ← o painel reparte
+```
+`commission_distributable` **volta a ser exatamente** `commission_gross − tax_reserve`, e **não é sinônimo** de excedente. Declarado como **NÃO DECIDIDO AQUI**: qual valor concreto chega ao motor no material é mapeamento de fase 4e, com GATE e GO próprios — quem materializar **não deve presumir equivalência**.
+
+**✅ ATAQUES (a)/(b) — A DEPENDÊNCIA MATERIAL DE D1.1 SOBREVIVEU.** A direção pediu explicitamente que o auditor tratasse com hostilidade o que ela acrescentou sem ser pedido. Veredito: **(a) FIEL** — é *modus tollens* do próprio texto de Clayton (*"a proteção só é legítima com reconciliação publicada"* + *"impossível sem apuração"*), não invenção, e falha fechada na direção certa; **(b) NÃO esvazia** — é o oposto do defeito A5: o núcleo fica decidido e só a **ativação** é gateada por pré-condição nomeada, padrão já usado na casa (4e dormente, B-CITY-2). Sem a cláusula, a seção seria o defeito A4 (prescrição lida como descrição). Custo de interinidade hoje = **zero** (nada distribui; 4 bloqueios vivos).
+
+**✅ INTEGRIDADE CONFIRMADA POR EXECUÇÃO DO AUDITOR, não por alegação da direção:** parecer da 4ª auditoria **não foi editado** pela direção (diff = 0) · **byte-pins INTACTOS** (guard reexecutado, 3 sha256 recomputados batendo) · `economic-policy.types.ts` **confirmadamente fora** de `BYTE_INTACT` · guard lexical 15/15 EXIT 0. **Declarado NÃO AUDITADO pelo auditor:** runner completo e typecheck (alegação da direção segue como alegação), banco, GOs verbais.
+
 ### ⛔ O QUE **NÃO** FOI FEITO
 Zero migration · zero banco · zero motor · zero guard · **nenhum arquivo byte-pinado tocado** · policy nenhuma ativada · `GO RETOMAR MATERIAL FISCAL-4E` **não emitido**. A 0194 segue **NÃO-SELADA**: a direção corrigiu e **não sela o que escreveu** — falta passe de confirmação independente e o selo de Clayton.
 

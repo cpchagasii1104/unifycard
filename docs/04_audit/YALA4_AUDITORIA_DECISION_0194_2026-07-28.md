@@ -131,3 +131,62 @@ Ataquei o raciocínio da direção nos três pontos, conforme mandado:
 Este parecer executou código real uma única vez, em função pura (`calculatePolicySplits`), com script em diretório temporário **fora do repositório**, zero conexão a banco (a mensagem "DATABASE_URL não está definida" na saída confirma que nenhuma conexão foi feita), zero escrita além deste arquivo. O único arquivo criado no repositório é este parecer. Nenhum documento de `docs/01_normative/` ou `docs/02_decisions/` foi tocado.
 
 **VEREDITO FINAL: B — selável após as correções 1–6 (a 7 é recomendação). A doutrina resistiu; o documento, ainda não.**
+
+---
+---
+
+# APÊNDICE — PASSE DE CONFIRMAÇÃO (RODADA 2, 2026-07-28, sobre `4edc91b09`)
+
+**Escopo:** verificar se as 7 correções do §6 entraram corretamente. Não é auditoria nova; defeito NOVO introduzido pela correção é reportado (regra de sempre). Nada acima desta linha foi alterado.
+
+## A. INTEGRIDADE DO PROCESSO (verificado antes de tudo)
+
+- **Este parecer não foi editado pela direção:** `git diff 4edc91b09 -- <este arquivo>` = 0 linhas; as "133 inserções" do commit são a **criação** do arquivo (estava untracked). O texto committado contém o meu veredito literal. `PROVADO`.
+- **Nenhum arquivo byte-pinado tocado:** o commit altera exatamente 4 arquivos (cartório · `economic-policy.types.ts` · a decisão · este parecer) — nenhum deles é `F.ENGINE`/`F.SPE`/`F.GUARD_BCITY`. E **reexecutei eu mesma** `audit-fiscal-economic-policy-composition.mjs`: **EXIT 0**, com os 3 sha256 de `BYTE_INTACT` (`:149-162`) **recomputados e batendo** ("3 arquivos B-CITY byte-intactos"). `economic-policy.types.ts` **não está** em `BYTE_INTACT` (`:159-161` — só engine/SPE/guard-bcity). `PROVADO` (por execução, não por alegação da direção).
+- **O guard lexicamente frágil também reexecutado por mim:** `audit-regional-fund-resolvable-basis-declaration.mjs` → **EXIT 0**, 15/15 OK, extração lexical do resolver batendo com as constantes declaradas. A edição do comentário F8 não o quebrou. `PROVADO`.
+
+## B. CONFIRMAÇÃO CORREÇÃO A CORREÇÃO
+
+1. **CONFIRMADA (com 2 defeitos novos — ver §C).** D1.1 reescrita: pré-distributiva/não-votável/visível com cascata (`:44-50`), retratação preservada e não apagada (`:61-67`), precedente legal (`:69`), anticorpo declarado×realizado (`:71-77`), 4 requisitos de publicação (`:79`), manutenção≠expansão (`:81`). D3: custo/expansão fora da lista da Etapa 2, com a razão dupla — dupla contagem + retorno ao voto (`:150`). Cascata de D1.2 atualizada (`:97`) — **mas a atualização introduziu ND-1 (§C)**.
+2. **CONFIRMADA.** Regra unificada rebaixada a glosa explicitamente não-normativa (`:224-226`: "a regra normativa é UMA, e não é desta decisão — `CORE:94`"; glosa marcada "descrição do efeito, não regra autônoma; resíduo expurgado"). C-5 declarado **RESOLVIDO** (`:232`): "o absorvedor da Etapa 2 não existe até lá" **saiu**; ambas as afirmações antigas retratadas; `custom` segue proibido.
+3. **CONFIRMADA.** C-3 com alvo renomeado (`:242-248`): "textualmente falso" contra 0178 D8; desacordo real = capacidade do código selado (`fiscal-economic-policy-composition.service.ts:180,222-229`) + ausência de trava em `assertPolicyLinesValid` (`economic-policy-write-validation.ts:158-179`); harmonização explícita com D6 (`:248` "não se contradizem"). Título mudou de "PROÍBE O QUE CÓDIGO SELADO IMPLEMENTA" para "RESTRINGE O QUE CÓDIGO SELADO TORNA POSSÍVEL" — fiel ao meu §5.
+4. **CONFIRMADA.** A linha falsa do cartório foi corrigida **no lugar** (`REMEDIATION_DT_LOG.md:50`): vereditos textuais fechados em D5.4; o que permanece aberto são as condições materiais (allowlist vazia · agrupador vivo · select livre), nomeadas uma a uma; o caráter conservador do erro e o dano à próxima instância registrados.
+5. **CONFIRMADA.** `:184-186`: exigência condicional a `hasBpsLine` (`economic-policy-write-validation.ts:192`), checagem em `:200-206`, escape da policy só-`fixedAmountCents` documentado como buraco da validação, "registrado como achado e não remediado por esta decisão".
+6. **CONFIRMADA.** `:108-110`: cita verbatim 0166 D7 `:171-172` ("bruta ou líquida... conforme policy versionada"), declara que a escolha estava **em aberto** e que **esta decisão a fecha**, exercendo a "policy explícita futura" de 0166 D1. A sobre-alegação saiu. *(O fecho de `:110` participa de ND-1 — ver §C.)*
+7. **CONFIRMADA.** F7 anotado na D3.1-BIS (`:230` — garantia por-consumidor, `marketplace-fee-policy.ts:62-64` nomeado, "verificar, não presumir"). F8 corrigido em `economic-policy.types.ts:111-121` — a redação antiga preservada como registro do que mentia, a verdade nova com `arquivo:linha` corretos (`resolveRegionalFundDestination` em `:228`, chamado em `:201-202`; fail-closed **parcial**), e aponta para as constantes policiadas. Verifiquei as referências contra o código: exatas.
+
+## C. DEFEITOS NOVOS INTRODUZIDOS/DEIXADOS PELO PASSE DE CORREÇÃO
+
+### 🔴 ND-1 — A CASCATA NOVA DE D1.2 REDEFINE SILENCIOSAMENTE VOCABULÁRIO SELADO (0179/0178)
+- **Alegação:** a inserção de "→ custo operacional (D1.1 — não-votável, visível)" **antes** de "comissão DISTRIBUÍVEL" na cascata de D1.2 (`:97-98`) implica `commission_distributable = commission_gross − tax_reserve − custo_operacional`. Isso colide com **duas normas seladas**, uma delas citada **duas linhas abaixo no próprio documento**: a equação vinculante da 0179, `commission_gross = tax_reserve + commission_distributable` (quotada em `:101`), e a definição da 0178 D4 (`DECISION_0178...md:134`: `commission_distributable = commission_gross − tax_reserve`, "derivada **exclusivamente** do resultado fiscal 4d-1"). As duas não sobrevivem a um `custo_op > 0` deduzido naquela posição. O fecho de `:110` consuma a redefinição: o painel reparte `commission_distributable`, "o que sobra depois de pagar ... o Fisco **e o custo de operar**" — o termo selado passa a incluir uma dedução que sua definição selada não contém. Agravos: (i) o bloco é apresentado sob "**DECISION-0166 D7** fixa a cascata do valor" (`:91`) e agora contém uma linha que 0166 D7 **não tem** (mitigado, não sanado, pelo marcador inline "(D1.1)"); (ii) a cascata de D1.1 (`:49`) chama o valor pós-custo de "**EXCEDENTE DISTRIBUÍVEL**" e a de D1.2 o chama de "comissão DISTRIBUÍVEL" — dois nomes para o mesmo bolo, um deles selado com outro significado.
+- **Paternidade registrada sem atenuação:** a minha correção nº 1(c) pediu "atualizar a cascata para incluir − custo operacional **antes do distribuível**" — redação ambígua que induziu a colocação literal. O defeito é real independentemente da paternidade; a auditora o assina como parcialmente seu.
+- **Grau:** `PROVADO` (textual, contra as duas normas seladas lidas de 1ª mão). **Gravidade:** 🔴 média-alta — redefinição silenciosa de termo selado em documento que decide "de que número se tira a porcentagem"; docs-only, nada vivo afetado hoje.
+- **Correção C-8 (nomeada, acionável):** preservar `commission_distributable` com a definição selada (0179/0178 D4) e nomear o valor pós-custo com o nome que a emenda já deu — **excedente distribuível**: cascata `... → reserva/obrigação fiscal → comissão DISTRIBUÍVEL (0179) → − custo operacional (D1.1) → EXCEDENTE DISTRIBUÍVEL ← é ISTO que o painel reparte`; ajustar `:110` ("o painel reparte o excedente distribuível = `commission_distributable` − custo operacional; enquanto a dependência material de D1.1 não permitir declarar custo, os dois coincidem") e restaurar a fidelidade da citação de 0166 D7 (o que é de D7 fica como D7; a extensão é desta decisão e se declara como tal). Alternativa igualmente válida se Clayton restringir o custo pré-distributivo ao caso plataforma-vendedora: remover a linha da cascata de comissão. **Escolher entre as duas é doutrina; qualquer uma sana o defeito.**
+
+### 🔴 ND-2 — SOBRA PRÉ-EMENDA NO ARTIGO D1: "LINHA EXPLÍCITA DENTRO DA DISTRIBUIÇÃO"
+- **Alegação:** D1 (`:32`) ainda diz "esse custo é uma **linha explícita dentro da distribuição** (D1.1)" — a formulação **revogada**, citando D1.1 para o exato oposto do que D1.1 agora fixa (`:44` "sai ANTES da distribuição... forma a base"). Mesmo gênero dos meus F1/F2: o passe corrigiu a seção e esqueceu a referência no artigo governante.
+- **Grau:** `PROVADO`. **Gravidade:** 🔴 média (uma linha, mas em D1 — o artigo-regra).
+- **Correção C-9:** reescrever o trecho de `:32` para "esse custo sai **antes**, como dedução pré-distributiva visível (D1.1)".
+
+### 🟡 ND-3 — MESMA FAMÍLIA, MENOR: D3 "A ETAPA 2 OPERA SOBRE O BRUTO"
+- **Alegação:** `:152` mantém "a Etapa 2 opera sobre o bruto" no caso plataforma-vendedora; sob a D1.1 emendada, opera sobre o bruto **após** as deduções pré-distributivas (adquirente, imposto, custo) — o excedente.
+- **Grau:** `PROVADO` (textual). **Gravidade:** 🟡 baixa. **Correção C-10:** acrescentar "após as deduções pré-distributivas de D1.1" (ou "sobre o excedente de D1.1").
+
+## D. RESPOSTA AOS DOIS ATAQUES EXIGIDOS (a dependência material de D1.1, `:83-85`)
+
+**(a) É fiel à emenda de Clayton, com uma precisão de paternidade que registro.** Metade do acréscimo **fui eu que pedi** — a correção nº 1(a) exigia "a nota de dependência material da frente de resultado (`cartório :233`)". O que vai além do pedido é a cláusula operativa *"enquanto a frente de resultado não existir, nenhum custo pré-distributivo pode ser declarado não-votável"*. Verifiquei sua derivação contra o registro: o anticorpo da própria emenda diz *"a proteção **só é legítima** acompanhada de reconciliação publicada"* (`cartório :209`) e a consequência de arquitetura diz *"reconciliar declarado×realizado é **impossível** sem apuração... não pode ser cumprida só com policy"* (`:233`). Proteção legítima só com reconciliação + reconciliação impossível hoje ⇒ proteção não-declarável hoje. É **modus tollens do texto registrado de Clayton**, não trava inventada — e falha fechada na direção certa (contra custo não-votável sem prestação de contas, nunca contra a comunidade). `PROVADO` (derivação textual).
+
+**(b) NÃO esvazia a D1.1 — é o contrário do defeito A5.** O teste de A5 é: a decisão deixa **o núcleo** sem decidir enquanto se apresenta como decidida? Aqui o núcleo **está** decidido (custo é pré-distributivo, não-votável, visível, com anticorpo como **condição de legitimidade**); o que fica gateado é a **ativação material**, com pré-condição nomeada (frente de resultado, GATE/GO próprios) — o padrão de faseamento desta casa (4e dormente, B-CITY-2 bloqueada, N1 dormente). Sem a cláusula, a seção leria como descrição do presente sendo prescrição do futuro — o defeito **A4** que meu mandato original mandava caçar; a cláusula é o que o evita. E o custo de interinidade é zero **hoje**: nada distribui (zero policy ativa, allowlist vazia, 4 bloqueios independentes da 3ª auditoria), logo não existe janela em que um voto pudesse matar um custo ainda não-declarável. **A correção nº 1 fica de pé quanto a este ponto** — ela cai apenas em ND-1/ND-2, que são outra coisa.
+
+## E. VEREDITO DO PASSE
+
+**AINDA NÃO SELÁVEL.** As 7 correções entraram e 6 delas entraram **bem**; a nº 1 entrou com um efeito colateral que redefine termo selado (ND-1) e deixou uma sobra no artigo D1 (ND-2). Faltam, numeradas e acionáveis: **C-8** (cascata/nomenclatura do excedente — preservar a equação selada da 0179 e a definição da 0178 D4), **C-9** (D1 `:32`), **C-10** (D3 `:152`, menor). Nenhuma exige doutrina nova além da escolha binária declarada em C-8 — e a formulação mínima (nomear "excedente distribuível", nome que a emenda já usa) resolve sem redecidir nada. Após C-8/C-9/C-10, **não resta impedimento meu ao selo**.
+
+## F. NÃO VERIFICADO NESTE PASSE
+
+- **Runner completo** (`validate:regression-guards`, 225) e **typecheck** — não reexecutei; rodei apenas os 2 guards que leem o arquivo editado. A alegação "runner 225 OK / drift 0" da direção fica `NÃO AUDITADO`.
+- **Estado de banco** — nenhum SELECT, como antes.
+- **GOs de Clayton** (para auditoria e correção) — aceitos do cartório, inverificáveis por natureza.
+- **O restante do repositório** por outros efeitos do commit — conferi os 4 arquivos do stat; não varri além deles.
+
+**VEREDITO DO PASSE: AINDA NÃO — C-8, C-9, C-10. O resto está confirmado, por leitura e por execução.**

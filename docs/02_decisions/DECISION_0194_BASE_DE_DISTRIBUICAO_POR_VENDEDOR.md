@@ -29,7 +29,7 @@ O campo `applies_to` existe para declarar a base (DECISION-0178), mas **o motor 
 > **A base da distribuição é determinada por QUEM VENDE.**
 
 - **Vendedor EXTERNO** (Actor: PF, PJ, banda, artista, prestador): a redistribuição incide **exclusivamente sobre a comissão da plataforma**. O Actor recebe sua parte **antes**, e ela **não entra no split de distribuição**.
-- **A própria PLATAFORMA é a vendedora/organizadora**: a redistribuição incide sobre o **bruto** da venda — porque não há prestador externo a remunerar. **Mas o bruto NÃO é sobra:** a plataforma teve **custo operacional** para entregar aquilo, e esse custo é uma **linha explícita dentro da distribuição** (D1.1). Faturamento não é lucro.
+- **A própria PLATAFORMA é a vendedora/organizadora**: a redistribuição incide sobre o **bruto** da venda — porque não há prestador externo a remunerar. **Mas o bruto NÃO é sobra:** a plataforma teve **custo operacional** para entregar aquilo, e esse custo **sai ANTES da distribuição, como dedução pré-distributiva não-votável e visível** (D1.1) — **nunca** como fatia dentro do que se reparte. Faturamento não é lucro.
 
 **Exemplo governante (palavras de Clayton):** *"Um Actor vende um produto ou ingresso por 100 reais e foi configurado que, para aquela cidade e categoria, a comissão é 20%. Ou seja, **somente os 20 reais entrarão para o split de divisão**. Se for a plataforma vendendo, o split entra sobre os 100 reais."*
 
@@ -94,9 +94,14 @@ valor bruto da transação
 → taxas externas de pagamento (adquirente etc.)
 → comissão UnifiCard bruta
 → reserva/obrigação fiscal
-→ custo operacional (D1.1 — não-votável, visível)
-→ comissão DISTRIBUÍVEL          ← é ISTO que o painel reparte
+→ comissão DISTRIBUÍVEL          (0179: commission_gross = tax_reserve + commission_distributable)
+→ − custo operacional            (D1.1 — não-votável, VISÍVEL)
+→ = EXCEDENTE DISTRIBUÍVEL       ← é ISTO que o painel reparte
 ```
+
+**🔴 `commission_distributable` NÃO É REDEFINIDO POR ESTA DECISÃO — correção de defeito próprio (passe de confirmação, 2026-07-28).** Uma versão anterior desta cascata inseria o custo operacional **acima** da linha `comissão DISTRIBUÍVEL`, o que implicava `distributable = bruto − imposto − custo` e **colidia com a equação SELADA da `DECISION-0179`** citada logo abaixo. Era, na letra, uma segunda definição para um termo já promulgado — o erro que esta casa chama de mais caro, cometido pela direção no mesmo passe em que corrigia outros. **A equação da 0179 permanece intacta:** `commission_distributable` continua sendo `commission_gross − tax_reserve`, e nada mais. O custo operacional é deduzido **depois** dele, formando o **EXCEDENTE DISTRIBUÍVEL** — vocabulário do próprio Clayton na emenda (`REMEDIATION_DT_LOG.md:189-233`).
+
+**⚠️ NÃO DECIDIDO AQUI:** qual valor concreto é entregue ao motor de policy no material (o `commission_distributable` do contexto fiscal, ou o excedente pós-custo) é **mapeamento material**, pertence à fase 4e e exige GATE e GO próprios. Esta decisão fixa a **cascata conceitual**; não fia campo nenhum, e quem materializar **não deve presumir** a equivalência.
 
 **DECISION-0179** define `tax_reserve` com todas as negações necessárias: *"segregação interna de uma obrigação fiscal estimada… **decomposição interna de `commission_gross`**, nunca cobrança adicional; **NÃO é `economic_policy_line`; NÃO é policy configurável**; NÃO é imposto pago/recolhimento."* Equação vinculante já promulgada: **`commission_gross = tax_reserve + commission_distributable`**.
 
@@ -107,7 +112,9 @@ valor bruto da transação
 
 **🔴 O QUE ESTA DECISÃO FECHA (e que 0166 D7 deixara EXPRESSAMENTE em aberto):** o próprio D7 diz *"A base distribuível pode ser **comissão bruta ou comissão líquida**, conforme policy versionada — nunca implícita"* (`DECISION_0166…md:171-172`), e a allowlist de `DECISION-0179 D10` restringe *"no material 4e inicial"*, não para sempre. A escolha entre bruta e líquida era, portanto, **uma decisão em aberto — não uma coisa já decidida que bastasse verificar.**
 
-**Esta decisão a fecha em `commission_distributable`**, em harmonia com a cascata D7, com a 0179 e com a allowlist D10 — exercendo exatamente a *"policy explícita futura"* que `DECISION-0166 D1` previa. **Portanto o painel reparte `commission_distributable`** — o que sobra depois de pagar quem entregou, o processador, o Fisco e o custo de operar. Todo percentual que Clayton configurar mede **esse** bolo.
+**Esta decisão fecha a escolha de D7 em `commission_distributable`** (a líquida, não a bruta), em harmonia com a cascata D7, com a 0179 e com a allowlist D10 — exercendo exatamente a *"policy explícita futura"* que `DECISION-0166 D1` previa. **Este fechamento é ato DESTA decisão, não leitura de D7** — o D7 deixava as duas em aberto.
+
+**Sobre esse bolo, D1.1 aplica ainda a dedução pré-distributiva do custo operacional.** Logo **o painel reparte o EXCEDENTE DISTRIBUÍVEL** — o que sobra depois de pagar quem entregou, o processador, o Fisco e o custo de operar. Todo percentual que Clayton configurar mede **esse** bolo. **`commission_distributable` segue com a definição selada da 0179** e não é sinônimo de excedente: são dois valores distintos, e confundi-los reintroduziria a segunda verdade corrigida acima.
 
 ### D1.3 — É AJUSTÁVEL, SIM — MAS EM OUTRO PAINEL, E A SEPARAÇÃO PROTEGE (Clayton, 2026-07-27)
 
@@ -149,7 +156,7 @@ Consequência: onde hoje se imaginaria uma policy mista, o desenho correto é **
 1. **Etapa 1 — repartição da venda:** define quanto fica com o vendedor externo e quanto é **comissão da plataforma** (ex.: 80% Actor / 20% comissão). A taxa de comissão **varia por cidade e categoria**, configurável no painel.
 2. **Etapa 2 — distribuição do que é da plataforma:** reparte **100% daquele bolo** entre fundo regional (multinível, DECISION-0166 D2), indicação, grupos e reserva. Também varia por cidade e categoria. **Custo operacional e expansão NÃO entram nesta lista** — são dedução pré-distributiva (D1.1), já descontada antes de a Etapa 2 começar; incluí-los aqui seria contá-los duas vezes **e** devolvê-los ao alcance do voto.
 
-Quando a **plataforma vende**, a Etapa 1 **não existe** (não há terceiro a remunerar) e a Etapa 2 opera sobre o bruto.
+Quando a **plataforma vende**, a Etapa 1 **não existe** (não há terceiro a remunerar) e a Etapa 2 opera sobre o bruto **após as deduções pré-distributivas de D1.1** (imposto, taxa de adquirente e custo operacional) — nunca sobre o bruto cru.
 
 Isto é coerente com a ordem já ratificada em DECISION-0166 D7 (fiscal → comissão distribuível → fundos/grupos/indicação/sistema) e preserva a conservação em **cada** etapa.
 
