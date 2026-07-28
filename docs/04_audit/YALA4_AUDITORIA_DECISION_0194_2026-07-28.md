@@ -238,3 +238,33 @@ Varri todas as ocorrências do conceito no documento: `:49` ✓ · `:57` ✓ · 
 - Fora do documento da decisão, do cartório (topo) e do grep de `excedente`, não varri o repositório por outros efeitos.
 
 **VEREDITO: AINDA NÃO — somente C-11. Após C-11, selável, sem ressalvas minhas.**
+
+---
+---
+
+# APÊNDICE 3 — PASSE DO DELTA (RODADA 4, 2026-07-28, sobre `19c581fb3`)
+
+**Escopo:** as 2 linhas alteradas na decisão, a re-varredura de "quem reparte o quê", e nada mais. Append puro.
+
+## A. AS DUAS LINHAS
+
+- **C-11 (`:135`) — CONFIRMADA.** "O painel de percentuais reparte o **EXCEDENTE DISTRIBUÍVEL** (D1.2); `commission_distributable` segue sendo o valor **selado da 0179** do qual o excedente deriva — e todo número que Clayton configurar lá mede **lucro**." Substância idêntica à minha especificação; consistente com `:49`, `:99`, `:117` e `:123`. Não contradiz nada.
+- **Linha extra (`:91`, introdução do fence) — CONFIRMADA, com a contagem auditada em (b).** Tratei-a como texto novo não auditado, como mandado. A frase é **verdadeira**: as duas últimas linhas do fence (custo operacional `:98`, excedente `:99`) não vêm de D7 e estão atribuídas a esta decisão. Não contradiz `:102`/`:115`.
+
+**(b) A contagem — auditada linha a linha contra `DECISION_0166...md:160-167`:** as linhas **adicionadas** são de fato **duas**, contadas certo. O acerto de contas completo da fidelidade, porém, tem mais dois desvios que a frase não menciona, nenhum deles falso: (i) a **anotação parentética** na linha 5 (`:97` "(0179: equação)") é acréscimo a uma linha de D7 — auto-etiquetada com a fonte e verbatim da equação selada; (ii) o fence **omite a linha final de D7** ("→ fundos regionais / grupos / indicação / sistema") — é D7 **truncado** + estendido, não D7 completo + estendido. A omissão não engana: o próprio documento cita a ordem completa de D7, incluindo a linha omitida, em `:161`; e o lugar dela na cascata nova é ocupado pelo destino do excedente (Etapa 2, D3). **Nenhuma afirmação falsa; observação não-bloqueante** — forma perfeccionista diria "duas linhas estendidas e a linha final de destinos de D7 representada pela Etapa 2".
+
+**(c) Defeito novo nas duas linhas: NENHUM.**
+
+## B. RE-VARREDURA "QUEM REPARTE O QUÊ" (critérios meus, os mesmos que pegaram ND-4)
+
+Todas as ocorrências do conceito no documento atual: `:34` (quote governante de Clayton, intocada) · `:49` votação reparte **excedente** · `:99` painel reparte **excedente** · `:117` painel reparte **excedente** + não-sinônimo · `:123` reparte-se **excedente** · `:132` (pergunta genérica do painel, sem objeto) · `:135` painel reparte **excedente** (C-11) · `:157`+`:159` Etapa 2 reparte o bolo **pós-deduções** · `:161` citação da ordem de D7 · `:245` citação de 0179 D10. **Zero resíduos.** Todas as menções vivas a `commission_distributable` (`:97`, `:102`, `:104`, `:106`, `:113-115`, `:117`, `:135`, `:245`, `:249`) ou preservam a definição selada ou são citação. **Não há quarta ocorrência — a conclusão de problema estrutural de coerência NÃO se aplica**, e digo com todas as letras: o documento, após quatro passes, está **coerente de ponta a ponta** neste conceito.
+
+## C. INTEGRIDADE E OBSERVAÇÃO FINAL
+
+- Commit `19c581fb3` = 3 arquivos, todos docs; este parecer committado **sem edição** (diff = 0); `git diff --check` limpo. `PROVADO`.
+- Cartório: a entrada da rodada 3 registra ND-4 contra a direção e a lição da varredura de terceiro — fiel. *Observação leve, não-bloqueante:* o título da entrada ("SEM IMPEDIMENTO DO AUDITOR AO SELO") comprime em absoluto o que no meu parecer era condicional ("aplicada **e confirmada** C-11"); o corpo da entrada cura a leitura, e a confirmação está sendo dada agora — mas títulos que correm à frente do corpo já custaram caro nesta sessão.
+- **NÃO VERIFICADO:** runner 225/typecheck (docs-only; alegação segue alegação) · banco · GOs verbais · repositório além dos 3 arquivos do stat.
+
+## D. VEREDITO
+
+**SELÁVEL. Com todas as letras: a DECISION-0194, no texto de `19c581fb3`, não tem mais nenhum impedimento desta auditora — as sete correções do veredito B, mais C-8/C-9/C-10, mais C-11, estão aplicadas e confirmadas de forma independente; a doutrina resistiu a ataque com execução do motor real; nenhuma norma selada é redefinida; nenhum resíduo conceitual resta. Quem sela é Clayton — não a direção, e não eu. Este parecer atesta apenas que, quando ele selar, não estará selando com verificação pela metade.**
