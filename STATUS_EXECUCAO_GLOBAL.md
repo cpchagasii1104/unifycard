@@ -1,3 +1,14 @@
+# STATUS DE EXECUÇÃO GLOBAL — ⚠️ HISTÓRICO, **NÃO É O PAINEL VIVO**
+
+> ### 🔴 LEIA ISTO ANTES DE TRATAR QUALQUER COISA AQUI COMO ESTADO ATUAL (tarja de 2026-07-28)
+> **Trazido de `docs/_arquivo/` para a raiz por Clayton, deliberadamente, como material de consulta** — tem muito histórico útil e evita retrabalho.
+> **MAS NÃO É FONTE DE VERDADE DO PRESENTE.** O `00_AGENT_PROTOCOL`, na nota de migração de 2026-07-05, declara este arquivo **arquivado e NÃO mais atualizado**, sucedido por **`REMEDIATION_DT_LOG.md`** como cartório vivo de execução.
+> **Última atualização de conteúdo: 2026-07-03** — mais de três semanas antes desta tarja, e o sistema mudou muito no intervalo.
+> **Regra para quem chega sem memória:** use este arquivo para responder *"isto já foi feito/decidido antes?"*. **Nunca** para responder *"qual é o estado hoje?"* — para isso, o topo de `REMEDIATION_DT_LOG.md`.
+> Sem esta tarja, um arquivo de 18 mil linhas na raiz seria lido como estado corrente — que é exatamente a segunda verdade que este projeto existe para não ter.
+
+---
+
 ## 2026-07-03 — F-RENTAL-RESOURCE-SURFACE-SLICE-B · ✅ MATERIAL — locação sai do STUB: `/locacoes` viva, dono gerencia recurso e agenda, visitante reserva por link
 
 Continuação direta da Slice A, mesmo dia. Perguntei a Clayton se pausávamos pra ele testar o que já tinha (busca + backend de locações) ou seguíamos construindo; ele escolheu seguir.

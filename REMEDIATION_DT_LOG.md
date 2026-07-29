@@ -1,5 +1,22 @@
 # REMEDIATION DT LOG
 
+## 🧹 HIGIENE DE FIM DE SESSÃO — PROVA DE AUDITORIA VERSIONADA · NORTE DE CLAYTON PRESERVADO COM TARJA (2026-07-28)
+**Decisão de Clayton por condicional: *"se há risco de primeiro pagamento iminente, abra o GATE; caso contrário, higiene e sessão dedicada"*. A direção aplicou a condicional aos FATOS em vez de escolher por preferência.**
+
+### 🔒 POR QUE NÃO HÁ JANELA FECHANDO — 5 bloqueios independentes, verificados
+PORTA-01 fechada · firewall do sink OFF · **zero policy ativa** (a semeada está `draft`) · saldo zero, `bank_ledger`/`bank_transactions`/`bank_splits` = **0** · e o 5º, descoberto hoje pela tela de Clayton: **o backend nega até LISTAR policies** para a conta real dele (403 `Permission denied`). **Pagamento não é iminente. Logo: higiene, e o GATE da fatia grande em sessão dedicada.**
+
+### ✅ PROVA DE AUDITORIA ENTRA NO CONTROLE DE VERSÃO
+`GATE_READONLY_CAMPANHA_FINANCEIRO_FISCAL_2026-07-18.md` (120 linhas) e `YALA1_AUDITORIA_CAMPANHA_ACD_2026-07-18.md` (142 linhas) estavam **untracked havia 10 dias**. São artefatos legítimos, com modo, HEAD auditado e escopo declarados — **a direção leu os dois antes de versionar**, não commitou arquivo que não conhece. **Prova de auditoria fora do controle de versão some**, e some justamente quando alguém precisa provar que a auditoria aconteceu.
+
+### 📍 OS DOIS ARQUIVOS QUE CLAYTON TROUXE PARA A RAIZ — VERSIONADOS **COM TARJA**
+Clayton os moveu de `docs/_arquivo/` deliberadamente, *"para servir de norte"*. Versionar sem marcar recriaria o problema que o projeto inteiro combate, então cada um levou uma tarja curta no topo:
+- **`REMEDIATION_DECISIONS_LOG.md`** — a permanência na raiz é **exigência normativa**: `00_AGENT_PROTOCOL §2.5` manda ler este caminho exato. Tarja registra que o conteúdo parou em **2026-07-03** e que o painel vivo é o `REMEDIATION_DT_LOG.md`. **Registrada também a inconsistência do próprio §2.5: das 4 leituras que exige, 3 NÃO EXISTEM no repositório** (`SYSTEM_REMEDIATION_PLAN`, `SYSTEM_REMEDIATION_STATUS`, `REMEDIATION_SNAPSHOTS`) — corrigir protocolo é ato de Clayton, `01_normative/` é somente-leitura para a direção.
+- **`STATUS_EXECUCAO_GLOBAL.md`** — tarja **mais dura**, porque aqui havia contradição real: o próprio protocolo (nota de migração de 2026-07-05) declara este arquivo **arquivado e não mais atualizado**, sucedido pelo `REMEDIATION_DT_LOG.md`. São **18 mil linhas** paradas desde 03/07 sentadas na raiz — sem tarja, seriam lidas como estado corrente. A tarja fixa a regra de uso: serve para *"isto já foi feito antes?"*, **nunca** para *"qual é o estado hoje?"*.
+
+### ⏭️ O QUE FICA AGENDADO, E NÃO FOI ABERTO
+**GATE da fatia grande** (sessão dedicada): é onde convergem as 5 pendências que moram atrás do MESMO lacre — caso (b) do valor fixo · `applies_to` não honrado (D4) · 5 destinos irresolvíveis · fiação de cidade/categoria · conta dedicada de sobras. Entregará desenho + **plano de reconciliação do lacre (ato de Clayton)** + a DECISION de vocabulário que a 0179 exige. **Fases 1/2/4 da consolidação NÃO abertas** — estão travadas em decisão de produto de Clayton, não em investigação.
+
 ## ✅ `K_pe_7` — **O SELO FALSO Nº 2 CAIU** · O GUARD AGORA PODE FICAR VERMELHO (2026-07-28)
 **Mandato literal de Clayton: *"calcule os centavos, não dê margem pra cento e um por cento"*. A tentativa anterior foi selada como resposta (`ff9e18cfc`) e a 3ª auditoria a derrubou: o guard testava uma invariante que o motor FORÇA, logo nunca poderia acusar nada. Esta fatia fecha a metade que se pode fechar sem tocar no lacre.**
 

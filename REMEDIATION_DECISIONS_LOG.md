@@ -1,5 +1,10 @@
 # REMEDIATION DECISIONS LOG
 
+> ### 📍 O QUE É ESTE ARQUIVO (tarja de 2026-07-28 — leia antes de usar)
+> **Trazido de volta de `docs/_arquivo/` para a raiz por Clayton, deliberadamente, para servir de norte a quem chega sem memória.** Está aqui **por exigência normativa**: `00_AGENT_PROTOCOL §2.5` manda ler `C:/unificard/REMEDIATION_DECISIONS_LOG.md` — este caminho exato.
+> **⚠️ Última atualização de conteúdo: 2026-07-03.** É **memória arqueológica**, não painel do presente. Para o **estado de execução vigente**, a fonte é `REMEDIATION_DT_LOG.md` (raiz, **leia o topo**).
+> **⚠️ Nota de integridade do §2.5:** das 4 leituras que aquela seção exige, **3 não existem no repositório** (`SYSTEM_REMEDIATION_PLAN.md`, `SYSTEM_REMEDIATION_STATUS.md`, `REMEDIATION_SNAPSHOTS.md`). Registrado em 2026-07-28; corrigir o protocolo é ato de Clayton.
+
 **Documento append-only. Toda decisão arquitetural tomada durante a remediação é registrada aqui.**
 **Uma decisão registrada nunca é editada. Se superada, adicionar nova entrada referenciando a anterior.**
 
