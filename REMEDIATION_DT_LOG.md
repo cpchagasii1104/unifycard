@@ -1,5 +1,37 @@
 # REMEDIATION DT LOG
 
+## ✅ CONSOLIDAÇÃO DE AMBIENTE · PASSO 1 — **`unificard_local` PASSA A TER O SCHEMA COMPLETO** (2026-07-29)
+**GO de Clayton. Primeira escrita em banco desta sessão. Decisão dele: o `local` é o DESTINO (tem o modelo de tenant corrigido, sem os usuários antigos de teste); o `dev` é a FONTE do que precisa ser resgatado.**
+
+### 🔑 A ANÁLISE QUE ENCOLHEU O PROBLEMA — **método de Clayton, não da direção**
+A direção estava indo pelo caminho lento (comparar tabela a tabela). **Clayton propôs olhar a JANELA TEMPORAL entre os commits**: o `local` nasceu em 24/jul com tudo que havia no disco, logo só diverge o que veio depois. Três comandos e a lista fechou:
+- **Só DUAS migrations nasceram depois do `local`** — `20260727100000` e `20260727110000`, ambas da frente de policy econômica de 27/jul.
+- A terceira ausente, `20260713140000_neighborhood_alias_first_governed_flow.sql`, **não está em NENHUM dos dois bancos** — é a N1 **DORMENTE por decisão** (aplicar exige GATE/GO próprios).
+**A distância é assimétrica e favorece a escolha de Clayton: o `local` estava a 2 migrations do schema completo; o `dev` está a 17.** *Lição de método: o histórico sabe coisas que o estado atual não conta.*
+
+### ✅ EXECUTADO (2 migrations, ambas ADITIVAS, ambas lidas antes de aplicar)
+- `20260727100000_economic_policies_territorial_location_core.sql` — `ADD COLUMN country_id/state_id/city_id` + **5 FKs para o Location Core** + índice territorial.
+- `20260727110000_economic_policies_change_reason.sql` — `ADD COLUMN change_reason` + CHECK não-vazio + atualização do trigger de imutabilidade.
+**Zero alteração de dado existente.** Runner: `2 de 547 pendentes` → ambas OK.
+
+### 🛡️ A ARMADILHA DA DORMENTE JÁ ESTAVA DESARMADA — PELO PRÓPRIO SISTEMA
+A direção temia que rodar o migrador cego aplicasse as 3 pendentes, incluindo a dormente. **Não aplica:** `20260713140000` está em **`IGNORED_MIGRATIONS`** (`backend/src/core/db/migration-runner-core.ts:60-62`), com a justificativa escrita no próprio arquivo. **Verificado depois da execução: continua fora.** Guard estrutural funcionando sem depender de ninguém lembrar.
+
+### 🎯 O PASSO "BUROCRÁTICO" FECHOU UMA ARMADILHA REAL — e corrige o raio-x
+O raio-x alertou: *"`economic_policies.city_id` não tem FK → rodar o seed com UUID errado insere `city_id` fantasma sem erro"*. **A migration CRIA a FK** (`fk_economic_policies_city`, `fk_economic_policies_state_city` — confirmadas no `local` após a execução). Logo **aplicá-la PROTEGE justamente os próximos passos**, que são os que mexem com UUID trocado: agora o banco **recusa** em vez de gravar apontando para cidade inexistente. O alerta do raio-x era válido para o `local` PRÉ-migration; deixou de valer.
+
+### 📊 ESTADO VERIFICADO DE 1ª MÃO (após execução)
+`unificard_local`: **547 migrations · 334 tabelas** · 4 colunas novas presentes · 2 FKs territoriais presentes · dormente **intocada**. **O `local` é agora o ÚNICO dos dois bancos com o schema completo do sistema** (`dev` segue 17 atrás).
+
+### 🔴 O OBSTÁCULO REAL NÃO É PERDA DE DADO — É **UUID GEOGRÁFICO HARDCODED**
+O raio-x provou (120 tabelas com linha, contagem exata): **ZERO achados na categoria "só existe no banco e não sabe renascer"**. Tudo é (a) script governado versionado, (b) resíduo de teste provado por conteúdo, ou (c) log operacional que se regenera.
+**Mas:** `Curitiba = 9d431002…` no `dev` e **`ff43806f…` no `local`** (verificado). E `9d431002` está **hardcoded em ≥5 guards/scripts** como se fosse constante universal. Idem tenant (`a3859c3e` × `9a674500`) e o actor de Clayton (`213f4903` × `6d80a435`).
+**Consolidar NÃO é copiar dado — é REPETIR OS ATOS GOVERNADOS SOB A IDENTIDADE NOVA.** Cada script precisa de manifesto novo antes de rodar.
+
+### ⏭️ OS 4 ATOS RESTANTES (nenhum executado; cada um exige GO e é ato de IDENTIDADE)
+Ordem obrigatória, os 3 últimos dependem do 1º: **bairros** (`n3-load-curitiba-neighborhoods.mjs` + manifesto novo) → **conta do fundo regional de Curitiba** → **grants territoriais de Clayton** (renascem para o actor NOVO) → **policies baseline**.
+**⛔ O `dev` NÃO pode ser eliminado antes disso** — é o único lugar onde os 75 bairros existem hoje. E Clayton **já tem conta própria no `local`** (criada 24/jul), logo sua identidade não depende de resgate algum.
+
 ## 🔱 **POR QUE EXISTEM DOIS BANCOS** — A BIFURCAÇÃO DE AMBIENTE, EXPLICADA POR CLAYTON E MEDIDA PELA DIREÇÃO (2026-07-29)
 **🔴 LEIA ISTO ANTES DE RODAR QUALQUER PROVA CONTRA BANCO. Nenhum grep descobre o que está aqui: é a razão de uma decisão do dono, e sem ela o resultado parece defeito quando é desenho.**
 
