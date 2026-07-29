@@ -1,5 +1,25 @@
 # REMEDIATION DT LOG
 
+## 🔎 FRENTE NOVA ABERTA — `F-EVENT-CREATION-CONTRACT-SWEEP` · JUSTIFICATIVA DE PRIORIDADE (§4.3.1) (2026-07-28)
+**O protocolo (§4.3.1) proíbe abrir frente nova sem declarar por escrito por que ela tem prioridade sobre as abertas. Declaração:**
+
+### 📌 POR QUE ESTA, E POR QUE AGORA
+O cluster de dinheiro chegou a **ponto de parada limpo** — 0194 selada, os 2 selos falsos derrubados com código, dívida `C4` paga, árvore limpa, e o próximo passo (GATE da fatia grande) **explicitamente agendado para sessão dedicada** por decisão de Clayton, aplicando a condicional dele aos fatos (pagamento não é iminente: 5 bloqueios independentes). **Nenhuma frente ficou pela metade.** Esta não interrompe nada.
+**E o gatilho foi de campo, não de gabinete:** Clayton clicou o fluxo de criação de evento e, em ~15 minutos, esbarrou em **dois defeitos** — que se revelaram da **mesma família** que a gente catalogou o dia inteiro no dinheiro.
+
+### 🔴 OS DOIS QUE CLAYTON ACHOU CLICANDO
+- **Rota inexistente:** `EventCreationGuidedFlow.tsx:399,619` navegam para `/events/${id}/economic`; `App.tsx` registra só `events/:id` e `events/new`. O router não casa nada → **tela em branco**. Não é erro de carga: é **link para lugar nenhum**.
+- **Campo órfão de escrita:** `Step7FinalSummary.tsx:47` lê `data.event_type`; **nenhum passo do fluxo grava esse campo** (o passo 0 grava `eventFormatConceptId`/`eventFormatLabel`/`themeConceptIds`/`categoryFacets`/`visibility`). Mostra *"Tipo: Não definido"* **sempre**, para qualquer evento — não é o usuário que esqueceu. *(A `description` está SÃ: `Step2Description.tsx:35` grava corretamente.)*
+
+### 🔑 A ASSINATURA É A MESMA DO DIA INTEIRO
+Painel oferece **11 destinos**, motor resolve **6** · **cidade** selecionável que não chega ao cálculo · `applies_to` **gravado e não lido** · resumo que **lê chave que ninguém grava** · botão que **navega para rota inexistente**. Sempre: **a interface fala de um contrato que o backend não assinou**, e falha **em silêncio** — "não definido", tela vazia, nunca um erro. Não é descuido pontual: é o que acontece quando a tela é construída sobre o desenho pretendido e a fiação fica para depois.
+
+### 🔁 E FECHA UM CICLO CONTRA A PRÓPRIA SESSÃO
+A tabela `event_custody` **não existe no banco** (verificado), embora `core/events/event-custody.service.ts` faça `INSERT` nela — e o cartório **já registrava isso** (linha do arco 0190: *"substrato assumido mas nunca materializado"*). Pior: `event_custody (INSERT)` **estava entre as 1978 violações** que o gate `schema-coherence` cuspiu hoje — o guard que **não está no runner nem no CI**. **Clayton encontrou clicando o que uma ferramenta parada já sabia há meses.** É o argumento mais concreto que existe para a frente `F-SCHEMA-COHERENCE-GATE-REABILITACAO`.
+
+### ⛔ ESCOPO DECLARADO: **VARREDURA READ-ONLY, ZERO CORREÇÃO**
+Mandato entregue: inventariar (A) campos — escritos/lidos/persistidos, com status incluindo **órfão de escrita** e **descartado no caminho**; (B) navegações × rotas existentes; (C) tabelas do fluxo × existência real no banco; (D) **promessas da interface** × comportamento existente. **Nenhuma correção proposta pela varredora** — quem decide é Clayton. As 3 correções candidatas conhecidas (campo do resumo, contenção do botão, e a fase econômica de verdade) **aguardam GO** e não foram tocadas.
+
 ## 🧹 HIGIENE DE FIM DE SESSÃO — PROVA DE AUDITORIA VERSIONADA · NORTE DE CLAYTON PRESERVADO COM TARJA (2026-07-28)
 **Decisão de Clayton por condicional: *"se há risco de primeiro pagamento iminente, abra o GATE; caso contrário, higiene e sessão dedicada"*. A direção aplicou a condicional aos FATOS em vez de escolher por preferência.**
 
