@@ -1,5 +1,35 @@
 # REMEDIATION DT LOG
 
+## ✅ `DT-SOCIAL-IMPACT-BALANCE-UPSERT-42P10` — FECHADA (2026-07-29)
+**Executora especialista. Pacote fechado da direção, causa-raiz já verificada de 1ª mão por ela — reconfirmada aqui só na execução, não reinvestigada.**
+
+### 🔬 O QUE ERA
+`backend/src/modules/social/impact.service.ts:83` — `ON CONFLICT (tenant_id, actor_id, actor_type)`, três colunas. A constraint real é `uq_impact_balances UNIQUE (tenant_id, actor_id)` (`migrations/20260530340000_social_impact.sql:26`), duas colunas. Postgres exige correspondência exata → **42P10** em toda chamada de `recordImpact`.
+
+🔴 **`ledger_insert` e `balance_upsert` são CTEs da MESMA instrução** (`:70-96`). O 42P10 no upsert do saldo derruba a instrução inteira — **o `impact_ledger` também nunca gravava**. Não era "saldo vazio", era o registro de impacto inteiro nunca ter existido desde a gênese.
+
+### ✅ EXECUTADO
+Alinhado o alvo do `ON CONFLICT` à constraint real: `(tenant_id, actor_id, actor_type)` → `(tenant_id, actor_id)`. **Nenhum índice novo criado** — decisão já fechada no pacote: `actor_type` é atributo do actor, não parte da identidade do saldo; um índice de 3 colunas permitiria dois saldos para o mesmo actor (segunda verdade). 1 linha alterada, 1 arquivo.
+
+### 🧪 PROVA (banco: `unificard_dev`, via chamada real ao SQL do serviço, não reescrita)
+- **ANTES:** chamada com o código original (pré-fix) → `CODE: 42P10`, mensagem `não há nenhuma restrição de unicidade ou de exclusão que corresponda à especificação ON CONFLICT`. Contagem depois da tentativa: `ledger=0, balances=0` (confirma que a instrução inteira falhou, ledger incluso).
+- **DEPOIS (chamada 1):** `entry_id` novo em `impact_ledger`, `new_balance=1.0000` em `impact_balances`.
+- **IDEMPOTÊNCIA (chamada 2, mesmo actor):** `new_balance=2.0000`. Verificado por leitura direta: **2 linhas** em `impact_ledger`, **1 linha** em `impact_balances` com `balance=2.0000` — prova que o `ON CONFLICT` funciona (soma), não só que o insert passa.
+- **DESFEITO:** `DELETE` das linhas de teste em ambas as tabelas. Contagem antes do desfazer `ledger=2, balances=1` → depois `ledger=0, balances=0`. Retorno ao estado original confirmado.
+
+### 🔎 ACHADO COLATERAL — visto e NÃO tocado
+`impact_ledger.metadata` é `NOT NULL DEFAULT '{}'`, mas o código passa `null` explícito quando `metadata` não é informado (`metadata ? JSON.stringify(metadata) : null`, `:105`) — isso violaria a coluna (`23502`) em qualquer chamada real sem metadata. É bug distinto do 42P10, fora do escopo deste pacote (escopo negativo proibia tocar além do `ON CONFLICT`). Não corrigido. Fica para a direção decidir se abre pacote próprio.
+
+### 🧾 RUNNER E TYPECHECK
+`cd backend && npm run typecheck` → limpo, 0 erros. `cd backend && npm run validate:regression-guards` (banco `unificard_dev`) → **225 COMMANDS OK**, sem falha, `guard-coverage-manifest` sem drift.
+
+### 🚫 NÃO FEITO / FORA DO ESCOPO
+Nenhuma migration criada. `impact_balances`/`impact_ledger` não alterados estruturalmente. `reputation.service.ts` e `cultural-event.service.ts` intocados. `catch` de `:135`/`:146` intocados — não engolem 42P10 (são de reputação/padrões, pós-gravação; confirmado por leitura, não precisou testar isoladamente porque a instrução principal já resolveu antes de chegar lá). `modules/bank/`/`core/unifybank/` intocados. Não commitado — árvore fica só com `backend/src/modules/social/impact.service.ts` modificado, higienizado para LF (`git diff --check` limpo).
+
+### 🧾 DENOMINADOR
+Banco: **`unificard_dev`**. Não testado contra `unificard_local` (fora do pacote; ambos os bancos tinham `impact_ledger=0`/`impact_balances=0` segundo a direção, presumivelmente o mesmo bug estrutural — mas não reconfirmado aqui).
+**Confiança: PROVADO** (chamada real, antes/depois, idempotência, reversão, runner, typecheck).
+
 ## ✅ `DT-EPHEMERAL-MIGRATION-PROFILE-UNGOVERNED` — PARTE (b) FECHADA · `unificard_dev` RECONCILIADO COM SEU PRÓPRIO REGISTRY (2026-07-29)
 **Executora especialista em banco de dados. Diagnóstico entregue pela direção (7 objetos existentes sem linha em `schema_migrations`), reconfirmado objeto a objeto ANTES de qualquer escrita — nenhuma discrepância encontrada.**
 

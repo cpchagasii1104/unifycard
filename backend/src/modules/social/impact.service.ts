@@ -80,7 +80,7 @@ export class ImpactService {
       balance_upsert AS (
         INSERT INTO impact_balances (tenant_id, actor_id, actor_type, balance)
         VALUES ($1, $2, $3, $5)
-        ON CONFLICT (tenant_id, actor_id, actor_type)
+        ON CONFLICT (tenant_id, actor_id)
         DO UPDATE SET
           balance = impact_balances.balance + $5,
           updated_at = NOW()
