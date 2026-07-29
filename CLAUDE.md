@@ -35,6 +35,7 @@ Ao despachar subagente, escreva o mandato como **inventário-primeiro, desenho-n
 | **Identidade semântica** | Lei 7 — CONCEPT é o SSOT; `categories` é árvore; `slug`/`metadata` **nunca** são identidade |
 | **Migrations** | Lei 2 — **forward-only**; tag `GENESIS_CONSTITUCIONAL_v1` existe; **nunca** editar migration existente |
 | **Votação / enquete / pauta** | Já existem **3** substratos + vocabulário promulgado (`START_VOTE`, `VOTE_REGISTERED`, `poll`, domínio `votes` em `MAPA_CANONICO_PERMISSIONS_v1.md`). **Não crie o 4º.** |
+| **"onde isso já existe?" — QUALQUER assunto** | 🔴 `docs/04_audit/INDICE_ONDE_ESTA_O_QUE_2026-07-29.md` — assunto → documento que governa, com **status e data**. Inclui as armadilhas: `0191` tem header mentindo "não-selada" (está selada); `DECISION-0020` é citada e **não existe**; `10_EVENTS_CANONICA` **não é** sobre eventos-produto. **É ponteiro, não fonte** — norma vence. |
 | **O que está vivo HOJE** | `REMEDIATION_DT_LOG.md` — **leia o topo** |
 
 ## 4. Armadilhas — parecem indecididas e NÃO são
