@@ -1,5 +1,27 @@
 # REMEDIATION DT LOG
 
+## ✅ `DT-EPHEMERAL-MIGRATION-PROFILE-UNGOVERNED` — PARTE (b) FECHADA · `unificard_dev` RECONCILIADO COM SEU PRÓPRIO REGISTRY (2026-07-29)
+**Executora especialista em banco de dados. Diagnóstico entregue pela direção (7 objetos existentes sem linha em `schema_migrations`), reconfirmado objeto a objeto ANTES de qualquer escrita — nenhuma discrepância encontrada.**
+
+### 🔬 RECONFIRMAÇÃO (contra `unificard_dev`, read-only, antes de agir)
+Os 7 objetos de `20260713100000_actor_territorial_assignment_foundation.sql` + `20260713120000_cities_official_code_scoped_unicity.sql` — coluna `address_assignments.actor_id`, os 4 CHECKs (`ck_addr_assign_actor_shape`, `_validity_order`, `_actor_role`, `owner_type_check` já com `'actor'` no array), `uidx_addr_assign_actor_primary`, `uidx_cities_state_external_code` — **todos presentes** (queries reais em `information_schema.columns`/`pg_constraint`/`pg_indexes`). `schema_migrations` **não continha** nenhuma das duas linhas (0 resultados). Padrão `checksum NULL` já usado 3× no banco (`20260530535000`/`536000`/`537000`) — não é invenção desta fatia.
+
+### ✅ EXECUTADO
+1. `INSERT INTO schema_migrations (filename, checksum, execution_time_ms) VALUES (..., NULL, NULL)` para as duas migrations — marca sem falsificar execução (mesmo vocabulário das 3 linhas precedentes). **ANTES:** 531 registradas. **DEPOIS do INSERT:** 533.
+2. `npm run migrate` (backend, `.env` apontando `unificard_dev`, profile `CORE_ONLY` padrão): **14 migrations pendentes executadas, 0 falhas**, N1 dormente (`20260713140000`) **SKIPPED** pelo mecanismo governado (`IGNORED_MIGRATIONS`) — não tocada, não marcada. **Nenhuma das 14 tinha DROP/DELETE/TRUNCATE.**
+   - ⚠️ **Divergência com a estimativa do pacote:** a direção esperava 15 aplicadas; o runner aplicou **14** (17 pendentes originais − 2 marcadas nesta fatia − 1 dormente skipped governado = 14). Reconciliação aritmética, não erro de execução — registrado por honestidade de prova.
+3. **DEPOIS:** `schema_migrations` **547** linhas · **334** tabelas (`information_schema.tables`) · N1 **segue ausente** de `schema_migrations` (confirmado por query, 0 linhas).
+
+### 🔒 DADO CURADO — INTACTO, PROVADO POR CONTAGEM ANTES/DEPOIS
+75 bairros (`neighborhoods`) → 75 · 48 policies (`economic_policies`) → 48 · 3 grants territoriais (`actor_capability_grants WHERE capability_key ILIKE '%territor%'`) → 3 · `regional_fund_accounts` → 1→1. **Δ=0 em todos.**
+
+### 🚫 NÃO FEITO / FORA DO ESCOPO DESTA FATIA
+Parte **(c)** (registry por filename sem hash/rastreio de objeto) segue **OPEN** — não é o que este pacote mandatava. Migration N1 **intocada**, arquivo byte-idêntico, `IGNORED_MIGRATIONS` não editado. Nenhum código tocado (fatia é 100% escrita de banco + 1 `npm run migrate`). `unificard_local` não tocado nesta fatia (fora do denominador).
+
+### 🧾 DENOMINADOR
+Banco: **`unificard_dev`** exclusivamente. Não cobre `unificard_local`, não cobre parte (c) da dívida, não cobre a divergência de UUID de Curitiba entre os dois bancos (fora de escopo, já registrado no bloco de bifurcação abaixo).
+**Confiança: PROVADO** (queries reais antes/depois, ambas etapas). Não auditado nesta fatia: se as 14 migrations recém-aplicadas têm efeito colateral funcional em rotas que já rodavam sobre o `dev` sem elas (fora do denominador "banco" desta missão).
+
 ## ✅ CONSOLIDAÇÃO DE AMBIENTE · PASSO 1 — **`unificard_local` PASSA A TER O SCHEMA COMPLETO** (2026-07-29)
 **GO de Clayton. Primeira escrita em banco desta sessão. Decisão dele: o `local` é o DESTINO (tem o modelo de tenant corrigido, sem os usuários antigos de teste); o `dev` é a FONTE do que precisa ser resgatado.**
 
@@ -1326,8 +1348,8 @@ Detalhe das ações R-1..R-10 e execution logs: `docs/03_execution_log/` (R-2). 
 - **Envelope formal (frente própria, com GO):** (a) decisão soberana sobre a jurisdição de `core/unifybank` (domínio Bank vs. módulo externo); (b) se externo → criar/estender **porta read-only** do Bank (`bankLedgerRepository`/serviço canônico) para saldo+movimentações por conta, e **substituir** o SQL direto em `transparency/donation/regional-fund-governance`; (c) guard de fronteira (`validate-ledger-authority`) mordendo SQL a `bank_*` fora de `modules/bank` **e** de `core/unifybank`-se-ratificado; (d) prova DB + Δbank=0. **Nada disso feito aqui.**
 - **Escopo desta regularização:** apenas REGISTRO. `transparency.service.ts` NÃO foi refatorado para portas (R-5 trocou só o resolver de actor, não o SQL de ledger).
 
-## DT-EPHEMERAL-MIGRATION-PROFILE-UNGOVERNED — 🔴 OPEN · PARCIALMENTE REMEDIADA / PROVA·MIGRATIONS / MÉDIA (registrada em R-7, 2026-07-18)
-> **PARCIALMENTE REMEDIADA (2026-07-18):** parte **(a)** endereçada — a N1 dormente está em `IGNORED_MIGRATIONS` (SKIPPED governado, sem pré-marca); FULL efêmero reprodutível do repo (ver bloco R-7 no topo). **SEGUE OPEN** para **(b)** objetos `20260713100000`/`120000` em dev sem linha em `schema_migrations` (persistente, VEREDITO C) e **(c)** registry por filename — frente própria com GO.
+## DT-EPHEMERAL-MIGRATION-PROFILE-UNGOVERNED — 🟠 OPEN · (a)+(b) REMEDIADAS / PROVA·MIGRATIONS / MÉDIA (registrada em R-7, 2026-07-18)
+> **(a)+(b) REMEDIADAS (2026-07-18 / 2026-07-29):** parte **(a)** endereçada — a N1 dormente está em `IGNORED_MIGRATIONS` (SKIPPED governado, sem pré-marca); FULL efêmero reprodutível do repo (ver bloco R-7 no topo). Parte **(b)** fechada em 2026-07-29 (bloco no topo do cartório): as duas linhas foram registradas com `checksum NULL` (padrão já precedente no banco) e as 14 migrations pendentes restantes aplicadas contra `unificard_dev` — registry e objetos agora coerentes, dado curado provado intacto. **SEGUE OPEN** apenas para **(c)** registry por filename (sem hash/rastreio de objeto) — frente própria com GO; é o que ainda PERMITE que (a)/(b) se repitam no futuro.
 **Achado da YALA §7, registrado como dívida — a prova FULL das Fatias A/C/D fica CONDICIONAL até o perfil efêmero governado existir.**
 - **(a) Pré-marcação não versionada da migration N1 dormente:** os E2E FULL desta campanha rodaram em DB efêmera onde a migration `20260713140000_neighborhood_alias_first_governed_flow.sql` (N1, AUTO-PROVA self-aborting por desenho) foi **pré-marcada manualmente** como aplicada em `schema_migrations` (via orquestrador de sessão, não versionado no repo). Isso **espelha o estado sancionado de `unificard_dev`** (que também não tem essa migration), mas **não corresponde a um perfil de migração oficialmente governado** → a prova FULL **não é reproduzível só a partir do repositório**. `unificard_dev` permanece intocado (verificado read-only pela YALA: `schema_migrations` NÃO contém a N1; nenhum INSERT manual em dev).
 - **(b) Inconsistência `schema_migrations` × objetos em dev:** `unificard_dev` **não contém** as linhas `20260713100000` nem `20260713120000` em `schema_migrations`, embora seus objetos existam (ex.: `address_assignments`). O runner FULL abortaria ao tentar reaplicá-las. Par runner/registry a reconciliar.
