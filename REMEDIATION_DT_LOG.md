@@ -1,5 +1,22 @@
 # REMEDIATION DT LOG
 
+## 🧹 ALLOWLIST DE COERÊNCIA SANEADO · ⛔ **E O GATE NÃO PÔDE SER LIGADO — STOP REPORTADO** (2026-07-28)
+**GO de Clayton para o item 1 (limpar o allowlist + ligar o gate no runner). Metade entregue, metade PARADA — e a parada é achado, não fracasso.**
+
+### ✅ ENTREGUE — a lista deixou de mentir
+`scripts/schema-coherence-allowlist.json` tinha **10 entradas, TODAS com prazo vencido** (57 a 89 dias), todas com `owner: Clayton`. A direção verificou **as 10 de 1ª mão** contra o banco vivo e o código atual — não por relatório de terceiro.
+- **7 REMOVIDAS por defeito extinto:** `C1` (tabela `ledger` de fato não existe, mas o único `FROM ledger` vivo está dentro de `it.skip(...)` em `work.e2e.spec.ts:381`; os demais hits são `ledger_compensations`/`ledger_snapshots`, que **existem**) · `C8` · `C12` · `C31` · `C32-C33` · `C34` · `C35` (as 5 tabelas ditas fantasma — `audit_events`, `webauthn_challenges`, `webauthn_credentials`, `category_ai_logs`, `partner_employees` — **existem todas no banco**, confirmado por `to_regclass`).
+- **🔴 `C8` era o alarme mais assustador e é FALSO há meses:** dizia *"nenhum grupo pode ser criado"*. A tabela `groups` só tem colunas reais, os campos ditos fantasma viraram chaves no JSONB `metadata`, e **existe grupo criado no banco agora**. Uma instância nova lendo isso concluiria que o produto está morto.
+- **3 MANTIDAS, com escopo reconciliado:** `C4` **reclassificada** (a metade `bank_accounts` foi corrigida em `3ca1df864`; a metade `bank_transactions` **nunca foi** e quebra em runtime hoje) · `C3` **reduzida** (`actor.repository.ts` virou backing-store canônico; sobra `identity.service.ts:313`) · `C13` **AMPLIADA** — a superfície de leitura financeira fora dos módulos autorizados **cresceu**: `workers/reconciliation-worker.ts` foi extinto por refatoração legítima e substituído por `modules/reconciliation/` + `core/reconciliation/`, que **nunca entraram no `files_scope`**.
+
+### ⛔ **STOP — O GATE NÃO FOI LIGADO NO RUNNER, E A RAZÃO CORRIGE O QUE A DIREÇÃO HAVIA DITO**
+A direção havia reportado a Clayton: *"o guard existe, funciona, e nada o chama"*. **Impreciso.** O gate roda, mas **nunca esteve verde**: com o allowlist já saneado, ele reporta **1978 violações bloqueantes** (397 `BLOCKER` + 1581 `CORRUPTOR`, mais 125 de débito), sobre 2274 arquivos e 7291 strings SQL. Parte é **ruído comprovado** — ele classifica `information_schema` como tabela fantasma —, parte parece real (`company_opportunity_preferences (INSERT)`, `tenant_configs`, `bank_splits`).
+**Ligar assim deixaria a suíte permanentemente vermelha — que é tão inútil quanto guard que nunca falha, e ainda bloqueia todo trabalho.** E calibrar o gate para caber seria **enfraquecer a verificação para passar**, o atalho que esta casa proíbe expressamente nas executoras. A direção não se autoriza a fazer o que proíbe.
+**Portanto: a razão de o gate estar fora do runner provavelmente NUNCA foi esquecimento — é que ele nunca pôde entrar.** Isso muda o diagnóstico de "alarme desligado" para "alarme nunca calibrado".
+
+### 📌 REGISTRADA COMO FRENTE PRÓPRIA, SEM GO: `F-SCHEMA-COHERENCE-GATE-REABILITACAO`
+Separar ruído de achado real nas 1978, calibrar, e só então ligar no runner. **Não é fatia — é frente**, e frente nova não se abre no meio de outra. Enquanto isso, o allowlist vale como **registro honesto, não como enforcement** — e isso está escrito no próprio `description` do arquivo, para ninguém confundir prazo escrito com prazo cobrado.
+
 ## ✅✅ **SELO — `DECISION-0194` SELADA POR CLAYTON** (2026-07-28) · A PRIMEIRA DECISÃO DESTE ARCO A CHEGAR AO SELO
 **Ato de Clayton, palavra literal: *"pode selar"*. A direção NÃO se autosselou em momento algum — escreveu as correções e devolveu a verificação a auditoria independente, modelo diferente, mandato adversarial, quatro rodadas.**
 
