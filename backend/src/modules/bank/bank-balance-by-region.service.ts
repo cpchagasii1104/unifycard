@@ -9,7 +9,6 @@
 // ║ EM VEZ:  regional_fund_accounts (FK) JOIN bank_accounts — ver bank-account.service.ts§lookupRegionalFundAccount
 // ╚════════════════════════════════════════════════════════════════
 
-import { runQueriesWithTenant } from '@core/database/pool';
 import { bankAccountRepository } from './bank-account.repository';
 import { bankLedgerRepository } from './bank-ledger.repository';
 import type { BankCurrency } from './bank-account.types';
@@ -67,7 +66,8 @@ export interface RegionalFundHistory {
  * - Este é apenas um READ-MODEL para visualização administrativa
  * - FONTE CANÔNICA: regional_fund_accounts (FK territorial, DECISION-0166 D3) JOIN bank_accounts
  *   — NUNCA metadata/owner_id string (Lei 7 / SSOT_REGISTRY §5.10-5.12)
- * - Histórico via bank_ledger + bank_transactions (NÃO criar nova fonte de verdade)
+ * - Histórico via bank_ledger (bankLedgerRepository.getEntriesByAccount — NÃO criar nova
+ *   fonte de verdade; bank_transactions não tem from/to_account_id, ver allowlist C4)
  */
 class BankBalanceByRegionService {
   /**
@@ -101,51 +101,25 @@ class BankBalanceByRegionService {
 
     const params: any[] = [tenantId];
 
-    const result = await client.query<{
-      account_id: string;
-      owner_id: string;
-      city_id: string | null;
-      scope_level: string;
-    }>(query, params);
-
-    client.release();
+    let result;
+    try {
+      result = await client.query<{
+        account_id: string;
+        owner_id: string;
+        city_id: string | null;
+        scope_level: string;
+      }>(query, params);
+    } finally {
+      client.release();
+    }
 
     // Calcular saldo de cada conta via ledger (FONTE DA VERDADE)
+    // entryCount/lastEntryAt já vêm prontos de calculateBalance() — não repetir a consulta
+    // (bank_ledger não tem transaction_id/createdAt como colunas de bank_transactions; C4).
     const funds: RegionalFundInfo[] = [];
 
     for (const row of result.rows) {
-      const balance = await bankLedgerRepository.calculateBalance(tenantId, row.account_id);
-
-      // Buscar última transação (para lastTransactionDate)
-      const lastTransaction = await runQueriesWithTenant<{
-        transaction_id: string;
-        createdAt: Date;
-      }>(
-        tenantId,
-        `
-        SELECT transaction_id, createdAt
-        FROM bank_transactions
-        WHERE tenant_id = $1
-          AND (from_account_id = $2 OR to_account_id = $2)
-        ORDER BY createdAt DESC
-        LIMIT 1
-        `,
-        [tenantId, row.account_id]
-      );
-
-      // Contar transações
-      const transactionCount = await runQueriesWithTenant<{
-        count: string;
-      }>(
-        tenantId,
-        `
-        SELECT COUNT(*) as count
-        FROM bank_transactions
-        WHERE tenant_id = $1
-          AND (from_account_id = $2 OR to_account_id = $2)
-        `,
-        [tenantId, row.account_id]
-      );
+      const fundBalance = await bankLedgerRepository.calculateBalance(tenantId, row.account_id);
 
       const regionId = row.city_id ?? row.scope_level;
       const regionName = undefined;
@@ -155,9 +129,9 @@ class BankBalanceByRegionService {
         regionName,
         accountId: row.account_id,
         currency: currency ?? 'BRL',
-        balance: balance.balanceCents,
-        lastTransactionDate: lastTransaction?.[0]?.createdAt?.toISOString(),
-        transactionCount: transactionCount?.[0] ? parseInt(transactionCount[0].count, 10) : 0,
+        balance: fundBalance.balanceCents,
+        lastTransactionDate: fundBalance.lastEntryAt?.toISOString(),
+        transactionCount: fundBalance.entryCount,
       });
     }
 
@@ -185,66 +159,40 @@ class BankBalanceByRegionService {
     const { getClientWithTenant } = await import('@core/database/pool');
     const client = await getClientWithTenant(tenantId);
 
-    const result = await client.query<{
-      account_id: string;
-      owner_id: string;
-      city_id: string | null;
-      scope_level: string;
-    }>(
-      `
-      SELECT rfa.bank_account_id::text AS account_id, ba.owner_id, rfa.city_id::text AS city_id, rfa.scope_level
-      FROM regional_fund_accounts rfa
-      JOIN bank_accounts ba ON ba.id = rfa.bank_account_id AND ba.tenant_id = rfa.tenant_id
-      WHERE rfa.tenant_id = $1
-        AND ba.owner_type = 'system'
-        AND (
-          rfa.city_id::text = $2
-          OR (rfa.city_id IS NULL AND rfa.scope_level = $2)
-        )
-      LIMIT 1
-      `,
-      [tenantId, regionId]
-    );
-
-    client.release();
+    let result;
+    try {
+      result = await client.query<{
+        account_id: string;
+        owner_id: string;
+        city_id: string | null;
+        scope_level: string;
+      }>(
+        `
+        SELECT rfa.bank_account_id::text AS account_id, ba.owner_id, rfa.city_id::text AS city_id, rfa.scope_level
+        FROM regional_fund_accounts rfa
+        JOIN bank_accounts ba ON ba.id = rfa.bank_account_id AND ba.tenant_id = rfa.tenant_id
+        WHERE rfa.tenant_id = $1
+          AND ba.owner_type = 'system'
+          AND (
+            rfa.city_id::text = $2
+            OR (rfa.city_id IS NULL AND rfa.scope_level = $2)
+          )
+        LIMIT 1
+        `,
+        [tenantId, regionId]
+      );
+    } finally {
+      client.release();
+    }
 
     if (result.rows.length === 0) {
       return null;
     }
 
     const row = result.rows[0];
-    const balance = await bankLedgerRepository.calculateBalance(tenantId, row.account_id);
-
-    // Buscar última transação
-    const lastTransaction = await runQueriesWithTenant<{
-      transaction_id: string;
-      createdAt: Date;
-    }>(
-      tenantId,
-      `
-      SELECT transaction_id, createdAt
-      FROM bank_transactions
-      WHERE tenant_id = $1
-        AND (from_account_id = $2 OR to_account_id = $2)
-      ORDER BY createdAt DESC
-      LIMIT 1
-      `,
-      [tenantId, row.account_id]
-    );
-
-    // Contar transações
-    const transactionCount = await runQueriesWithTenant<{
-      count: string;
-    }>(
-      tenantId,
-      `
-      SELECT COUNT(*) as count
-      FROM bank_transactions
-      WHERE tenant_id = $1
-        AND (from_account_id = $2 OR to_account_id = $2)
-      `,
-      [tenantId, row.account_id]
-    );
+    // entryCount/lastEntryAt já vêm prontos de calculateBalance() — não repetir a consulta
+    // (bank_ledger não tem transaction_id/createdAt como colunas de bank_transactions; C4).
+    const fundBalance = await bankLedgerRepository.calculateBalance(tenantId, row.account_id);
 
     const regionName = undefined;
 
@@ -253,16 +201,16 @@ class BankBalanceByRegionService {
       regionName,
       accountId: row.account_id,
       currency,
-      balance: balance.balanceCents,
-      lastTransactionDate: lastTransaction?.[0]?.createdAt?.toISOString(),
-      transactionCount: transactionCount?.[0] ? parseInt(transactionCount[0].count, 10) : 0,
+      balance: fundBalance.balanceCents,
+      lastTransactionDate: fundBalance.lastEntryAt?.toISOString(),
+      transactionCount: fundBalance.entryCount,
     };
   }
 
   /**
    * Obtém histórico de transações do fundo regional (READ-MODEL)
    * 
-   * FONTE CANÔNICA: bank_ledger + bank_transactions
+   * FONTE CANÔNICA: bank_ledger (bankLedgerRepository.getEntriesByAccount)
    * NÃO criar nova fonte de verdade
    * 
    * @param tenantId - ID do tenant
@@ -289,81 +237,42 @@ class BankBalanceByRegionService {
       throw new Error(`Fundo regional não encontrado para região ${regionId}`);
     }
 
-    // Buscar transações (FONTE CANÔNICA: bank_transactions)
-    let query = `
-      SELECT 
-        bt.transaction_id,
-        bt.from_account_id,
-        bt.to_account_id,
-        bt.amount,
-        bt.currency,
-        bt.transaction_type,
-        bt.metadata,
-        bt.createdAt
-      FROM bank_transactions bt
-      WHERE bt.tenant_id = $1
-        AND (bt.from_account_id = $2 OR bt.to_account_id = $2)
-    `;
+    // Buscar lançamentos (FONTE CANÔNICA: bank_ledger, via bankLedgerRepository — mesmo
+    // repositório usado no cálculo acima; bank_ledger já carrega `direction` nativamente,
+    // então credit/debit não precisa ser inferido por from/to_account_id, que nunca
+    // existiram nesta tabela nem em bank_transactions — ver allowlist C4).
+    // Filtro de data e paginação preservados via BankLedgerSearchOptions
+    // (getEntriesByAccount já suporta startDate/endDate/limit/offset).
+    const ledgerEntries = await bankLedgerRepository.getEntriesByAccount(tenantId, fund.accountId, {
+      startDate,
+      endDate,
+      limit,
+      offset,
+    });
 
-    const params: any[] = [tenantId, fund.accountId];
-    let paramIndex = 3;
-
-    if (startDate) {
-      query += ` AND bt.createdAt >= $${paramIndex}`;
-      params.push(startDate);
-      paramIndex++;
-    }
-
-    if (endDate) {
-      query += ` AND bt.createdAt <= $${paramIndex}`;
-      params.push(endDate);
-      paramIndex++;
-    }
-
-    query += ` ORDER BY bt.createdAt DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
-    params.push(limit, offset);
-
-    const transactions = await runQueriesWithTenant<{
-      transaction_id: string;
-      from_account_id: string;
-      to_account_id: string;
-      amountCents: string;
-      currency: string;
-      transaction_type: string;
-      metadata: any;
-      createdAt: Date;
-    }>(tenantId, query, params);
-
-    // Processar transações
+    // Processar lançamentos
     const entries: RegionalFundHistoryEntry[] = [];
     let totalCredits = 0;
     let totalDebits = 0;
 
-    for (const tx of transactions) {
-      const amountCents = parseInt(tx.amountCents, 10);
-      const isCredit = tx.to_account_id === fund.accountId;
+    for (const entry of ledgerEntries) {
+      const amountCents = Number(entry.amountCents);
+      const description = entry.description || `Lançamento ${entry.entryType}`;
 
-      if (isCredit) {
+      if (entry.entryType === 'credit') {
         totalCredits += amountCents;
-        entries.push({
-          transactionId: tx.transaction_id,
-          type: 'credit',
-          amountCents,
-          description: tx.metadata?.description || `Transação ${tx.transaction_type}`,
-          createdAt: tx.createdAt.toISOString(),
-          metadata: tx.metadata,
-        });
       } else {
         totalDebits += amountCents;
-        entries.push({
-          transactionId: tx.transaction_id,
-          type: 'debit',
-          amountCents,
-          description: tx.metadata?.description || `Transação ${tx.transaction_type}`,
-          createdAt: tx.createdAt.toISOString(),
-          metadata: tx.metadata,
-        });
       }
+
+      entries.push({
+        transactionId: entry.transactionId,
+        type: entry.entryType,
+        amountCents,
+        description,
+        createdAt: entry.createdAt,
+        metadata: entry.metadata ?? undefined,
+      });
     }
 
     return {

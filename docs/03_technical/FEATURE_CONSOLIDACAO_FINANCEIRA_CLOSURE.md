@@ -70,7 +70,7 @@ Este documento é vinculante para:
 
 ### 2.3 FASE 3: Fundos Regionais Expandidos
 
-**Status:** ✅ ENTREGUE
+**Status:** ✅ ENTREGUE — ⚠️ com correção de dívida técnica registrada abaixo
 
 **Funcionalidades:**
 - Lista todos os fundos regionais
@@ -88,7 +88,9 @@ Este documento é vinculante para:
 **Arquivos:**
 - `backend/src/modules/bank/bank-balance-by-region.service.ts`
 
-**Fonte Canônica:** Conta de sistema `regional_fund` (via `metadata->>'systemAccountType' = 'regional_fund'`)
+**Fonte Canônica:** `regional_fund_accounts` (FK territorial) JOIN `bank_accounts` (`owner_type = 'system'`) — desde a mudança `3ca1df864` (DECISION-0166 D3). A frase anterior deste documento ("via `metadata->>'systemAccountType' = 'regional_fund'`") estava desatualizada e foi corrigida em 2026-07-28.
+
+**⚠️ Dívida técnica corrigida (registro para auditoria):** os 3 métodos deste serviço (`listRegionalFunds`, `getRegionalFund`, `getRegionalFundHistory`) faziam `SELECT` de colunas que nunca existiram em `bank_transactions` (`transaction_id`, `from_account_id`, `to_account_id`, `amount`, `currency`, `transaction_type`, `createdAt`) — schema real: `id, tenant_id, actor_id, account_id, amount_cents, purpose, justification, ..., metadata`. Isso quebrava as 3 rotas em runtime (erro `42703`) **desde a origem da feature (jan/2026)**, apesar do "✅ ENTREGUE" acima. Esta era a dívida `C4-bank-transactions-colunas-fantasmas` do allowlist (`scripts/schema-coherence-allowlist.json`), vencida há 89 dias. Corrigida em **2026-07-28**: as 4 consultas redundantes de `lastTransactionDate`/`transactionCount` foram removidas (esses valores já vinham prontos de `bankLedgerRepository.calculateBalance()`), e o histórico passou a usar `bankLedgerRepository.getEntriesByAccount()` (fonte real `bank_ledger`, com `direction`/`amount_cents`/`created_at` — preserva filtro de data e paginação).
 
 ---
 

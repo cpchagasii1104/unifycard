@@ -1,18 +1,9 @@
 {
   "version": 1,
   "description": "Allowlist do gate schema-coherence. Entradas justificadas com owner + deadline + issue_id. Sem esses campos, gate falha. Deadline no passado = gate falha com ALLOWLIST_EXPIRED. ⚠️ ATENÇÃO (2026-07-28): ESTE GATE **NÃO** ESTÁ NO RUNNER NEM NO CI — verificado. Logo o prazo abaixo NÃO é cobrado por nada automático hoje, e foi assim que as 10 entradas originais venceram entre 57 e 89 dias sem ninguém notar. Ligar o gate no runner foi TENTADO em 2026-07-28 e BLOQUEADO: o gate reporta 1978 violações (397 blocker + 1581 corruptor) e nunca esteve verde — ver F-SCHEMA-COHERENCE-GATE-REABILITACAO no cartório. Enquanto não for reabilitado, este arquivo vale como REGISTRO HONESTO, não como enforcement.",
-  "audit_2026-07-28": "Saneamento verificado de 1ª mão contra o banco vivo unificard_dev e o código atual. 7 entradas REMOVIDAS por defeito extinto (C1, C8, C12, C31, C32-C33, C34, C35) — evidência de cada remoção registrada em REMEDIATION_DT_LOG.md. 3 MANTIDAS por defeito confirmado vivo (C4, C3, C13), com prazo novo e escopo reconciliado. Remover entrada é operação SEGURA por construção: se a remoção estiver errada, o gate fica vermelho e avisa — nunca quebra em silêncio.",
+  "audit_2026-07-28": "Saneamento verificado de 1ª mão contra o banco vivo unificard_dev e o código atual. 7 entradas REMOVIDAS por defeito extinto (C1, C8, C12, C31, C32-C33, C34, C35) — evidência de cada remoção registrada em REMEDIATION_DT_LOG.md. Remover entrada é operação SEGURA por construção: se a remoção estiver errada, o gate fica vermelho e avisa — nunca quebra em silêncio.",
+  "c4_pago_2026-07-28": "🟢 C4 REMOVIDA POR DÍVIDA PAGA, não por defeito extinto silenciosamente — a distinção importa. As 7 colunas fantasma de bank_transactions foram EXPURGADAS de bank-balance-by-region.service.ts na fatia F-TRANSPARENCY-BY-REGION (2026-07-28), com PROVA POR CHAMADA REAL: antes = erro 42703 'coluna transaction_id não existe' no caminho vivo; depois = as 3 funções públicas retornam sem erro, incluindo com filtro de data e paginação. A dívida estava vencida há 89 dias. RESTAM 2 entradas (C3, C13), ambas com defeito confirmado vivo.",
   "entries": [
-    {
-      "id": "C4-bank-transactions-colunas-fantasmas",
-      "type": "ghost_column",
-      "pattern": { "table": "bank_transactions", "columns": ["transaction_id", "from_account_id", "to_account_id", "amount", "currency", "transaction_type", "createdAt"] },
-      "files_scope": ["modules/bank/bank-balance-by-region.service.ts"],
-      "reason": "C4 (RECLASSIFICADA 2026-07-28): a entrada original apontava para bank_accounts (currency, metadata) — essa metade FOI corrigida em 3ca1df864 (passou a resolver por regional_fund_accounts FK). A OUTRA metade nunca foi: bank-balance-by-region.service.ts:120-134,137-148,293-335 lê 7 colunas que NUNCA existiram em bank_transactions (reais: id, account_id, counterpart_account_id, amount_cents, purpose, created_at). Os 3 métodos públicos do serviço QUEBRAM EM RUNTIME hoje — confirmado executando a query real contra unificard_dev (ERRO 42703). Padrão registrado: metade consertada, alarme desligado inteiro. Correção pendente = fatia F-TRANSPARENCY-BY-REGION.",
-      "owner": "Clayton",
-      "deadline": "2026-08-31",
-      "issue_id": "C4"
-    },
     {
       "id": "C3-actors-insert-fora-writer",
       "type": "prohibited_insert",

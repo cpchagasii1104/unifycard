@@ -1,5 +1,38 @@
 # REMEDIATION DT LOG
 
+## ✅ `F-TRANSPARENCY-BY-REGION` — **A PRIMEIRA CORREÇÃO MATERIAL DA SESSÃO** · DÍVIDA `C4` PAGA (2026-07-28)
+**Selo falso nº 1 finalmente derrubado com código, não com doutrina. Rito completo: GATE da direção → GO de Clayton → executora com pacote fechado → verificação de 1ª mão da direção. A executora NÃO commitou; a direção verificou antes.**
+
+### 🔬 A PROVA QUE FALTAVA NA SESSÃO INTEIRA — **CHAMADA REAL, COM O ANTES JUNTO**
+A executora bateu **403** na rota (mesma permissão que negou Clayton no painel — coerente com o achado A-6) e **não tentou contornar autorização**: usou o caminho de fallback pré-autorizado, chamando o serviço direto com o tenant e o fundo REAIS (Curitiba).
+- **ANTES:** `error: coluna "transaction_id" não existe · code 42703 · at BankBalanceByRegionService.listRegionalFunds (:120)`
+- **DEPOIS:** as 3 funções retornam sem erro — inclusive `getRegionalFundHistory` **com filtro de data e paginação** (`2020-01-01` → `2030-01-01`, limit 5).
+**É a primeira prova por CHAMADA desta sessão.** Todas as anteriores foram por leitura — e duas delas estavam erradas, que é como os dois selos falsos nasceram.
+
+### 🔴 CORREÇÃO DE UM ERRO DA DIREÇÃO — *"precisa de SQL nova"* ERA FALSO
+A direção afirmou a Clayton que a 5ª consulta exigiria **SQL nova**, porque *"a porta canônica não tem filtro de data"*. **Errado.** A direção olhou `bankAccountService.getLedgerEntriesByAccount` (que de fato só passa `limit`/`offset`) e **parou uma camada acima do necessário**: `bankLedgerRepository.getEntriesByAccount` (`bank-ledger.repository.ts:101-153`) **já tem `startDate`, `endDate`, `entryType`, `limit` e `offset`**.
+**A direção cometeu exatamente o erro que passa o dia inteiro cobrando dos outros:** disse "não existe" depois de checar UMA camada, quando o `CLAUDE.md §2` manda provar que a coisa não existe **sob outro nome ou em outro módulo** antes de afirmar. A fatia virou **RELOCAÇÃO de lógica existente — zero SQL autorada**, que é o trabalho padrão desta casa.
+
+### ✅ O QUE MUDOU (2 arquivos, escopo respeitado)
+- `bank-balance-by-region.service.ts`: 4 consultas redundantes **apagadas** (os valores já vinham de `calculateBalance()` na linha anterior); histórico **relocado** para `getEntriesByAccount` preservando filtro de data, paginação e o shape de `RegionalFundHistory`; os 2 `client.release()` movidos para `finally` (vazamento no caminho de erro); **3 comentários que mentiam corrigidos**.
+- `FEATURE_CONSOLIDACAO_FINANCEIRA_CLOSURE.md` **só a Fase 3**: deixa de declarar "entregue" sem ressalva, registra que estava quebrada desde jan/2026, e corrige a **"Fonte Canônica"** — apontava para `metadata->>'systemAccountType'`, substituído pela FK `regional_fund_accounts` em `3ca1df864`. Fases 1, 2 e 4 **intocadas** (defeitos próprios, fatia futura).
+- **Mudança de comportamento declarada, não escondida:** o campo `metadata` de cada entrada agora vem `undefined` (`bank_ledger` não tem essa coluna). **Não é regressão** — antes vinha de uma coluna inexistente numa query que sempre estourava; era `undefined` na prática e `500` no caminho vivo.
+
+### 🏅 A EXECUTORA BATEU NUM GUARD E **CONSERTOU O PRÓPRIO CÓDIGO** — precedente registrado
+O guard `financial-vocabulary` subiu de **3889 → 3894** porque ela reaproveitou uma variável local chamada `balance`. Ela **não afrouxou o guard e não subiu o baseline**: renomeou para `fundBalance` e reescreveu 2 comentários, fechando em **3884**. É a regra da casa (*executora cujo próprio código viola regra existente conserta sozinha*) funcionando sem ninguém mandar. **A direção puxou o ratchet** (`red-gates-baseline.json` 3889 → 3884, DECISION-0158, só-desce) para travar o ganho — sem isso, alguém repõe as 5 violações e o guard não vê.
+
+### 📊 VERIFICAÇÃO DE 1ª MÃO DA DIREÇÃO
+Árvore com **exatamente os 2 arquivos** do escopo · **zero resíduo** do script temporário de prova · **zero** coluna fantasma em SQL (as ocorrências restantes são comentários explicando a remoção, o campo `createdAt` do contrato TS e `entry.createdAt` do mapeamento) · **typecheck limpo** · **runner 225 COMMANDS OK, drift 0** · `git diff --check` limpo · LF preservado.
+
+### ⚠️ LIMITAÇÃO DECLARADA (não inflar a prova)
+`bank_ledger` tem **0 linhas** no `unificard_dev` inteiro. Logo `entries` volta vazio e **o mapeamento de uma linha real (credit/debit) NÃO foi exercitado**. Provado: as queries passam com as colunas certas, o filtro de data é aceito, e nada estoura. **Não provado:** o conteúdo de uma entrada real. A executora **não inseriu dado de teste** porque o pacote proibia escrever no banco — recusa correta.
+
+### 🟢 DÍVIDA `C4` FECHADA
+Removida do `schema-coherence-allowlist.json` **por dívida paga**, com a distinção registrada no próprio arquivo (paga ≠ defeito que sumiu sozinho). Vencida havia **89 dias**. Restam 2 entradas, ambas com defeito vivo: `C3` e `C13`.
+
+### ⛔ NÃO FEITO
+Zero migration · zero escrita no banco · nenhuma rota ou módulo apagado · nenhum arquivo byte-pinado tocado · `transparency.service.ts` e a porta canônica intocados · irmãos (`by-cpf`, `consolidation`, `reconciliation-history`) intocados. Import órfão de `bankAccountRepository` **pré-existente** flagrado e **não removido** (fora do escopo positivo) — anotado para fatia futura.
+
 ## 🔴 PAINEL DE POLICY ECONÔMICA — 6 ACHADOS, **DESCOBERTOS PELA TELA, NÃO PELO GREP** (Clayton no navegador, 2026-07-28)
 **Clayton abriu `/admin/economic-policies` e colou o que via. Três achados a direção já suspeitava e confirmou; três são NOVOS e nenhuma das 4 auditorias tinha visto. Lição de método registrada: parte do defeito só aparece OLHANDO — leitura de código não mostra que a interface apresenta o estado perigoso como seguro.**
 
