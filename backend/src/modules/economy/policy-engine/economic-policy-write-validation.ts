@@ -197,13 +197,21 @@ export function assertPolicyLinesValid(lines: PolicyLineRequestBody[]): void {
           'apenas arredondamento de centavos, nunca uma fatia inteira ausente.'
       );
     }
-    if (!hasRevenueShare) {
-      throw HttpError.badRequest(
-        'economic_policy: nenhuma linha revenue_share entre as linhas informadas — o resolver ' +
-          'precisa de uma linha revenue_share para absorver o resíduo de arredondamento (K_pe_7); ' +
-          'sem ela, a resolução falha em tempo de pagamento real.'
-      );
-    }
+  }
+
+  // Fora do `if (hasBpsLine)` de propósito: uma policy composta SÓ de fixedAmountCents (sem
+  // nenhuma linha bps) também precisa de uma linha revenue_share absorvedora — o resolver
+  // (calculatePolicySplits) aplica o drift de arredondamento à primeira linha revenue_share
+  // INCONDICIONALMENTE, tenha a policy linhas percentuais, fixas, ou ambas. Antes desta checagem
+  // viver aqui dentro do bloco bps, uma policy só-fixa escapava desta exigência inteira: publicava
+  // limpa e só falhava em tempo de PAGAMENTO real (DRIFT_NO_REVENUE_SHARE) — o pior momento
+  // possível para descobrir o problema.
+  if (!hasRevenueShare) {
+    throw HttpError.badRequest(
+      'economic_policy: nenhuma linha revenue_share entre as linhas informadas — o resolver ' +
+        'precisa de uma linha revenue_share para absorver o resíduo de arredondamento (K_pe_7); ' +
+        'sem ela, a resolução falha em tempo de pagamento real.'
+    );
   }
 }
 

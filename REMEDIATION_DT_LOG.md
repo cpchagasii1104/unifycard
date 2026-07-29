@@ -1,5 +1,29 @@
 # REMEDIATION DT LOG
 
+## ✅ `K_pe_7` — **O SELO FALSO Nº 2 CAIU** · O GUARD AGORA PODE FICAR VERMELHO (2026-07-28)
+**Mandato literal de Clayton: *"calcule os centavos, não dê margem pra cento e um por cento"*. A tentativa anterior foi selada como resposta (`ff9e18cfc`) e a 3ª auditoria a derrubou: o guard testava uma invariante que o motor FORÇA, logo nunca poderia acusar nada. Esta fatia fecha a metade que se pode fechar sem tocar no lacre.**
+
+### 🔁 O GATE INVERTEU A ORDEM QUE A DIREÇÃO IA EXECUTAR — e evitou repetir um erro do mesmo dia
+A direção ia consertar **o guard primeiro**. Teria criado um **guard permanentemente vermelho**, porque o defeito do caso misto vive **dentro do motor byte-pinado** — travando runner e CI. Seria a mesma armadilha do `schema-coherence` recusada horas antes, dessa vez autoinfligida. **Ordem correta e executada:** a validação de escrita rejeita primeiro; o motor nunca vê a configuração perigosa; só então o guard pode afirmar a invariante e ficar verde **por mérito, não por não olhar**.
+
+### ✅ PASSO 1 — A EXIGÊNCIA DA LINHA ABSORVEDORA SAIU DO `if (hasBpsLine)`
+`economic-policy-write-validation.ts:192-208`. Duas checagens moravam no mesmo bloco: a soma dos bps fechar 10000 **e** a exigência de linha `revenue_share`. Uma policy **só de `fixedAmountCents`** escapava das **duas** — publicava limpa e falhava **no pagamento** (`DRIFT_NO_REVENUE_SHARE`), o pior momento possível. A exigência agora vale para **toda** policy. A soma dos bps permanece onde estava (só faz sentido com linha percentual). **Mensagem de erro reaproveitada palavra por palavra** — nenhum texto novo, nenhuma doutrina nova: a regra **já estava escrita na própria mensagem** (*"o resíduo que ele absorve é apenas arredondamento de centavos, nunca uma fatia inteira ausente"*). A fatia fez o código honrar o texto que ele já imprimia.
+
+### ✅ PASSO 2 — A INVARIANTE INFALSIFICÁVEL FOI SUBSTITUÍDA
+`audit-economic-policy-split-cent-conservation.mjs` reescrito. Saiu `sum(splits) === amountCents` (que o motor força em `economic-policy-engine.service.ts:275-286`); entrou **`|drift PRÉ-absorção| ≤ nº de linhas`** — o resíduo legítimo é no máximo 1 centavo por linha. **Removida a pré-condição `FIXTURE INVALID`** (`~:147`), que rejeitava `sumBps !== 10000` **antes de testar** — era ela que tornava "101%" impossível de testar por construção. **Fixtures com `fixedAmountCents` acrescentadas** (não havia nenhuma nos 96), incluindo fixture hostil de **101,5%** em duas escalas. Universo **96 → 125 casos**.
+
+### 🔴 A EXECUTORA PAROU NO CASO (b) — E ESTAVA CERTA
+O pacote mandava cobrir "fixo + percentual". Ela **provou que essa forma não existe de modo seguro**: sob a regra inalterada (*se há bps, a soma tem que ser exatamente 10000*), toda mistura publicável tem necessariamente a forma **`bps=10000` + linha fixa por cima** — que é precisamente o defeito vivo dentro do motor lacrado (ele subtrai a linha fixa do `revenue_share` **já calculado a 100%**, em vez de reservar espaço antes). Não existe `bps<10000 + fixo completando`: já é rejeitado. **Logo não há fixture que seja ao mesmo tempo aceita no passo 1 e segura, sem mascarar o defeito ou travar o CI.** Ela não construiu e reportou. **É achado, não pendência: o conserto do caso (b) exige o motor, e o motor exige quebrar o lacre — fatia futura, GATE próprio.**
+
+### 🔬 VERIFICAÇÃO DE 1ª MÃO DA DIREÇÃO (não aceita relatório de executora)
+- **PROVA VERMELHA RODADA PELA PRÓPRIA DIREÇÃO:** normal → **exit 0**; `AUDIT_FORCE_RED=1` → **exit 1**, com as diferenças reais impressas (inclusive contra a policy semeada real de Curitiba). *(Errata de método: a primeira medição da direção leu o exit code do `tail` no fim do pipe, não do node — refeita com redirecionamento.)*
+- **O hook de prova vermelha NÃO é backdoor:** `:327` faz `bound = 0` — ele só **aperta**. Não existe caminho em que a variável de ambiente **afrouxe** a verificação. Conferido antes de aceitar.
+- **Δ=0 no banco, provado por contagem:** 48 policies / 83 linhas **antes**, INSERT real de não-regressão (nasceu `draft`, nunca ativado), desfeito, e **48 / 83 depois** — restaurado.
+- Árvore com **exatamente os 2 arquivos** do escopo · zero resíduo temporário · **typecheck limpo** · **runner exit 0, 225 COMMANDS OK** · o runner roda no CI (`backend-ci.yml:44`), logo runner verde = CI verde.
+
+### 🔕 O QUE CLAYTON PEDIU E A DIREÇÃO **NÃO** FEZ — declarado, não silenciado
+Do checklist do dono: **staging** não existe (é local, sem produção) · **produto/ops** não existe (zero usuários) · **migração/rollback** não se aplica — verificado no banco: **zero linhas com valor fixo**, e as 3 policies sem `revenue_share` têm **zero linhas** (restos de E2E, `deprecated`); **nenhuma policy real é rejeitada** · **feature-flag RECUSADO**: interruptor em validação de dinheiro é botão de desligar proteção — seria enfraquecer a verificação, o que o próprio mandato proíbe na linha seguinte · **"CI gate que impede rebaixar o ratchet"**: o ratchet é **só-desce por desenho** (DECISION-0158) — baixar é o ato correto, e a trava contra **subir** já existe.
+
 ## ✅ `F-TRANSPARENCY-BY-REGION` — **A PRIMEIRA CORREÇÃO MATERIAL DA SESSÃO** · DÍVIDA `C4` PAGA (2026-07-28)
 **Selo falso nº 1 finalmente derrubado com código, não com doutrina. Rito completo: GATE da direção → GO de Clayton → executora com pacote fechado → verificação de 1ª mão da direção. A executora NÃO commitou; a direção verificou antes.**
 
