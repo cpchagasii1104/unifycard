@@ -1,5 +1,47 @@
 # REMEDIATION DT LOG
 
+## 🔱 **POR QUE EXISTEM DOIS BANCOS** — A BIFURCAÇÃO DE AMBIENTE, EXPLICADA POR CLAYTON E MEDIDA PELA DIREÇÃO (2026-07-29)
+**🔴 LEIA ISTO ANTES DE RODAR QUALQUER PROVA CONTRA BANCO. Nenhum grep descobre o que está aqui: é a razão de uma decisão do dono, e sem ela o resultado parece defeito quando é desenho.**
+
+### 📖 A CADEIA CAUSAL (palavras de Clayton, 2026-07-29)
+1. O sistema mudou — **algo no modelo de TENANT foi alterado**.
+2. Os usuários antigos ficaram **incompatíveis** com o modelo novo.
+3. **Adaptá-los custaria muito mais do que valiam.**
+4. *"É um sistema virgem, sem transações"* — logo **apagar era seguro e mais barato que migrar**.
+5. Criou-se então o `unificard_local` (**24/jul**), do zero, com **todas** as migrations aplicadas de uma vez.
+6. **🔴 MAS O `unificard_dev` NUNCA FOI APOSENTADO** — e o trabalho seguiu **nos dois**.
+7. Clayton perdeu o fio (*"eu já não estava entendendo"*) → **foi por isso que o `PLANO_RECUPERACAO.md` nasceu.**
+
+### 📊 O ESTADO MEDIDO (direção, 1ª mão, 2026-07-29)
+| | `unificard_dev` | `unificard_local` |
+|---|---|---|
+| tenant "Comunidade Inicial Unificard" | `a3859c3e…` (11/jun) | **`9a674500…`** (24/jul) — **outro ID, mesmo nome** |
+| 1ª migration / última | 29/mai → 27/jul | 24/jul → 24/jul (todas de uma vez) |
+| migrations · tabelas | 531 · 326 | **545 · 334** |
+| schema do **motor de eventos** (22–24/jul) | ❌ **ausente** | ✅ |
+| schema de **policy econômica** (27/jul) | ✅ | ❌ **ausente** |
+| **75 bairros de Curitiba (frente N3 SELADA)** | ✅ **75** | ❌ **0** |
+| concepts | 286 | **292** |
+| policies · eventos | 48 · 0 | 0 · **6** |
+
+**🔴 NENHUM DOS DOIS TEM O SISTEMA INTEIRO. Não é "velho vs. novo" — é BIFURCAÇÃO: cada um tem metade, e cada um tem algo que só existe nele.**
+
+### ⚠️ CONSEQUÊNCIA QUE ATINGE TODA PROVA JÁ FEITA
+**Prova carrega o ambiente em que foi feita, e a direção não vinha declarando isso.** Tudo que foi provado em 2026-07-28 (as 48 policies, o fundo de Curitiba, a dívida `C4`, o `K_pe_7` com INSERT real desfeito, o `Δ=0`) valeu contra o **`unificard_dev`** — correto para o cluster econômico, que vive e está atualizado lá. **Mas não vale automaticamente para um banco completo.** Daqui em diante: **toda prova declara o banco.**
+E é literalmente o que o `PLANO_RECUPERACAO.md:68` já dizia — *"o perfil de migrations possui itens ignorados e existe divergência entre objetos presentes no banco de desenvolvimento e o registry"* — com o motivo na linha seguinte: ***"afetam a confiabilidade das provas"***. E `:91` fixa como critério nº 6 de "de volta ao trilho": ***"fresh install, upgrade e banco de desenvolvimento estiverem reconciliados"***.
+
+### 🧭 A LIÇÃO MENOS ÓBVIA DO ARCO
+**Clayton abriu o plano de recuperação POR SENSAÇÃO, sem os números — e os números, três semanas depois, confirmaram item por item.** No mesmo arco, dois selos foram declarados COM números, e os números estavam errados. **Instinto do dono valeu mais que verificação feita pela metade.** Registrado porque a instância seguinte tende a acreditar no que tem número e descartar o que tem só desconforto.
+
+### ⛔ ARMADILHA QUE VAI PEGAR A PRÓXIMA INSTÂNCIA (e pegou a direção hoje)
+- **O mesmo e-mail existe nos DOIS bancos com dados diferentes** (`cpchagasii@hotmail.com`: dev desde 07/jul, local desde 24/jul). Entrar no banco errado parece *"meus dados sumiram"*.
+- `psql` para `unificard_local` **trava pedindo senha** (só `unificard_dev` tem credencial em cache). Não é banco travado: use `PGPASSWORD` a partir do `DATABASE_URL` do `backend/.env`.
+- **`backend/.env` aponta para `unificard_dev`** → subir o backend sem override coloca você no banco **SEM** o motor de eventos. O erro honesto `SCHEMA_OUT_OF_DATE` (construído em 24/jul a partir de um incidente real de Clayton) **funciona e nomeia a coluna ausente** — confirmado em uso real em 2026-07-29. `RODAR_LOCAL.md` documenta o override.
+
+### 🔜 O QUE ISTO EXIGE (não executado — aguarda GO)
+**GATE read-only de consolidação de ambiente**, que é a rodada que o próprio plano já agendou. Três perguntas: (1) **o que existe só de um lado e NÃO SABE RENASCER** — os 75 bairros são o caso crítico, produto de campanha selada, marcados no cartório como *"produto intocável, NUNCA recarregar"*; (2) o que as 548 migrations recriam sozinhas do zero × o que exige seed; (3) **qual identidade de tenant o banco definitivo adota** — decisão de Clayton, não da direção.
+**⚠️ ERRO DA DIREÇÃO, CORRIGIDO ANTES DE VIRAR RECOMENDAÇÃO:** ela ia recomendar *"cria um banco novo do zero e aposenta os dois"*. Isso **teria custado os 75 bairros de Curitiba**. Só não custou porque foi checar antes de afirmar. **Nenhum dos dois bancos é descartável até o dado curado ter caminho de renascimento provado.**
+
 ## 🔎 FRENTE NOVA ABERTA — `F-EVENT-CREATION-CONTRACT-SWEEP` · JUSTIFICATIVA DE PRIORIDADE (§4.3.1) (2026-07-28)
 **O protocolo (§4.3.1) proíbe abrir frente nova sem declarar por escrito por que ela tem prioridade sobre as abertas. Declaração:**
 
