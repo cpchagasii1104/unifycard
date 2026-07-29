@@ -1,5 +1,35 @@
 # REMEDIATION DT LOG
 
+## 🔴 PAINEL DE POLICY ECONÔMICA — 6 ACHADOS, **DESCOBERTOS PELA TELA, NÃO PELO GREP** (Clayton no navegador, 2026-07-28)
+**Clayton abriu `/admin/economic-policies` e colou o que via. Três achados a direção já suspeitava e confirmou; três são NOVOS e nenhuma das 4 auditorias tinha visto. Lição de método registrada: parte do defeito só aparece OLHANDO — leitura de código não mostra que a interface apresenta o estado perigoso como seguro.**
+
+### 🔴 A-1 (NOVO, o mais grave) — A TELA PINTA DE **VERDE** O ESTADO QUE ESCAPA DA REGRA DOS 100%
+`EconomicPoliciesPage.tsx:464`:
+```js
+const sumOk = bpsLines.length === 0 || (bpsSum === 10000 && hasRevenueShareAmongBps);
+```
+**Sem nenhuma linha percentual, `sumOk` é verdadeiro por definição** → indicador recebe a classe `--ok` → **verde**, com o texto *"Nenhuma linha percentual nesta versão (só valores fixos)"* (`:1018`). A verificação de fechar 100% é **pulada**.
+**E o backend tem o MESMO furo:** a soma está atrás de `if (hasBpsLine)` (`economic-policy-write-validation.ts:192`). O buraco existe nas **duas camadas**, e a interface **tranquiliza** exatamente onde a regra não roda.
+**Dano concreto:** policy só com `fixedAmountCents` publica sem que ninguém confira se a soma cabe na transação — dá para escrever regra que paga **R$ 130 numa venda de R$ 100**. **É literalmente o "não dê margem pra cento e um por cento" do mandato de Clayton**, e o guard selado como resposta (96 casos) **não usa valor fixo em nenhum fixture** — cobre tudo menos o furo.
+
+### 🔴 A-2 (NOVO) — O PAINEL DEIXA VIOLAR A `DECISION-0194 D2`, SELADA HORAS ANTES
+"Base de cálculo" é um `<select>` **por linha**, com as 3 bases graváveis (bruto · comissão bruta · comissão distribuível). Logo montar linha 1 sobre o bruto e linha 2 sobre a distribuível são **três cliques**. A D2 promulga: *"todas as linhas de uma policy medem a MESMA base; é vedado que contenha linhas com bases divergentes"*. **Nada impede** — nem a tela, nem `assertPolicyLinesValid` (não há trava de base única). Confirma materialmente a tabela do selo da 0194: doutrina selada, fiação ausente. Some com A-1: com bases misturadas, a soma de 100% perde sentido e é onde uma fatia inteira se disfarça de sobra de centavo.
+
+### 🟠 A-3 (NOVO) — `policyType` É GRAVADO E **NÃO MUDA NADA**
+O painel oferece 5 tipos (split de comissão · passe de acesso · híbrido · isento · contratual). `economic-policy-engine.service.ts`: **zero ramificação por tipo** (grep por `access_pass|hybrid|exempt|contractual|commission_split` = nada). O campo entra no histórico permanente e **não altera o cálculo**. Não quebra — mas é escolha que aparenta significar e não significa. ⚠️ **NÃO AUDITADO:** se `policyType` é consumido em outro lugar (resolução, painel, relatório) antes de cravar como inerte.
+
+### ✅ A-4 — 11 DESTINOS OFERECIDOS, **6 RESOLVIDOS** (confirmado na tela, mapeado 1:1)
+Resolvem: `receiver_actor` · `actor_wallet` · `platform_fees` · `risk_reserve` · `escrow_payments` · `regional_fund` (`service-payment-execution.service.ts:48-62`).
+**NÃO resolvem — armadilha:** `platform_revenue` (Receita da plataforma) · `referrer_actor_wallet` (Carteira do indicador) · `group_wallet` (Carteira do grupo) · `channel_actor_wallet` (Carteira do canal) · `custom` (Customizado).
+**🔑 Observação institucional:** os três ausentes — **indicador, grupo e canal** — são exatamente os destinos da **economia comunitária** que o projeto existe para ter. O painel promete o produto; o motor não sabe entregá-lo.
+
+### ✅ A-5 — CIDADE SELECIONÁVEL, MAS NÃO CHEGA AO CÁLCULO
+Clayton selecionou Brasil → Paraná → **Curitiba** sem obstáculo. O único caller vivo do PE-3 (`service-payment-execution.service.ts:594-603`) **não passa `cityId`** — policy escopada a Curitiba é filtrada fora no pagamento. **Categoria nem é oferecida** (*"Em breve — sem categorias 'company' disponíveis"*). O recurso-título vendido — *"percentuais por cidade e categoria"* — está **metade prometido e metade ausente**.
+
+### 🟢 A-6 (NOVO, e REBAIXA UMA PREMISSA DA DIREÇÃO ANTERIOR) — O BACKEND **NEGOU** A LISTAGEM
+A tela exibiu *"Acesso restrito a administradores."* em vermelho, com a lista vazia. Não é rodapé: `EconomicPoliciesPage.tsx:151-154` só emite essa frase quando o backend responde `Requires one of roles|Permission denied|Capability denied`. **Clayton tem o papel `admin` mas não a permissão efetiva desta rota — e o backend fail-closed funcionou.**
+**Consequência doutrinária:** a campanha `F-REGIONAL-BASIS-MVP-GAP` foi justificada com *"Clayton pode publicar HOJE uma policy irresolúvel"*. Pela evidência, ele **não consegue nem listar**. ⚠️ **PROVADO só para a leitura** — o POST não foi testado; provável, não confirmado. Todos os achados acima permanecem **LATENTES** até a permissão ser concedida. **Ordem correta que decorre disto: fechar os furos ANTES de conceder a permissão, nunca depois.**
+
 ## 🧹 ALLOWLIST DE COERÊNCIA SANEADO · ⛔ **E O GATE NÃO PÔDE SER LIGADO — STOP REPORTADO** (2026-07-28)
 **GO de Clayton para o item 1 (limpar o allowlist + ligar o gate no runner). Metade entregue, metade PARADA — e a parada é achado, não fracasso.**
 
