@@ -27,6 +27,7 @@ try {
     Write-Host "DB criada" -ForegroundColor Green
 
     $env:DATABASE_URL = $ephUrl
+    $env:EXPECTED_DATABASE_NAME = $dbName
     $env:MIGRATION_PROFILE = 'FULL'
     $env:NODE_ENV = 'development'
     Remove-Item Env:PILOT_MODE -ErrorAction SilentlyContinue

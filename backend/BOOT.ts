@@ -85,10 +85,16 @@ export async function startServer(): Promise<void> {
   await validateSchemaOrDie();
 
   // Import dinâmico do DB (NUNCA no topo)
-  const { getDatabaseInfo, logDatabaseConnectionInfo } =
+  const { pool, getDatabaseInfo, logDatabaseConnectionInfo } =
     await import('./src/core/database/pool');
 
   logDatabaseConnectionInfo();
+
+  // Trava do banco oficial (DECISION Clayton 2026-07-29): mesma regra única do migrate.ts —
+  // EXPECTED_DATABASE_NAME definida vence; ausente cai em OFFICIAL_DATABASE_NAME (unificard_dev).
+  // Ausência da env var deixa de ser permissão para bootar contra qualquer banco.
+  const { assertOfficialDatabaseOrDie } = await import('./src/core/database/official-database');
+  await assertOfficialDatabaseOrDie(pool);
 
   try {
     await Promise.race([

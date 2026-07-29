@@ -270,27 +270,11 @@ async function main() {
     }
 
     // Guard-rail de alvo: confirmar contra qual banco vamos rodar antes de qualquer
-    // migration. Se EXPECTED_DATABASE_NAME estiver definida e divergir do alvo
-    // resolvido, ABORTA. Sem a env var, log informativo apenas (não muda fluxo CI).
-    const guardClient = await pool.connect();
-    let targetDbName = '';
-    try {
-      const res = await guardClient.query<{ db: string }>('SELECT current_database() AS db');
-      targetDbName = res.rows[0]!.db;
-    } finally {
-      guardClient.release();
-    }
-    console.log(`🎯 Banco-alvo do migrate: ${targetDbName}`);
-    const expected = process.env.EXPECTED_DATABASE_NAME;
-    if (expected && expected !== targetDbName) {
-      console.error(
-        `❌ Alvo divergente: current_database='${targetDbName}' ≠ EXPECTED_DATABASE_NAME='${expected}' — abortado antes de aplicar migrations.`
-      );
-      process.exit(2);
-    }
-    if (expected) {
-      console.log(`✅ Alvo confere com EXPECTED_DATABASE_NAME='${expected}'\n`);
-    }
+    // migration. Regra única (src/core/database/official-database.ts): EXPECTED_DATABASE_NAME
+    // definida vence (isolamento dos harnesses efêmeros); ausente cai em OFFICIAL_DATABASE_NAME
+    // — ausência deixa de ser permissão, sempre há comparação contra current_database().
+    const { assertOfficialDatabaseOrDie } = await import('../database/official-database');
+    await assertOfficialDatabaseOrDie(pool);
 
     // Garante que tabela de controle existe (cria se não existir)
     // NOTA: A migration 000 também cria, mas ensureMigrationsTable garante idempotência

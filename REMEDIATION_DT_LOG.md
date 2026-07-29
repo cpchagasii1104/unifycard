@@ -1,5 +1,160 @@
 # REMEDIATION DT LOG
 
+## ✅ `DT-OFFICIAL-DATABASE-LOCK-FAIL-CLOSED` — FECHADA (2026-07-29)
+**Executora especialista. Pacote v2 da direção, após v1 ter sido corretamente recusado
+(v1 pedia hardcode sem env, o que quebraria 96+ harnesses efêmeros — ver parada anterior
+neste mesmo cartório/sessão).**
+
+### 🔬 A FORMULAÇÃO QUE VIROU A CAUSA-RAIZ OFICIAL
+**"A ausência da env var é tratada como PERMISSÃO, quando deveria ser RECUSA."** É a mesma
+doença por trás de vários achados desta semana (guard que só falha quando alguém lembra de
+declarar o alvo). `EXPECTED_DATABASE_NAME` **não é variável esquecida** — é o mecanismo
+oficial de isolamento dos harnesses efêmeros (327 arquivos a referenciam), e continua
+vencendo quando definida. O defeito era só o ramo "ausente".
+
+### ✅ EXECUTADO — 5 arquivos
+1. **`backend/src/core/database/official-database.ts` (novo)** — declara
+   `OFFICIAL_DATABASE_NAME='unificard_dev'` versionado + `resolveExpectedDatabaseName()`
+   (`env || OFFICIAL_DATABASE_NAME`, nunca retorna vazio) + `assertOfficialDatabaseOrDie(pool)`
+   — comparação **incondicional** contra `current_database()`, `process.exit(2)` em divergência.
+2. **`backend/src/core/db/migrate.ts:272-277`** — substituído o guard antigo (comparação só
+   quando `expected` existia) pela chamada única a `assertOfficialDatabaseOrDie(pool)`.
+3. **`backend/BOOT.ts:87-92`** — mesma trava agora também no **boot da aplicação**, logo após
+   `logDatabaseConnectionInfo()`, antes de qualquer worker subir.
+4. **`backend/scripts/audit-official-database-lock.mjs` (novo)** — guard estrutural
+   comment-stripped: vigia a constante, o fallback fail-closed do resolver, a comparação
+   incondicional (`!/if\s*\(expected\s*&&/`), o abort real, e que os DOIS pontos (migrate +
+   boot) usam o assert compartilhado — não uma cópia local que possa apodrecer sozinha.
+5. **`backend/scripts/run-regression-guards.mjs`** — 1 linha, guard novo registrado no `CMDS[]`.
+
+### 🧪 PROVA (banco declarado em cada cenário)
+- **VERMELHA migrate.ts** (`unificard_local`, sem `EXPECTED_DATABASE_NAME`):
+  `❌ Alvo divergente: current_database='unificard_local' ≠ esperado='unificard_dev' (via
+  OFFICIAL_DATABASE_NAME (fallback fail-closed))` → `npm error code 2`.
+- **VERMELHA boot** (mesmo cenário, `npx tsx BOOT.ts`): schema guard passa, loga o banco
+  errado, aborta com a mesma mensagem, **exit 2**, ANTES de `app.listen`/qualquer worker.
+- **VERDE fluxo comum** (`unificard_dev`, sem a env var): migrate → `✅ Alvo confere... (via
+  OFFICIAL_DATABASE_NAME (fallback fail-closed))`, `exit 0`, "Nada a fazer" (547/547 já
+  aplicadas). Boot completo (porta 3999 pra não colidir com processo já rodando na 3000) →
+  `✅ Alvo confere` seguido de `✅ SERVIDOR INICIADO COM SUCESSO`.
+- **🔴 VERDE DO HARNESS EFÊMERO** (a prova que mais importa): `run-economic-policy-authority-
+  ephemeral.ps1` de ponta a ponta — cria `unificard_economic_policy_authority_e2e`, migrate
+  loga `✅ Alvo confere: current_database='unificard_economic_policy_authority_e2e' (via
+  EXPECTED_DATABASE_NAME)` (a env var **venceu** o fallback, como deveria), aplica as 547
+  migrations do zero, roda o e2e → **24/24 verdes**, dropa o banco efêmero. Confirmado por
+  query pós-run: banco efêmero **não existe mais** (zero resíduo).
+- **VERMELHA do guard novo**: reintroduzido de propósito `if (expected && current !== expected)`
+  em `official-database.ts` → guard morde com 2 falhas nomeadas
+  (`assert-unconditional`, `aborts-on-mismatch`), **exit 1**. Restaurado → **exit 0**,
+  `CLOSED=7 FAILURES=0`.
+
+### 🧾 NÃO-REGRESSÃO DO DADO CURADO (banco `unificard_dev`, antes de tudo = depois de tudo)
+`neighborhoods=75 · actor_capability_grants=3 · regional_fund_accounts=1 ·
+economic_policies=48` — bate exatamente com os valores de referência do pacote, **Δ=0**.
+
+### 🧾 RUNNER E TYPECHECK
+`npm run typecheck` → 0 erros. `npm run validate:regression-guards` (banco `unificard_dev`)
+→ **226 COMMANDS OK** (225 anteriores + 1 novo), `guard-coverage-manifest` **SEM ALCANCE
+(drift) = 0** — o guard novo entrou no universo E no alcance CI_DIRECT sem nenhuma
+discrepância.
+
+### 🚫 NÃO FEITO / FORA DO ESCOPO
+Nenhum `.ps1`/`run-*-ephemeral`/`validate-pipeline-e2e-*` tocado (só lidos e executados como
+prova). `.env` intocado. `setup-local-demo-db.mjs` intocado. Nenhuma migration criada, nenhum
+banco apagado. Não commitado.
+
+### 🧾 DENOMINADOR
+Banco de toda prova funcional: **`unificard_dev`** (oficial) + **`unificard_local`** (só como
+alvo negativo, para provar a recusa) + `unificard_economic_policy_authority_e2e` (efêmero,
+criado e destruído pelo próprio harness). **Confiança: PROVADO** — 4 cenários funcionais + 1
+guard vermelho/verde, todos com saída real colada, não descrita.
+
+### ➕ ADENDO v3 (2026-07-29) — as duas portas que sobraram, fechadas
+Pacote v3 da direção: `official-database.ts`/`migrate.ts`/`BOOT.ts` **não foram tocados**
+nesta rodada (v2 segue de pé, verificada). Duas portas restantes fechadas:
+
+**A · harness fora da amostra** — `scripts/run-e2e-company-ephemeral.ps1` (raiz do repo,
+fora de `backend/scripts/`, por isso não apareceu na varredura anterior) chamava
+`migrate.ts` sem declarar `EXPECTED_DATABASE_NAME` → abortaria com a trava v2. 1 linha,
+copiando a forma exata de ~96 irmãos (`run-actor-page-ephemeral.ps1` e
+`run-actor-relationship-ephemeral.ps1` conferidos): `$env:EXPECTED_DATABASE_NAME = $dbName`
+logo após `$env:DATABASE_URL = $ephUrl`. Nenhum irmão limpa a variável em `finally` — não
+inventei limpeza nova.
+
+**B · a porta deliberada** — `backend/scripts/setup-local-demo-db.mjs` recriava
+`unificard_local` do zero (`DROP DATABASE IF EXISTS` + `CREATE DATABASE` + spawn do
+migrator) e declarava `EXPECTED_DATABASE_NAME` honestamente, então a trava v2 o deixava
+passar — mas a *razão de existir* do script (dev sem as migrations do motor de eventos)
+expirou em 2026-07-29, e `unificard_local` guarda o catálogo de veículos, dado sem
+caminho de renascimento provado. Reescrito para **RECUSAR incondicionalmente antes de
+qualquer conexão** — `refuseAndExit()` chamada no top-level, `process.exit(1)`, mensagem
+nomeando o caminho certo (`unificard_dev`, já com as 547 migrations). Corpo antigo
+preservado abaixo, 100% comentado (inerte, nunca alcançado — a chamada já matou o
+processo). `seed-local-demo.mjs`: só cabeçalho §6 (STATUS: CONTIDO), comportamento
+intocado — ele não cria banco, não é a porta.
+
+**C · guard estendido** (não criei arquivo novo — `audit-official-database-lock.mjs`
+ganhou 4 checks: recusa incondicional presente + comment-stripped sem `CREATE DATABASE`/
+`DROP DATABASE`/`spawnSync`/referência a `migrate.ts` em código real).
+
+**Provas (saída real, coladas no bloco de resposta ao usuário):**
+- `run-e2e-company-ephemeral.ps1` sob **PWSH 7.6.3** (não 5.1), 2× de ponta a ponta:
+  `✅ Alvo confere: current_database='unificard_e2e_company_...' (via
+  EXPECTED_DATABASE_NAME)`, `G2 PIPELINE E2E COMPANY :: PASS`, `exit 0` nas duas.
+  Query pós-run: zero banco `unificard_e2e_company_%` residual.
+- `setup-local-demo-db.mjs` → recusa + `exit 1`. `unificard_local` ANTES/DEPOIS
+  idêntico: **334 tabelas · 547 schema_migrations · 16 vehicle_makes** nos dois momentos,
+  banco continua existindo no catálogo do Postgres.
+- Vermelha do guard C: `CREATE DATABASE` devolvido a código real →
+  `local-demo-setup:no-create-database-capability` morde, `exit 1`. Restaurado →
+  `CLOSED=11 FAILURES=0`, `exit 0`.
+- `npm run validate:regression-guards` (banco `unificard_dev`) → **226 COMMANDS OK**
+  (mesmo número da v2 — só estendi um guard existente, não criei linha nova no `CMDS[]`),
+  `SEM ALCANCE (drift) = 0`. `npm run typecheck` → 0 erros.
+
+**Denominador desta adenda:** `unificard_dev` (runner/typecheck) + `unificard_local`
+(prova de não-toque, único alvo negativo) + 2 bancos efêmeros
+`unificard_e2e_company_*` (criados e dropados pelo próprio harness, confirmado por
+query). Não commitado. `RODAR_LOCAL.md` intocado.
+
+### 🔍 VERIFICAÇÃO DE 1ª MÃO DA DIREÇÃO (2026-07-29) — o que a direção REEXECUTOU, não leu
+
+A executora foi honesta sobre o próprio limite: declarou *"só testei 1 dos ~96+ harnesses
+efêmeros"*. A inferência que colou em seguida — *"o mecanismo que eles usam é idêntico"* —
+era **falsa em exatamente um caso**, e foi assim que a v3 nasceu. **Ela nomeou o buraco
+certo; a direção varreu o que caiu dentro dele.** Registre-se como o arranjo funcionando:
+quem acha o problema não foi quem julgou a solução.
+
+**Reexecutado pela direção, com saída própria:**
+- Vermelha da trava: `migrate` contra `unificard_local` sem a env var → `exit 2`.
+- Verde do isolamento: `EXPECTED_DATABASE_NAME=unificard_local` → `✅ Alvo confere (via
+  EXPECTED_DATABASE_NAME)`, `exit 0`. A env var **continua vencendo**.
+- Recusa do `setup-local-demo-db.mjs` → `exit 1`, sem conectar. `unificard_local`
+  ANTES/DEPOIS: `334 tabelas · 547 migrations · 16 vehicle_makes`, **Δ=0**.
+- `run-e2e-company-ephemeral.ps1` ponta a ponta (pwsh 7) → `G2 PIPELINE E2E COMPANY ::
+  PASS`, `exit 0`; query pós-run: **zero** banco `unificard_e2e_company_%` residual.
+- `official-database.ts` conferido **byte-idêntico** ao validado antes do teste vermelho
+  que a própria executora rodou dentro dele.
+- Runner completo `226 COMMANDS OK`, `SEM ALCANCE (drift) = 0`; `typecheck` 0 erros;
+  `git diff --check` limpo; **CRLF=0** nos 5 arquivos tocados.
+
+**Ataque independente da direção ao guard novo, por ângulo diferente do dela:** em vez de
+devolver o `CREATE DATABASE`, removeu-se **apenas a chamada** `refuseAndExit();`, deixando
+a função definida. O script virou **no-op silencioso com `exit 0`** — a falha mais perigosa
+possível, porque se parece com sucesso. O guard mordeu e nomeou certo
+(`local-demo-setup:refuses-unconditionally`, `exit 1`); restaurado → `CLOSED=11`, `exit 0`.
+**O guard não é decoração.**
+
+**Escrito pela direção nesta rodada:** `RODAR_LOCAL.md` reescrito. Ele ensinava, no bloco
+*"Deu erro ao salvar?"*, que a solução para `SCHEMA_OUT_OF_DATE` era apontar para **longe do
+`unificard_dev`** — verdade em julho, **falsa hoje**, e o convite por escrito para a próxima
+instância repetir o erro. Bloco removido; documento repontado ao banco oficial; declarada a
+lacuna honesta de que as fixtures da demo **não existem** no `unificard_dev` e que semeá-las
+é **decisão de Clayton**, não passo mecânico.
+
+⚠️ **NÃO SELADO.** Selo é ato de Clayton. Esta entrada registra execução + verificação de
+1ª mão; falta auditoria independente (Yala) se a direção quiser selo forte.
+
 ## ✅ `DT-SOCIAL-IMPACT-BALANCE-UPSERT-42P10` — FECHADA (2026-07-29)
 **Executora especialista. Pacote fechado da direção, causa-raiz já verificada de 1ª mão por ela — reconfirmada aqui só na execução, não reinvestigada.**
 

@@ -1,11 +1,22 @@
 // backend/scripts/seed-local-demo.mjs
 //
+// ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+// ║ STATUS:  CONTIDO
+// ║ NORMA:   REMEDIATION_DT_LOG.md — DT-OFFICIAL-DATABASE-LOCK-FAIL-CLOSED (2026-07-29)
+// ║ NÃO:     depender deste alvo para trabalho novo — unificard_local está aposentado
+// ║ EM VEZ:  usar unificard_dev (banco oficial; já tem as 547 migrations aplicadas)
+// ╚════════════════════════════════════════════════════════════════
+//
 // LAUNCHER do seed de demo local: aponta DATABASE_URL para `unificard_local` e roda o seed
 // REAL (src/scripts/seed-local-demo.ts via tsx — usa os writers SELADOS + authService.register).
 // Guard fail-closed: NUNCA aponta para unificard_dev. Bank-free.
 //
+// Este script NÃO cria banco (isso é setup-local-demo-db.mjs, agora CONTIDO) — só semeia um
+// banco `unificard_local` que já exista. Não é a porta de recriação; fica inerte por si só
+// enquanto o alvo continuar aposentado (nada de novo a rodar contra ele).
+//
 // Uso (a partir de backend/):  node scripts/seed-local-demo.mjs
-// Pré-requisito: node scripts/setup-local-demo-db.mjs já criou/migrou unificard_local.
+// Pré-requisito: unificard_local já precisa existir (setup-local-demo-db.mjs não recria mais).
 
 import { spawnSync } from 'node:child_process';
 import { readFileSync, existsSync } from 'node:fs';
