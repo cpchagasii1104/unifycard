@@ -119,7 +119,7 @@ duas vezes"* vivem **no mesmo acordeão, na mesma tela do mesmo pedido**.
 
 ## D3 — A AJUDA ANCORA NA OPERAÇÃO, E O VOCABULÁRIO É COMPOSTO, NUNCA ENUMERADO
 
-A extensão de Clayton sobre o desenho arquivado: o documento original ancora na **entidade** (`DRIVER`, `PROVIDER`, `COMPANY`), com `TRANSACTION` marcado *"(futuro)"*. **Fica decidido que a Porta A ancora na OPERAÇÃO CONCRETA**, e a entidade é **derivada** dela.
+A extensão de Clayton sobre o desenho arquivado: o documento original ancora na **entidade** (`DRIVER`, `PROVIDER`, `COMPANY`), com `TRANSACTION` marcado *"(futuro)"*. **Fica decidido que a AJUDA ancora na OPERAÇÃO CONCRETA**, e a entidade é **derivada** dela.
 
 Razão registrada — não é preferência estética:
 - **A denúncia nasce com prova.** Ancorada na operação, carrega quem, quando, quanto, qual pedido. Ancorada na entidade, é palavra contra palavra.
