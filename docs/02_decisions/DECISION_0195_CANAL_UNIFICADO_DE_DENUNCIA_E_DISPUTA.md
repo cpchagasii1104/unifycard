@@ -157,6 +157,45 @@ o passageiro. O Mercado Livre chama de **"Atalhos personalizados"** e os deriva 
 daquele usuário. **É projeção do contexto do Actor**, que já é doutrina deste projeto —
 não é sistema novo a inventar.
 
+> ### 🔴 D3.4 — MODO (CONSUMIR × OPERAR) É **DERIVADO**, NUNCA UM ENUM NOVO
+> Diretiva de Clayton, 2026-07-30: *"o unificard vai ter que se adaptar de acordo com o Actor
+> e modo consumir ou operar"*.
+>
+> Prova nas telas: o **mesmo produto** projeta a **mesma viagem** de formas diferentes. O card
+> do motorista traz *"Viagem concluída 15:51 · Wait & Save · 21.61 km"* (métrica operacional);
+> o card do passageiro traz *"Rua Carlos Amoretty Osório · 28 de jun · R$ 8,39"* (endereço e
+> preço). Mesmo fato, projeções distintas — e taxonomias de ajuda distintas.
+>
+> **Verificado de 1ª mão pela direção antes de escrever esta cláusula:**
+> - O eixo governado hoje é `ModuleContext = 'personal' | 'company'`
+>   (`core/navigation/module-registry.ts:12`). **Não é este eixo** — consumir × operar é
+>   **ortogonal** a PF × empresa: uma PF consome *e* pode operar.
+> - Existe substrato de autoridade completo: `actor_capability_grants`
+>   (`capability_key`, `scope_type`, `status`, `valid_from/until`, `authority_source`) +
+>   `actor_capability_grant_events`.
+>
+> **FICA DECIDIDO — modo NÃO vira campo, flag nem terceiro enum:**
+> - **CONSUMIR é o baseline.** Todo Actor consome; não precisa de concessão.
+> - **OPERAR é DERIVADO** do que o Actor efetivamente tem — capability concedida, oferta ativa,
+>   vínculo — e é **por vertical**, não global. O mesmo Actor pode operar em mobilidade e
+>   apenas consumir em marketplace, e a Ajuda tem de refletir isso.
+> - Criar `modo` como coluna ou enum é **PROIBIDO**: seria a quarta verdade sobre autoridade,
+>   ao lado de `PermissionKey`, `capability` e `grant`, e divergiria em silêncio.
+
+> ### 🔴 D3.5 — A AJUDA PROJETA DO MESMO REGISTRY QUE O MENU
+> `core/navigation/module-projection.routes.ts:4` já promulga: *"O menu é **PROJEÇÃO, nunca
+> autoridade**: considera contexto (PF/empresa), vínculo"*. Existe `MODULE_REGISTRY` com
+> `contexts`, `ModuleStatus` (`LIVE`/`STUB`/`TOMBSTONE`) e `liveEntriesForContext()`.
+>
+> **A superfície de Ajuda é PROJEÇÃO DA MESMA FONTE.** Não se cria registry paralelo de
+> tópicos.
+>
+> **Consequência dura, e é o ponto:** módulo que não está `LIVE` para o seu contexto **não
+> aparece no menu E não aparece na Ajuda**. Se aparecesse, o usuário poderia abrir chamado
+> sobre função que não existe para ele — e a plataforma estaria dizendo duas coisas
+> diferentes sobre o mesmo sistema, na mesma sessão. **É a doença das duas verdades chegando
+> na cara do usuário.**
+
 ---
 
 ## D4 — IDENTIFICADO PARA A PLATAFORMA, ANÔNIMO PARA O ACUSADO
@@ -223,6 +262,11 @@ O ML declara em texto fixo: *"Este assistente usa inteligência artificial para 
 **Havendo triagem, sugestão ou resposta automática, o usuário é informado.** Vale também para o
 motor de risco (`core/reporting/ai/risk-scoring-engine.ts`), coerente com a regra já escrita de
 que **nenhuma denúncia gera punição automática**.
+
+**D9.1 — A resposta automática é avaliável.** A Uber põe 👍/👎 em cada resposta do assistente.
+Sem isso não há como medir se a triagem automática está ajudando ou empurrando o usuário para
+o texto livre — e um assistente ruim que ninguém mede vira barreira de acesso ao suporte,
+não atalho.
 
 ---
 
