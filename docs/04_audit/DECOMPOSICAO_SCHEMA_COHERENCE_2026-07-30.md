@@ -128,6 +128,56 @@ do padrão que escondeu o rate-limit — `catch` engolindo erro e devolvendo per
 único fail-open silencioso dessa forma. Registrado como resultado NEGATIVO com denominador
 declarado: não é ausência de busca, é busca que deu vazio.
 
+## ✅ TERCEIRA PASSAGEM — O BALDE "SEM DEFINIÇÃO EM LUGAR NENHUM" ESTÁ FECHADO
+
+**Medido pela direção em 2026-07-30, contra o JSON pós-correções de parser (1847 itens) e o
+`unificard_dev`.** Recomposição dos 679 fora de harnesses:
+
+| balde | ocorrências | nomes |
+|---|---|---|
+| tabela **EXISTE** (fronteira de módulo — `C3`/`C13`) | 41 | 6 |
+| definida em `migrations_archive` (cauda do REBASE-03) | 591 | 136 |
+| criada por migration viva | **0** | 0 |
+| 🔍 **sem definição em lugar nenhum** | **47** | **16** |
+
+**Os 47 foram adjudicados um a um. Nenhum sobrou sem explicação:**
+
+| grupo | oc. | veredito |
+|---|---|---|
+| `reports` · `report_events` · `risk_flags` | 13 | **NORMA ÓRFÃ.** Desenho existe (`REPORTING_CORE.md` + `REPORTING_DATA_MODEL.md`, em `99_archive/to_review`), nunca promulgado. Adjudicado em `DECISION-0195` (**não-selada**). Inalcançável: 401 por escopo. |
+| `accounts` · `transactions` | 6 | **SUBSTRATO SUBSTITUÍDO + CÓDIGO MORTO.** `city-readiness.service.ts` consulta nomes genéricos; o schema vivo tem `bank_accounts`/`bank_transactions`/`group_accounts`/`treasury_accounts`. **Cadeia morta provada:** `city-readiness.module.ts` **não é registrado**, e `dynamicPricingService`/`productDemandService` — únicos que importam o serviço — **não têm caller nenhum**. |
+| `payout_transactions` · `payment_intent_splits` | 6 | **SUBSTRATO SUBSTITUÍDO.** `modules/reports/financial-report.service.ts`; o vivo é `payment_transactions`/`bank_splits`/`payment_intents`. Alcançável via `/reports` (protegido), **mascarado pelo 403 do RBAC**. |
+| `rides_*` (9 nomes) | 22 | Mesma contenção já provada para as outras 91 de rides: rota comentada em `rides.module.ts` ou atrás de `requirePermission`. |
+
+🔴 **A categoria mais perigosa é SUBSTRATO SUBSTITUÍDO** — 12 ocorrências. Não é código morto:
+**é função viva chamando o nome errado.** Parece fantasma e não é; o dado existe, com outro
+nome. Quem "limpar" isso apagando o código apaga funcionalidade; quem religar sem trocar o
+nome liga no vazio. É a categoria que o mandato de DOCUMENTOS deve caçar na cauda dos 136.
+
+### 🔴 ACHADO NOVO — `DT-REPORTS-PREFIX-COLLISION`
+
+**`/reports` está registrado DUAS VEZES, para produtos diferentes e em escopos diferentes:**
+
+```
+app.builder.ts:257   core/reporting    (denúncia/abuso)     → escopo PÚBLICO
+app.builder.ts:716   modules/reports   (relatório financeiro) → protectedScope, prefix '/reports'
+```
+
+Os caminhos internos hoje não colidem exatamente — `core/reporting` expõe `POST /`, `GET /`,
+`GET /:id`, `PATCH /:id`; `modules/reports` expõe `/sales`, `/inventory`, `/financial`,
+`/inventory/aging`, `/transfers/sla`, `/inventory/suggestions` — então o boot não quebra.
+**Mas o mesmo namespace serve denúncia de assédio e relatório de vendas, um público e outro
+protegido.** `POST /reports` cria denúncia; `GET /reports/financial` lê faturamento.
+
+⚠️ **`GET /reports/:id` (denúncia, público) casa com qualquer segmento** — a única razão de
+`/reports/financial` não ser capturado é a ordem de registro e o escopo. É frágil por
+construção: basta alguém adicionar uma rota nova para virar colisão real ou vazamento de
+rota protegida para o escopo público.
+
+Confirma o diagnóstico do `PLANO_RECUPERACAO.md` §2 (*"o runtime está amplo demais… comentários
+no próprio código admitindo possíveis conflitos de rotas"*). **Não é a mesma dívida do canal de
+denúncia** — esta é de namespace HTTP, e sobrevive mesmo depois que a `DECISION-0195` for selada.
+
 ## Ordem recomendada pela direção
 
 1. **Mapa de cobertura da cauda do REBASE-03** (read-only, instância DOCUMENTOS): cruzar os

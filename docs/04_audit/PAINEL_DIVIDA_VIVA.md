@@ -49,7 +49,16 @@ DTs abertas · `bank_ledger`/`transactions`/`splits` = 0 · estado da PORTA-01.
 | `01c54f53e` | gate escondia a própria lista (`slice(0,5)`); 165 acusações eram bugs dele | gate 1928 → **1802** |
 | `c245b6112` | decomposição: as 1928 são **um commit de fevereiro**, não 136 problemas | — |
 | `25aa17223` | +6 classes de bug do gate; a correção ingênua teria **cegado 220 escritas** | gate 1802 → **1794** |
-| (este) | nove rastreadores → um placar | — |
+| `d1e74cc62` | nove rastreadores → um placar | — |
+| `3496f57d4`+4 | `DECISION-0195` — canal unificado de denúncia (17 cláusulas, **não-selada**) | — |
+| (este) | balde "sem definição em lugar nenhum" **fechado**: 47/47 adjudicados | — |
+
+**🔴 Categoria nova, e é a que a direção mais quer vigiar: `SUBSTRATO SUBSTITUÍDO`.** Não é
+código morto — **é função viva chamando o nome errado**. Achados hoje: `accounts`/`transactions`
+(o vivo é `bank_accounts`/`bank_transactions`) · `payout_transactions`/`payment_intent_splits`
+(o vivo é `payment_transactions`/`bank_splits`) · `reputation_scores`/`actor_scores`/`reviews`
+(o vivo é `actor_reputation`/`trust_score_snapshots`). **Parece fantasma e não é.** Quem
+"limpa" apagando o código apaga funcionalidade; quem religa sem trocar o nome liga no vazio.
 
 **Padrão das três dívidas fechadas hoje, que vale mais que os números:** nenhuma gritava.
 Ausência de env var passava calada · `catch` devolvia zero calado · `slice(0,5)` cortava
@@ -79,6 +88,8 @@ independente antes de ser aceito.
 | **`C3-actors-insert-fora-writer`** | `identity.service.ts:313` faz `INSERT INTO actors` fora do writer canônico. Alcance hoje **baixo** | CAUSA | `allowlist:8-16` |
 | **`C13-bank-reads-fora-modulo`** | ~15 arquivos leem `bank_*` fora de `modules/bank`. Escopo **CRESCEU** em 28/07 | CAUSA | `allowlist:18-26` |
 | **`F-EVENT-CREATION-CONTRACT-SWEEP`** | Rota `/events/:id/economic` **não existe**; `event_type` é órfão de escrita | SINTOMA | cartório `:99-118` |
+| 🆕 **`DT-REPORTS-PREFIX-COLLISION`** | **`/reports` registrado 2×**: `core/reporting` (denúncia) em escopo **PÚBLICO** (`app.builder.ts:257`) e `modules/reports` (financeiro) em **protectedScope** (`:716`). Não quebra o boot hoje, mas `GET /reports/:id` público casa com qualquer segmento | CAUSA | medido 2026-07-30 |
+| 🆕 **`DT-REPORTING-CHANNEL-DEAD-PUBLIC-SCOPE`** | Canal de denúncia **100% morto**: fora do `protectedScope`, `preHandler` exige `req.user`/`req.tenant` que só existem lá → **401 sempre**. Atrás dele, 3 tabelas que nunca existiram | CAUSA | `DECISION-0195` (não-selada) |
 
 ## 🧨 A CONTENÇÃO QUE SUSTENTA O PESO — `actor_has_permission` e a FASE 6
 
