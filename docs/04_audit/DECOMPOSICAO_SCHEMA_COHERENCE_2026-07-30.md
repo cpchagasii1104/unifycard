@@ -260,6 +260,77 @@ decide quem pode agir:
 nome" que na verdade estreita escopo apaga funcionalidade em silêncio — e no caso de `votes`
 apagaria a votação de tenant inteiro.
 
+## ✅ QUINTA PASSAGEM — OS 22 ABERTOS, ADJUDICADOS POR COLUNA
+
+**Método:** para cada par, extrair do código a lista de colunas do `INSERT INTO <fantasma>` e
+comparar com as colunas reais do candidato vivo no `unificard_dev`. Onde não há `INSERT`,
+marcado como leitura-apenas.
+
+🔴 **RESULTADO QUE DERRUBA A PRÓPRIA LISTA DA PASSAGEM ANTERIOR: metade é RUÍDO.**
+
+### ⛔ FALSO POSITIVO — conceitos diferentes, substring coincidente (11 nomes · ~72 oc.)
+
+| fantasma → candidato | por que NÃO é substituição |
+|---|---|
+| `payout_orders` → `orders` | código espera `batch_id, payout_method, ledger_entry_ids, escrow_id`; vivo é **pedido de venda** (`buyer_actor_id, seller_actor_id`). **Payout ≠ compra** |
+| `rides_ride_events` → `events` | `ride_id, payload, occurredAt` = **event-sourcing**; vivo é **evento-produto** (show, ingresso) |
+| `human_mvp_events` · `pilot_events` → `events` | idem — log de fato histórico ≠ evento-produto |
+| `rides_driver_availability` → `availability` | `driver_id, is_available` (booleano) ≠ janela de agenda com `start/end_datetime, capacity` |
+| `subscriptions` → `organizer_subscriptions` | `payment_link_id, interval, next_run_at, max_failures` = **motor de recorrência**; vivo é **plano de organizador** |
+| `cultural_profiles` → `profiles` | `owner_actor_id, slug, linked_company_id` ≠ perfil pessoal (`user_id, cpf`) |
+| `user_skills_categories` → `categories` | join usuário×categoria com `hourly_rate` ≠ **árvore de categorias** |
+| `rides_driver_services` → `services` | `driver_id, service_type_id` (join) ≠ catálogo de serviço |
+| `tab_orders` → `orders` | `tab_id, order_id` = tabela de junção comanda×pedido |
+| `event_rsvp_counts` → `event_rsvp` | agregado/contagem ≠ registro individual |
+
+> 🔴 **A família `*_events` → `events` é a ARMADILHA DE NOME já documentada** no
+> `INDICE_ONDE_ESTA_O_QUE`: *"`10_EVENTS_CANONICA` **NÃO** é sobre eventos-produto"*. Aqui ela
+> reapareceu **por dentro do gate**, e teria enganado qualquer varredura por nome.
+>
+> 🔴 **E `payout_orders → orders` é o exemplo de por que substring não vira veredito:** aceitar
+> essa "substituição" mapearia **lote de pagamento em pedido de venda**. O diff pareceria um
+> refactor de nome.
+
+### ⚠️ MIGRAÇÃO CONCEITUAL OU ESTREITAMENTO — **exige DECISION, nunca rename** (6 nomes)
+
+| fantasma → vivo | o que muda de verdade |
+|---|---|
+| `cultural_events` → `events` | `created_by_cultural_profile_id` / `co_creators_*` / `location_cultural_profile_id` → `actor_id`+`actor_type`. **É o refactor Actor-first**, não rename |
+| `predefined_services` → `services` | `global_user_id` → `actor_id`; `base_price`+`discount_percentage` → `price_cents`. Modelo econômico diferente |
+| `cultural_event_checkins` → `event_checkins` | **PERDA**: `check_in_method`, `geo_lat`, `geo_lng`, `device_fingerprint` não existem no vivo |
+| `checkins` → `event_checkins` | genérico (`context_type`, `context_id`, `token_id`) → **específico de evento**. Estreitamento |
+| `alerts` → `financial_alerts` | alerta **genérico** (`entity_type`, `entity_id`) → **só financeiro**. Estreitamento de domínio |
+| `social_chat_messages` → `chat_messages` | **PERDA**: `intent`, `confidence`, `categories`, `suggested_actions` — a camada de IA some |
+
+### ✅ RENAME PLAUSÍVEL — fila executável, com ajuste declarado (5 nomes)
+
+| fantasma → vivo | ajuste necessário |
+|---|---|
+| `vote_responses` → `group_vote_responses` | `vote_option_id` → `option_id`; `tenant_id` passa a ser obrigatório |
+| `vote_options` → `group_vote_options` | `tenant_id` obrigatório; ganha `description`, `display_order` |
+| `organization_roles` → `roles` | leitura-apenas; vivo tem `role_id, tenant_id, name, is_system_role` |
+| `service_bookings` → `bookings` | leitura-apenas; vivo tem `booking_id, availability_id, requester_actor_id` |
+| `local_products` → `products` | leitura-apenas; vivo tem `canonical_product_id` |
+
+⚠️ **Mesmo estes 5 não são "só trocar o nome":** quatro exigem `tenant_id` ou mudam nome de
+coluna, e três são leitura-apenas — cuja query precisa ser lida antes de qualquer pacote.
+**Nenhum é seguro sem abrir o SQL de cada caller.**
+
+### 📊 O SALDO DA CAÇADA
+
+| veredito | nomes | o que fazer |
+|---|---|---|
+| ⛔ ruído (conceitos diferentes) | **11** | **nada** — não são substituição. Retirar da fila |
+| ⚠️ migração/estreitamento | **6** | **DECISION** — é produto, não refactor |
+| ✅ rename plausível | **5** | GATE por caller → pacote fechado |
+| (verificados na 4ª passagem) | 2 | `referral_codes` rename · `votes` estreitamento |
+
+🔴 **METADE DOS "CANDIDATOS" ERA RUÍDO.** Se a lista da 4ª passagem tivesse sido tratada como
+fila de execução, o resultado seria mapear payout em pedido de venda e log de corrida em evento
+de show. **A lição não é sobre esta frente: é sobre toda varredura por semelhança de nome neste
+repositório.** Similaridade de nome é a evidência mais fraca que existe aqui — o `REBASE-03`
+reorganizou domínios inteiros, e nomes parecidos sobreviveram apontando para coisas distintas.
+
 ## Ordem recomendada pela direção
 
 1. **Mapa de cobertura da cauda do REBASE-03** (read-only, instância DOCUMENTOS): cruzar os
