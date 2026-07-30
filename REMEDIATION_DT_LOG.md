@@ -1,5 +1,46 @@
 # REMEDIATION DT LOG
 
+## 🔍 GATE — `DT-SERVICE-BUNDLE-BOOKINGS-GHOST-TABLE-LIVE` (2026-07-30)
+
+**Direção, read-only.** Resultado: **relocação pura**. O escritor já está certo; só o leitor
+ficou para trás no `REBASE-03`.
+
+### A assimetria
+
+| | caminho | tabela |
+|---|---|---|
+| **ESCRITA** | `unifiedAvailabilityService.createBooking` (`service-bundle.service.ts:220`) | ✅ `bookings` — **canônico e vivo** |
+| **LEITURA** | SQL cru em `getBundleBookings` (`:286-296`) | ❌ `service_bookings` — **não existe** |
+
+O escritor grava em `bookings.metadata` exatamente o que o leitor procura:
+`serviceId` (`:225`) · `bundleId` (`:226`) · `isBundleBooking` (`:234`).
+
+### Alcance — é produto vivo, não código morto
+
+`frontend/src/api/service-bundles.ts:100` chama `/service-bundles/:id/bookings`, consumido por
+`ServiceBundleBookingModal.tsx` e pelo fluxo RFQ (`EventRFQConvertToBundleModal`,
+`EventRFQQuotesPage`). Módulo registrado em `app.builder.ts:569` (`protectedScope`, `/services`),
+**sem `requirePermission` e sem contenção** → qualquer autenticado recebe **500**.
+
+### Prova contra `unificard_dev`
+
+```
+query ATUAL     → ERRO: relação "service_bookings" não existe
+query CORRIGIDA → executa limpa, 0 linhas (correto — nenhum bundle criado ainda)
+```
+
+`bookings` tem `booking_id` · `status` · `metadata` · `created_at` · `tenant_id`. O único campo
+ausente é `service_id`, e ele **já vive em `metadata->>'serviceId'`**, escrito pelo próprio
+`createBundleBookings`.
+
+### Veredito
+
+**CONSERTAR, não conter** (regra de decisão de Clayton, 2026-07-30). Conter mataria
+funcionalidade com tela montada. **Zero SQL autorada** — a correção aponta o `SELECT` para a
+tabela onde o dado já está.
+
+---
+
 ## 🔬 VERIFICAÇÃO DE 1ª MÃO — `PAINEL ECONÔMICO A-1` NÃO PAGA A MAIS (2026-07-30)
 
 **Direção. Read-only sobre o repo; sonda executada FORA dele (scratchpad).** Terceira alegação
