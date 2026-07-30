@@ -3790,56 +3790,6 @@
     "inScripts": false
   },
   {
-    "file": "C:\\unificard\\backend\\src\\core\\categories\\categories.repository.ts",
-    "line": 530,
-    "name": "unnest",
-    "pattern": "FROM",
-    "type": "table",
-    "severity": "CORRUPTOR",
-    "snippet": "XISTS (\r\n            SELECT 1 FROM unnest(path) AS path_item\r\n            WHERE LOWER(path",
-    "inScripts": false
-  },
-  {
-    "file": "C:\\unificard\\backend\\src\\core\\categories\\categories.repository.ts",
-    "line": 530,
-    "name": "unnest",
-    "pattern": "FROM",
-    "type": "table",
-    "severity": "CORRUPTOR",
-    "snippet": "XISTS (\r\n            SELECT 1 FROM unnest(path) AS path_item\r\n            WHERE LOWER(path",
-    "inScripts": false
-  },
-  {
-    "file": "C:\\unificard\\backend\\src\\core\\categories\\categories.repository.ts",
-    "line": 684,
-    "name": "unnest",
-    "pattern": "FROM",
-    "type": "table",
-    "severity": "CORRUPTOR",
-    "snippet": "XISTS (\r\n            SELECT 1 FROM unnest(path) AS path_item\r\n            WHERE LOWER(path",
-    "inScripts": false
-  },
-  {
-    "file": "C:\\unificard\\backend\\src\\core\\categories\\categories.repository.ts",
-    "line": 684,
-    "name": "unnest",
-    "pattern": "FROM",
-    "type": "table",
-    "severity": "CORRUPTOR",
-    "snippet": "XISTS (\r\n            SELECT 1 FROM unnest(path) AS path_item\r\n            WHERE LOWER(path",
-    "inScripts": false
-  },
-  {
-    "file": "C:\\unificard\\backend\\src\\core\\categories\\hobby-matcher.service.ts",
-    "line": 108,
-    "name": "unnest",
-    "pattern": "FROM",
-    "type": "table",
-    "severity": "CORRUPTOR",
-    "snippet": "hobby) as similarity\r\n        FROM unnest($2::text[]) AS hobby\r\n        WHERE similarity($",
-    "inScripts": false
-  },
-  {
     "file": "C:\\unificard\\backend\\src\\core\\city\\city-readiness\\city-readiness.service.ts",
     "line": 151,
     "name": "workers",
@@ -3960,16 +3910,6 @@
     "inScripts": false
   },
   {
-    "file": "C:\\unificard\\backend\\src\\core\\compliance\\authority-decision.service.ts",
-    "line": 134,
-    "name": "u",
-    "pattern": "FROM",
-    "type": "table",
-    "severity": "CORRUPTOR",
-    "snippet": "lobal_user_id IS NOT DISTINCT FROM u.global_user_id\n      WHERE a.tenant_id = $1 AND a.id ",
-    "inScripts": false
-  },
-  {
     "file": "C:\\unificard\\backend\\src\\core\\config\\config.service.ts",
     "line": 81,
     "name": "tenant_configs",
@@ -4077,16 +4017,6 @@
     "type": "table",
     "severity": "CORRUPTOR",
     "snippet": "\r\n      INSERT INTO actors (id, tenant_id, actor_type, external_id, ",
-    "inScripts": false
-  },
-  {
-    "file": "C:\\unificard\\backend\\src\\core\\media-assets\\media-context-identity.ts",
-    "line": 117,
-    "name": "media_context_dimension_norm",
-    "pattern": "FROM",
-    "type": "table",
-    "severity": "CORRUPTOR",
-    "snippet": "m(ma.license) IS NOT DISTINCT FROM media_context_dimension_norm($9::text)\n        AND medi",
     "inScripts": false
   },
   {
@@ -4807,16 +4737,6 @@
     "type": "table",
     "severity": "CORRUPTOR",
     "snippet": "ELECT COUNT(*)::text AS total FROM reviews WHERE ${whereSQL}",
-    "inScripts": false
-  },
-  {
-    "file": "C:\\unificard\\backend\\src\\core\\tenants\\tenant-context-permission.service.ts",
-    "line": 42,
-    "name": "public",
-    "pattern": "FROM",
-    "type": "table",
-    "severity": "CORRUPTOR",
-    "snippet": "SELECT permission FROM public.tenant_contexts \r\n       WHERE tenant_id = $1 AN",
     "inScripts": false
   },
   {
@@ -18020,26 +17940,6 @@
     "inScripts": false
   },
   {
-    "file": "C:\\unificard\\backend\\src\\core\\availability\\unified-availability.repository.ts",
-    "line": 906,
-    "name": "detect_availability_conflicts",
-    "pattern": "FROM",
-    "type": "table",
-    "severity": "DEBT",
-    "snippet": "SELECT * FROM detect_availability_conflicts($1, $2, $3)",
-    "inScripts": false
-  },
-  {
-    "file": "C:\\unificard\\backend\\src\\core\\companies\\business-templates.service.ts",
-    "line": 117,
-    "name": "lateral",
-    "pattern": "JOIN",
-    "type": "table",
-    "severity": "DEBT",
-    "snippet": "usiness_templates t\r\n         JOIN LATERAL (\r\n           SELECT id, version, composition F",
-    "inScripts": false
-  },
-  {
     "file": "C:\\unificard\\backend\\src\\core\\config\\config.service.ts",
     "line": 234,
     "name": "tenant_configs",
@@ -18047,36 +17947,6 @@
     "type": "table",
     "severity": "DEBT",
     "snippet": "eated_at, updated_at\r\n        FROM tenant_configs\r\n        ORDER BY module, key\r\n        L",
-    "inScripts": false
-  },
-  {
-    "file": "C:\\unificard\\backend\\src\\core\\home-feed\\home-feed.service.ts",
-    "line": 175,
-    "name": "created_at",
-    "pattern": "FROM",
-    "type": "table",
-    "severity": "DEBT",
-    "snippet": "tor_id,\n          EXTRACT(DOW FROM created_at)::int AS day_of_week,\n          created_at\n ",
-    "inScripts": false
-  },
-  {
-    "file": "C:\\unificard\\backend\\src\\core\\home-feed\\home-feed.service.ts",
-    "line": 175,
-    "name": "now",
-    "pattern": "FROM",
-    "type": "table",
-    "severity": "DEBT",
-    "snippet": " ap.day_of_week = EXTRACT(DOW FROM NOW())::int\n      GROUP BY ap.counterpart_actor_id, a.d",
-    "inScripts": false
-  },
-  {
-    "file": "C:\\unificard\\backend\\src\\core\\media-assets\\media-context-identity.ts",
-    "line": 117,
-    "name": "media_context_dimension_norm",
-    "pattern": "FROM",
-    "type": "table",
-    "severity": "DEBT",
-    "snippet": ".origin_note) IS NOT DISTINCT FROM media_context_dimension_norm($10::text)\n      ) AS equa",
     "inScripts": false
   },
   {
@@ -18110,16 +17980,6 @@
     "inScripts": false
   },
   {
-    "file": "C:\\unificard\\backend\\src\\core\\rbac\\rbac.service.ts",
-    "line": 312,
-    "name": "get_user_permissions",
-    "pattern": "FROM",
-    "type": "table",
-    "severity": "DEBT",
-    "snippet": "SELECT * FROM get_user_permissions($1, $2)",
-    "inScripts": false
-  },
-  {
     "file": "C:\\unificard\\backend\\src\\core\\root-config\\root-config.repository.ts",
     "line": 11,
     "name": "root_config",
@@ -18137,26 +17997,6 @@
     "type": "table",
     "severity": "DEBT",
     "snippet": "SELECT id FROM root_config LIMIT 1",
-    "inScripts": false
-  },
-  {
-    "file": "C:\\unificard\\backend\\src\\modules\\authority\\actor-capability-grant.repository.ts",
-    "line": 87,
-    "name": "fn_grant_actor_capability",
-    "pattern": "FROM",
-    "type": "table",
-    "severity": "DEBT",
-    "snippet": "SELECT ${SELECT_COLS} FROM fn_grant_actor_capability(\n         $1::uuid,$2::uuid,$",
-    "inScripts": false
-  },
-  {
-    "file": "C:\\unificard\\backend\\src\\modules\\authority\\actor-capability-grant.repository.ts",
-    "line": 201,
-    "name": "fn_revoke_actor_capability_grant",
-    "pattern": "FROM",
-    "type": "table",
-    "severity": "DEBT",
-    "snippet": "SELECT ${SELECT_COLS} FROM fn_revoke_actor_capability_grant($1::uuid,$2::uuid,$3::",
     "inScripts": false
   },
   {
@@ -18227,26 +18067,6 @@
     "type": "table",
     "severity": "DEBT",
     "snippet": "created_at, updated_at\r\n      FROM product_attributes\r\n      ${whereClause}\r\n      ORDER B",
-    "inScripts": false
-  },
-  {
-    "file": "C:\\unificard\\backend\\src\\modules\\marketplace\\product-visibility.service.ts",
-    "line": 83,
-    "name": "lateral",
-    "pattern": "JOIN",
-    "type": "table",
-    "severity": "DEBT",
-    "snippet": "c.fiscal_identity_id\n    LEFT JOIN LATERAL (\n      -- Estoque DO MERCHANT da oferta (actor",
-    "inScripts": false
-  },
-  {
-    "file": "C:\\unificard\\backend\\src\\modules\\marketplace\\real-margin.service.ts",
-    "line": 73,
-    "name": "com",
-    "pattern": "JOIN",
-    "type": "table",
-    "severity": "DEBT",
-    "snippet": "order_revenue AS (\n        -- Join com order_items APÓS agregação por order_id\n        -- ",
     "inScripts": false
   },
   {
@@ -18340,36 +18160,6 @@
     "inScripts": false
   },
   {
-    "file": "C:\\unificard\\backend\\src\\modules\\rides\\availability\\availability.routes.ts",
-    "line": 81,
-    "name": "rides_check_driving_limit",
-    "pattern": "FROM",
-    "type": "table",
-    "severity": "DEBT",
-    "snippet": "        SELECT *\r\n            FROM rides_check_driving_limit($1, $2);\r\n          ",
-    "inScripts": false
-  },
-  {
-    "file": "C:\\unificard\\backend\\src\\modules\\rides\\availability\\availability.routes.ts",
-    "line": 275,
-    "name": "rides_calculate_realtime_earnings",
-    "pattern": "FROM",
-    "type": "table",
-    "severity": "DEBT",
-    "snippet": "        SELECT *\r\n            FROM rides_calculate_realtime_earnings($1, $2);\r\n          ",
-    "inScripts": false
-  },
-  {
-    "file": "C:\\unificard\\backend\\src\\modules\\rides\\availability\\availability.routes.ts",
-    "line": 314,
-    "name": "rides_calculate_realtime_earnings",
-    "pattern": "FROM",
-    "type": "table",
-    "severity": "DEBT",
-    "snippet": "          SELECT *\r\n          FROM rides_calculate_realtime_earnings($2, (SELECT driver_id",
-    "inScripts": false
-  },
-  {
     "file": "C:\\unificard\\backend\\src\\modules\\rides\\demand\\demand.routes.ts",
     "line": 40,
     "name": "rides_zone_demand_pressure",
@@ -18377,16 +18167,6 @@
     "type": "table",
     "severity": "DEBT",
     "snippet": "rides_zones z\r\n          LEFT JOIN rides_zone_demand_pressure dp\r\n            ON dp.zone_i",
-    "inScripts": false
-  },
-  {
-    "file": "C:\\unificard\\backend\\src\\modules\\rides\\demand\\demand.routes.ts",
-    "line": 84,
-    "name": "rides_calculate_zone_pressure",
-    "pattern": "FROM",
-    "type": "table",
-    "severity": "DEBT",
-    "snippet": "        SELECT *\r\n            FROM rides_calculate_zone_pressure($1, $2);\r\n          ",
     "inScripts": false
   },
   {
@@ -18420,46 +18200,6 @@
     "inScripts": false
   },
   {
-    "file": "C:\\unificard\\backend\\src\\modules\\rides\\matching\\matching.routes.ts",
-    "line": 64,
-    "name": "rides_find_nearby_drivers",
-    "pattern": "FROM",
-    "type": "table",
-    "severity": "DEBT",
-    "snippet": "          SELECT *\r\n          FROM rides_find_nearby_drivers(\r\n            $1::text,\r\n    ",
-    "inScripts": false
-  },
-  {
-    "file": "C:\\unificard\\backend\\src\\modules\\rides\\matching\\matching.routes.ts",
-    "line": 122,
-    "name": "rides_find_nearby_drivers",
-    "pattern": "FROM",
-    "type": "table",
-    "severity": "DEBT",
-    "snippet": "          SELECT *\r\n          FROM rides_find_nearby_drivers(\r\n            $1::text,\r\n    ",
-    "inScripts": false
-  },
-  {
-    "file": "C:\\unificard\\backend\\src\\modules\\rides\\ride-requests\\ride-requests.service.ts",
-    "line": 94,
-    "name": "rides_find_nearby_drivers",
-    "pattern": "FROM",
-    "type": "table",
-    "severity": "DEBT",
-    "snippet": "\r\n      SELECT * FROM rides_find_nearby_drivers(\r\n        $1, $2, $3,\r\n      ",
-    "inScripts": false
-  },
-  {
-    "file": "C:\\unificard\\backend\\src\\modules\\rides\\ride-requests\\ride-requests.service.ts",
-    "line": 175,
-    "name": "rides_find_nearby_drivers",
-    "pattern": "FROM",
-    "type": "table",
-    "severity": "DEBT",
-    "snippet": "\r\n      SELECT * FROM rides_find_nearby_drivers(\r\n        $1, $2, $3,\r\n      ",
-    "inScripts": false
-  },
-  {
     "file": "C:\\unificard\\backend\\src\\modules\\rides\\service-types\\service-types.routes.ts",
     "line": 175,
     "name": "rides_driver_services",
@@ -18467,16 +18207,6 @@
     "type": "table",
     "severity": "DEBT",
     "snippet": "     ds.created_at\r\n          FROM rides_driver_services ds\r\n          JOIN rides_drivers ",
-    "inScripts": false
-  },
-  {
-    "file": "C:\\unificard\\backend\\src\\modules\\rides\\services\\matching.service.ts",
-    "line": 39,
-    "name": "rides_find_nearby_drivers",
-    "pattern": "FROM",
-    "type": "table",
-    "severity": "DEBT",
-    "snippet": "\r\n        SELECT *\r\n        FROM rides_find_nearby_drivers(\r\n          $1::text,\r\n      ",
     "inScripts": false
   },
   {
@@ -18570,46 +18300,6 @@
     "inScripts": true
   },
   {
-    "file": "C:\\unificard\\backend\\src\\scripts\\validate-pipeline-e2e-availability-conflict-detection-materialized.ts",
-    "line": 95,
-    "name": "detect_availability_conflicts",
-    "pattern": "FROM",
-    "type": "table",
-    "severity": "DEBT",
-    "snippet": "SELECT * FROM detect_availability_conflicts($1::uuid, $2::uuid, $3::u",
-    "inScripts": true
-  },
-  {
-    "file": "C:\\unificard\\backend\\src\\scripts\\validate-pipeline-e2e-cpf-tax-id-coherence.ts",
-    "line": 242,
-    "name": "regexp_replace",
-    "pattern": "FROM",
-    "type": "table",
-    "severity": "DEBT",
-    "snippet": "cpf,'\\\\D','','g') IS DISTINCT FROM regexp_replace(i.tax_id,'\\\\D','','g')\n         )::text ",
-    "inScripts": true
-  },
-  {
-    "file": "C:\\unificard\\backend\\src\\scripts\\validate-pipeline-e2e-cpf-tax-id-coherence.ts",
-    "line": 242,
-    "name": "regexp_replace",
-    "pattern": "FROM",
-    "type": "table",
-    "severity": "DEBT",
-    "snippet": "cpf,'\\\\D','','g') IS DISTINCT FROM regexp_replace(i.tax_id,'\\\\D','','g')\n         )::text ",
-    "inScripts": true
-  },
-  {
-    "file": "C:\\unificard\\backend\\src\\scripts\\validate-pipeline-e2e-cpf-tax-id-coherence.ts",
-    "line": 242,
-    "name": "regexp_replace",
-    "pattern": "FROM",
-    "type": "table",
-    "severity": "DEBT",
-    "snippet": "cpf,'\\\\D','','g') IS DISTINCT FROM regexp_replace(i.tax_id,'\\\\D','','g')\n         )::text ",
-    "inScripts": true
-  },
-  {
     "file": "C:\\unificard\\backend\\src\\scripts\\validate-pipeline-e2e-cultural-checkin-target-authority.ts",
     "line": 102,
     "name": "cultural_event_checkins",
@@ -18617,16 +18307,6 @@
     "type": "table",
     "severity": "DEBT",
     "snippet": "SELECT count(*)::int AS n FROM cultural_event_checkins",
-    "inScripts": true
-  },
-  {
-    "file": "C:\\unificard\\backend\\src\\scripts\\validate-pipeline-e2e-event-reservations-mislabeled-fk.ts",
-    "line": 54,
-    "name": "actor_id",
-    "pattern": "FROM",
-    "type": "table",
-    "severity": "DEBT",
-    "snippet": "ND global_user_id IS DISTINCT FROM actor_id) THEN\n        RAISE EXCEPTION 'ABORT_FAILCLOSE",
     "inScripts": true
   },
   {

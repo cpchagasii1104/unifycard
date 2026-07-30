@@ -232,33 +232,137 @@ function extractCteNames(sql) {
   return names;
 }
 
+// Classe 3 (EXTRACT(campo FROM expressao)): o FROM aqui é separador de argumento da
+// função, não introduz tabela — "EXTRACT(DOW FROM created_at)" não pode virar
+// "tabela created_at". Marca os ranges de EXTRACT(...) (parênteses balanceados) pra
+// os matches de FROM/JOIN/etc dentro deles serem ignorados, sem afetar FROMs reais
+// em outro ponto do mesmo bloco.
+function findExtractRanges(sql) {
+  const ranges = [];
+  const extractRegex = /\bEXTRACT\s*\(/gi;
+  let m;
+  extractRegex.lastIndex = 0;
+  while ((m = extractRegex.exec(sql)) !== null) {
+    const openParenIndex = m.index + m[0].length - 1;
+    let depth = 1;
+    let i = openParenIndex + 1;
+    while (i < sql.length && depth > 0) {
+      if (sql[i] === '(') depth += 1;
+      else if (sql[i] === ')') depth -= 1;
+      i += 1;
+    }
+    ranges.push({ start: m.index, end: i });
+  }
+  return ranges;
+}
+
+function isInsideAnyRange(index, ranges) {
+  return ranges.some(r => index >= r.start && index < r.end);
+}
+
+// Classe 6 (comentário SQL): "-- Join com order_items" não pode virar "tabela com".
+// Remove `--` até fim de linha e `/* */` do bloco ANTES de qualquer extração, mas
+// preserva o conteúdo de string literal SQL (aspas simples, com '' como escape) — um
+// literal como 'a--b' não pode perder o "--b" por engano.
+function stripSqlCommentsFromBlock(sql) {
+  let out = '';
+  let i = 0;
+  let inString = false;
+  while (i < sql.length) {
+    const ch = sql[i];
+    if (inString) {
+      out += ch;
+      if (ch === "'") {
+        if (sql[i + 1] === "'") { out += sql[i + 1]; i += 2; continue; }
+        inString = false;
+      }
+      i += 1;
+      continue;
+    }
+    if (ch === "'") { inString = true; out += ch; i += 1; continue; }
+    if (ch === '-' && sql[i + 1] === '-') {
+      const nl = sql.indexOf('\n', i);
+      if (nl === -1) { i = sql.length; } else { out += '\n'; i = nl + 1; }
+      continue;
+    }
+    if (ch === '/' && sql[i + 1] === '*') {
+      const end = sql.indexOf('*/', i + 2);
+      i = end === -1 ? sql.length : end + 2;
+      continue;
+    }
+    out += ch;
+    i += 1;
+  }
+  return out;
+}
+
 function extractReferencesFromFile(filePath) {
   const content = fs.readFileSync(filePath, 'utf-8');
   const references = [];
   const { sqlStrings, stats } = extractSqlStrings(filePath, content);
 
-  // Pattern 1: Tables in SQL strings
+  // Pattern 1: Tables in SQL strings. Grupo 1 = schema opcional (schema.tabela — classe 4),
+  // grupo 2 = nome real da tabela.
   const tablePatterns = [
-    { regex: /\bFROM\s+([a-z_][a-z0-9_]*)\b/gi, type: 'FROM' },
-    { regex: /\bJOIN\s+([a-z_][a-z0-9_]*)\b/gi, type: 'JOIN' },
-    { regex: /\bINSERT\s+INTO\s+([a-z_][a-z0-9_]*)\b/gi, type: 'INSERT' },
-    { regex: /\bUPDATE\s+([a-z_][a-z0-9_]*)\s+SET\b/gi, type: 'UPDATE' },
-    { regex: /\bDELETE\s+FROM\s+([a-z_][a-z0-9_]*)\b/gi, type: 'DELETE' },
+    { regex: /\bFROM\s+(?:([a-z_][a-z0-9_]*)\.)?([a-z_][a-z0-9_]*)\b/gi, type: 'FROM' },
+    { regex: /\bJOIN\s+(?:([a-z_][a-z0-9_]*)\.)?([a-z_][a-z0-9_]*)\b/gi, type: 'JOIN' },
+    { regex: /\bINSERT\s+INTO\s+(?:([a-z_][a-z0-9_]*)\.)?([a-z_][a-z0-9_]*)\b/gi, type: 'INSERT' },
+    { regex: /\bUPDATE\s+(?:([a-z_][a-z0-9_]*)\.)?([a-z_][a-z0-9_]*)\s+SET\b/gi, type: 'UPDATE' },
+    { regex: /\bDELETE\s+FROM\s+(?:([a-z_][a-z0-9_]*)\.)?([a-z_][a-z0-9_]*)\b/gi, type: 'DELETE' },
   ];
 
   for (const sqlEntry of sqlStrings) {
-    const line = sqlEntry.sql;
+    const line = stripSqlCommentsFromBlock(sqlEntry.sql); // classe 6
     const lineNum = sqlEntry.line - 1;
     const cteNames = extractCteNames(line);
+    const extractRanges = findExtractRanges(line); // classe 3
 
     tablePatterns.forEach(({ regex, type }) => {
       let match;
       regex.lastIndex = 0;
       while ((match = regex.exec(line)) !== null) {
-        const tableName = match[1].toLowerCase();
+        // Classe 3: FROM dentro de EXTRACT(campo FROM expr) não introduz tabela.
+        if (isInsideAnyRange(match.index, extractRanges)) {
+          continue;
+        }
+
+        // Classe 5: "IS [NOT] DISTINCT FROM x" — FROM é parte do operador, não cláusula.
+        if (type === 'FROM') {
+          const before = line.slice(Math.max(0, match.index - 24), match.index);
+          if (/DISTINCT\s*$/i.test(before)) {
+            continue;
+          }
+        }
+
+        const schemaQualifier = match[1] ? match[1].toLowerCase() : null;
+        const tableName = match[2].toLowerCase();
+
+        // Classe 4 + catálogo do sistema: schema.tabela — se o SCHEMA é catálogo do
+        // sistema (information_schema/pg_*), a referência INTEIRA é ignorada (nunca
+        // vira "tabela columns"). isSystemCatalogTable também cobre o nome sem schema.
+        if (schemaQualifier && isSystemCatalogTable(schemaQualifier)) {
+          continue;
+        }
         if (isSystemCatalogTable(tableName) || cteNames.has(tableName)) {
           continue;
         }
+
+        // Classe 2: "JOIN LATERAL (...)" — LATERAL é palavra-chave, nunca tabela.
+        if (tableName === 'lateral') {
+          continue;
+        }
+
+        // Classe 1: identificador seguido de "(" (espaço opcional) é CHAMADA DE FUNÇÃO,
+        // não tabela — critério é a forma sintática, não uma lista de nomes de função.
+        // Restrito a FROM/JOIN: em INSERT INTO tabela (col1, col2) o "(" É a lista de
+        // colunas, sintaxe normal — não pode ser lida como chamada de função.
+        if (type === 'FROM' || type === 'JOIN') {
+          const afterMatch = match.index + match[0].length;
+          if (/^\s*\(/.test(line.slice(afterMatch))) {
+            continue;
+          }
+        }
+
         references.push({
           file: filePath,
           line: lineNum + 1,

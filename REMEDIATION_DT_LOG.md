@@ -1,5 +1,168 @@
 # REMEDIATION DT LOG
 
+## ✅ `F-SCHEMA-COHERENCE-GATE-TERCEIRA-CLASSE-DE-BUGS` — FECHADA (2026-07-30)
+**Executora especialista. Pacote fechado sobre `docs/04_audit/DECOMPOSICAO_SCHEMA_COHERENCE_2026-07-30.md`
+(commit `c245b6112`). Mesma natureza de `01c54f53e`: conserta 6 classes de bug do PRÓPRIO
+gate (chamada de função, JOIN LATERAL, EXTRACT(...FROM...), schema.tabela, IS [NOT]
+DISTINCT FROM, comentário SQL) — NÃO conserta violação nenhuma, NÃO religa o gate.**
+
+### 🔴 ACHADO PRÓPRIO, CONSERTADO NA HORA (regra do CLAUDE.md: código próprio que viola,
+conserta sozinha) — não é achado do pacote, é bug que EU introduzi e pesquei antes de
+fechar. Primeira versão da Classe 1 ("identificador seguido de `(` = função") derrubou
+BLOCKER de 376 para **156** — porque `INSERT INTO tabela (col1, col2) VALUES (...)` tem
+exatamente essa forma sintática, e não é chamada de função nenhuma. Corrigido restringindo
+a regra a `type === 'FROM' || type === 'JOIN'` (os únicos contextos onde `nome(` é
+função-tabela de verdade — os 9 exemplos do pacote são todos FROM). Depois do fix,
+BLOCKER voltou a **376** (Δ=0), como esperado.
+
+### ✅ EXECUTADO — 1 arquivo (mesmo `scripts/validate-schema-code-coherence.mjs`)
+- **Classe 6 (comentário)**: `stripSqlCommentsFromBlock(sql)` — remove `--`/`/* */`
+  ANTES de qualquer extração, literal-aware (não mexe em `'...'` dentro de string SQL).
+  Aplicado no topo do loop (`const line = stripSqlCommentsFromBlock(sqlEntry.sql)`), então
+  beneficia TODOS os patterns (tabela, coluna, CTE), não só o de tabela.
+- **Classe 3 (EXTRACT)**: `findExtractRanges` — mesmo idioma de `findDoBlockRanges`/
+  balanceamento de parênteses já usado no arquivo; matches de FROM/JOIN/etc dentro do
+  range de um `EXTRACT(...)` são ignorados.
+- **Classe 4 (schema.tabela)**: os 5 regexes de `tablePatterns` ganharam grupo de schema
+  opcional `(?:([a-z_][a-z0-9_]*)\.)?`. Se o schema capturado é catálogo do sistema
+  (`isSystemCatalogTable`, MESMA função da rodada anterior — agora reutilizada também
+  na posição de schema), a referência inteira é ignorada — `information_schema.columns`
+  não vira mais `"tabela columns"`, continua corretamente inexistente como violação.
+- **Classe 5 (DISTINCT FROM)**: para `pattern==='FROM'`, se os 24 chars antes do match
+  terminam em `DISTINCT`, é operador, não cláusula — ignorado.
+- **Classe 2 (JOIN LATERAL)**: `tableName === 'lateral'` → ignorado (palavra-chave).
+- **Classe 1 (chamada de função)**: identificador seguido de `(` (espaço opcional),
+  **restrito a FROM/JOIN** (ver achado próprio acima) — critério é a FORMA sintática, sem
+  lista de nomes de função.
+
+### 🧪 PROVA (banco `unificard_dev` em todas as chamadas)
+**ANTES** (estado da rodada anterior, `01c54f53e`, via `git stash`):
+```
+Violações bloqueantes: 376 · corruptoras: 1426 · débito: 77
+✗ FAIL: 1802 violação(s) bloqueante(s)   [exit 1]
+```
+**DEPOIS** (com as 6 correções + o auto-fix do achado próprio):
+```
+Violações bloqueantes: 376 · corruptoras: 1418 · débito: 53
+✗ FAIL: 1794 violação(s) bloqueante(s)   [exit 1]
+```
+**DELTA**: BLOCKER **0** · CORRUPTOR **-8** · DEBT **-24** · TOTAL **-32**. Gate continua
+FALHANDO nas duas rodadas.
+
+### 🔴 A PROVA QUE MAIS IMPORTA — 32/32 classificados, ZERO sobra, ZERO adição
+`before.json` (1879 itens, código da rodada anterior) × `after.json` (1847 itens, código
+desta fatia) via `--json=`. Diff multiset por `(file,line,type,name,pattern,severity,
+snippet)`: **32 removidos, 0 adicionados** (mudança estritamente subtrativa, confirmado).
+
+Cada um dos 32 reclassificado PROGRAMATICAMENTE — reabri o texto BRUTO (com comentário)
+do bloco SQL de cada item e testei as 6 regras na MESMA ordem do gate real (comentário
+primeiro, por ser o que muda `line` para tudo o resto; depois EXTRACT, DISTINCT,
+schema.tabela, LATERAL, função):
+```
+CLASSE 1 — chamada de função: 19
+CLASSE 5 — IS [NOT] DISTINCT FROM: 7
+CLASSE 2 — JOIN LATERAL: 2
+CLASSE 3 — EXTRACT(campo FROM expr): 2
+CLASSE 4 — schema.tabela: 1
+CLASSE 6 — comentário SQL: 1
+NÃO EXPLICADOS: 0
+```
+(contagens da direção eram aproximadas — "~25"/"18"/"2"/"2"/"1"/"1" — a diferença, ex.
+Classe 5 real=7 vs citado=1, é porque o `IS NOT DISTINCT FROM` aparece repetido em mais
+de um ponto do código; contagem exaustiva > amostra manual, sem contradição de fundo).
+
+### 🔒 CASO DE CONTROLE — não pode sumir, e não sumiu
+`rides_pricing_adjustments` (`backend/src/modules/rides/pricing/pricing.service.ts:329`,
+`SUM(adjustment_value) AS adj FROM rides_pricing_adjustments WHERE tenant_id = $1`) —
+**presente 1× em `after.json`**, `severity: CORRUPTOR`, `type: table`. Fantasma real,
+módulo `rides` arquivado (cauda do REBASE-03, ver decomposição), não é bug do parser.
+
+### 🔒 `tenant_contexts` (classe 4) — existe, então a violação SOME (acerto, não regressão)
+`SELECT to_regclass('public.tenant_contexts')` no `unificard_dev` → **`tenant_contexts`**
+(existe). Com o fix, `public.tenant_contexts` resolve corretamente para a tabela real
+`tenant_contexts` (schema `public` não é catálogo, tabela existe no schema vivo) — a
+referência deixa de ser violação NENHUMA, não vira fantasma "tenant_contexts". Explica
+por que o total não caiu 25 cheio: uma das ocorrências simplesmente para de ser violação
+por completo, em vez de trocar de nome.
+
+### 🧾 JSON REGENERADO (baseline commitada)
+`docs/_reports/schema-coherence-violations-2026-07-30.json` — **1847 itens** (376 BLOCKER
++ 1418 CORRUPTOR + 53 DEBT), mesmo caminho da rodada anterior. Modificado, não commitado
+(decisão de commitar é da direção).
+
+### 🧾 RUNNER E TYPECHECK (banco `unificard_dev`)
+`npm run typecheck` → 0 erros. `npm run validate:regression-guards` → **227 COMMANDS OK**
+(inalterado — gate não entrou no `CMDS[]`), drift 0.
+
+### 🚫 NÃO FEITO / FORA DO ESCOPO (mandato explícito)
+Gate NÃO cabeado no runner/CI. `backend/src/scripts/` NÃO excluído. `allowlist` intocado.
+Classificação de severidade e soma de blockers (:903, offset mudou com as novas funções
+mas a lógica é idêntica) intocadas. Os 2 fixes da rodada anterior (catálogo do sistema,
+CTE) preservados — `isSystemCatalogTable`/`extractCteNames` continuam exatamente onde
+estavam, só reaproveitadas na posição de schema. Nenhuma violação corrigida. Não
+commitado.
+
+### 🧾 DENOMINADOR
+Todas as execuções contra **`unificard_dev`**. Confiança: **PROVADO** — delta exato,
+32/32 itens removidos classificados programaticamente (zero sobra), zero item adicionado,
+caso de controle (`rides_pricing_adjustments`) confirmado presente, caso de "acerto sem
+regressão" (`tenant_contexts`) explicado e verificado contra o banco vivo.
+
+### 🔍 VERIFICAÇÃO DE 1ª MÃO DA DIREÇÃO (2026-07-30)
+
+🔴 **O ACHADO MAIS IMPORTANTE DESTA FATIA É DA PRÓPRIA EXECUTORA, E MERECE FICAR REGISTRADO
+COMO LIÇÃO.** A versão ingênua da Classe 1 — *"identificador seguido de `(` é chamada de
+função"* — derrubou **BLOCKER de 376 para 156**. Motivo: `INSERT INTO tabela (col1, col2)
+VALUES (...)` tem **exatamente a mesma forma sintática**. Se tivesse passado, **220
+violações de ESCRITA — a classe mais grave — sumiriam em silêncio**, e o gate ficaria mais
+verde parecendo mais saudável. Ela pescou sozinha antes de entregar e restringiu a regra a
+`FROM`/`JOIN`. **Consertar um gate e cegar um gate produzem o mesmo número menor.** A única
+diferença é a prova.
+
+**Diff refeito INDEPENDENTEMENTE pela direção** (baseline anterior recuperada de
+`git show HEAD:docs/_reports/...`, comparada contra o disco — não conferida do relatório):
+**32 removidos · 0 adicionados** (estritamente subtrativa). Distribuição por `pattern`, que
+é o que prova que nenhuma escrita foi cegada:
+
+| pattern | antes → depois |
+|---|---|
+| **INSERT** | **449 → 449** |
+| **UPDATE** | **124 → 124** |
+| **DELETE** | **32 → 32** |
+| FROM | 1225 → 1196 |
+| JOIN | 45 → 42 |
+
+Só `FROM` e `JOIN` mudaram, somando exatamente 32 — os únicos contextos em que a regra passa
+a valer. Severidade: BLOCKER **376 → 376**, CORRUPTOR 1426 → 1418, DEBT 77 → 53.
+
+🔴 **SONDA DE SENSIBILIDADE POSITIVA — a prova que nenhum diff dá.** Diff prova o que sumiu;
+não prova que o gate ainda **enxerga**. A direção injetou um arquivo temporário em
+`backend/src/core/` com os dois casos e mediu:
+
+- `INSERT INTO zzz_ghost_probe_table (col_a, col_b) VALUES ($1,$2)` → **PEGO**,
+  `[BLOCKER] pattern=INSERT`; BLOCKER subiu **376 → 377**.
+- `SELECT * FROM zzz_probe_function($1)` → **ignorado**, 0 ocorrências.
+
+Sonda **removida** em seguida; árvore confirmada limpa (`git status`), `git diff --check`
+limpo, `CRLF=0`.
+
+**Resíduo declarado, fora do escopo e corretamente não tocado:** sobrou **1** ocorrência com
+nome `public` — `validate-pipeline-e2e-service-search-alias-discovery.ts:43`,
+`FROM public.${table}`. Schema estático, tabela **interpolada**. É a classe *SQL dinâmico*,
+explicitamente fora deste pacote; severidade `DEBT` (não bloqueia) e dentro de harness.
+Não é falha da entrega.
+
+**Não-regressão:** gate `✗ FAIL: 1794`, exit 1 (continua reprovando, como exigido) ·
+runner **227 COMMANDS OK**, drift 0 · `typecheck` 0 erros.
+
+**Sobre as divergências de contagem por classe** que a executora declarou não ter conseguido
+provar (ex.: 18 × 19, 1 × 7): a causa é conhecida e não há contradição — os números do
+pacote da direção vieram de **amostra manual por nome distinto**, os dela de **varredura
+exaustiva por ocorrência**. `IS NOT DISTINCT FROM` aparece em 7 trechos e a direção citou 1
+como exemplo. Cabo fechado aqui.
+
+⚠️ **NÃO SELADO.** Selo é ato de Clayton.
+
 ## ✅ `F-SCHEMA-COHERENCE-GATE-AUDITABILIDADE` — FECHADA (2026-07-30)
 **Executora especialista. Escopo em uma frase, do próprio pacote: NÃO conserta violação
 nenhuma, NÃO religa o gate no runner/CI — só torna `scripts/validate-schema-code-coherence.mjs`
