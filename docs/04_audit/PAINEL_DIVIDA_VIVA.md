@@ -38,6 +38,28 @@
 ⚠️ **Números que NÃO foram remedidos nesta sessão** (não confie sem reconferir): contagem de
 DTs abertas · `bank_ledger`/`transactions`/`splits` = 0 · estado da PORTA-01.
 
+## 🔢 QUANTAS DTs EXISTEM — medido 2026-07-30, com o denominador declarado
+
+| medida | valor | o que significa |
+|---|---|---|
+| IDs `DT-*` distintos na história do cartório | **556** | tudo que já foi nomeado como dívida, desde sempre |
+| IDs `F-*` distintos (frentes, não dívidas) | 113 | campanhas, não débitos |
+| `DT-*` **sem marcador de fechamento no cabeçalho** | **314** | varredura estrita — **teto**, não realidade |
+| 🔴 **VIVAS E DEMONSTRADAS hoje** | **8** | alguém provou que quebra. **É este o número acionável** |
+| allowlist do gate (`C-*`) | 2 | `C3` e `C13`, prazo 2026-09-30, dono Clayton |
+
+> ### ⚠️ POR QUE "314" NÃO É A RESPOSTA
+> **O inteiro exato não é derivável por query, e isso já foi auditado** (Fable 5, 2026-07-06):
+> o cartório fecha DT de formas heterogêneas — `CLOSED` · `CONTAINED` · `CONTIDO` · `FROZEN` ·
+> `501` · tombstone · **fechamento no corpo sem re-carimbar o cabeçalho**. Na época a varredura
+> estrita deu **301** e a reconciliação manual deu **~156**. Hoje a estrita dá **314**.
+>
+> **A diferença entre 314 e ~156 não é dívida: é convenção antiga.** Contar cabeçalho conta
+> duas vezes o que foi fechado sem re-carimbo.
+>
+> 🔴 **Por isso o número que dirige o trabalho é o de VIVAS E DEMONSTRADAS**, não o histórico.
+> 556 mede quanto o projeto já nomeou; 8 mede o que está quebrado agora.
+
 ## 🗓️ REGISTRO DE SESSÕES — o que cada fatia mudou no placar
 
 **2026-07-30 · 6 commits, 3 DTs fechadas, nenhuma selada.**
@@ -82,7 +104,7 @@ independente antes de ser aceito.
 |---|---|---|---|
 | **Gate `schema-coherence` nunca verde** | 🔄 **remedido 2026-07-30: 1928**, não 1978. `scripts/validate-schema-code-coherence.mjs`, cabeado em `backend/package.json:146`, **fora do runner e do CI**. 🔴 **O gate ESCONDE a própria lista** (`slice(0,5)` + *"e mais N"*, linhas 853-874) — não há flag, env nem modo que mostre tudo; auditá-lo exige reescrever o script. 🔴 `CORRUPTOR` reprova igual a `BLOCKER` (`:903-905`), o nome engana. Composição: **1241 (64%) em `backend/src/scripts/`** (harnesses, não superfície viva) · ~80 são **bugs do próprio parser** (`information_schema`, CTE) · ~600 candidatos reais. **"Religar custa ~zero — só wiring" é FALSO** | **CAUSA-RAIZ** de C3/C13 seguirem vivas sem ninguém notar | medido pela direção 2026-07-30 |
 | ~~**`DT-RBAC-V2-REQUIRE-PERMISSION-DECORATOR-STRUCTURALLY-DEAD`**~~ | 🔄 **RECLASSIFICADO 2026-07-30 → DESENHO, NÃO DÍVIDA.** Ver seção dedicada abaixo | — | — |
-| **`DT-SOCIAL-IMPACT-BALANCE-UPSERT-42P10`** | `ON CONFLICT` com 3 colunas contra UNIQUE de 2 → **erra sempre desde a gênese**, erro engolido, tabela permanentemente vazia | CAUSA | cartório `:1025-1026` |
+| ~~**`DT-SOCIAL-IMPACT-BALANCE-UPSERT-42P10`**~~ | ✅ **RESOLVIDA** no commit `66cf49eee` — linha estava desatualizada aqui até 2026-07-30 | — | ver "JÁ RESOLVIDAS" |
 | **`event_custody` sem tabela** | Service faz `INSERT` em tabela inexistente → 500 garantido em qualquer caminho vivo de custódia | CAUSA | cartório `:114` |
 | **Painel econômico A-1** | Indicador **verde** com policy só de valor fixo — FE e BE pulam a soma quando `!hasBpsLine`. Policy que paga mais que o total publica em silêncio | CAUSA | cartório `:193-221` |
 | **`C3-actors-insert-fora-writer`** | `identity.service.ts:313` faz `INSERT INTO actors` fora do writer canônico. Alcance hoje **baixo** | CAUSA | `allowlist:8-16` |
