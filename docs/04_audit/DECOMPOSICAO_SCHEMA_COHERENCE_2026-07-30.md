@@ -178,6 +178,88 @@ Confirma o diagnóstico do `PLANO_RECUPERACAO.md` §2 (*"o runtime está amplo d
 no próprio código admitindo possíveis conflitos de rotas"*). **Não é a mesma dívida do canal de
 denúncia** — esta é de namespace HTTP, e sobrevive mesmo depois que a `DECISION-0195` for selada.
 
+## 🔬 QUARTA PASSAGEM — CAÇANDO `SUBSTRATO SUBSTITUÍDO` NOS 136
+
+**Método declarado:** cruzar os 136 nomes fantasma da cauda contra as **333 tabelas vivas** do
+`unificard_dev`, sinalizando quando um nome vivo **contém** o fantasma ou é **contido** por ele.
+⚠️ **Isso produz CANDIDATOS, não veredito.** Coincidência de substring não é substituição —
+só comparação de COLUNAS decide. A direção verificou **2 em profundidade** e declara os outros
+22 como fila de trabalho, não como conclusão.
+
+**Resultado: 24 nomes · 134 ocorrências têm candidato vivo.**
+
+| oc. | fantasma | candidato(s) vivo(s) |
+|---|---|---|
+| 17 | `rides_driver_availability` | `availability` |
+| 10 | `subscriptions` | `organizer_subscriptions` |
+| 10 | `cultural_events` | `events` |
+| 10 | `payout_orders` | `orders` |
+| 9 | `cultural_profiles` | `profiles` |
+| 8 | `votes` | `post_votes` · `approval_votes` · `group_votes` |
+| 8 | `rides_ride_events` | `events` |
+| 7 | `user_skills_categories` | `categories` |
+| 7 | `human_mvp_events` | `events` |
+| 6 | `predefined_services` | `services` |
+| 5 | `cultural_event_checkins` · `checkins` | `event_checkins` |
+| 5 | `alerts` | `financial_alerts` |
+| 4 | `pilot_events` | `events` |
+| 4 | `local_products` | `products` |
+| 4 | `social_chat_messages` | `chat_messages` |
+| 3 | `rides_driver_services` | `services` |
+| 3 | `organization_roles` | `roles` |
+| 2 | `vote_responses` | `group_vote_responses` |
+| 2 | `referral_codes` | `actor_referral_codes` |
+| 2 | `tab_orders` | `orders` |
+| 1 | `event_rsvp_counts` · `service_bookings` · `vote_options` | `event_rsvp` · `bookings` · `group_vote_options` |
+
+### ✅ VERIFICADO 1 — `referral_codes` → `actor_referral_codes`: **SUBSTITUIÇÃO LIMPA**
+
+```
+código (marketplace/referral.repository.ts:50) insere : tenant_id, code, owner_actor_id, group_id, …
+actor_referral_codes (vivo)                     tem   : tenant_id, code, owner_actor_id, code_status,
+                                                        created_by_actor_id, created_by_user_id, revoked_at, metadata
+```
+
+`owner_actor_id` bate — é a assinatura do refactor **Actor-first**. O dado sobreviveu com
+prefixo `actor_`. **É rename, e toca dinheiro** (indicação). O `group_id` do INSERT não existe
+no vivo; provavelmente foi para `metadata`, **não confirmado**.
+
+### ⚠️ VERIFICADO 2 — `votes` → `group_votes`: **NÃO é rename. É ESTREITAMENTO DE ESCOPO.**
+
+```
+código (modules/votes/votes.repository.ts:114) espera : tenant_id, title, description, status,
+                                                        created_by_actor_id, starts_at, ends_at  (PK vote_id)
+group_votes (vivo)                              tem   : tenant_id, title, description, status,
+                                                        created_by_actor_id, closes_at, group_id,
+                                                        is_anonymous, metadata                   (PK id)
+```
+
+Sete campos batem — mas o fantasma era **votação do tenant inteiro** (sem `group_id`) e o vivo é
+**votação de grupo** (`group_id`, `is_anonymous`). Também troca `starts_at`+`ends_at` por
+`closes_at` e `vote_id` por `id`.
+
+🔴 **Renomear aqui seria decidir, no código, que votação do tenant vira votação de grupo.** Isso
+é decisão de produto e de norma, **jamais de executora**.
+
+E confirma, com evidência, o aviso do `CLAUDE.md`: *"Já existem **3** substratos de votação…
+não crie o 4º."* Os três vivos são exatamente **`post_votes` · `approval_votes` ·
+`group_votes`** — e `modules/votes` escreve num **quarto**, que morreu no `REBASE-03`.
+
+### 🎯 O QUE ESTA PASSAGEM ENSINA PARA A VARREDURA DOS 136
+
+**As duas verificações deram resultados de naturezas diferentes** — uma é rename, a outra é
+mudança de escopo disfarçada de rename. **Só a comparação de colunas distingue**, e a diferença
+decide quem pode agir:
+
+| natureza | quem resolve |
+|---|---|
+| **rename limpo** (mesmas colunas, nome novo) | executora, com pacote fechado |
+| **estreitamento/mudança de escopo** | **exige DECISION** — é produto, não refactor |
+
+⛔ **Nenhum dos 22 restantes pode ser tratado como rename sem essa comparação.** Um "refactor de
+nome" que na verdade estreita escopo apaga funcionalidade em silêncio — e no caso de `votes`
+apagaria a votação de tenant inteiro.
+
 ## Ordem recomendada pela direção
 
 1. **Mapa de cobertura da cauda do REBASE-03** (read-only, instância DOCUMENTOS): cruzar os
