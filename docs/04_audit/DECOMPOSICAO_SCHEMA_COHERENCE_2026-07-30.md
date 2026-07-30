@@ -69,4 +69,4 @@ permanentemente vermelho — a armadilha que a própria Yala tem no mandato para
 ⚠️ Lembrete de ordem geral: **ninguém encosta na FASE 6 do RBAC** antes de a cauda estar
 mapeada — o `RETURN FALSE` de `actor_has_permission` mascara 176 chamadas em 44 arquivos de
 rota, e pelo menos uma escreve em tabela que não existe. Ver
-`PAINEL_DIVIDA_VIVA_2026-07-29.md`.
+`PAINEL_DIVIDA_VIVA.md`.

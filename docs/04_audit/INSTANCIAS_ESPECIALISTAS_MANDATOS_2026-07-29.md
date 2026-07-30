@@ -35,7 +35,7 @@
 
 1. 🔴 **Topo de `REMEDIATION_DT_LOG.md`** — o cartório. Topo = mais recente.
 2. `docs/04_audit/INDICE_ONDE_ESTA_O_QUE_2026-07-29.md` — assunto→norma, com status e data.
-3. `docs/04_audit/PAINEL_DIVIDA_VIVA_2026-07-29.md` — o que já é dívida conhecida.
+3. `docs/04_audit/PAINEL_DIVIDA_VIVA.md` — o que já é dívida conhecida.
 4. Se tocar dinheiro: `§8` do protocolo (`SSOT_EXCLUSIVE_BANK_RULE` · `SSOT_CONTRACT` · `SSOT_REGISTRY` · `PROHIBITED_STRUCTURES`).
 
 ---

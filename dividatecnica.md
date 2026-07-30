@@ -1,9 +1,36 @@
-# DÍVIDA TÉCNICA — rastreador vivo (atualizar toda sessão)
+# DÍVIDA TÉCNICA — **HISTÓRICO** (não é mais o placar)
 
-> **Propósito:** este arquivo é o painel único de progresso rumo a **zero dívida executável**.
-> Toda sessão que tocar dívida técnica: (1) lê o placar abaixo, (2) trabalha, (3) atualiza o
-> placar + a checklist do lote tocado, (4) anexa uma linha no changelog (nunca reescreve o
-> histórico). Nenhuma sessão termina sem atualizar este arquivo.
+```
+╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+║ STATUS:  HISTÓRICO — evidência válida, placar VENCIDO
+║ NORMA:   docs/04_audit/PAINEL_DIVIDA_VIVA.md (decisão de Clayton, 2026-07-30)
+║ NÃO:     ler os números abaixo como estado atual, nem atualizá-los
+║ EM VEZ:  PLACAR → docs/04_audit/PAINEL_DIVIDA_VIVA.md
+║          HISTÓRIA/PROVAS → REMEDIATION_DT_LOG.md (topo = mais recente)
+╚════════════════════════════════════════════════════════════════
+```
+
+> ## 🔴 POR QUE ESTE ARQUIVO DEIXOU DE SER O PLACAR — leia antes de confiar em qualquer número abaixo
+>
+> Ele se declarava obrigatório: *"nenhuma sessão termina sem atualizar este arquivo"*. **Essa
+> lei ficou quebrada por 24 dias.** O placar da seção 📊 foi medido em **2026-07-06/09/11** e
+> afirma `163 GATE OK` — em 2026-07-30 são **227**. Errado por 64.
+>
+> Não foi descuido de uma sessão. Existiam **nove** arquivos rastreando dívida no repositório,
+> com papéis sobrepostos, e o que se declarava obrigatório era justamente o que ninguém
+> atualizava — inclusive a direção, que fechou três dívidas em 2026-07-30 escrevendo no
+> cartório e no painel e não aqui, quatro vezes seguidas. **Duas verdades sobre a mesma coisa
+> divergindo em silêncio é a mesma doença que este arquivo existe para combater no código.**
+>
+> O `PLANO_RECUPERACAO.md:49` já tinha antecipado o desfecho: *"deve continuar como evidência
+> e rastreador, mas **não deve ser automaticamente considerado o novo plano mestre**"*.
+>
+> **O que continua VALENDO aqui:** o bloco de LEI NORMATIVA logo abaixo (disciplina `§2.2` /
+> `§2.3.2`, a lição do C1 sobre compor do vocabulário governado), a estrutura dos **6 lotes de
+> decisão** e o histórico de sessões como evidência. **O que NÃO vale:** o placar numérico e
+> qualquer afirmação de "estado atual".
+>
+> ⛔ **Não atualize este arquivo.** Atualize o `PAINEL_DIVIDA_VIVA.md`.
 >
 > **Relação com artefatos (revista 2026-07-06):** `PLANO_ZERAGEM_DT.md` é agora a **v2 — o PLANO
 > ESTRATÉGICO vivo** (ordem dos lotes + grafo de dependências + recomendações de decisão). ESTE
@@ -78,7 +105,10 @@ Zero **não** significa 0 linhas no `REMEDIATION_DT_LOG.md` — significa:
 
 ---
 
-## 📊 PLACAR (atualizar a cada sessão)
+## 📊 PLACAR — ⛔ **CONGELADO E VENCIDO (medido 06–11/07/2026). NÃO É ESTADO ATUAL.**
+
+> **Placar vivo:** `docs/04_audit/PAINEL_DIVIDA_VIVA.md`. A linha "163 GATE OK" abaixo estava
+> errada por **64** em 30/07 (são 227). Mantido apenas como evidência histórica.
 
 | Métrica | Valor | Data |
 |---|---|---|

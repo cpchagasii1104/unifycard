@@ -1,4 +1,65 @@
-# PAINEL ÚNICO DE DÍVIDA VIVA — 2026-07-29
+# PAINEL ÚNICO DE DÍVIDA VIVA — **O PLACAR**
+
+> ## 🔴 ESTE É O PLACAR ÚNICO. LEIA ISTO PRIMEIRO, ATUALIZE ISTO SEMPRE.
+>
+> **Decisão de Clayton, 2026-07-30.** Existiam **nove** arquivos rastreando dívida, e eles
+> divergiam. O que se declarava obrigatório (`dividatecnica.md`) tinha placar de **06/07**
+> dizendo *163 guards* quando já eram **227** — e três sessões seguidas fecharam dívida sem
+> atualizá-lo, inclusive a direção, quatro vezes num único dia.
+>
+> **Um arquivo por papel, sem sobreposição:**
+>
+> | papel | arquivo |
+> |---|---|
+> | **PLACAR** — o que está vivo HOJE, cabe na cabeça | 🔴 **este arquivo** |
+> | **CARTÓRIO** — história append-only, causa-raiz, provas | `REMEDIATION_DT_LOG.md` (topo = recente) |
+> | **HISTÓRICO** — evidência antiga, não é placar | `dividatecnica.md`, `PLANO_ZERAGEM_DT.md` |
+> | **PLANO** — estratégia das 6 fases | `PLANO_RECUPERACAO.md` |
+>
+> **Nome sem data, de propósito.** A versão anterior chamava-se `..._2026-07-29.md`, e nome
+> datado em documento vivo é convite para a próxima instância criar um segundo. **Nunca
+> versione este arquivo por nome — atualize-o.**
+>
+> **Toda fatia que fechar dívida atualiza o PLACAR abaixo e o REGISTRO DE SESSÕES.** Não é
+> burocracia: é o que impede que a próxima instância meça o sistema por um número de 24 dias
+> atrás.
+
+## 📊 PLACAR — última medição **2026-07-30**, toda ela de 1ª mão pela direção
+
+| métrica | valor | como foi medido |
+|---|---|---|
+| `validate:regression-guards` | ✅ **227 COMMANDS OK** · drift **0** | `npm run`, banco `unificard_dev` |
+| `typecheck` backend | ✅ **0 erros** | `tsc -p tsconfig.build.json --noEmit` |
+| Gate `schema-coherence` | ❌ **FAIL 1794** (376 BLOCKER · 1418 CORRUPTOR · 53 DEBT) | **fora do runner e do CI** — ver decomposição |
+| `schema_migrations` (`unificard_dev`) | **548** aplicadas · 549 arquivos · 1 skip governado | query direta |
+| Banco oficial | **`unificard_dev`** · trava fail-closed viva | `6414b3404` |
+| `unificard_local` | **aposentado**, ainda vivo só pelo catálogo de veículos (16 marcas) | 334 tabelas · 547 migrations |
+
+⚠️ **Números que NÃO foram remedidos nesta sessão** (não confie sem reconferir): contagem de
+DTs abertas · `bank_ledger`/`transactions`/`splits` = 0 · estado da PORTA-01.
+
+## 🗓️ REGISTRO DE SESSÕES — o que cada fatia mudou no placar
+
+**2026-07-30 · 6 commits, 3 DTs fechadas, nenhuma selada.**
+
+| commit | o que era | efeito no placar |
+|---|---|---|
+| `6414b3404` | ausência de `EXPECTED_DATABASE_NAME` valia como **permissão** para migrar qualquer banco | runner 225 → **226** |
+| `090711185` | **proteção de força bruta não existia desde a gênese** — `auth_rate_limit_logs` nunca criada, `catch` devolvia 0 | runner 226 → **227** · migrations 547 → **548** |
+| `01c54f53e` | gate escondia a própria lista (`slice(0,5)`); 165 acusações eram bugs dele | gate 1928 → **1802** |
+| `c245b6112` | decomposição: as 1928 são **um commit de fevereiro**, não 136 problemas | — |
+| `25aa17223` | +6 classes de bug do gate; a correção ingênua teria **cegado 220 escritas** | gate 1802 → **1794** |
+| (este) | nove rastreadores → um placar | — |
+
+**Padrão das três dívidas fechadas hoje, que vale mais que os números:** nenhuma gritava.
+Ausência de env var passava calada · `catch` devolvia zero calado · `slice(0,5)` cortava
+calado. **O sistema não estava mentindo — estava mudo.** É por isso que *"guard que nunca
+falha é decoração"* é lei aqui, e por que cada guard desta sessão foi atacado por ângulo
+independente antes de ser aceito.
+
+---
+
+## Origem deste documento
 
 **Produzido pela instância especialista DÍVIDAS TÉCNICAS.** Verificação de 1ª mão da direção: `DT-RBAC-V2-…-STRUCTURALLY-DEAD` reconfirmado (cadeia até `RETURN FALSE` na migration, 59 arquivos de rota usando `requirePermission` hoje).
 

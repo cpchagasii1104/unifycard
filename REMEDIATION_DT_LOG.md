@@ -442,7 +442,7 @@ quarta reconstrução.
    documentado), não dívida — mas mascara defeitos, entre eles um `INSERT` em
    `bank_reconciliation_history`, tabela que não existe, alcançável sob `/finance` por chave
    que **não está** no `PORTA_HOLD`. **Ninguém encosta na FASE 6 antes do
-   `F-SCHEMA-GHOST-REACHABILITY-SWEEP`.** Detalhe em `docs/04_audit/PAINEL_DIVIDA_VIVA_2026-07-29.md`.
+   `F-SCHEMA-GHOST-REACHABILITY-SWEEP`.** Detalhe em `docs/04_audit/PAINEL_DIVIDA_VIVA.md`.
 
 ## ✅ `DT-OFFICIAL-DATABASE-LOCK-FAIL-CLOSED` — FECHADA (2026-07-29)
 **Executora especialista. Pacote v2 da direção, após v1 ter sido corretamente recusado
