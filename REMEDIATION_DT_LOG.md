@@ -1,5 +1,103 @@
 # REMEDIATION DT LOG
 
+## ✅ `DT-SERVICE-BUNDLE-BOOKINGS-GHOST-TABLE-LIVE` — FECHADA (2026-07-30)
+**Executora especialista. Pacote sobre o GATE read-only da direção (abaixo, commit `b1f642a34`).
+Relocação pura, como o GATE já previa: escritor certo, leitor apontava pra tabela morta.**
+
+### ✅ EXECUTADO — 1 linha de SQL (mais 3 arquivos de prova/guard)
+`backend/src/modules/services/service-bundle.service.ts:289-290` (`getBundleBookings`):
+```sql
+- SELECT booking_id, service_id, status                        FROM service_bookings
++ SELECT booking_id, metadata->>'serviceId' AS service_id, status   FROM bookings
+```
+`runQueriesWithTenant` preservado (padrão de acesso intocado). Nenhuma tabela criada, nenhuma
+migration, nenhum toque no escritor (`createBundleBookings`), nenhuma contenção 501.
+
+### 🧪 PROVA COMPORTAMENTAL — HTTP real, banco `unificard_bundle_bookings_ghost_e2e` (efêmero)
+**VERMELHA** (código revertido para `service_bookings`, harness completo de ponta a ponta,
+`RESULTADO: 1/5 verdes`):
+```
+✅ B POST /service-bundles/book (2 serviços) → 201 + bundleId + 2 bookings
+❌ A GET bundle inexistente → 200 + bookings=[] — status=500 body={"error":"relação \"service_bookings\" não existe"}
+❌ C GET /service-bundles/:bundleId/bookings → 200 + 2 linhas — status=500 rows=undefined
+```
+Confirma a ASSIMETRIA do GATE por chamada HTTP real, não só psql: o escritor (`POST book`)
+funciona; só o leitor (`GET bookings`) quebra.
+
+**VERDE + IDA E VOLTA** (fix restaurado, mesmo harness, `RESULTADO: 5/5 verdes`):
+```
+✅ A GET bundle inexistente → 200 + bookings=[] (vazio é resultado válido)
+✅ B POST /service-bundles/book (2 serviços) → 201 + bundleId + 2 bookings
+✅ C GET /service-bundles/:bundleId/bookings → 200 + 2 linhas
+✅ C1 serviceId de cada linha bate com o serviceId gravado no book (metadata->>serviceId)
+✅ C2 status de cada linha bate com o status devolvido no book
+```
+A prova C1/C2 é a que importa: não é só "não dá mais 500" — o `GET` volta a enxergar
+EXATAMENTE o que o `POST` gravou (2 `serviceId`s corretos, 2 `status`s corretos), banco
+efêmero criado e destruído nas duas rodadas (vermelha e verde), **zero resíduo confirmado
+por query nas duas**.
+
+### 🔎 ACHADO — reportado, NÃO consertado nesta fatia (fora de escopo por mandato explícito)
+As 4 rotas de `service-bundle.routes.ts` (`book`, `.../bookings`, `.../can-confirm`,
+`confirm`) **não têm `requirePermission`**. A autorização de escrita acontece DENTRO do
+service (`authorityService.canPerformAction('bundle:create'/'bundle:confirm')`, só nos 2
+POSTs) — os 2 GETs (`.../bookings`, `.../can-confirm`) não têm autorização nenhuma além de
+`req.tenant` estar resolvido (implica autenticado, mas não checa se o autenticado tem
+QUALQUER relação com o bundle consultado). Qualquer usuário autenticado do tenant pode ler
+bookings de qualquer bundle de qualquer outro usuário. Autorização é decisão de norma, não
+de pacote de relocação — registrado para a direção decidir prioridade.
+
+### 🧾 GUARD — estendido (hospedeiro natural, não criei arquivo novo)
+`backend/scripts/audit-service-bundle-write-authorship-binding.mjs` já vigiava
+`service-bundle.routes.ts` (mesmo módulo, já no `CMDS[]`) — ganhou seção 7: `service-bundle.
+service.ts` nunca mais referencia `service_bookings`, e `getBundleBookings` continua lendo de
+`bookings` filtrando por `tenant_id` + `metadata->>'bundleId'`.
+**Prova vermelha**: `service_bookings`/`FROM service_bookings` devolvido ao código →
+`checked=2 failures=2`, `GHOST_TABLE_REGRESSION` nomeado 2×, `exit 1`. Restaurado →
+`checked=2 failures=0`, `exit 0`.
+
+### 🧾 RUNNER E TYPECHECK (banco `unificard_dev`)
+`npm run typecheck` → 0 erros. `npm run validate:regression-guards` → **227 COMMANDS OK**
+(inalterado — guard ESTENDIDO, não novo, `CMDS[]` não ganhou linha), drift 0. Guard estendido
+confirmado rodando dentro do runner completo (`checked=2 failures=0`).
+
+### 🚫 NÃO FEITO / FORA DO ESCOPO
+Nenhuma tabela criada, nenhuma migration. Escritor (`createBundleBookings`) intocado. Padrão
+de acesso (`runQueriesWithTenant`) preservado. Nenhuma contenção 501 (frontend usa a rota).
+Achado de autorização (GETs sem `requirePermission`) reportado, não corrigido. Não commitado.
+
+### 🧾 DENOMINADOR
+Prova comportamental: `unificard_bundle_bookings_ghost_e2e` (efêmero, criado/destruído 2×
+— vermelha e verde — zero resíduo nas duas). Runner/typecheck: **`unificard_dev`**. Confiança:
+**PROVADO** — vermelha e verde por HTTP real (não só psql), ida-e-volta com dado gravado
+pelo escritor conferido linha a linha pelo leitor, guard vermelho/verde.
+
+### 🔍 VERIFICAÇÃO DE 1ª MÃO DA DIREÇÃO (2026-07-30)
+
+- **Diff conferido:** exatamente 2 linhas, a forma que a direção já havia validado contra o
+  `unificard_dev` no GATE. `runQueriesWithTenant` preservado — sem acesso cru novo.
+- **Harness reexecutado pela direção:** `5/5 verdes`, incluindo `C1` (`serviceId` de cada
+  linha bate com o gravado) e `C2` (`status` bate). Banco efêmero dropado, zero resíduo.
+- **Ataque independente ao guard** (ângulo próprio: trocar só o `FROM`, sem devolver a query
+  inteira) → `checked=2 failures=2`, `GHOST_TABLE_REGRESSION` nomeado 2×, `exit 1`.
+  Restaurado → `failures=0`, `exit 0`.
+- **Guard ESTENDIDO, não novo** — runner permanece em 227. Correto: o repositório já tem 227
+  comandos e proliferar guard é dívida.
+
+🔴 **O ACHADO DELA VALE MAIS QUE O CONSERTO — e vira DT própria:
+`DT-SERVICE-BUNDLE-READ-ROUTES-NO-AUTHORIZATION`.** Confirmado de 1ª mão: `service-bundle.routes.ts`
+tem **4 rotas e ZERO `preHandler`/`requirePermission`**; a checagem de autoridade vive **dentro
+do service e só nos 2 POSTs**. Os 2 GETs (`:107` e `:129`) filtram **apenas por `tenant_id` +
+`bundleId`** — **não verificam se quem pede participa do bundle**.
+
+⚠️ **O `bundleId` é UUID e não é adivinhável — mas ID opaco NÃO é autorização.** É obscuridade,
+e o próprio fluxo de RFQ faz esses IDs circularem entre atores distintos. Ela reportou e **não
+consertou**, corretamente: autorização é decisão de norma, e emendar autoridade numa fatia de
+relocação é o mesmo vício do "refactor de nome" que estreita escopo — passa em revisão
+parecendo limpeza.
+
+⚠️ **NÃO SELADO.** Selo é ato de Clayton.
+
 ## 🔍 GATE — `DT-SERVICE-BUNDLE-BOOKINGS-GHOST-TABLE-LIVE` (2026-07-30)
 
 **Direção, read-only.** Resultado: **relocação pura**. O escritor já está certo; só o leitor

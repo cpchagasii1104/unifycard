@@ -286,8 +286,8 @@ class ServiceBundleService {
     const rows = await runQueriesWithTenant<any>(
       tenantId,
       `
-      SELECT booking_id, service_id, status
-      FROM service_bookings
+      SELECT booking_id, metadata->>'serviceId' AS service_id, status
+      FROM bookings
       WHERE tenant_id = $1
         AND metadata->>'bundleId' = $2
       ORDER BY created_at ASC

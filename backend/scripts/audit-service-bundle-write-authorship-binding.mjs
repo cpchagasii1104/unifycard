@@ -11,6 +11,7 @@ import { join } from 'path';
 
 const SRC = join(process.cwd(), 'src');
 const ROUTES_REL = 'modules/services/service-bundle.routes.ts';
+const SERVICE_REL = 'modules/services/service-bundle.service.ts';
 
 const stripComments = (s) => s
   .replace(/(^|[^:"'`])\/\/[^\n]*/g, '$1')
@@ -67,6 +68,25 @@ if (!existsSync(p)) {
   const bindCount = (code.match(/const bound = await bindWriteActor\(req, reply, tenantId,/g) || []).length;
   if (bindCount !== 2) {
     failures.push(`WRITE_AUTHORSHIP_REGRESSION: ${ROUTES_REL} esperado 2 chamadas de bindWriteActor (book/confirm), encontradas ${bindCount}.`);
+  }
+}
+
+// 7) DT-SERVICE-BUNDLE-BOOKINGS-GHOST-TABLE-LIVE: getBundleBookings lia de `service_bookings`
+//    (tabela morta desde o REBASE-03, 42P01 em produção) em vez de `bookings` (onde
+//    createBundleBookings de fato escreve, via unifiedAvailabilityService.createBooking).
+//    Nunca mais referenciar a tabela fantasma; a leitura tem que continuar em `bookings`.
+const sp = join(SRC, SERVICE_REL);
+if (!existsSync(sp)) {
+  failures.push(`FORBIDDEN_REGRESSION: service de service-bundle desapareceu: ${SERVICE_REL}`);
+} else {
+  const serviceCode = stripComments(readFileSync(sp, 'utf-8'));
+  checked++;
+
+  if (/\bservice_bookings\b/.test(serviceCode)) {
+    failures.push(`GHOST_TABLE_REGRESSION: ${SERVICE_REL} voltou a referenciar "service_bookings" (tabela inexistente desde o REBASE-03 — 42P01 em produção).`);
+  }
+  if (!/FROM\s+bookings\b[\s\S]{0,120}?WHERE\s+tenant_id\s*=\s*\$1[\s\S]{0,120}?metadata->>'bundleId'\s*=\s*\$2/i.test(serviceCode)) {
+    failures.push(`GHOST_TABLE_REGRESSION: ${SERVICE_REL} getBundleBookings não lê mais de "bookings" filtrando por tenant_id + metadata->>'bundleId' (a query mudou de forma inesperada).`);
   }
 }
 
