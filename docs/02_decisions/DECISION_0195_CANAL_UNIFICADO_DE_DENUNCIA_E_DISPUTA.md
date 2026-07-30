@@ -74,6 +74,29 @@ duas vezes"* vivem **no mesmo acordeão, na mesma tela do mesmo pedido**.
 | **DISPUTA** | problema na operação | dinheiro: estorno, refazer, cancelar, mediação | comercial |
 | **DENÚNCIA** | conduta, conteúdo, identidade | moderação: remoção, suspensão, banimento | de segurança |
 | 🔴 **EMERGÊNCIA** | risco à integridade física ou à vida | **escalonamento imediato — NÃO é fila** | imediato |
+| **FEEDBACK** | avaliação e comentário sobre a contraparte | reputação: nota, comentário, correção de nota | sem urgência |
+| *(autoatendimento)* | dúvida — artigo, política, como-fazer | resolve sozinho, **sem abrir registro** | — |
+
+A tela de opções da Uber para o passageiro prova a mistura: numa mesma lista de sete itens
+convivem *"O preço estava mais alto do que o esperado"* (**disputa**), *"Como alterar a forma
+de pagamento"* (**autoatendimento**), *"Deixar comentário sobre o veículo ou motorista
+parceiro"* e *"Alterar avaliação do motorista"* (**feedback**), e *"Reportar um problema
+relacionado à segurança"* (**denúncia/emergência**). **O usuário vê uma lista; a plataforma vê
+cinco destinos.**
+
+> ### ⚠️ D1.6 — FEEDBACK NÃO É DENÚNCIA, E O SUBSTRATO DELE ESTÁ MEIO MORTO
+> Nota baixa não é acusação, e comentário ruim não abre apuração. Confundir os dois entope a
+> fila de Trust & Safety com insatisfação comum e **dessensibiliza quem tria** — quem lê cem
+> reclamações de atraso perde a mão para reconhecer a centésima primeira que é violência.
+>
+> 🔴 **Verificado de 1ª mão pela direção em 2026-07-30, contra o `unificard_dev`:**
+> - **EXISTEM:** `actor_reputation` · `trust_score_snapshots`
+> - **NÃO EXISTEM:** `reputation_scores` · `actor_scores` · `reviews` · `ratings`
+>
+> **É a cauda do `REBASE-03` outra vez** (ver `docs/04_audit/DECOMPOSICAO_SCHEMA_COHERENCE_2026-07-30.md`):
+> o código de `core/reputation` chama os fantasmas enquanto o substrato canônico vivo é outro.
+> **Rotear a Ajuda para "avaliação" sem resolver isso cria o quinto caminho morto** — e desta
+> vez com o usuário na frente.
 
 > **D1.1 — O roteamento é do SISTEMA, derivado do assunto e do alvo. Nunca é pergunta ao
 > usuário.** Ele escolhe o que aconteceu com ele, em linguagem dele; a classificação interna é
@@ -258,8 +281,14 @@ aparecem no ticket público"*.
 
 ## D9 — DISCLOSURE DE IA É OBRIGATÓRIO
 
-O ML declara em texto fixo: *"Este assistente usa inteligência artificial para te responder."*
-**Havendo triagem, sugestão ou resposta automática, o usuário é informado.** Vale também para o
+O ML declara em rodapé: *"Este assistente usa inteligência artificial para te responder."* A
+Uber vai além e põe **no cabeçalho permanente da tela**: *"Ajuda · **Desenvolvido com IA** ⓘ"*,
+com ícone de informação acionável.
+
+**FICA DECIDIDO: o aviso é PERSISTENTE no cabeçalho, não rodapé.** Quem entra numa conversa
+sobre assédio ou fraude tem direito de saber, **o tempo todo e sem rolar a tela**, se está
+falando com máquina. **Havendo triagem, sugestão ou resposta automática, o usuário é
+informado.** Vale também para o
 motor de risco (`core/reporting/ai/risk-scoring-engine.ts`), coerente com a regra já escrita de
 que **nenhuma denúncia gera punição automática**.
 
@@ -267,6 +296,34 @@ que **nenhuma denúncia gera punição automática**.
 Sem isso não há como medir se a triagem automática está ajudando ou empurrando o usuário para
 o texto livre — e um assistente ruim que ninguém mede vira barreira de acesso ao suporte,
 não atalho.
+
+---
+
+## D11 — A ORDEM DA TELA DE ENTRADA, E A CAIXA DE MENSAGENS
+
+A tela de entrada da Ajuda do passageiro (Uber) tem hierarquia estrita, e ela não é estética:
+
+1. 🔵 **"Chat em andamento — Continuar"** — conversa aberta vem **antes de tudo**
+2. **"Selecionar uma viagem"** (com *"Ver tudo"*) — a operação, com as 3 mais recentes
+3. **"Explore tópicos de ajuda"** — categorias gerais por último (*Conta · Assinatura ·
+   Acessibilidade · Guias*)
+
+**D11.1 — Conversa aberta tem precedência absoluta.** Quem já está sendo atendido não recomeça
+do zero. Abrir segundo chamado sobre o mesmo fato é ruído para a fila e desamparo para quem
+já esperava resposta.
+
+**D11.2 — A caixa de mensagens é persistente, com não-lidas.** A Uber mostra
+**"Mensagens 🔵1"** fixo no topo. Isso **não é feature nova**: é a área *"Minhas Denúncias"*
+que o `REPORTING_CORE.md` já exigia — *"lista de reports, status atual, timeline, resposta
+final visível ao denunciante"* — só que como **caixa de entrada com estado de não-lida**, e não
+como lista passiva que o usuário precisa lembrar de visitar.
+
+**A resposta tem que CHEGAR.** Denúncia que o usuário precisa ir buscar é denúncia que morre
+sem resposta, e a percepção que fica é que a plataforma não fez nada.
+
+⚠️ Isso desemboca em `project_notificacao_unificada_plataforma` — o notificador é frente
+futura, e o substrato `notify` atual é **schema-ghost**. **Esta decisão não o autoriza**;
+registra a dependência para que ninguém construa a caixa de mensagens duas vezes.
 
 ---
 
