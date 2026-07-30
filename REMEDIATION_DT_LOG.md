@@ -1,5 +1,149 @@
 # REMEDIATION DT LOG
 
+## ✅ `F-SCHEMA-COHERENCE-GATE-AUDITABILIDADE` — FECHADA (2026-07-30)
+**Executora especialista. Escopo em uma frase, do próprio pacote: NÃO conserta violação
+nenhuma, NÃO religa o gate no runner/CI — só torna `scripts/validate-schema-code-coherence.mjs`
+auditável (flag `--json`) e conserta 2 bugs DO PRÓPRIO GATE (catálogo do sistema tratado
+como tabela; alias de CTE tratado como tabela fantasma).**
+
+### ✅ EXECUTADO — 1 arquivo do gate + 1 JSON gerado (não commitado)
+1. **Tarefa A** — flag `--json=<caminho>` (CLI parse `--json=`). Serializa TODAS as
+   violações (BLOCKER+CORRUPTOR+DEBT) com `file, line, name, pattern, type, severity,
+   snippet` + campo computado `inScripts` (booleano, arquivo sob `backend/src/scripts/`).
+   Comportamento padrão preservado — sem a flag, saída e exit code idênticos; a ÚNICA
+   mudança na saída padrão são as 2 linhas de corte, que agora nomeiam a flag
+   (`... e mais N (use --json=<arquivo> para a lista completa)`).
+2. **Tarefa B** — `isSystemCatalogTable(name)`: exclui `information_schema` (exato — o
+   regex de FROM/JOIN/DELETE já para no `.`, então "com ou sem sufixo" cai no mesmo
+   caso) e qualquer nome com prefixo `pg_`. **Confirmado ANTES de excluir por prefixo**:
+   zero tabela da aplicação com esse padrão, nem no `unificard_dev` vivo
+   (`information_schema.tables`) nem em nenhuma migration (`grep -in "CREATE TABLE.*pg_"`
+   → zero resultado).
+3. **Tarefa C** — `extractCteNames(sql)`: coleta nomes de `WITH <nome> AS (`, incluindo
+   `WITH RECURSIVE` e cadeia por vírgula (`WITH a AS (...), b AS (...)`), com o mesmo
+   balanceamento de parênteses já usado em `extractCreateTables` (idioma do próprio
+   arquivo). Escopo por bloco SQL individual (`sqlEntry.sql`), nunca global — dois
+   arquivos com o mesmo alias não se contaminam, por construção (cada literal SQL é
+   processado isoladamente).
+4. Nenhuma linha em `run-regression-guards.mjs`/`CMDS[]`. Nenhum touch em
+   `schema-coherence-allowlist.json`. Classificação de severidade (:553-623) e soma de
+   `totalBlockers` (:903) intocadas.
+
+### 🧪 PROVA — banco `unificard_dev` em todas as chamadas
+**ANTES** (código original, via `git stash`):
+```
+Violações bloqueantes: 376 · corruptoras: 1545 · débito: 123
+✗ FAIL: 1921 violação(s) bloqueante(s)   [exit 1]
+```
+⚠️ Números da direção (381/1547/123, FAIL 1928) não bateram exatamente com os meus — a
+deriva (Δ5 no BLOCKER) é explicável por arquivos novos das duas fatias de hoje
+(migration + e2e do auth-rate-limit, ambos com literais SQL nunca vistos pelo gate antes)
+entre a medição da direção (30/07 cedo) e esta execução. Usei minha própria medição como
+denominador do delta — é o que importa para provar a mudança de comportamento do gate.
+
+**DEPOIS** (com os 2 fixes):
+```
+Violações bloqueantes: 376 · corruptoras: 1426 · débito: 77
+✗ FAIL: 1802 violação(s) bloqueante(s)   [exit 1]
+```
+**DELTA exato**: BLOCKER **0** (376→376) · CORRUPTOR **-119** (1545→1426) · DEBT **-46**
+(123→77) · TOTAL **-165**. BLOCKER intocado faz sentido estrutural: catálogo/CTE só
+aparecem em leitura (FROM/JOIN), nunca em INSERT/UPDATE/DELETE — BLOCKER só nasce de
+escrita em tabela fantasma ou tabela `bank_*` fora de módulo autorizado.
+
+**Gate continua FALHANDO** — exit 1 nas duas rodadas, confirmado.
+
+### 🔴 A PROVA QUE MAIS IMPORTA — nenhuma violação real escondida
+Gerei `before.json` (2044 itens, código pré-fix + flag) e `after.json` (1879 itens,
+código pós-fix) via `--json=`, com os fixes B/C temporariamente desligados (`return
+false` / `return new Set()`) para o `before` — mesma mecânica de serialização nos dois,
+só a detecção mudando. Diff multiset por `(file,line,type,name,pattern,severity,
+snippet)`: **165 removidos, ZERO adicionados** (a mudança é estritamente subtrativa).
+
+Verificação PROGRAMÁTICA de cada um dos 165 (reabrindo o arquivo-fonte real e rodando a
+MESMA `extractCteNames` que o gate roda, no bloco SQL real onde a referência apareceu):
+```
+Provados catálogo do sistema: 115
+Provados alias de CTE: 50
+Total provado: 165 / 165
+NÃO EXPLICADOS: 0
+```
+**Zero item sobrou sem prova.** Composição do catálogo: `information_schema`(76) ·
+`pg_constraint`(15) · `pg_indexes`(6) · `pg_class`(5) · `pg_roles`(4) · `pg_extension`(3)
+· `pg_tables`(2) · `pg_policies`/`pg_namespace`/`pg_proc`/`pg_user`(1 cada). Amostra de
+CTE (nome, arquivo:linha do próprio `WITH`): `descendants` em
+`organization-unit.repository.ts:213` · `ledger_insert`/`balance_upsert` em
+`modules/social/impact.service.ts:71` (o MESMO CTE que corrigi na fatia
+`DT-SOCIAL-IMPACT-BALANCE-UPSERT-42P10` desta sessão) · `rides_today`/`earnings_today`/
+`rating` em `rides/analytics/analytics.routes.ts:64` · mais 32 aliases em 20 arquivos.
+
+### 🧾 JSON PARA A DIREÇÃO (fila de trabalho)
+`docs/_reports/schema-coherence-violations-2026-07-30.json` — **1879 itens** (376 BLOCKER
++ 1426 CORRUPTOR + 77 DEBT), estado PÓS-fix, com `inScripts` calculado por item. Arquivo
+**não commitado** (git status mostra `??`) — decisão de commitar é da direção.
+
+### 🧾 RUNNER E TYPECHECK (banco `unificard_dev`)
+`npm run typecheck` → 0 erros. `npm run validate:regression-guards` → **227 COMMANDS OK**
+(inalterado — gate não entrou no `CMDS[]` nesta fatia, confirmado), drift 0.
+
+### 🚫 NÃO FEITO / FORA DO ESCOPO (por mandato explícito)
+Gate NÃO cabeado no runner/CI. `backend/src/scripts/` NÃO excluído da varredura (64% do
+ruído permanece medido, não decidido — é para isso que existe `inScripts`).
+`schema-coherence-allowlist.json` intocado. Nenhuma violação corrigida. Classificação de
+severidade e soma de blockers intocadas. Não commitado (só o `.mjs` do gate modificado;
+o JSON é artefato novo, também não commitado).
+
+### 🧾 DENOMINADOR
+Todas as execuções contra **`unificard_dev`** (modo `both`, schema por DB — `backend/.env`
+já aponta pra lá por padrão). Confiança: **PROVADO** — delta exato número a número, e a
+prova mais cara (verificação individual dos 165 itens removidos, 165/165 explicados,
+zero sobra) rodada programaticamente, não por amostragem.
+
+### 🔍 VERIFICAÇÃO DE 1ª MÃO DA DIREÇÃO (2026-07-30)
+
+Reexecutado com saída própria: gate → **`✗ FAIL: 1802`, exit 1** (bate com o DEPOIS dela;
+o gate CONTINUA reprovando, que era requisito). JSON inspecionado direto:
+**1879 itens · BLOCKER 376 · CORRUPTOR 1426 · DEBT 77** · **zero** `information_schema`/`pg_*`
+remanescente · **inScripts=true 1173 · inScripts=false 706**.
+
+🔴 **A DIREÇÃO EXPLICOU A DIVERGÊNCIA QUE A EXECUTORA ERROU.** Ela mediu o ANTES em
+`376/1545/123` e a direção havia medido `381/1547/123`; ela atribuiu a *"2 arquivos novos
+das fatias de hoje"* — **mecanismo impossível: arquivo novo SOMA violação, não subtrai.**
+A causa real é outra e está provada: entre as duas medições, a fatia
+`DT-AUTH-RATE-LIMIT-FAIL-OPEN-SUBSTRATE-AUSENTE` **criou a tabela `auth_rate_limit_logs`**,
+que até então era fantasma. Contagem no código: **5 escritas** (4 `INSERT` + 1 `DELETE`)
+= exatamente os **-5 BLOCKER**; **1 leitura** = **-1 CORRUPTOR**. Confirmado também pelo
+JSON: **zero** violação restante no arquivo `auth-rate-limit.service.ts`.
+
+⚠️ **Sobra 1 CORRUPTOR não explicado** (-2 observado × -1 atribuído). É subtrativo e
+imaterial, mas fica registrado como **NÃO EXPLICADO**, não como resolvido. Se alguém
+reencontrar, feche este cabo solto.
+
+**Leitura que importa mais que os números:** o gate encolheu porque **um conserto real
+aconteceu**. Ele responde a remediação de verdade — não é contador estático. Isso eleva a
+confiança de que os 1802 restantes descrevem alguma coisa, e não ruído acumulado.
+
+**Higiene e não-regressão (direção):** `git diff --check` limpo, `CRLF=0`, `typecheck` 0
+erros, runner **227 COMMANDS OK** com drift 0 — o gate **NÃO** entrou no `CMDS[]`, como
+mandatado. Linha de descoberta confirmada em `:911` e `:927`
+(`... e mais N (use --json=<arquivo> para a lista completa)`) — sem ela a próxima instância
+bateria na mesma parede.
+
+⚠️ **NÃO SELADO.** Selo é ato de Clayton.
+
+### 🧭 O QUE ESTE ARTEFATO É — E O QUE NÃO É
+
+`docs/_reports/schema-coherence-violations-2026-07-30.json` (649 KB) é **fila de trabalho
+datada**, não verdade permanente. Regenerável com um comando agora que a flag existe.
+Fica commitado como **baseline** contra o qual medir redução — porque "é só regenerar"
+pressupõe que a próxima instância saiba que deve regenerar, e é exatamente essa suposição
+que falhou antes.
+
+🔴 **O NÚMERO QUE DECIDE A PRÓXIMA FATIA: 706 fora de `backend/src/scripts/`.** Os outros
+1173 (62%) são harnesses. Excluir `src/scripts/` do gate **NÃO foi decidido de propósito** —
+muda o que o gate SIGNIFICA e carrega o mesmo risco que apodreceu 7 de 10 entradas do
+allowlist. O campo `inScripts` existe para **medir sem decidir**. A decisão é de Clayton.
+
 ## ✅ `DT-AUTH-RATE-LIMIT-FAIL-OPEN-SUBSTRATE-AUSENTE` — FECHADA (2026-07-29)
 **Executora especialista. Causa-raiz já verificada de 1ª mão pela direção — reconfirmada só
 na execução: `auth_rate_limit_logs` nunca existiu (0 linhas em pg_class, zero CREATE TABLE

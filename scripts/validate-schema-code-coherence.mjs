@@ -24,6 +24,7 @@ const CONFIG = {
   mode: 'both',
   dbTimeout: 5000,
   repoStrict: false,
+  jsonPath: null,
 };
 
 // Parse CLI args
@@ -33,6 +34,9 @@ process.argv.slice(2).forEach(arg => {
   }
   if (arg === '--repo-strict') {
     CONFIG.repoStrict = true;
+  }
+  if (arg.startsWith('--json=')) {
+    CONFIG.jsonPath = arg.slice('--json='.length);
   }
 });
 
@@ -183,6 +187,51 @@ function extractSqlStrings(filePath, content) {
   return { sqlStrings, stats };
 }
 
+// Catálogo do sistema Postgres — nunca é tabela da aplicação (information_schema.* e
+// pg_* como pg_class/pg_constraint/pg_indexes/pg_roles/etc). O regex de FROM/JOIN/DELETE
+// já para no ponto (\b), então "information_schema.columns" captura só "information_schema"
+// — cobrir o nome exato já cobre "com ou sem sufixo após ponto".
+function isSystemCatalogTable(name) {
+  return name === 'information_schema' || name.startsWith('pg_');
+}
+
+// Coleta os nomes declarados por `WITH <nome> AS (` dentro do MESMO bloco SQL (sql é o
+// texto de UM literal/template — escopo nunca global), incluindo a cadeia por vírgula
+// `WITH a AS (...), b AS (...)` e `WITH RECURSIVE`. Usa o mesmo balanceamento de
+// parênteses de extractCreateTables (mais abaixo) para achar o fim de cada CTE.
+function extractCteNames(sql) {
+  const names = new Set();
+  const withRegex = /\bWITH\b/i;
+  const withMatch = withRegex.exec(sql);
+  if (!withMatch) return names;
+
+  let cursor = withMatch.index + withMatch[0].length;
+  const recursiveMatch = /^\s*RECURSIVE\b/i.exec(sql.slice(cursor));
+  if (recursiveMatch) cursor += recursiveMatch[0].length;
+
+  for (;;) {
+    const nameMatch = /^\s*([a-z_][a-z0-9_]*)\s*(?:\([^)]*\))?\s+AS\s*\(/i.exec(sql.slice(cursor));
+    if (!nameMatch) break;
+    names.add(nameMatch[1].toLowerCase());
+
+    const openParenIndex = cursor + nameMatch[0].length - 1;
+    let depth = 1;
+    let i = openParenIndex + 1;
+    while (i < sql.length && depth > 0) {
+      if (sql[i] === '(') depth += 1;
+      else if (sql[i] === ')') depth -= 1;
+      i += 1;
+    }
+    cursor = i;
+
+    const commaMatch = /^\s*,/.exec(sql.slice(cursor));
+    if (!commaMatch) break;
+    cursor += commaMatch[0].length;
+  }
+
+  return names;
+}
+
 function extractReferencesFromFile(filePath) {
   const content = fs.readFileSync(filePath, 'utf-8');
   const references = [];
@@ -200,12 +249,16 @@ function extractReferencesFromFile(filePath) {
   for (const sqlEntry of sqlStrings) {
     const line = sqlEntry.sql;
     const lineNum = sqlEntry.line - 1;
+    const cteNames = extractCteNames(line);
 
     tablePatterns.forEach(({ regex, type }) => {
       let match;
       regex.lastIndex = 0;
       while ((match = regex.exec(line)) !== null) {
         const tableName = match[1].toLowerCase();
+        if (isSystemCatalogTable(tableName) || cteNames.has(tableName)) {
+          continue;
+        }
         references.push({
           file: filePath,
           line: lineNum + 1,
@@ -855,7 +908,7 @@ async function main() {
       log(`    Tabela: ${v.name} (${v.pattern})`);
       log(`    Snippet: ${v.snippet.slice(0, 70)}`);
     });
-    if (blockersCount > 5) log(`  ... e mais ${blockersCount - 5}`);
+    if (blockersCount > 5) log(`  ... e mais ${blockersCount - 5} (use --json=<arquivo> para a lista completa)`);
   }
 
   if (violations.CORRUPTOR.length > 0) {
@@ -871,7 +924,7 @@ async function main() {
       }
       log(`    Snippet: ${v.snippet.slice(0, 70)}`);
     });
-    if (corruptorsCount > 5) log(`  ... e mais ${corruptorsCount - 5}`);
+    if (corruptorsCount > 5) log(`  ... e mais ${corruptorsCount - 5} (use --json=<arquivo> para a lista completa)`);
   }
 
   if (violations.DEBT.length > 0) {
@@ -898,6 +951,29 @@ async function main() {
   log(`Violações corruptoras: ${corruptorsCount}`);
   log(`Violações como débito: ${debtCount}`);
   log(`Allowlist válida: ${allowlist.entries.length} entradas`);
+
+  // Step 6b: --json=<caminho> — serializa TODAS as violações (não só as 5 do preview).
+  // Não muda comportamento padrão: só escreve quando a flag é passada.
+  if (CONFIG.jsonPath) {
+    const jsonItems = [];
+    for (const severity of ['BLOCKER', 'CORRUPTOR', 'DEBT']) {
+      for (const v of violations[severity]) {
+        jsonItems.push({
+          file: v.file,
+          line: v.line,
+          name: v.name ?? null,
+          pattern: v.pattern ?? null,
+          type: v.type,
+          severity,
+          snippet: v.snippet ?? null,
+          inScripts: normalizePath(v.file).includes('backend/src/scripts/'),
+        });
+      }
+    }
+    const jsonOutPath = path.resolve(CONFIG.jsonPath);
+    fs.writeFileSync(jsonOutPath, JSON.stringify(jsonItems, null, 2), 'utf-8');
+    log(`\nJSON: ${jsonItems.length} violação(ões) escrita(s) em ${jsonOutPath}`);
+  }
 
   // Step 7: Result
   const totalBlockers = blockersCount + corruptorsCount;
