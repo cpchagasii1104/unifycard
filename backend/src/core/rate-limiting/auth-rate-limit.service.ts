@@ -326,14 +326,24 @@ class AuthRateLimitService {
         WHERE key_type = $1
           AND action = $2
           AND key_value = $3
-          AND attemptedAt >= $4
+          AND attempted_at >= $4
         `,
         [keyType, action, key, windowStart]
       );
 
       return parseInt(result.rows[0]?.count || '0', 10);
     } catch (error) {
-      // Se tabela não existir, retornar 0 (fail-open)
+      // Fail-open MANTIDO (disponibilidade de login não é decisão desta camada) — mas nunca
+      // mais em silêncio: DT-AUTH-RATE-LIMIT-FAIL-OPEN-SUBSTRATE-AUSENTE (auth_rate_limit_logs
+      // engoliu 42P01 em silêncio desde a gênese, deixando login/register/webauthn sem
+      // proteção de força bruta sem nenhum sinal de alarme).
+      canonicalLogger.error(null, 'Erro ao contar rate limit — retornando 0 (fail-open)', {
+        keyType,
+        action,
+        key,
+        error: error instanceof Error ? error.message : String(error),
+        timestamp: new Date().toISOString(),
+      });
       return 0;
     }
   }
@@ -355,7 +365,7 @@ class AuthRateLimitService {
       // Registrar por IP (sempre)
       await pool.query(
         `
-        INSERT INTO auth_rate_limit_logs (key_type, action, key_value, attemptedAt, metadata)
+        INSERT INTO auth_rate_limit_logs (key_type, action, key_value, attempted_at, metadata)
         VALUES ('ip', $1, $2, $3, $4)
         ON CONFLICT DO NOTHING
         `,
@@ -366,7 +376,7 @@ class AuthRateLimitService {
       if (tenantId) {
         await pool.query(
           `
-          INSERT INTO auth_rate_limit_logs (key_type, action, key_value, attemptedAt, metadata)
+          INSERT INTO auth_rate_limit_logs (key_type, action, key_value, attempted_at, metadata)
           VALUES ('tenant', $1, $2, $3, $4)
           ON CONFLICT DO NOTHING
           `,
@@ -378,7 +388,7 @@ class AuthRateLimitService {
       if (userId && tenantId) {
         await pool.query(
           `
-          INSERT INTO auth_rate_limit_logs (key_type, action, key_value, attemptedAt, metadata)
+          INSERT INTO auth_rate_limit_logs (key_type, action, key_value, attempted_at, metadata)
           VALUES ('user', $1, $2, $3, $4)
           ON CONFLICT DO NOTHING
           `,
@@ -391,7 +401,7 @@ class AuthRateLimitService {
         const normalizedEmail = email.toLowerCase().trim();
         await pool.query(
           `
-          INSERT INTO auth_rate_limit_logs (key_type, action, key_value, attemptedAt, metadata)
+          INSERT INTO auth_rate_limit_logs (key_type, action, key_value, attempted_at, metadata)
           VALUES ('email', $1, $2, $3, $4)
           ON CONFLICT DO NOTHING
           `,
@@ -418,7 +428,7 @@ class AuthRateLimitService {
       await pool.query(
         `
         DELETE FROM auth_rate_limit_logs
-        WHERE attemptedAt < $1
+        WHERE attempted_at < $1
         `,
         [cutoffDate]
       );

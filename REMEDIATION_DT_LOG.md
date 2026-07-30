@@ -1,5 +1,142 @@
 # REMEDIATION DT LOG
 
+## ✅ `DT-AUTH-RATE-LIMIT-FAIL-OPEN-SUBSTRATE-AUSENTE` — FECHADA (2026-07-29)
+**Executora especialista. Causa-raiz já verificada de 1ª mão pela direção — reconfirmada só
+na execução: `auth_rate_limit_logs` nunca existiu (0 linhas em pg_class, zero CREATE TABLE
+em migrations). O serviço engolia o 42P01 em silêncio (`catch { return 0 }`) e devolvia
+`allowed:true` sempre. Endpoints pré-autenticação (login/register/check-cpf/check-referral/
+webauthn.verify/refresh) ficaram sem proteção de força bruta desde a gênese.**
+
+### ✅ EXECUTADO — 6 arquivos (1 migration nova + 1 código + 4 novos: guard/harness/e2e)
+1. **`backend/migrations/20260729160000_auth_rate_limit_logs.sql` (novo)** — `CREATE TABLE
+   IF NOT EXISTS auth_rate_limit_logs` (id UUID PK, key_type/action/key_value TEXT,
+   attempted_at TIMESTAMPTZ, metadata JSONB NOT NULL DEFAULT '{}', created_at). Índice
+   `idx_auth_rate_limit_logs_lookup (key_type, action, key_value, attempted_at)` — cobre
+   exatamente o WHERE de `countByKey`. **SEM RLS** — decisão deliberada da direção, com
+   razão técnica escrita no `COMMENT ON TABLE`: o serviço lê via `pool.query` cru, sem GUC
+   de tenant; RLS faria toda contagem voltar 0 e o fail-open continuaria idêntico, só que
+   invisível (sem 42P01 pra denunciar) — seria conserto decorativo. Precedente: `users`
+   também não tem RLS. Forma copiada da migration irmã `0035_financial_rate_limits.sql`.
+2. **`backend/src/core/rate-limiting/auth-rate-limit.service.ts`** — `attemptedAt` →
+   `attempted_at` em **6 pontos** (1 SELECT :329, 4 INSERT :358/:369/:381/:394, 1 DELETE
+   :421 — confirmado por grep repo-wide, nenhuma outra ocorrência). Catch de `countByKey`
+   (:335-338) agora chama `canonicalLogger.error(null, ...)` (severity `high`) ANTES de
+   `return 0` — fail-open **mantido** (decisão de disponibilidade de Clayton, não desta
+   fatia), mas nunca mais em silêncio. `auth.routes.ts` **não precisou ser tocado**.
+3. **`backend/scripts/audit-auth-rate-limit-substrate.mjs` (novo)** — guard comment-stripped,
+   5 checks: catch loga antes do fail-open · zero `attemptedAt` residual · presença de
+   `attempted_at` · migration existe no disco · migration **não** ativa RLS na tabela.
+4. **`backend/scripts/run-regression-guards.mjs`** — 1 linha, guard registrado no `CMDS[]`
+   (226 → 227).
+5. **`backend/src/scripts/validate-pipeline-e2e-auth-rate-limit-substrate.ts` (novo)** — e2e
+   HTTP real (`Fastify` bare + `app.inject`, mesmo padrão de
+   `validate-pipeline-e2e-c1-birth-minimum-atomic-organic.ts`): 7 tentativas de
+   `/auth/login`, prova que as 5 primeiras passam e a 6ª/7ª são 429, e que as linhas
+   corretas foram gravadas.
+6. **`backend/scripts/run-auth-rate-limit-ephemeral.ps1` (novo)** — harness efêmero, mesma
+   forma exata dos ~96 irmãos (`EXPECTED_DATABASE_NAME` declarada — a trava do banco
+   oficial já vigia isso).
+
+### 🧪 PROVA COMPORTAMENTAL (não só "a tabela existe") — banco declarado em cada cenário
+**VERMELHA** (`unificard_auth_rl_test`, efêmero, migration retida fora do disco — 547
+migrations, tabela ausente confirmada via `to_regclass`): servidor completo (`BOOT.ts`,
+porta 3997) de pé, 10 POSTs reais em `/auth/login` (mesmo IP `127.0.0.1`) → **10/10 HTTP
+401**, nenhum 429 — o limite de 5/min nunca disparou. Log do servidor mostra 30 entradas
+de `Erro ao contar rate limit — retornando 0 (fail-open)` (prova bônus de que o logging da
+Tarefa 2 já funciona mesmo com a tabela ausente).
+
+**VERDE** (mesma DB, mesma instância do servidor ainda rodando — migration devolvida ao
+disco e aplicada ao vivo, 547→548): 7 novos POSTs → tentativas 1-5 = `401`, **tentativa 6 =
+`429`** (`"Limite de tentativas de login excedido..."`), tentativa 7 = `429`. Query
+confirmou **exatamente 10 linhas** em `auth_rate_limit_logs` (5 aceitas × 2: ip+email);
+nenhuma linha das tentativas bloqueadas (bloqueio ocorre ANTES de `recordAttempt`).
+
+Servidor de teste encerrado, banco efêmero `unificard_auth_rl_test` dropado — confirmado
+por query (`0` linhas em `pg_database`).
+
+**Harness permanente** (`run-auth-rate-limit-ephemeral.ps1`, PWSH 7.6.3, banco
+`unificard_auth_rate_limit_e2e`): migrate FULL (548 migrations, tabela nova incluída) →
+e2e `validate-pipeline-e2e-auth-rate-limit-substrate.ts` → **PASS 6/6** (tabela existe · 5
+não-bloqueadas · 6ª bloqueada · 7ª bloqueada · 5 linhas `key_type=email` · linhas
+`key_type=ip` presentes) → banco efêmero dropado, confirmado sem resíduo.
+
+**Banco oficial** (`unificard_dev`): `npm run migrate` → **547 → 548** `schema_migrations`.
+`auth_rate_limit_logs` presente, `relrowsecurity = false` (RLS confirmado OFF, como
+decidido).
+
+**Guard novo — 4 provas vermelhas, uma por invariante** (todas restauradas, confirmadas
+`CLOSED=5 FAILURES=0` / exit 0 depois de cada uma): (1) removido o `canonicalLogger.error`
+do catch → `service:catch-logs-before-fail-open` morde; (2) reintroduzido `attemptedAt` →
+`service:no-attemptedAt-camelCase` morde; (3) migration movida para fora de `migrations/` →
+`migration:auth-rate-limit-logs-exists` morde; (4) `ALTER TABLE ... ENABLE ROW LEVEL
+SECURITY` inserido no texto da migration → `migration:no-rls-on-auth-rate-limit-logs`
+morde. Migration final restaurada byte-a-byte ao conteúdo original (confirmado por leitura).
+
+### 🧾 RUNNER E TYPECHECK (banco `unificard_dev`)
+`npm run typecheck` → 0 erros. `npm run validate:regression-guards` → **227 COMMANDS OK**
+(226 + 1 novo), `guard-coverage-manifest` **SEM ALCANCE (drift) = 0** — guard novo entrou
+no universo (310) e no alcance CI_DIRECT (224) sem discrepância. `auth-rate-limit-substrate`
+confirmado rodando dentro do runner (`CLOSED=5 FAILURES=0`).
+
+### 🚫 NÃO FEITO / FORA DO ESCOPO
+Fail-open **mantido** (não virou fail-closed). RLS de nenhuma tabela existente tocado.
+Padrão de acesso ao `pool` (cru) preservado — não migrado para `runQueryWithTenant`.
+Nenhuma migration existente editada. `auth.routes.ts` intocado (não foi necessário). Não
+commitado.
+
+### 🧾 DENOMINADOR
+Prova funcional/comportamental: `unificard_auth_rl_test` (efêmero manual, vermelha+verde) +
+`unificard_auth_rate_limit_e2e` (efêmero do harness permanente) — ambos criados e
+destruídos nesta fatia, zero resíduo confirmado. Migration aplicada ao banco oficial
+**`unificard_dev`** (547→548). Runner/typecheck: `unificard_dev`. **Confiança: PROVADO** —
+prova comportamental real (requisições HTTP reais, não só existência de tabela), com
+antes/depois, guard vermelho/verde em 4 invariantes, runner completo.
+
+### 🔍 VERIFICAÇÃO DE 1ª MÃO DA DIREÇÃO (2026-07-30)
+
+⚠️ **O relatório da executora nunca chegou à direção** — perdeu-se no trânsito entre
+instâncias. Ela reconfirmou o estado e **recusou reexecutar sem causa**, o que estava
+CERTO: reexecutar migration e harness só "por segurança" é trabalho sem causa. Disciplina
+boa não se pune. Mas parecer não recebido não é parecer aceito — a direção tirou a própria
+prova, do zero:
+
+- 🔴 **A prova que vale, reexecutada pela direção:** `run-auth-rate-limit-ephemeral.ps1`
+  ponta a ponta → `tentativa 6: HTTP 429` · `tentativa 7: HTTP 429` ·
+  `✅ AUTH-RATE-LIMIT-SUBSTRATE :: PASS (6/6)` · banco efêmero dropado, **resíduo 0**.
+  Não é "a tabela existe" — é o bloqueio acontecendo.
+- Banco oficial: `schema_migrations = 548`, `auth_rate_limit_logs` presente,
+  `relrowsecurity = false`, colunas `attempted_at` (timestamptz) e `metadata` (jsonb).
+- Varredura do repo por `attemptedAt`: só sobrou **dentro do próprio guard**, procurando o
+  padrão proibido. Limpo.
+- **Ataques independentes da direção, por ângulos próprios** (não repetindo os dela):
+  (1) devolvido `attemptedAt` ao `SELECT` → `service:no-attemptedAt-camelCase` morde,
+  exit 1; (2) removido só o `canonicalLogger.error`, mantendo o `return 0` →
+  `service:catch-logs-before-fail-open` morde, exit 1. Restaurado → `CLOSED=5`, exit 0.
+- Runner completo **227 COMMANDS OK**, drift 0; `typecheck` 0 erros; `git diff --check`
+  limpo; **CRLF=0** nos 6 arquivos.
+- O harness novo **declara `EXPECTED_DATABASE_NAME`** (`:30`) — respeitou a trava do banco
+  oficial selada na véspera, sem a direção precisar cobrar.
+
+**Melhor peça da entrega:** o `COMMENT ON TABLE` da migration não só justifica a ausência de
+RLS — ele **avisa a próxima instância da armadilha**: *"se algum dia esta tabela ganhar RLS,
+confirme primeiro que `countByKey` passou a rodar sob tenant-context — do contrário o rate
+limit volta a ficar sempre aberto, silenciosamente."* É migalha do tipo que impede a
+quarta reconstrução.
+
+⚠️ **NÃO SELADO.** Selo é ato de Clayton.
+
+### 🧭 DECISÕES QUE FICAM ABERTAS, DELIBERADAMENTE
+
+1. **Fail-open segue vivo.** Se o banco falhar, o login passa sem rate limit — agora com
+   log alto, nunca mais em silêncio. Virar fail-closed é troca entre segurança e
+   disponibilidade, e é **decisão de Clayton**, não desta camada.
+2. 🧨 **FASE 6 do RBAC é bomba com temporizador.** `actor_has_permission` faz `RETURN FALSE`
+   incondicional e sustenta **176 chamadas em 44 arquivos de rota**. É DESENHO (fail-closed
+   documentado), não dívida — mas mascara defeitos, entre eles um `INSERT` em
+   `bank_reconciliation_history`, tabela que não existe, alcançável sob `/finance` por chave
+   que **não está** no `PORTA_HOLD`. **Ninguém encosta na FASE 6 antes do
+   `F-SCHEMA-GHOST-REACHABILITY-SWEEP`.** Detalhe em `docs/04_audit/PAINEL_DIVIDA_VIVA_2026-07-29.md`.
+
 ## ✅ `DT-OFFICIAL-DATABASE-LOCK-FAIL-CLOSED` — FECHADA (2026-07-29)
 **Executora especialista. Pacote v2 da direção, após v1 ter sido corretamente recusado
 (v1 pedia hardcode sem env, o que quebraria 96+ harnesses efêmeros — ver parada anterior
