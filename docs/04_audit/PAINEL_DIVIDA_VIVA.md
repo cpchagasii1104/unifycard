@@ -45,7 +45,7 @@ DTs abertas · `bank_ledger`/`transactions`/`splits` = 0 · estado da PORTA-01.
 | IDs `DT-*` distintos na história do cartório | **556** | tudo que já foi nomeado como dívida, desde sempre |
 | IDs `F-*` distintos (frentes, não dívidas) | 113 | campanhas, não débitos |
 | `DT-*` **sem marcador de fechamento no cabeçalho** | **314** | varredura estrita — **teto**, não realidade |
-| 🔴 **VIVAS E DEMONSTRADAS hoje** | **5** | alguém provou que quebra. **É este o número acionável** |
+| 🔴 **VIVAS E DEMONSTRADAS hoje** | **6** | alguém provou que quebra. **É este o número acionável** (5 herdadas + 1 nova achada 2026-07-30) |
 | allowlist do gate (`C-*`) | 2 | `C3` e `C13`, prazo 2026-09-30, dono Clayton |
 
 > ### ⚠️ POR QUE "314" NÃO É A RESPOSTA
@@ -110,6 +110,7 @@ independente antes de ser aceito.
 | **`C3-actors-insert-fora-writer`** | `identity.service.ts:313` faz `INSERT INTO actors` fora do writer canônico. Alcance hoje **baixo** | CAUSA | `allowlist:8-16` |
 | **`C13-bank-reads-fora-modulo`** | ~15 arquivos leem `bank_*` fora de `modules/bank`. Escopo **CRESCEU** em 28/07 | CAUSA | `allowlist:18-26` |
 | ~~**`F-EVENT-CREATION-CONTRACT-SWEEP`**~~ | 🔄 **RECLASSIFICADO 2026-07-30 → DESENHO, não dívida.** ① *"rota `/events/:id/economic` não existe"*: **verdade** — só existem as 11 sob `/economic/v2` — mas varredura do `frontend/src` não achou **nenhum caller**. Rota inexistente que ninguém chama é ausência, não defeito. ② *"`event_type` órfão de escrita"*: **verdade**, e é **deliberado** — `event.service.ts:188` declara *"F-EVENT-CONCEPT-FIRST-MODEL: `event_type` deixou de ser autoridade… o novo caminho formato-first cria o draft sem ele"*; a identidade migrou para `event_format_concept_id` (**Lei 7**) | — | verificado de 1ª mão |
+| 🆕🔴 **`DT-SERVICE-BUNDLE-BOOKINGS-GHOST-TABLE-LIVE`** | **O ÚNICO da cauda do REBASE-03 que NÃO está mascarado.** `GET /services/service-bundles/:bundleId/bookings` (`service-bundle.routes.ts:107-114`) → `getBundleBookings` → `SELECT … FROM service_bookings` (`service-bundle.service.ts:290`). Tabela **não existe**. Módulo registrado em `app.builder.ts:569` (`protectedScope`, prefix `/services`), **ZERO `requirePermission`, ZERO contenção** → **qualquer usuário autenticado recebe 500 (42P01)**. ⚠️ `bookings` (vivo) **não serve de substituto**: não tem `service_id`. Os outros 3 endpoints do arquivo não tocam a tabela | CAUSA | verificado de 1ª mão 2026-07-30 |
 | 🆕 **`DT-REPORTS-PREFIX-COLLISION`** | **`/reports` registrado 2×**: `core/reporting` (denúncia) em escopo **PÚBLICO** (`app.builder.ts:257`) e `modules/reports` (financeiro) em **protectedScope** (`:716`). Não quebra o boot hoje, mas `GET /reports/:id` público casa com qualquer segmento | CAUSA | medido 2026-07-30 |
 | 🆕 **`DT-REPORTING-CHANNEL-DEAD-PUBLIC-SCOPE`** | Canal de denúncia **100% morto**: fora do `protectedScope`, `preHandler` exige `req.user`/`req.tenant` que só existem lá → **401 sempre**. Atrás dele, 3 tabelas que nunca existiram | CAUSA | `DECISION-0195` (não-selada) |
 
