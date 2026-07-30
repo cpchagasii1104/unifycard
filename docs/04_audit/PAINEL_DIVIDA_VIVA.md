@@ -45,7 +45,7 @@ DTs abertas · `bank_ledger`/`transactions`/`splits` = 0 · estado da PORTA-01.
 | IDs `DT-*` distintos na história do cartório | **556** | tudo que já foi nomeado como dívida, desde sempre |
 | IDs `F-*` distintos (frentes, não dívidas) | 113 | campanhas, não débitos |
 | `DT-*` **sem marcador de fechamento no cabeçalho** | **314** | varredura estrita — **teto**, não realidade |
-| 🔴 **VIVAS E DEMONSTRADAS hoje** | **7** | alguém provou que quebra. **É este o número acionável** |
+| 🔴 **VIVAS E DEMONSTRADAS hoje** | **5** | alguém provou que quebra. **É este o número acionável** |
 | allowlist do gate (`C-*`) | 2 | `C3` e `C13`, prazo 2026-09-30, dono Clayton |
 
 > ### ⚠️ POR QUE "314" NÃO É A RESPOSTA
@@ -109,7 +109,7 @@ independente antes de ser aceito.
 | **Painel econômico A-1** | 🔄 **CORRIGIDO 2026-07-30 — a alegação estava meio errada, e a metade errada era a que assustava.** ❌ **NÃO "paga mais que o total"**: o resolver lança `CALCULATION_INVALID` quando o split fica negativo (`economic-policy-engine.service.ts:292-298`) — **provado por execução**, 4 cenários. ✅ **Verdadeiro:** policy inválida **publica limpa** e só falha em tempo de PAGAMENTO. ✅ Parte já consertada: a exigência de linha `revenue_share` **saiu** do `if (hasBpsLine)` (`economic-policy-write-validation.ts:209`). ⚠️ **O resíduo não é conserto de código — é DECISÃO**: soma de linhas fixas contra o total **não é validável na escrita**, porque o valor da transação é desconhecido ali. ⚠️ FE **não** reverificado | **FALHA TARDIA**, não perda de dinheiro | provado 2026-07-30 |
 | **`C3-actors-insert-fora-writer`** | `identity.service.ts:313` faz `INSERT INTO actors` fora do writer canônico. Alcance hoje **baixo** | CAUSA | `allowlist:8-16` |
 | **`C13-bank-reads-fora-modulo`** | ~15 arquivos leem `bank_*` fora de `modules/bank`. Escopo **CRESCEU** em 28/07 | CAUSA | `allowlist:18-26` |
-| **`F-EVENT-CREATION-CONTRACT-SWEEP`** | Rota `/events/:id/economic` **não existe**; `event_type` é órfão de escrita | SINTOMA | cartório `:99-118` |
+| ~~**`F-EVENT-CREATION-CONTRACT-SWEEP`**~~ | 🔄 **RECLASSIFICADO 2026-07-30 → DESENHO, não dívida.** ① *"rota `/events/:id/economic` não existe"*: **verdade** — só existem as 11 sob `/economic/v2` — mas varredura do `frontend/src` não achou **nenhum caller**. Rota inexistente que ninguém chama é ausência, não defeito. ② *"`event_type` órfão de escrita"*: **verdade**, e é **deliberado** — `event.service.ts:188` declara *"F-EVENT-CONCEPT-FIRST-MODEL: `event_type` deixou de ser autoridade… o novo caminho formato-first cria o draft sem ele"*; a identidade migrou para `event_format_concept_id` (**Lei 7**) | — | verificado de 1ª mão |
 | 🆕 **`DT-REPORTS-PREFIX-COLLISION`** | **`/reports` registrado 2×**: `core/reporting` (denúncia) em escopo **PÚBLICO** (`app.builder.ts:257`) e `modules/reports` (financeiro) em **protectedScope** (`:716`). Não quebra o boot hoje, mas `GET /reports/:id` público casa com qualquer segmento | CAUSA | medido 2026-07-30 |
 | 🆕 **`DT-REPORTING-CHANNEL-DEAD-PUBLIC-SCOPE`** | Canal de denúncia **100% morto**: fora do `protectedScope`, `preHandler` exige `req.user`/`req.tenant` que só existem lá → **401 sempre**. Atrás dele, 3 tabelas que nunca existiram | CAUSA | `DECISION-0195` (não-selada) |
 
@@ -170,7 +170,24 @@ Mais: `DT-ACTOR-EFFECT-INBOX-PROJECTOR-UNSUBSCRIBED` · `DT-NOTIFY-SUBSTRATE-SCH
 
 ## ⚪ DORMENTE POR DECISÃO — **não é dívida**
 
-> ### 🔴 DUAS RECLASSIFICAÇÕES EM 2026-07-30 — e a lição vale mais que elas
+> ### 🔴🔴 QUATRO DAS SETE ALEGAÇÕES DO PAINEL NÃO SOBREVIVERAM À CONFERÊNCIA (2026-07-30)
+>
+> | alegação original | o que a verificação achou |
+> |---|---|
+> | `DT-RBAC-V2` — *"44 arquivos de rota o usam"* | **desenho** — fail-closed documentado, FASE 6 nomeada |
+> | `event_custody` — *"500 garantido em qualquer caminho vivo"* | **11 rotas com 501** como primeira instrução |
+> | `Painel A-1` — *"paga mais que o total"* | resolver **recusa split negativo**; falha tardia, não perda |
+> | `F-EVENT-CREATION-CONTRACT-SWEEP` — rota ausente + coluna órfã | rota **sem caller**; coluna **superada por Lei 7** |
+>
+> 🔴 **As quatro eram alegações sobre CONSEQUÊNCIA, e as quatro foram escritas parando no
+> `INSERT`, na chamada ou na ausência** — sem seguir até o guard, o 501, a validação final ou o
+> caller. **Ler até a query prova que a query existe; não prova o que acontece quando ela roda.**
+>
+> ⚠️ **Isto é achado sobre o PAINEL, não sobre o código.** Uma taxa de 4 em 7 significa que
+> nenhuma linha daqui deve virar fatia sem reconferência — e que a coluna "Prova" precisa citar
+> **o caminho até o efeito**, não o `arquivo:linha` da query.
+>
+> ### 🔴 RECLASSIFICAÇÕES — o que saiu da lista viva
 > `DT-RBAC-V2-…-STRUCTURALLY-DEAD` e `event_custody sem tabela` estavam listadas como **VIVAS E
 > DEMONSTRADAS**. Ambas são **DESENHO**: a primeira é fail-closed documentado, a segunda é
 > contenção 501 selada pela `DECISION-0190`.
