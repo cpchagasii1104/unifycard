@@ -40,6 +40,20 @@ Ao despachar subagente, escreva o mandato como **inventário-primeiro, desenho-n
 | **História, causa-raiz, provas** | `REMEDIATION_DT_LOG.md` — **leia o topo**. É cartório append-only, **não é placar** |
 | ⛔ **`dividatecnica.md`** | **HISTÓRICO.** Declara-se obrigatório e mentiu por 24 dias (placar de 06/07 dizendo 163 guards quando eram 227). Evidência sim, estado atual **não**. Não atualize — atualize o PLACAR |
 
+## 3.1 ☠️ ANTES DE RODAR MIGRATION — UMA LEI MANDA APAGAR O BANCO OFICIAL
+
+`docs/01_normative/LEIS_OPERACIONAIS_UNIFICARD.md:196-206` ("REGRA DE AMBIENTE (CRÍTICA)") manda
+`dropdb unificard_dev` **SEMPRE antes de rodar migrations**, e chama de **VIOLAÇÃO** não fazer.
+
+🔴 **NÃO EXECUTE ISSO.** `unificard_dev` é o **banco OFICIAL** desde 2026-07-29
+(`DT-OFFICIAL-DATABASE-LOCK-FAIL-CLOSED`) e contém dado curado insubstituível: **75 bairros de
+Curitiba** (N3 selada, *"NUNCA recarregar"*), 48 policies, 3 grants, a conta do fundo regional.
+
+**Duas normas em conflito, e a mais antiga manda destruir.** Ambiente recriado do zero vale para
+**banco efêmero de teste** — o mecanismo é `EXPECTED_DATABASE_NAME`, usado pelos ~96
+`run-*-ephemeral.ps1`. Detalhe e correção sugerida em `docs/04_audit/PAINEL_DIVIDA_VIVA.md`
+(topo). **Conserto da Lei é ato de Clayton — não edite a norma por conta.**
+
 ## 4. Armadilhas — parecem indecididas e NÃO são
 
 - **`user_group_allocation`** ("usuário escolhe doar X% do que gasta"): **REVOGADO POR LEI** (`CONTRATO_GRUPOS_V2` — *"não é fonte do split comunitário, dívida a aposentar"*). O modelo correto é **PULL por membership**. A tabela **nem existe** no banco vivo. Não ressuscite.

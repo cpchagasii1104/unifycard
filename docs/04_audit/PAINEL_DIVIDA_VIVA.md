@@ -115,6 +115,46 @@ independente antes de ser aceito.
 
 ---
 
+## ☠️ RISCO DESTRUTIVO VIVO — UMA LEI MANDA APAGAR O BANCO OFICIAL
+
+**`DT-LAW-MANDATES-DROPPING-OFFICIAL-DATABASE`** · achado pela instância GUARDIÃO em
+2026-07-30, **confirmado de 1ª mão pela direção no mesmo dia**.
+
+`docs/01_normative/LEIS_OPERACIONAIS_UNIFICARD.md:196-206` — nível 2 de precedência, abaixo
+apenas da Constituição:
+
+```powershell
+## REGRA DE AMBIENTE (CRÍTICA)
+> OBRIGATÓRIO: Execução de migrations somente em ambiente recriado do zero.
+
+# SEMPRE antes de rodar migrations
+dropdb -h localhost -U postgres unificard_dev
+createdb -h localhost -U postgres -E UTF8 unificard_dev
+
+Execução fora de ambiente recriado = VIOLAÇÃO
+```
+
+🔴 **A Lei NOMEIA o banco oficial.** Um agente **cumprindo a norma** — que é exatamente o que o
+protocolo exige dele — destrói:
+
+| dado | medido em 2026-07-30 |
+|---|---|
+| bairros oficiais de Curitiba (N3 selada, *"NUNCA recarregar"*) | **75** |
+| `economic_policies` | **48** |
+| `actor_capability_grants` | **3** |
+| `regional_fund_accounts` | **1** |
+
+⚠️ **Colide frontalmente com `DT-OFFICIAL-DATABASE-LOCK-FAIL-CLOSED`** (selado em 2026-07-29),
+que fez de `unificard_dev` o banco **oficial e protegido**, com trava fail-closed em `migrate.ts`
+e no boot. **Duas normas, sentidos opostos, e a mais antiga manda destruir.**
+
+🔴 **NÃO é a direção quem corrige.** Alterar Lei é ato de Clayton. A direção **não editou** a
+norma — registrou, escalou e apontou daqui e do `CLAUDE.md`.
+
+**Correção sugerida (não aplicada):** a regra de ambiente recriado vale para **bancos efêmeros
+de teste**, nunca para o oficial. O mecanismo governado já existe e é o `EXPECTED_DATABASE_NAME`
+dos ~96 harnesses.
+
 ## 🔴 VIVA E DEMONSTRADA — alguém provou que quebra hoje
 
 | ID | O que é | Tipo | Prova |
