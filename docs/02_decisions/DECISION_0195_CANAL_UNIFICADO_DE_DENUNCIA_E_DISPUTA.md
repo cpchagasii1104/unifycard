@@ -4,6 +4,20 @@
 **Modo:** **DOCS-ONLY** · ZERO código, migration, guard ou banco. Não cria tabela, não conserta rota, não aposenta módulo.
 **Origem:** diretiva de Clayton, 2026-07-30 — *"englobar todos os módulos pra dentro de um único canal unificado de denúncia… selecionar qual que é a questão específica pra poder abrir o chamado naquele serviço, naquela entrega, naquele produto"* + *"vamos adotar modelos de empresas Enterprise já conceituadas no mercado, como Uber, iFood, Mercado Livre"*.
 **Promulga:** `docs/99_archive/to_review/REPORTING_CORE.md` e `REPORTING_DATA_MODEL.md` — redigidos, nunca promulgados.
+
+> ### 📝 EMENDA 1 — 2026-07-30, mesma sessão, ANTES do selo
+> Clayton mostrou à direção as telas reais de **Uber (app do motorista)**, **Mercado Livre** e
+> **iFood**. A observação do mercado **derrubou três coisas que a direção tinha escrito** e
+> revelou um destino que ela não havia enxergado. Registrado assim, e não reescrito em
+> silêncio, porque **a correção veio do dono mostrando como o mercado resolve — não da direção
+> ter percebido sozinha**:
+> - **D1 estava errado na forma.** A direção escreveu "duas portas" como se o usuário
+>   escolhesse entre disputa e denúncia. Nenhuma das três empresas pergunta isso. → reescrito.
+> - **D3 tratava a âncora como campo.** É **contexto de navegação**. → corrigido.
+> - **D3.2 colapsava dois eixos** num `module` só. → separado.
+> - **Faltava um destino inteiro: EMERGÊNCIA.** → novo D6.
+> - Novos por observação: **D7** (autoatendimento), **D8** (assistente sem autoridade
+>   própria — o achado mais perigoso), **D9** (evidência), **D10** (saída humana sempre visível).
 **Subordinada a:** Lei 7 (identidade semântica) · `07_NOMENCLATURA_CANONICA.md` · `00_AGENT_PROTOCOL §2.2/§2.3.2` · `18_DOMAIN_ONTOLOGY_UNIFICARD.md`.
 
 ---
@@ -43,26 +57,53 @@ E o núcleo que deveria reger tudo isso **está morto por dois motivos independe
 
 ---
 
-## D1 — SÃO DUAS PORTAS, E ELAS NÃO SE FUNDEM
+## D1 — UMA PORTA PARA O USUÁRIO, TRÊS DESTINOS PARA DENTRO
 
-Padrão convergente de Uber, iFood e Mercado Livre — adotado por diretiva de Clayton:
+**O usuário nunca escolhe entre "disputa" e "denúncia". Ele diz que teve um problema, e o
+sistema roteia.** Nenhuma das três empresas observadas pergunta isso — porque o usuário não
+conhece, nem deve conhecer, a taxonomia interna da plataforma.
 
-| | **PORTA A — DISPUTA** | **PORTA B — DENÚNCIA** |
-|---|---|---|
-| pergunta do usuário | *"deu problema no meu pedido"* | *"isto não deveria existir na plataforma"* |
-| âncora | **a operação** (corrida, entrega, pedido, serviço) | conteúdo, perfil, anúncio, conduta |
-| exige ter contratado? | **sim** — é sobre a sua operação | **não** |
-| desfecho | dinheiro: estorno, refazer, cancelar, mediação | moderação: remoção, suspensão, banimento |
-| SLA | comercial | **de segurança** |
-| exemplo de mercado | iFood *"Ajuda com o pedido"* · Uber *"Get help with a trip"* · ML *"Abrir reclamação"* | ML *"Denunciar publicação"* · Uber safety report |
+A superfície é **uma só: AJUDA.** É o nome nas três (Uber *"Ajuda"*, ML *"Como podemos te
+ajudar?"*, iFood *"AJUDA"*). No iFood, *"Sofri uma agressão física"* e *"Valor foi cobrado
+duas vezes"* vivem **no mesmo acordeão, na mesma tela do mesmo pedido**.
 
-> **D1.1 — Fundir as duas é PROIBIDO.** Quem trata estorno não é quem trata assédio; as filas, os prazos e a autoridade de decisão são distintos. Uma reclamação de atraso de entrega numa fila de Trust & Safety atrasa a resposta a um caso de assédio, e é isso que a separação impede.
+**Por dentro, três destinos — e eles não se misturam:**
 
-> **D1.2 — Uma operação pode gerar as duas.** Uma corrida pode render disputa de valor (A) **e** denúncia de conduta do motorista (B). São dois registros, com ciclos de vida independentes. **A existência de uma nunca condiciona a outra** — cancelar a disputa não arquiva a denúncia.
+| destino | o que é | desfecho | SLA |
+|---|---|---|---|
+| **DISPUTA** | problema na operação | dinheiro: estorno, refazer, cancelar, mediação | comercial |
+| **DENÚNCIA** | conduta, conteúdo, identidade | moderação: remoção, suspensão, banimento | de segurança |
+| 🔴 **EMERGÊNCIA** | risco à integridade física ou à vida | **escalonamento imediato — NÃO é fila** | imediato |
+
+> **D1.1 — O roteamento é do SISTEMA, derivado do assunto e do alvo. Nunca é pergunta ao
+> usuário.** Ele escolhe o que aconteceu com ele, em linguagem dele; a classificação interna é
+> consequência.
+
+> **D1.2 — Fundir os destinos é PROIBIDO.** Quem trata estorno não é quem trata assédio.
+> Reclamação de atraso na fila de Trust & Safety atrasa resposta a caso de violência — é
+> exatamente isso que a separação impede.
+
+> ### 🔴 D1.3 — EMERGÊNCIA NÃO É TICKET
+> Revelado pela tela *"Segurança e Emergência"* do iFood, que lista lado a lado
+> *"sofri violência sexual"*, *"sofri agressão física"*, *"sofri ameaça"*, *"saúde ou acidente
+> do entregador"*. **Isso não pode entrar numa fila com SLA comercial nem esperar triagem
+> automática.** Emergência tem caminho próprio, prioridade absoluta e escalonamento humano
+> imediato. Registrar e enfileirar um relato de violência é falha de produto com consequência
+> real sobre uma pessoa.
+
+> ### D1.4 — A TAXONOMIA É ESCRITA NA PRIMEIRA PESSOA DA VÍTIMA
+> O iFood escreve *"Sofri uma agressão verbal"*, não *"Denunciar conduta inadequada"*.
+> **Quem acabou de sofrer violência não procura a palavra "denúncia" num menu** — procura o
+> que aconteceu com ela. A superfície fala a língua de quem chega; a classificação interna é
+> problema da plataforma, não do usuário.
+
+> **D1.5 — Uma operação pode gerar mais de um registro.** Uma corrida pode render disputa de
+> valor **e** denúncia de conduta. São registros independentes: **cancelar a disputa nunca
+> arquiva a denúncia**, e receber o estorno não encerra a apuração.
 
 ---
 
-## D2 — PORTA B TEM UM NÚCLEO ÚNICO, E MÓDULO NÃO CRIA O SEU
+## D2 — O DESTINO DENÚNCIA TEM UM NÚCLEO ÚNICO, E MÓDULO NÃO CRIA O SEU
 
 **O Reporting Core (`core/reporting`) é o SSOT de denúncia.** Fica promulgado o que `REPORTING_CORE.md` já dizia:
 
@@ -76,7 +117,7 @@ Padrão convergente de Uber, iFood e Mercado Livre — adotado por diretiva de C
 
 ---
 
-## D3 — PORTA A ANCORA NA OPERAÇÃO, E O VOCABULÁRIO É COMPOSTO, NUNCA ENUMERADO
+## D3 — A AJUDA ANCORA NA OPERAÇÃO, E O VOCABULÁRIO É COMPOSTO, NUNCA ENUMERADO
 
 A extensão de Clayton sobre o desenho arquivado: o documento original ancora na **entidade** (`DRIVER`, `PROVIDER`, `COMPANY`), com `TRANSACTION` marcado *"(futuro)"*. **Fica decidido que a Porta A ancora na OPERAÇÃO CONCRETA**, e a entidade é **derivada** dela.
 
@@ -91,7 +132,30 @@ Razão registrada — não é preferência estética:
 >
 > **Esta decisão fixa a REGRA e recusa-se deliberadamente a fixar a LISTA.**
 
-**D3.2 — `module` deixa de ser texto livre.** Hoje é `z.string().min(1)` (`reporting.routes.ts`), enquanto `REPORTING_DATA_MODEL.md` especifica ENUM. **Texto livre nunca é identidade** (Lei 7). O enum é composto do vocabulário governado de módulos, no mesmo GATE de D3.1.
+> ### D3.2 — A ÂNCORA É CONTEXTO DE NAVEGAÇÃO, NÃO CAMPO DE FORMULÁRIO
+> O usuário **não digita** qual corrida. Ele **chega pela corrida**. Nas três empresas o alvo
+> está fixo no topo da tela como contexto: Uber prende *"Viagem concluída: 15:51 · 21.61 km"*
+> no topo do chat; iFood abre a Ajuda com o carrossel **"Últimos pedidos"**, cada card com
+> **"Ajuda com este pedido"**. `target_id` é **carregado pela navegação**, nunca preenchido.
+>
+> Ajuda **sem** operação continua existindo (conta, privacidade, políticas) e cai nas
+> categorias gerais.
+
+**D3.3 — São DOIS EIXOS, e colapsá-los foi erro da direção.**
+
+| eixo | o que é | quem entende | governança |
+|---|---|---|---|
+| `module` | origem interna do fato | plataforma | **enum governado**, composto no GATE de D3.1 |
+| **assunto** | do que o usuário acha que se trata | usuário | **projeção**, não enum global |
+
+Hoje `module` é `z.string().min(1)` (`reporting.routes.ts`) enquanto `REPORTING_DATA_MODEL.md`
+manda ENUM: **texto livre nunca é identidade** (Lei 7). Isso se corrige no eixo interno.
+
+Mas o eixo do usuário **não é enum estático**. As telas provam: a Uber do **motorista** mostra
+*Ganhos · Parceria de veículos · Esqueci de terminar a viagem* — taxonomia que não existe para
+o passageiro. O Mercado Livre chama de **"Atalhos personalizados"** e os deriva do estado
+daquele usuário. **É projeção do contexto do Actor**, que já é doutrina deste projeto —
+não é sistema novo a inventar.
 
 ---
 
@@ -107,7 +171,71 @@ Padrão de Uber, iFood e Mercado Livre, e resolve a tensão real entre proteçã
 
 ---
 
-## D5 — O QUE ESTA DECISÃO **NÃO** AUTORIZA
+## D6 — AUTOATENDIMENTO ANTES DO CHAMADO
+
+Ordem obrigatória na superfície, observada nas três: **busca → artigo/política → opção pronta
+→ texto livre**. O ML lidera com campo de busca preditiva; a Uber com grade de categorias; o
+iFood com o pedido recente e opções contextuais. Em todas, **texto livre é o último recurso**.
+
+Isso **não é UX**: é a política anti-abuso agindo na entrada, e é o que torna o volume
+tratável sem afrouxar nada. Opção pronta também **classifica sozinha**, eliminando triagem
+manual do caso comum.
+
+⚠️ **D6.1 — Autoatendimento NUNCA se aplica ao destino EMERGÊNCIA (D1.3).** Ninguém que
+sofreu violência deve ser recebido por artigo de FAQ.
+
+---
+
+## D7 — 🔴 O ASSISTENTE NÃO TEM AUTORIDADE PRÓPRIA
+
+O ML oferece **"Devolver uma compra"** dentro do assistente; o iFood oferece **"Habilitar
+reembolso em Saldo iFood"** dentro da ajuda do pedido. **São operações de dinheiro executadas
+de dentro do canal de ajuda.**
+
+> **Um assistente que executa devolução está movimentando dinheiro. Se ganhar caminho próprio,
+> a AJUDA vira BYPASS DA PORTA-01.**
+
+É exatamente a classe de defeito que este repositório passou meses cercando: firewall no sink
+de pagamento, tripwire no split-engine legado, deny estrutural de sete chaves em
+`PORTA_HOLD_KEYS`. Um canal de ajuda com IA chegaria **por fora de tudo isso**, porque "é só
+suporte".
+
+**FICA DECIDIDO:** o assistente **COMPÕE** das operações canônicas existentes — mesma rota,
+mesmo writer, mesmo gate, mesma PORTA. Se a devolução está represada no fluxo normal, está
+represada na ajuda. **Zero caminho novo para dinheiro. Zero exceção "porque é suporte".**
+
+---
+
+## D8 — EVIDÊNCIA É NATIVA E MULTIMODAL
+
+Foto e áudio no próprio campo de entrada (ML: câmera + microfone). Para disputa e denúncia é
+decisivo — foto do produto avariado, print da conversa, áudio da ameaça.
+
+Sujeito às regras de privacidade **já escritas** em `REPORTING_CORE.md`: evidência pertence ao
+**caso**, nunca ao ticket visível ao denunciado; *"CPF / endereço / dados pessoais nunca
+aparecem no ticket público"*.
+
+---
+
+## D9 — DISCLOSURE DE IA É OBRIGATÓRIO
+
+O ML declara em texto fixo: *"Este assistente usa inteligência artificial para te responder."*
+**Havendo triagem, sugestão ou resposta automática, o usuário é informado.** Vale também para o
+motor de risco (`core/reporting/ai/risk-scoring-engine.ts`), coerente com a regra já escrita de
+que **nenhuma denúncia gera punição automática**.
+
+---
+
+## D10 — A SAÍDA HUMANA NUNCA DESAPARECE
+
+No iFood o ícone de fone de ouvido está **em todas as telas** de ajuda; no ML, *"Fale conosco"*
+fica ao pé da página. Autoatendimento vem primeiro (D6), **mas o contato humano nunca fica
+atrás de seis cliques nem some da tela**. Canal de segurança que esconde o humano deixa de ser
+canal de segurança.
+
+---
+
+## 🚧 LIMITES — O QUE ESTA DECISÃO **NÃO** AUTORIZA
 
 Docs-only, e o limite é duro:
 
@@ -116,7 +244,8 @@ Docs-only, e o limite é duro:
 - ❌ **Não apaga `chat_reports`** nem nada. D2.1 declara destino; execução exige autorização explícita de Clayton.
 - ❌ **Não fixa a lista de tipos de operação** (D3.1) nem o enum de `module` (D3.2) — ambos saem de GATE.
 - ❌ **Não toca `support_tickets`**, `financial_disputes` nem `reconciliation_disputes`.
-- ❌ **Não abre PORTA-1** e não movimenta dinheiro. A Porta A *desemboca* em estorno, mas o mecanismo financeiro segue sob as travas vigentes.
+- ❌ **Não abre PORTA-1** e não movimenta dinheiro. O destino DISPUTA *desemboca* em estorno, mas o mecanismo financeiro segue sob as travas vigentes — e **D7 proíbe explicitamente** qualquer caminho novo.
+- ❌ **Não cria assistente, não liga IA, não define fluxo de emergência.** D6 a D10 fixam **regras** para quando isso for construído; nenhuma delas autoriza construir.
 
 ---
 
