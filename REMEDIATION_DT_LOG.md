@@ -1,5 +1,51 @@
 # REMEDIATION DT LOG
 
+## 🔬 VERIFICAÇÃO DE 1ª MÃO — `PAINEL ECONÔMICO A-1` NÃO PAGA A MAIS (2026-07-30)
+
+**Direção. Read-only sobre o repo; sonda executada FORA dele (scratchpad).** Terceira alegação
+do painel conferida hoje, e a terceira a não sobreviver inteira.
+
+**O painel dizia:** *"Policy que paga mais que o total publica em silêncio."*
+
+**Executado** (`calculatePolicySplits`, sonda no scratchpad, 4 cenários):
+
+| cenário | resultado |
+|---|---|
+| fixos `8000+5000` > total `10000`, `revenue_share` fixo `10` | **`CALCULATION_INVALID`** (split negativo) |
+| fixo `15000` > total `10000`, `revenue_share` bps `10000` | **`CALCULATION_INVALID`** |
+| fixo `3000` + `revenue_share` bps `10000` | `SOMA=10000` — **conserva** |
+| fixos `7000+3000`, um deles `revenue_share` | `SOMA=10000` — **conserva** |
+
+🔴 **O resolver NUNCA paga a mais.** `economic-policy-engine.service.ts:292-298` recusa split
+negativo. **Falha FECHADA.**
+
+**O que era verdade:** a policy inválida **publica limpa** e só quebra em tempo de PAGAMENTO —
+o pior momento para descobrir. **Mas isso é FALHA TARDIA, não perda de dinheiro**, e a
+diferença decide a prioridade.
+
+**Já consertado antes desta sessão:** a exigência de linha `revenue_share` **saiu** do
+`if (hasBpsLine)` (`economic-policy-write-validation.ts:209`, com o porquê escrito em `:202-208`).
+O `bpsSum !== 10000` continua dentro do `if` — e **está correto**: sem linha bps não há soma bps.
+
+⚠️ **O resíduo NÃO É CONSERTO DE CÓDIGO — É DECISÃO.** Soma de linhas fixas contra o total é
+**invalidável na escrita por natureza**: a policy é escrita uma vez e aplicada a transações de
+valores variados; a mesma policy é válida para R$ 500 e inválida para R$ 50. Fechar isso exige
+decidir se policy só-fixa é permitida, ou se declara valor mínimo de transação. **Não é fatia
+de executora.**
+
+⚠️ **NÃO reverificado:** a metade FRONTEND da alegação (*"FE pula a soma"*). Fica declarada
+como não auditada, não como refutada.
+
+### 🔴 O PADRÃO DAS TRÊS CORREÇÕES DE HOJE
+`DT-RBAC-V2` (*"44 arquivos de rota o usam"*) · `event_custody` (*"500 garantido em qualquer
+caminho vivo"*) · `Painel A-1` (*"paga mais que o total"*). **As três alegações eram sobre
+CONSEQUÊNCIA, e as três foram escritas parando no `INSERT`/na chamada** — sem seguir até o
+guard, o 501 ou a validação final que vinha logo depois.
+
+**Ler o código até a query prova que a query existe. Não prova o que acontece quando ela roda.**
+
+---
+
 ## ✅ `F-SCHEMA-COHERENCE-GATE-TERCEIRA-CLASSE-DE-BUGS` — FECHADA (2026-07-30)
 **Executora especialista. Pacote fechado sobre `docs/04_audit/DECOMPOSICAO_SCHEMA_COHERENCE_2026-07-30.md`
 (commit `c245b6112`). Mesma natureza de `01c54f53e`: conserta 6 classes de bug do PRÓPRIO
