@@ -1,4 +1,9 @@
-# Plano de recuperação do UnifiCard
+# Plano de recuperação do UnifiCard — PAPEL: PLANO (estratégia das 6 fases)
+
+> ### 🔴 LEIA ISTO ANTES DE TRATAR QUALQUER COISA AQUI COMO ESTADO ATUAL (tarja de 2026-07-31)
+> **Papel deste documento (tabela da instância DÍVIDAS TÉCNICAS, `docs/04_audit/PAINEL_DIVIDA_VIVA.md`): PLANO — a estratégia soberana em 6 fases.** Isto continua vigente: não é histórico morto, é o roteiro.
+> **MAS NÃO RESPONDE "qual é o estado HOJE".** Última reconciliação de conteúdo: **2026-07-28** (`0d273ead4`, "a tabela de status estava FALSA"). Para números de agora — runner, gate, DTs vivas — use `docs/04_audit/PAINEL_DIVIDA_VIVA.md` (o PLACAR). Para a história/causa-raiz por trás de cada achado, `REMEDIATION_DT_LOG.md` (o CARTÓRIO, topo = recente).
+> **Regra para quem chega sem memória:** use este arquivo para responder *"qual é a sequência/fase planejada?"*. **Nunca** para responder *"o que está quebrado agora?"* — para isso, o PLACAR.
 
 ## 🔒 Protocolo de reancoragem — LER ISTO PRIMEIRO, sempre, antes de qualquer outra coisa
 

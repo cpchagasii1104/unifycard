@@ -1,4 +1,10 @@
-# MAPA DO DENOMINADOR — ISOLAMENTO INTRA-TENANT (tenant compartilhado)
+# MAPA DO DENOMINADOR — ISOLAMENTO INTRA-TENANT (tenant compartilhado) — ⚠️ HISTÓRICO, NÃO É O PAINEL VIVO
+
+> ### 🔴 LEIA ISTO ANTES DE TRATAR QUALQUER COISA AQUI COMO ESTADO ATUAL (tarja de 2026-07-31)
+> **Papel deste documento (tabela da instância DÍVIDAS TÉCNICAS, `docs/04_audit/PAINEL_DIVIDA_VIVA.md`): HISTÓRICO — evidência antiga, não é placar.** É o índice legível da malha de isolamento tenant-compartilhado (referenciado por `Vinculada a:` na DT-mãe do cartório), não um painel vivo.
+> **Última atualização de conteúdo: 2026-06-11** — o mais antigo dos documentos de dívida sem tarja; quase 7 semanas antes desta correção.
+> **Para o estado de agora:** `docs/04_audit/PAINEL_DIVIDA_VIVA.md` (PLACAR) + `REMEDIATION_DT_LOG.md` (CARTÓRIO — DT-mãe `DT-SHARED-TENANT-RESOURCE-VISIBILITY-NO-OWNERSHIP-POLICY`, topo = recente).
+> **Regra para quem chega sem memória:** use este arquivo para responder *"quais clusters de leitura tenant-wide já foram mapeados, e com que cobertura, em 10/06?"*. **Nunca** para responder *"o isolamento está fechado hoje?"*.
 
 > **READ-ONLY / NÃO-NORMA.** Este é um **artefato-mapa de cobertura**, não decisão soberana. As fontes soberanas são `DECISION-0116` (política de classes), `DECISION-0115 D1` (causa), `DECISION-0113` (mecanismo) e a DT-mãe `DT-SHARED-TENANT-RESOURCE-VISIBILITY-NO-OWNERSHIP-POLICY`. Reusar qualquer linha deste mapa **exige revalidar HEAD + fonte viva**; ausência de auditoria ≠ ausência de leak.
 >

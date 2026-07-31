@@ -1,5 +1,83 @@
 # REMEDIATION DT LOG
 
+## ✅ EXECUTADO — F-MIGRATION-NUMBERING-GATE-REAL-COVERAGE (2026-07-31; GO Clayton)
+
+**O guard esteve verde por meses cobrindo 131 de 551 arquivos — e ninguém notou porque guard
+verde não é lido.** `check-migration-numbering.js` fazia `return` antecipado em qualquer nome de
+14 dígitos (`^\d{14}_`) ou 8 dígitos (`^\d{8}_`), validando só o esquema legado de 4 dígitos da
+gênese. Achado pela varredura de dívida técnica de 07_NOMENCLATURA_CANONICA §15.1 (parecer
+2026-07-31), confirmado por Clayton de 1ª mão: **417 de 14 dígitos + 3 de 8 dígitos PULADOS,
+131 de 4 dígitos checados — 420/551 (76%) nunca foram validados, incluindo TODA migration criada
+desde que o projeto adotou timestamp.** O guard rodava verde no runner, "provando" GATE 3 —
+INTEGRIDADE DE MIGRAÇÕES sem checar três quartos do universo real.
+
+**Decisão de formato canônico (norma × realidade discordam — reportado a Clayton, NÃO
+autocorrigido; editar `07_NOMENCLATURA_CANONICA.md` é ato dele):** §15.1 documenta
+`{TIMESTAMP 14}_{descrição}.{up|down}.sql`. O repositório vivo usa `YYYYMMDDHHMMSS_descrição.sql`
+— **sem** `.up/.down` — em 417 dos 551 arquivos, e `migration-runner-core.ts` (linha 86-87,
+comentário próprio) já trata YYYYMMDDHHMMSS/YYYYMMDD como formatos reconhecidos "fora da
+sequência numérica", nunca como par up/down. Só existe **1** arquivo `.up.sql` no repo inteiro
+(`20260331120000_event_idempotency_tracking.up.sql`) e **0** arquivos `.down.sql` — o par nunca
+existiu; foi uma tentativa isolada do formato documentado, abandonada. `.up/.down` também
+contradiz a Lei 2 (forward-only) do próprio corpo normativo: rollback por arquivo `.down.sql`
+pressupõe reversibilidade que este sistema não tem. **Determinação: o formato canônico real é
+`YYYYMMDDHHMMSS_descricao_snake.sql`, sem sufixo up/down.** Recomendo a Clayton corrigir §15.1
+para refletir isto (ato dele, não desta fatia).
+
+**Guard reescrito para cobrir os 551, não 131** (`backend/scripts/check-migration-numbering.js`,
+único arquivo tocado): 3 formatos reconhecidos — CANÔNICO (14 dígitos, daqui pra frente) checado
+por regex + colisão de timestamp exato; LEGADO-8 (3 arquivos, abr/2026) e LEGADO-4 (131 arquivos,
+gênese) CONGELADOS por allowlist exata gerada do disco vivo nesta fatia — qualquer arquivo novo
+nesses dois formatos falha (abandonados, não recebem membro novo), qualquer arquivo da allowlist
+que sumir do disco falha (Lei 2 — nunca remover/renomear migration existente). A validação
+histórica de número único/sufixo único/sufixos sequenciais (a,b,c...) do guard original foi
+preservada, re-escopada só para o LEGADO-4.
+
+**2 anomalias pré-existentes descobertas pela cobertura nova, pinadas por nome exato (NÃO
+renomeáveis — `schema_migrations.filename` é a chave de aplicação; renomear arquivo já aplicado
+quebra o mapeamento):**
+- `20260331120000_event_idempotency_tracking.up.sql` — o `.up.sql` órfão citado acima.
+- `20260427120000_product_concept_resolution_queue.sql` + `20260427120000_unified_availability_base.sql`
+  — timestamp idêntico (mesmo segundo), duas migrations distintas. Não é erro de aplicação
+  (`schema_migrations` chaveia por filename completo, único; ordem de execução é
+  `localeCompare` do nome completo, determinística) — é falha de disciplina de nomenclatura no
+  momento da criação. Pinado, não corrigido.
+
+**PROVA VERMELHA→VERDE (colada, não resumida):**
+```
+$ echo "-- RED PROOF" > backend/migrations/9999_temp_red_proof_do_not_apply.sql
+$ node backend/scripts/check-migration-numbering.js
+❌ GATE 3 — INTEGRIDADE DE MIGRAÇÕES: FALHOU
+❌ Formato LEGADO-4 (NNNN[a]_nome.sql) não é mais aceito para arquivo novo:
+   9999_temp_red_proof_do_not_apply.sql — use YYYYMMDDHHMMSS_nome.sql (14 dígitos).
+exit 1
+
+$ rm backend/migrations/9999_temp_red_proof_do_not_apply.sql
+$ node backend/scripts/check-migration-numbering.js
+✅ GATE 3 — INTEGRIDADE DE MIGRAÇÕES: PASSOU
+📋 Total de migrations: 551
+✅ Formato canônico (14 dígitos): 416 · sem timestamp duplicado
+✅ Legado-8 (congelado): 3/3
+✅ Legado-4 (congelado): 131/131 · numeração/sufixos OK
+exit 0
+```
+O guard morde de verdade agora — antes, um arquivo assim teria passado batido pela mesma
+lacuna que escondeu os 420.
+
+**Runner:** `npm run validate:regression-guards` → **229/229 COMMANDS OK** (inalterado — este guard
+já estava cabeado, só o conteúdo mudou; nenhum comando novo adicionado). `financial-vocabulary`
+3884/3884 · `financial-ssot` 591/591 · typecheck do gate 0/0 (via `red-gates-baseline`, incluso na
+mesma corrida). `git status` limpo em `backend/migrations/` (arquivo de prova vermelha criado e
+apagado, nenhum resíduo). `git ls-files --eol` do arquivo tocado → `i/lf w/lf` (LF, sem CRLF).
+
+**Escopo respeitado:** único arquivo tocado = `backend/scripts/check-migration-numbering.js`.
+Nenhuma migration renomeada/movida/apagada. Nenhum outro guard tocado (o de §4.34 é da
+executora, fatia irmã acima, intocado). `07_NOMENCLATURA_CANONICA.md` NÃO editado — a
+recomendação de corrigir §15.1 fica registrada aqui para decisão de Clayton. NÃO COMMITADO
+(instrução explícita do mandato) — working tree deixado para Clayton revisar e commitar.
+
+---
+
 ## ✅ EXECUTADO — F-SEVERITY-CANONICAL-CONVERGENCE (2026-07-31; GO Clayton)
 
 **Runner: 229/229 COMMANDS OK** (228→229, guard novo). `npm run typecheck` → 0.
@@ -79,7 +157,41 @@ fechamento (`git diff --check` limpo, diffs voltaram a ~1 linha real cada). `fin
 `financial-alert-repository` trocado por leitura de `pg_constraint`; palavra "payout" num
 comentário trocada por "disbursement"/"várias fontes") — baseline intacta (3884/591), 0 regressão.
 
-NÃO COMMITADO.
+**Pacote da fatia acima ACEITO e COMMITADO pela direção (`e95fb825f`) após conferência de 1ª mão**
+(550 migrations, 4 linhas INFO, dado curado intacto, runner 229). A direção então ATACOU o guard
+com 5 casos adversariais — 4 sobreviveram (inclusive vocabulário de priority em MAIÚSCULA numa
+coluna severity, o defeito-raiz).
+
+**🔴 PONTO CEGO FECHADO — coluna `*severity*`/`*priority*` SEM CHECK e SEM ENUM passava livre.**
+`CREATE TABLE t (severity VARCHAR(20));` → `GATE OK` na versão `e95fb825f`. É literalmente como
+`financial_alerts.severity` nasceu (TEXT, zero constraint) antes desta frente existir — o guard
+não veria essa história se repetir. Achado pela direção (auditoria adversarial), fechado aqui:
+o guard agora rastreia TODA coluna `*severity*`/`*priority*` DEFINIDA (CREATE TABLE inline +
+ADD COLUMN, com DROP COLUMN limpando o estado) e morde se, no estado final, ela não tiver CHECK
+nem ENUM. Replay forward-only preservado — coluna que nasceu sem constraint mas GANHOU uma
+depois não morde (prova verde dedicada).
+
+🔴 **Achado NA HORA de fechar o buraco, antes de eu mesma cair nele:** ancorar só pelo NOME
+(`*severity*`/`*priority*`) sem olhar o TIPO da coluna teria acusado 4 colunas `priority`
+genuinamente inocentes — `economic_policies.priority`, `economic_policy_lines.priority`,
+`context_localized_names.priority`, `n2_localized_names.priority` — todas **INTEGER** (ordem de
+aplicação/exibição, não o vocabulário de §4.34, que é `VARCHAR(20)` por definição da própria
+norma). Corrigido ANTES de reportar: a checagem de "sem constraint" só considera coluna cujo
+TIPO é TEXT/VARCHAR/CHAR ou um ENUM nativo (ex.: `alert_severity`) — ancorado pelo TIPO
+declarado, não por allowlist de nome de tabela.
+
+6 provas coladas (2 vermelhas: `CREATE TABLE t (severity VARCHAR(20))`, `ALTER TABLE audit_events
+ADD COLUMN x_priority TEXT`; 4 verdes: repositório real, as duas `_feed_priority` de hoje,
+`severity VARCHAR(20) CHECK (severity IN ('CRITICAL','INFO'))`, coluna que nasce sem constraint
+e ganha depois). `npm run typecheck` → 0. `validate:regression-guards` → **229/229** de novo.
+
+**Achado colateral, não causado por mim, não corrigido (fora do mandato desta fatia):**
+`check-migration-numbering.js` (CMDS[] linha 9) falhou 1x de forma NÃO-determinística
+("Timestamp duplicado 20260427120000" entre 2 migrations de abril/maio, arquivos que nunca
+toquei) e passou limpo nas 2 tentativas seguintes sem qualquer mudança de estado — flaky
+pré-existente, registrado para a direção decidir se investiga.
+
+Commitado: `e95fb825f` (fatia anterior). Esta correção do ponto cego: NÃO COMMITADA.
 
 ---
 

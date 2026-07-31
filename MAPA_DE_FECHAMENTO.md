@@ -1,4 +1,10 @@
-# MAPA DE FECHAMENTO — o que fechar antes de usuários reais
+# MAPA DE FECHAMENTO — o que fechar antes de usuários reais — ⚠️ HISTÓRICO, NÃO É O PAINEL VIVO
+
+> ### 🔴 LEIA ISTO ANTES DE TRATAR QUALQUER COISA AQUI COMO ESTADO ATUAL (tarja de 2026-07-31)
+> **Papel deste documento (tabela da instância DÍVIDAS TÉCNICAS, `docs/04_audit/PAINEL_DIVIDA_VIVA.md`): HISTÓRICO — evidência antiga, não é placar.** É um tabuleiro fotografado num dia, não um painel que se atualiza sozinho.
+> **Última atualização de conteúdo: 2026-07-04** — quase quatro semanas antes desta tarja; passos 1/2/3 já registrados como executados no cartório desde então.
+> **Para o estado de agora:** `docs/04_audit/PAINEL_DIVIDA_VIVA.md` (PLACAR). **Para a história/causa-raiz:** `REMEDIATION_DT_LOG.md` (CARTÓRIO, topo = recente).
+> **Regra para quem chega sem memória:** use este arquivo para responder *"o que a auditoria forense de 04/07 encontrou?"*. **Nunca** para responder *"o que está aberto hoje?"*.
 
 > **Propósito:** tabuleiro único de tudo que está ABERTO, para Clayton sequenciar com visibilidade
 > total em vez de reagir achado a achado. Montado do disco (`REMEDIATION_DT_LOG.md`, 524 DTs) +

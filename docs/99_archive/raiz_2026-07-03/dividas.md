@@ -1,4 +1,11 @@
-# DÍVIDAS TÉCNICAS — PLANO DE FECHAMENTO POR RAIZ (vivo)
+# DÍVIDAS TÉCNICAS — PLANO DE FECHAMENTO POR RAIZ — ⚠️ HISTÓRICO, NÃO ESTÁ VIVO
+
+> ### 🔴 LEIA ISTO ANTES DE TRATAR QUALQUER COISA AQUI COMO ESTADO ATUAL (tarja de 2026-07-31)
+> **O título original deste arquivo dizia "(vivo)". Isso é FALSO desde 2026-07-03**, dia em que o próprio arquivo foi movido para `docs/99_archive/raiz_2026-07-03/` (commit `394528552`, mensagem: *"self-declared stale"*) — uma pasta de arquivo morto não guarda documento vivo, e o título nunca foi corrigido depois da mudança. Corrigido nesta tarja.
+> **Papel deste documento (tabela da instância DÍVIDAS TÉCNICAS, `docs/04_audit/PAINEL_DIVIDA_VIVA.md`): HISTÓRICO — evidência antiga, não é placar.**
+> **Última atualização de conteúdo: 2026-07-03.**
+> **Para o estado de agora:** `docs/04_audit/PAINEL_DIVIDA_VIVA.md` (PLACAR) + `REMEDIATION_DT_LOG.md` (CARTÓRIO, topo = recente).
+> **Regra para quem chega sem memória:** use este arquivo para responder *"o que a IA-DT mapeou por raiz em 03/07?"*. **Nunca** para responder *"o que está aberto hoje?"* — e nunca confie no "(vivo)" do título antigo.
 
 > **Autor:** instância **IA-DT** (especialista em dívidas técnicas), a pedido de Clayton (diretor).
 > **Modo:** READ-ONLY / GUARDIÃO — este documento é **mapa e fila**, não norma soberana, não executa nada.

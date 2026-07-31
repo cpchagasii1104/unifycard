@@ -1,4 +1,10 @@
-# READINESS PORTA-1 — read-first do cluster de dinheiro (read-only, verificado no disco 2026-07-04)
+# READINESS PORTA-1 — read-first do cluster de dinheiro — ⚠️ HISTÓRICO, NÃO É O PAINEL VIVO
+
+> ### 🔴 LEIA ISTO ANTES DE TRATAR QUALQUER COISA AQUI COMO ESTADO ATUAL (tarja de 2026-07-31)
+> **Papel deste documento (tabela da instância DÍVIDAS TÉCNICAS, `docs/04_audit/PAINEL_DIVIDA_VIVA.md`): HISTÓRICO — evidência antiga, não é placar.** O próprio cartório já registrou este arquivo como **815 commits desatualizado** (lista bloqueador P2P já excisado) e recomendou reescrevê-lo — recomendação ainda não executada; esta tarja é o mínimo enquanto isso.
+> **Última atualização de conteúdo: 2026-07-04.**
+> **Para o estado de agora do cluster PORTA-1:** `docs/04_audit/PAINEL_DIVIDA_VIVA.md` (PLACAR, seção "VIVA MAS CONTIDA") + `REMEDIATION_DT_LOG.md` (CARTÓRIO, topo = recente).
+> **Regra para quem chega sem memória:** use este arquivo para responder *"o que a varredura de 04/07 mapeou como pré-condição de abrir a porta?"*. **Nunca** para responder *"a porta está fechada por quê, hoje?"*.
 
 > **Propósito:** pré-mapear, SEM tocar código nem dinheiro, tudo que precisa ser decidido/fechado
 > ANTES de semear saldo (PORTA-1). Assim, quando Clayton decidir abrir a porta, a execução é rápida

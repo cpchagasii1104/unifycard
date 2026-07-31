@@ -1,4 +1,10 @@
-# PLANO DE ZERAGEM DAS DÍVIDAS TÉCNICAS — v2 (auditoria dependency-aware, 2026-07-06)
+# PLANO DE ZERAGEM DAS DÍVIDAS TÉCNICAS — v2 — ⚠️ HISTÓRICO, NÃO É O PAINEL VIVO
+
+> ### 🔴 LEIA ISTO ANTES DE TRATAR QUALQUER COISA AQUI COMO ESTADO ATUAL (tarja de 2026-07-31)
+> **Papel deste documento (tabela da instância DÍVIDAS TÉCNICAS, `docs/04_audit/PAINEL_DIVIDA_VIVA.md`): HISTÓRICO — evidência antiga, não é placar.**
+> **Última atualização de conteúdo: 2026-07-06** — três semanas e meia antes desta tarja. Útil para "isto já foi corrigido/planejado antes?"; **não** para "o que está quebrado hoje?".
+> **Para o estado de agora:** `docs/04_audit/PAINEL_DIVIDA_VIVA.md` (PLACAR). **Para a história/causa-raiz:** `REMEDIATION_DT_LOG.md` (CARTÓRIO, topo = recente).
+> Sem esta tarja, este documento seria lido como fila corrente de zeragem — que é exatamente a segunda verdade que este projeto existe para não ter.
 
 > **Esta é a v2.** A v1 (montada no HEAD `945cc466a`) era **coerente na estrutura mas ficou stale**:
 > propôs Ondas 4/5 e o Lote L5, que **já foram executados** desde então (commits `a898d80c2`,

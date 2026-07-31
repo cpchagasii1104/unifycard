@@ -39,6 +39,7 @@ Ao despachar subagente, escreva o mandato como **inventário-primeiro, desenho-n
 | **O que está vivo HOJE** | 🔴 `docs/04_audit/PAINEL_DIVIDA_VIVA.md` — **é O PLACAR** (decisão de Clayton, 2026-07-30): estado atual, números medidos com data, registro de sessões. Cabe na cabeça. Toda fatia que fecha dívida atualiza ele. |
 | **História, causa-raiz, provas** | `REMEDIATION_DT_LOG.md` — **leia o topo**. É cartório append-only, **não é placar** |
 | ⛔ **`dividatecnica.md`** | **HISTÓRICO.** Declara-se obrigatório e mentiu por 24 dias (placar de 06/07 dizendo 163 guards quando eram 227). Evidência sim, estado atual **não**. Não atualize — atualize o PLACAR |
+| **Onde estão TODOS os documentos de dívida técnica, com papel e tarja** | 🔴 `docs/00_divida_tecnica/README.md` — a PORTA: tabela dos 11 documentos (PLACAR/CARTÓRIO/PLANO/HISTÓRICO + a exceção de nomenclatura), caminho real, e se já tem tarja. **É índice, não fonte** — nada além da tabela mora ali; um 12º documento vira linha, nunca parágrafo. |
 
 ## 3.1 ☠️ ANTES DE RODAR MIGRATION — NUNCA contra `unificard_dev`
 
