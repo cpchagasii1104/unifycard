@@ -29,12 +29,20 @@ export interface TrustProfile {
 /**
  * Trust Event
  */
+// ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+// ║ STATUS:  CANÔNICO
+// ║ NORMA:   docs/01_normative/07_NOMENCLATURA_CANONICA.md §4.34
+// ║ NÃO:     LOW/MEDIUM/HIGH — vocabulário de priority; trust_events.severity é TEXT com CHECK
+// ║          novo, filtro com valor antigo devolveria 0 linhas para sempre, em silêncio.
+// ║ EM VEZ:  CRITICAL/ERROR/WARNING/INFO/AUDIT — bate com o CHECK vivo. (RiskLevel, campo
+// ║          separado — LOW/MEDIUM/HIGH/BLOCKED — não é regido por §4.34, não mexido.)
+// ╚════════════════════════════════════════════════════════════════
 export interface TrustEvent {
   eventId: string;
   tenantId: string;
   actorId: string;
   eventType: string;
-  severity: 'LOW' | 'MEDIUM' | 'HIGH';
+  severity: 'CRITICAL' | 'ERROR' | 'WARNING' | 'INFO' | 'AUDIT';
   scoreImpact: number;
   contextType: string;
   contextId: string;

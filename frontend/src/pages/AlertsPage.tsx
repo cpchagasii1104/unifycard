@@ -1,5 +1,12 @@
 // frontend/src/pages/AlertsPage.tsx
 // SPRINT 50: Página de alertas operacionais
+// ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+// ║ STATUS:  CANÔNICO
+// ║ NORMA:   docs/01_normative/07_NOMENCLATURA_CANONICA.md §4.34 (severity) + §4.11 (status)
+// ║ NÃO:     comparar severity contra LOW/MEDIUM/HIGH/CRITICAL nem status contra
+// ║          OPEN/ACK/RESOLVED (maiúsculo) — nenhum dos dois bate com os enums vivos.
+// ║ EM VEZ:  severity ∈ {CRITICAL,ERROR,WARNING,INFO,AUDIT}; status ∈ {open,ack,resolved}.
+// ╚════════════════════════════════════════════════════════════════
 
 import { useState, useEffect } from 'react';
 import { listAlerts, updateAlertStatus, type Alert, type AlertStatus } from '../api/automation';
@@ -38,7 +45,7 @@ export default function AlertsPage() {
   const handleUpdateStatus = async (alertId: string, newStatus: AlertStatus) => {
     try {
       await updateAlertStatus(alertId, { status: newStatus });
-      showToast(`Alerta ${newStatus === 'ACK' ? 'reconhecido' : 'resolvido'}`, 'success');
+      showToast(`Alerta ${newStatus === 'ack' ? 'reconhecido' : 'resolvido'}`, 'success');
       loadAlerts();
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao atualizar alerta';
@@ -51,12 +58,14 @@ export default function AlertsPage() {
     switch (severity) {
       case 'CRITICAL':
         return '#d32f2f';
-      case 'HIGH':
+      case 'ERROR':
         return '#f57c00';
-      case 'MEDIUM':
+      case 'WARNING':
         return '#fbc02d';
-      case 'LOW':
+      case 'INFO':
         return '#388e3c';
+      case 'AUDIT':
+        return '#607d8b';
       default:
         return '#666';
     }
@@ -104,20 +113,20 @@ export default function AlertsPage() {
             Todos
           </button>
           <button
-            className={`alerts-filter-btn ${filter === 'OPEN' ? 'active' : ''}`}
-            onClick={() => setFilter('OPEN')}
+            className={`alerts-filter-btn ${filter === 'open' ? 'active' : ''}`}
+            onClick={() => setFilter('open')}
           >
             Abertos
           </button>
           <button
-            className={`alerts-filter-btn ${filter === 'ACK' ? 'active' : ''}`}
-            onClick={() => setFilter('ACK')}
+            className={`alerts-filter-btn ${filter === 'ack' ? 'active' : ''}`}
+            onClick={() => setFilter('ack')}
           >
             Reconhecidos
           </button>
           <button
-            className={`alerts-filter-btn ${filter === 'RESOLVED' ? 'active' : ''}`}
-            onClick={() => setFilter('RESOLVED')}
+            className={`alerts-filter-btn ${filter === 'resolved' ? 'active' : ''}`}
+            onClick={() => setFilter('resolved')}
           >
             Resolvidos
           </button>
@@ -146,31 +155,31 @@ export default function AlertsPage() {
                 </div>
               )}
               <div className="alerts-item-actions">
-                {alert.status === 'OPEN' && (
+                {alert.status === 'open' && (
                   <>
                     <button
                       className="alerts-action-btn ack"
-                      onClick={() => handleUpdateStatus(alert.id, 'ACK')}
+                      onClick={() => handleUpdateStatus(alert.id, 'ack')}
                     >
                       Reconhecer
                     </button>
                     <button
                       className="alerts-action-btn resolve"
-                      onClick={() => handleUpdateStatus(alert.id, 'RESOLVED')}
+                      onClick={() => handleUpdateStatus(alert.id, 'resolved')}
                     >
                       Resolver
                     </button>
                   </>
                 )}
-                {alert.status === 'ACK' && (
+                {alert.status === 'ack' && (
                   <button
                     className="alerts-action-btn resolve"
-                    onClick={() => handleUpdateStatus(alert.id, 'RESOLVED')}
+                    onClick={() => handleUpdateStatus(alert.id, 'resolved')}
                   >
                     Resolver
                   </button>
                 )}
-                {alert.status === 'RESOLVED' && (
+                {alert.status === 'resolved' && (
                   <span className="alerts-resolved-badge">Resolvido</span>
                 )}
               </div>

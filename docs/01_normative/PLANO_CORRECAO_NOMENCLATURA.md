@@ -43,10 +43,15 @@ Leia antes de executar qualquer sessão:
 1. **Uma sessão = um eixo.** Nunca misture migrations com TypeScript no mesmo contexto.
 2. **Não edite migrations já aplicadas** — crie sempre uma nova migration forward-only.
 3. ~~**Não renomeie campos de contratos públicos marcados `// CONGELADO`** — crie arquivo `.v2.contract.ts`.~~
-   🔴 **SUSPENSA ENQUANTO O SISTEMA ESTIVER VIRGEM** (Clayton, 2026-07-31). Não há usuário real,
-   transação real nem produto cadastrado — nenhum contrato público tem consumidor externo a
-   proteger. Criar 54 arquivos `.v2.contract.ts` para zero consumidores fabrica dívida em vez de
-   pagá-la. **Enquanto virgem: renomeie NO LUGAR**, sem arquivo v2.
+   🔴 **SUSPENSA ENQUANTO NÃO HOUVER TRANSAÇÃO REAL** (Clayton, 2026-07-31). Medido em
+   `unificard_dev` nesta data: `bank_transactions=0`, `bank_ledger=0`, `products=0` — e
+   `packages/contracts` é `"private": true`, consumido só dentro do repositório, sem app
+   publicado e sem registry. **Nenhum contrato tem consumidor externo a proteger.** Criar 54
+   arquivos `.v2.contract.ts` para zero consumidores fabrica dívida em vez de pagá-la.
+   **Enquanto não houver transação: renomeie NO LUGAR**, sem arquivo v2.
+   ⚠️ **Não diga "sistema virgem" nem "não há usuário real":** existem `users=4`, `actors=6`,
+   `companies=1`, `events=21`, `posts=10`. O que está zerado é o caminho do DINHEIRO — e é só
+   isso que esta suspensão pode alegar.
    **GATILHO DE VENCIMENTO — medível por query, não por julgamento:**
    ```sql
    SELECT count(*) FROM bank_transactions;   -- > 0 = SUSPENSÃO VENCIDA, regra 3 volta a valer

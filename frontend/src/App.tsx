@@ -486,10 +486,19 @@ function AppContent() {
           <Route path="admin/pilot" element={<PilotObserverPage />} />
           {/* Compatibilidade */}
           <Route path="dashboard" element={<DashboardPage />} />
-          {/* DT-MODULE-ALERTS-FANTASMA (2026-05-17): SPRINT 50 alertas operacionais.
-              AlertsPage chama /automation/alerts → tabela `alerts` ausente em runtime
-              (modules/automation já PREMATURO em DT-MODULE-AUTOMATION-PREMATURO).
-              Aplicacao DECISION-0041 pattern. */}
+          {/* DT-MODULE-ALERTS-FANTASMA — ATUALIZADO 2026-07-31 (a razão original morreu neste
+              arco; CLAUDE.md §4 manda reverificar bloqueio quando a justificativa vence).
+              A tabela `alerts` EXISTE (migration 20260731120000_alerts_substrate.sql, commit
+              27c71eb09; unificard_dev em 550 migrations, 9 valores de alert_type vivos) — NÃO
+              é mais a causa. O bloqueio HOJE é outro: automation.routes.ts:27-31 devolve 501
+              AUTOMATION_SCHEMA_GHOST_CONTAINED em TODA rota /automation/alerts* antes de
+              qualquer service (contenção deliberada, F-AUTHORITY-Z2-R8N). AlertsPage abriria e
+              quebraria em runtime enquanto isso não mudar. Religar exige: (1) decisão de
+              descontingenciar as rotas de alerts especificamente (scheduled_actions segue
+              schema-ghost de verdade, contenção continua valendo para essas); (2) reconectar
+              automation.routes.ts aos handlers de alertService (hoje só devolvem 501, nunca
+              chamam o service); (3) então sim, religar esta rota do frontend. Ato da direção —
+              não descomentada por conta própria. */}
           {/* <Route path="alerts" element={<AlertsPage />} /> */}
           {/* DT-MODULE-PAYOUT-FANTASMA (2026-05-17): Payout Management (Finance/Admin).
               Tabelas payout_batches/payout_orders ausentes em runtime. Ecossistema

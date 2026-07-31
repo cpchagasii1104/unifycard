@@ -13,9 +13,23 @@ export type AlertType =
   | 'RESERVATION_EXPIRED'
   | 'OTHER';
 
-export type AlertSeverity = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+// ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+// ║ STATUS:  CANÔNICO
+// ║ NORMA:   docs/01_normative/07_NOMENCLATURA_CANONICA.md §4.34
+// ║ NÃO:     LOW/MEDIUM/HIGH/CRITICAL — vocabulário morto (era o de `priority`, nunca existiu
+// ║          no enum vivo alert_severity); filtro ia cru pro SQL e QUEBRAVA (42804 no Postgres).
+// ║ EM VEZ:  CRITICAL/ERROR/WARNING/INFO/AUDIT — bate com o enum alert_severity vivo.
+// ╚════════════════════════════════════════════════════════════════
+export type AlertSeverity = 'CRITICAL' | 'ERROR' | 'WARNING' | 'INFO' | 'AUDIT';
 
-export type AlertStatus = 'OPEN' | 'ACK' | 'RESOLVED';
+// ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+// ║ STATUS:  CANÔNICO
+// ║ NORMA:   docs/01_normative/07_NOMENCLATURA_CANONICA.md §4.11
+// ║ NÃO:     OPEN/ACK/RESOLVED maiúsculo — o banco (alert_status) está CERTO em minúsculo
+// ║          (§4.11 manda status em snake_case lowercase); quem estava errado era o frontend.
+// ║ EM VEZ:  open/ack/resolved — bate com o enum alert_status vivo.
+// ╚════════════════════════════════════════════════════════════════
+export type AlertStatus = 'open' | 'ack' | 'resolved';
 
 export interface Alert {
   id: string;
