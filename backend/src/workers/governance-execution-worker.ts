@@ -73,7 +73,7 @@ async function runGovernanceExecutionCycle(): Promise<void> {
       await createFinancialAlert(p.tenantId, {
         alertType: 'GOVERNANCE_PROPOSAL_EXECUTED',
         referenceId: p.id,
-        severity: 'info',
+        severity: 'INFO',
         message: `Governance proposal executed: ${p.proposalType} (id=${p.id})`,
       });
     }

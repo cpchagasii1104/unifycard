@@ -375,7 +375,7 @@ class PenaltyService {
       const { auditService } = await import('@core/audit/audit.service');
       const auditEvent = await auditService.record(tenantId, {
         event_type: 'RISK_SCORE_CHECK',
-        severity: strictMode ? 'high' : 'medium',
+        severity: strictMode ? 'ERROR' : 'WARNING',
         actor_id: actorId,
         actor_type: actorType === 'group' ? 'user' : actorType, // 'group' não suportado, usar 'user' como fallback
         source: 'penalty_service',
@@ -395,7 +395,7 @@ class PenaltyService {
         const { alertService } = await import('@modules/automation/alert.service');
         await alertService.createAlert(tenantId, {
           type: 'RISK_SCORE_LOW',
-          severity: strictMode ? 'high' : 'medium',
+          severity: strictMode ? 'ERROR' : 'WARNING',
           message: `Score baixo detectado para ação ${action}: ${reason}`,
           entityType: actorType,
           entityId: actorId,

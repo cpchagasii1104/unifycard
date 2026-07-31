@@ -5,7 +5,13 @@
 import { randomUUID } from 'crypto';
 import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
 
-export type AuditSeverity = 'low' | 'medium' | 'high' | 'critical';
+// ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+// ║ STATUS:  CANÔNICO
+// ║ NORMA:   docs/01_normative/07_NOMENCLATURA_CANONICA.md §4.34
+// ║ NÃO:     valores lowercase (low/medium/high/critical — vocabulário de priority, não severity)
+// ║ EM VEZ:  CRITICAL/ERROR/WARNING/INFO/AUDIT (severity ≠ priority — §4.34)
+// ╚════════════════════════════════════════════════════════════════
+export type AuditSeverity = 'CRITICAL' | 'ERROR' | 'WARNING' | 'INFO' | 'AUDIT';
 export type AuditSource =
   | 'impact'
   | 'validation'
@@ -129,7 +135,7 @@ class AuditService {
 
       // Emitir evento interno (para futuras integrações: email, webhook, etc)
       // Por enquanto, apenas log estruturado
-      if (input.severity === 'critical' || input.severity === 'high') {
+      if (input.severity === 'CRITICAL' || input.severity === 'ERROR') {
         console.warn('[AUDIT]', JSON.stringify({
           event_type: input.event_type,
           severity: input.severity,
@@ -205,7 +211,7 @@ class AuditService {
           if (companyAge < 7) {
             await this.record(tenantId, {
               event_type: 'COMPANY_IMPACT_SPIKE',
-              severity: 'medium',
+              severity: 'WARNING',
               actor_id: actorId,
               actor_type: actorType,
               company_id: company[0].company_id,
@@ -281,7 +287,7 @@ class AuditService {
       if (count24h > 20 || count1h > 10) {
         await this.record(tenantId, {
           event_type: 'EMPLOYEE_VALIDATION_SPIKE',
-          severity: 'high',
+          severity: 'ERROR',
           employee_id: employeeId,
           source: 'validation',
           context: {
@@ -333,7 +339,7 @@ class AuditService {
       if (levelJump >= 2 && activeDays < 10) {
         await this.record(tenantId, {
           event_type: 'REPUTATION_ANOMALY',
-          severity: 'medium',
+          severity: 'WARNING',
           actor_id: actorId,
           actor_type: actorType,
           source: 'reputation',
@@ -387,7 +393,7 @@ class AuditService {
       if (dominantRatio > 0.8 && totalEvents >= 10) {
         await this.record(tenantId, {
           event_type: 'LOW_ACTION_DIVERSITY',
-          severity: 'low',
+          severity: 'INFO',
           actor_id: actorId,
           actor_type: actorType,
           source: 'social',
@@ -417,7 +423,7 @@ class AuditService {
     try {
       await this.record(tenantId, {
         event_type: 'VALIDATION_ABUSE_ATTEMPT',
-        severity: 'high',
+        severity: 'ERROR',
         company_id: companyId,
         source: 'validation',
         context: {

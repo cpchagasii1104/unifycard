@@ -603,7 +603,7 @@ class CulturalEventService {
       
       await auditService.record(tenantId, {
         event_type: 'EVENT_COMPLETED',
-        severity: 'low',
+        severity: 'INFO',
         actor_id: creatorProfile?.owner_actor_id,
         actor_type: creatorProfile?.owner_actor_type as 'user' | 'page' | undefined,
         source: 'social',
@@ -1052,7 +1052,7 @@ class CulturalEventService {
       const { auditService } = await import('@core/audit/audit.service');
       await auditService.record(tenantId, {
         event_type: 'CULTURAL_EVENT_CHECKIN',
-        severity: 'low',
+        severity: 'INFO',
         actor_id: params.actor_id,
         actor_type: params.actor_type,
         company_id: undefined,

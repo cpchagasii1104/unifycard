@@ -67,7 +67,7 @@ async function recordSprint76EventAudit(
     const { auditService } = await import('@core/audit/audit.service');
     await auditService.record(tenantId, {
       event_type: data.eventType,
-      severity: 'medium',
+      severity: 'WARNING',
       actor_id: data.createdByActorId || data.publishedByActorId || data.cancelledByActorId || undefined,
       actor_type: 'user',
       source: 'cultural_event_checkin',

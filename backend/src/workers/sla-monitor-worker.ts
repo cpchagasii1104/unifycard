@@ -21,7 +21,7 @@ async function ensureSlaAlert(
   await createFinancialAlert(tenantId, {
     alertType: 'FINANCIAL_SLA_BREACH',
     referenceId,
-    severity: 'warning',
+    severity: 'WARNING',
     message,
   });
 }

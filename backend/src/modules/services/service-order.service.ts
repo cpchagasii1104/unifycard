@@ -1338,7 +1338,7 @@ class ServiceOrderService {
       const { auditService } = await import('@core/audit/audit.service');
       await auditService.record(tenantId, {
         event_type: data.eventType,
-        severity: 'medium',
+        severity: 'WARNING',
         actor_id: data.createdByActorId || data.confirmedByActorId || data.startedByActorId || data.completedByActorId || data.cancelledByActorId || undefined,
         actor_type: 'user',
         source: 'automation',

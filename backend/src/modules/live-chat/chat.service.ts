@@ -152,7 +152,7 @@ class ChatService {
       const { auditService } = await import('@core/audit/audit.service');
       await auditService.record(tenantId, {
         event_type: data.event_type ?? data.eventType ?? 'CHAT_ACTION',
-        severity: 'low',
+        severity: 'INFO',
         source: 'chat',
         context: data,
       });

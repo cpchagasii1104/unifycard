@@ -102,15 +102,15 @@ async function main(): Promise<void> {
 
     console.log('\n— GREEN 2: os 9 valores de alert_type, um alerta cada, incluindo RISK_SCORE_LOW (DECISÃO D-E) —');
     const NINE: Array<{ type: string; severity: string; entityType: string }> = [
-      { type: 'INVENTORY_LOW_STOCK', severity: 'medium', entityType: 'variant' },
-      { type: 'INVENTORY_OUT_OF_STOCK', severity: 'high', entityType: 'variant' },
-      { type: 'PAYMENT_FAILED', severity: 'high', entityType: 'payment' },
-      { type: 'PAYOUT_FAILED', severity: 'high', entityType: 'disbursement' },
-      { type: 'FISCAL_PENDING', severity: 'medium', entityType: 'fiscal_document' },
-      { type: 'ORDER_EXPIRED', severity: 'low', entityType: 'order' },
-      { type: 'RESERVATION_EXPIRED', severity: 'low', entityType: 'reservation' },
-      { type: 'OTHER', severity: 'medium', entityType: 'unknown' },
-      { type: 'RISK_SCORE_LOW', severity: 'medium', entityType: 'user' },
+      { type: 'INVENTORY_LOW_STOCK', severity: 'WARNING', entityType: 'variant' },
+      { type: 'INVENTORY_OUT_OF_STOCK', severity: 'ERROR', entityType: 'variant' },
+      { type: 'PAYMENT_FAILED', severity: 'ERROR', entityType: 'payment' },
+      { type: 'PAYOUT_FAILED', severity: 'ERROR', entityType: 'disbursement' },
+      { type: 'FISCAL_PENDING', severity: 'WARNING', entityType: 'fiscal_document' },
+      { type: 'ORDER_EXPIRED', severity: 'INFO', entityType: 'order' },
+      { type: 'RESERVATION_EXPIRED', severity: 'INFO', entityType: 'reservation' },
+      { type: 'OTHER', severity: 'WARNING', entityType: 'unknown' },
+      { type: 'RISK_SCORE_LOW', severity: 'WARNING', entityType: 'user' },
     ];
     const marker = `nine-proof-${Date.now()}`;
     for (const spec of NINE) {

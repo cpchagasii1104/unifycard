@@ -338,7 +338,16 @@ class RiskDashboardService {
         eventId: event.eventId,
         timestamp: new Date(event.createdAt),
         eventType: 'trust_event',
-        severity: event.severity,
+        // ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════
+        // ║ STATUS:  CONTIDO (fronteira de leitura)
+        // ║ NORMA:   docs/01_normative/07_NOMENCLATURA_CANONICA.md §4.34
+        // ║ NÃO:     RiskTimelineEvent.severity NÃO é a coluna governada — é projeção
+        // ║          local de dashboard (mistura várias fontes: trust/evidence/disbursement/
+        // ║          agreement), fora do escopo desta fatia (só as 4 colunas nomeadas).
+        // ║ EM VEZ:  mapear na fronteira; trust_events.severity (TrustEventSeverity,
+        // ║          canônico) não vaza sem tradução para este vocabulário local.
+        // ╚════════════════════════════════════════════════════════════════
+        severity: event.severity === 'CRITICAL' ? 'CRITICAL' : event.severity === 'ERROR' ? 'HIGH' : event.severity === 'WARNING' ? 'MEDIUM' : 'LOW',
         title: `Trust Event: ${event.eventType}`,
         description: `Score impact: ${event.scoreImpact > 0 ? '+' : ''}${event.scoreImpact}`,
         sourceType: 'trust',

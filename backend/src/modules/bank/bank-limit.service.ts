@@ -522,7 +522,7 @@ class BankLimitService {
         const { auditService } = await import('@core/audit/audit.service');
         const auditEvent = await auditService.record(tenantId, {
           event_type: 'BANK_LIMIT_EXCEEDED',
-          severity: 'medium',
+          severity: 'WARNING',
           actor_id: actorId,
           actor_type: 'user',
           company_id: undefined,

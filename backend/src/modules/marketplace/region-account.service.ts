@@ -129,7 +129,7 @@ class RegionAccountService {
       const { auditService } = await import('@core/audit/audit.service');
       await auditService.record(tenantId, {
         event_type: data.eventType,
-        severity: 'medium',
+        severity: 'WARNING',
         actor_id: (data.creditedByActorId || data.debitedByActorId) ?? undefined,
         actor_type: 'user',
         source: 'region_accounts',

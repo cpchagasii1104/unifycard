@@ -248,7 +248,7 @@ class LoyaltyService {
       const { auditService } = await import('@core/audit/audit.service');
       await auditService.record(tenantId, {
         event_type: (data.eventType as string) ?? 'LOYALTY_EVENT',
-        severity: 'medium',
+        severity: 'WARNING',
         source: 'impact',
         context: data,
       });

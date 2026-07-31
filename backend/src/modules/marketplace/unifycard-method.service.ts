@@ -90,7 +90,7 @@ class UnifyCardMethodService {
       const { auditService } = await import('@core/audit/audit.service');
       await auditService.record(tenantId, {
         event_type: data.eventType,
-        severity: 'low',
+        severity: 'INFO',
         actor_id: data.createdByUserId,
         actor_type: 'user',
         source: 'unifycard_method',

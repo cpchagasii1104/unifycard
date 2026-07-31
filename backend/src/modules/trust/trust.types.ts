@@ -12,7 +12,14 @@ export type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'BLOCKED';
 /**
  * Severidade do evento de trust
  */
-export type TrustEventSeverity = 'LOW' | 'MEDIUM' | 'HIGH';
+// ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+// ║ STATUS:  CANÔNICO
+// ║ NORMA:   docs/01_normative/07_NOMENCLATURA_CANONICA.md §4.34
+// ║ NÃO:     LOW/MEDIUM/HIGH — vocabulário de PRIORITY colado em campo severity
+// ║          (exatamente o "não são sinônimos" que §4.34 proíbe)
+// ║ EM VEZ:  CRITICAL/ERROR/WARNING/INFO/AUDIT
+// ╚════════════════════════════════════════════════════════════════
+export type TrustEventSeverity = 'CRITICAL' | 'ERROR' | 'WARNING' | 'INFO' | 'AUDIT';
 
 /**
  * Tipo de evento de trust

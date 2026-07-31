@@ -1346,7 +1346,7 @@ class PaymentExecutionService {
       const { auditService } = await import('@core/audit/audit.service');
       await auditService.record(tenantId, {
         event_type: 'MARKETPLACE_PAYMENT_EXECUTED',
-        severity: data.result === 'SUCCESS' ? 'low' : 'medium',
+        severity: data.result === 'SUCCESS' ? 'INFO' : 'WARNING',
         actor_id: data.actorId ?? null,
         actor_type: 'user', // Assumindo user para buyer
         company_id: undefined,

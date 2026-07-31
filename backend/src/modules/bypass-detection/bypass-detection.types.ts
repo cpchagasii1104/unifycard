@@ -17,7 +17,14 @@ export type BypassSignalType =
 /**
  * Severidade do sinal
  */
-export type BypassSignalSeverity = 'LOW' | 'MEDIUM' | 'HIGH';
+// ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+// ║ STATUS:  CANÔNICO
+// ║ NORMA:   docs/01_normative/07_NOMENCLATURA_CANONICA.md §4.34
+// ║ NÃO:     LOW/MEDIUM/HIGH — vocabulário de PRIORITY; este valor alimenta
+// ║          trust_events.severity (TrustEventSeverity), coluna governada por §4.34
+// ║ EM VEZ:  CRITICAL/ERROR/WARNING/INFO/AUDIT
+// ╚════════════════════════════════════════════════════════════════
+export type BypassSignalSeverity = 'CRITICAL' | 'ERROR' | 'WARNING' | 'INFO' | 'AUDIT';
 
 /**
  * Bypass Detection Event

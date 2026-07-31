@@ -167,7 +167,7 @@ class PaymentLinkService {
       const { auditService } = await import('@core/audit/audit.service');
       await auditService.record(tenantId, {
         event_type: data.eventType ?? data.event_type ?? 'PAYMENT_LINK_ACTION',
-        severity: 'low',
+        severity: 'INFO',
         source: 'payments',
         context: data,
       });

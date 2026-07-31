@@ -73,7 +73,7 @@ const culturalRoutes: FastifyPluginAsync = async (fastify) => {
         const auditModule = await import('@core/audit/audit.service');
         await auditModule.auditService.record(req.tenant.id, {
           event_type: 'CULTURAL_PROFILE_CREATED',
-          severity: 'low',
+          severity: 'INFO',
           actor_id: validated.owner_actor_id,
           actor_type: validated.owner_actor_type,
           source: 'social',
@@ -220,7 +220,7 @@ const culturalRoutes: FastifyPluginAsync = async (fastify) => {
         const auditModule = await import('@core/audit/audit.service');
         await auditModule.auditService.record(req.tenant.id, {
           event_type: 'EVENT_CREATED',
-          severity: 'low',
+          severity: 'INFO',
           source: 'social',
           context: {
             event_id: event.id,
@@ -267,7 +267,7 @@ const culturalRoutes: FastifyPluginAsync = async (fastify) => {
         const auditModule = await import('@core/audit/audit.service');
         await auditModule.auditService.record(req.tenant.id, {
           event_type: 'EVENT_PUBLISHED',
-          severity: 'low',
+          severity: 'INFO',
           source: 'social',
           context: {
             event_id: event.id,
@@ -318,7 +318,7 @@ const culturalRoutes: FastifyPluginAsync = async (fastify) => {
         const auditModule = await import('@core/audit/audit.service');
         await auditModule.auditService.record(req.tenant.id, {
           event_type: 'EVENT_LOCATION_CONFIRMED',
-          severity: 'low',
+          severity: 'INFO',
           source: 'social',
           context: {
             event_id: event.id,

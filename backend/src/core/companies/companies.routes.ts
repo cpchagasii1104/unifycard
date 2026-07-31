@@ -953,9 +953,16 @@ const companiesRoutes: FastifyPluginAsync = async (fastify) => {
    * Busca alertas de auditoria não resolvidos
    * FASE 13: Auditoria & Alertas Anti-Abuso
    */
+  // ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+  // ║ STATUS:  CANÔNICO
+  // ║ NORMA:   docs/01_normative/07_NOMENCLATURA_CANONICA.md §4.34
+  // ║ NÃO:     LOW/MEDIUM/HIGH/CRITICAL (vocabulário de priority) nem toLowerCase()
+  // ║          para casar com CHECK antigo em minúsculo
+  // ║ EM VEZ:  CRITICAL/ERROR/WARNING/INFO/AUDIT, passthrough (banco já é UPPER_CASE)
+  // ╚════════════════════════════════════════════════════════════════
   fastify.get<{
     Querystring: {
-      severity?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+      severity?: 'CRITICAL' | 'ERROR' | 'WARNING' | 'INFO' | 'AUDIT';
       limit?: string;
     };
   }>('/audit/alerts', async (req, reply) => {
@@ -969,8 +976,7 @@ const companiesRoutes: FastifyPluginAsync = async (fastify) => {
 
     try {
       const auditModule = await import('@core/audit/audit.service');
-      const severityParam = req.query.severity as string | undefined;
-      const severity = severityParam ? (severityParam.toLowerCase() as 'low' | 'medium' | 'high' | 'critical') : undefined;
+      const severity = req.query.severity;
       const limit = req.query.limit ? parseInt(req.query.limit, 10) : 50;
 
       const alerts = await auditModule.auditService.getUnresolvedAlerts(

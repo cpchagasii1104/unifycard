@@ -176,6 +176,7 @@ const CMDS = [
   "node scripts/audit-asset-service-use-convergence.mjs",
   "node scripts/audit-fiscal-tax-catalog.mjs",
   "node scripts/audit-segment-fiscal-template.mjs",
+  "node scripts/audit-severity-priority-canonical-vocabulary.mjs",
   "node scripts/audit-neighborhood-freetext-writer-containment.mjs",
   "node scripts/audit-neighborhood-dml-hold.mjs",
   "node scripts/audit-neighborhood-core-foundation.mjs",

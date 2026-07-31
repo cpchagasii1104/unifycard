@@ -154,7 +154,7 @@ class LivePresenceService {
       const { auditService } = await import('@core/audit/audit.service');
       await auditService.record(tenantId, {
         event_type: (data.eventType as string) ?? 'LIVE_PRESENCE_EVENT',
-        severity: 'medium',
+        severity: 'WARNING',
         source: 'chat',
         context: data,
       });

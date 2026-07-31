@@ -11,6 +11,7 @@ import { trustRepository } from './trust.repository';
 import type {
   TrustProfile,
   TrustEvent,
+  TrustEventSeverity,
   RegisterTrustEventInput,
   CanProceedInput,
   CanProceedResult,
@@ -50,22 +51,29 @@ const SCORE_IMPACT_MAP: Record<string, number> = {
 /**
  * Mapa de severidade por tipo de evento
  */
-const EVENT_SEVERITY_MAP: Record<string, 'LOW' | 'MEDIUM' | 'HIGH'> = {
-  agreement_respected: 'LOW',
-  escrow_completed_successfully: 'LOW',
-  payment_on_time: 'LOW',
-  service_completed_successfully: 'LOW',
-  positive_review: 'LOW',
-  dispute_won: 'LOW',
-  dispute_opened: 'MEDIUM',
-  dispute_lost: 'HIGH',
-  repeated_cancellation: 'MEDIUM',
-  negative_review: 'MEDIUM',
-  agreement_bypass_attempted: 'HIGH',
-  escrow_bypass_attempted: 'HIGH',
-  off_platform_signal_detected: 'HIGH',
-  bypass_attempt_detected: 'MEDIUM', // Pode ser HIGH se repetida
-  off_platform_contact_shared: 'MEDIUM', // Pode ser HIGH se repetida
+// ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+// ║ STATUS:  CANÔNICO
+// ║ NORMA:   docs/01_normative/07_NOMENCLATURA_CANONICA.md §4.34
+// ║ NÃO:     LOW/MEDIUM/HIGH — vocabulário de priority
+// ║ EM VEZ:  CRITICAL/ERROR/WARNING/INFO/AUDIT (regra geral: low→INFO, medium→WARNING,
+// ║          high→ERROR — mesmo mapeamento por evento, só o rótulo muda)
+// ╚════════════════════════════════════════════════════════════════
+const EVENT_SEVERITY_MAP: Record<string, TrustEventSeverity> = {
+  agreement_respected: 'INFO',
+  escrow_completed_successfully: 'INFO',
+  payment_on_time: 'INFO',
+  service_completed_successfully: 'INFO',
+  positive_review: 'INFO',
+  dispute_won: 'INFO',
+  dispute_opened: 'WARNING',
+  dispute_lost: 'ERROR',
+  repeated_cancellation: 'WARNING',
+  negative_review: 'WARNING',
+  agreement_bypass_attempted: 'ERROR',
+  escrow_bypass_attempted: 'ERROR',
+  off_platform_signal_detected: 'ERROR',
+  bypass_attempt_detected: 'WARNING', // Pode ser ERROR se repetida
+  off_platform_contact_shared: 'WARNING', // Pode ser ERROR se repetida
 };
 
 class TrustEngineService {
@@ -89,8 +97,8 @@ class TrustEngineService {
   /**
    * Obtém severidade para um tipo de evento
    */
-  private getEventSeverity(eventType: string): 'LOW' | 'MEDIUM' | 'HIGH' {
-    return EVENT_SEVERITY_MAP[eventType] || 'MEDIUM';
+  private getEventSeverity(eventType: string): TrustEventSeverity {
+    return EVENT_SEVERITY_MAP[eventType] || 'WARNING';
   }
 
   /**

@@ -261,7 +261,7 @@ class AgreementService {
         await trustEngineService.registerTrustEvent(tenantId, {
           actorId: agreement.requesterActorId,
           eventType: 'agreement_respected',
-          severity: 'LOW',
+          severity: 'INFO',
           contextType: 'agreement',
           contextId: agreementId,
           evidencePackId: evidencePack.packId,
@@ -270,7 +270,7 @@ class AgreementService {
         await trustEngineService.registerTrustEvent(tenantId, {
           actorId: agreement.providerActorId,
           eventType: 'agreement_respected',
-          severity: 'LOW',
+          severity: 'INFO',
           contextType: 'agreement',
           contextId: agreementId,
           evidencePackId: evidencePack.packId,

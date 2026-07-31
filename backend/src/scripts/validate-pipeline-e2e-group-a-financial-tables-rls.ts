@@ -71,7 +71,7 @@ async function main(): Promise<void> {
 
   const fixtures: TableFixture[] = [
     { table: 'bank_settlements', insert: async (t, c) => (await pool.query<{ id: string }>(`INSERT INTO bank_settlements (tenant_id, payout_id, amount_cents, currency, status) VALUES ($1::uuid,$2::uuid,100,'BRL','pending') RETURNING id::text AS id`, [t, randomUUID()])).rows[0].id },
-    { table: 'financial_alerts', insert: async (t) => (await pool.query<{ id: string }>(`INSERT INTO financial_alerts (tenant_id, alert_type, reference_id, severity, message) VALUES ($1::uuid,'test',$2::uuid,'low','test alert') RETURNING id::text AS id`, [t, randomUUID()])).rows[0].id },
+    { table: 'financial_alerts', insert: async (t) => (await pool.query<{ id: string }>(`INSERT INTO financial_alerts (tenant_id, alert_type, reference_id, severity, message) VALUES ($1::uuid,'test',$2::uuid,'INFO','test alert') RETURNING id::text AS id`, [t, randomUUID()])).rows[0].id },
     { table: 'financial_risk_events', insert: async (t, c) => (await pool.query<{ id: string }>(`INSERT INTO financial_risk_events (tenant_id, actor_id, risk_type, risk_score) VALUES ($1::uuid,$2::uuid,'test',10) RETURNING id::text AS id`, [t, c.actorId])).rows[0].id },
     { table: 'financial_sla_events', insert: async (t) => (await pool.query<{ id: string }>(`INSERT INTO financial_sla_events (tenant_id, sla_type, reference_id, expected_at, actual_at, delay_seconds) VALUES ($1::uuid,'test',$2::uuid,NOW(),NOW(),0) RETURNING id::text AS id`, [t, randomUUID()])).rows[0].id },
     { table: 'financial_audit_trail', insert: async (t) => (await pool.query<{ id: string }>(`INSERT INTO financial_audit_trail (tenant_id, event_type) VALUES ($1::uuid,'test') RETURNING id::text AS id`, [t])).rows[0].id },

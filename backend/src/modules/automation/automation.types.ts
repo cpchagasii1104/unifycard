@@ -12,7 +12,13 @@ export type AlertType =
   | 'RISK_SCORE_LOW' // SPRINT 66: Alerta para score baixo
   | 'OTHER';
 
-export type AlertSeverity = 'low' | 'medium' | 'high' | 'critical';
+// ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+// ║ STATUS:  CANÔNICO
+// ║ NORMA:   docs/01_normative/07_NOMENCLATURA_CANONICA.md §4.34
+// ║ NÃO:     valores lowercase (low/medium/high/critical — vocabulário de priority, não severity)
+// ║ EM VEZ:  CRITICAL/ERROR/WARNING/INFO/AUDIT (severity ≠ priority — §4.34)
+// ╚════════════════════════════════════════════════════════════════
+export type AlertSeverity = 'CRITICAL' | 'ERROR' | 'WARNING' | 'INFO' | 'AUDIT';
 
 export type AlertStatus = 'open' | 'ack' | 'resolved';
 

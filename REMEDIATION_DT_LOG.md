@@ -1,5 +1,88 @@
 # REMEDIATION DT LOG
 
+## ✅ EXECUTADO — F-SEVERITY-CANONICAL-CONVERGENCE (2026-07-31; GO Clayton)
+
+**Runner: 229/229 COMMANDS OK** (228→229, guard novo). `npm run typecheck` → 0.
+`backend/migrations/20260731130000_severity_priority_canonical_convergence.sql` aplicada em
+`unificard_dev`: schema_migrations 549→550.
+
+**Origem do defeito (registrado por pedido explícito):** a própria direção seguiu
+`automation.types.ts` (low/medium/high/critical) em vez de `07_NOMENCLATURA_CANONICA.md §4.34`
+ao nascer `alerts.severity` na fatia anterior (mesmo dia) — e corrigiu a si mesma. Ao medir,
+as OUTRAS 3 superfícies vivas do campo `severity` tinham o MESMO defeito de raiz, cada uma à
+sua forma: `audit_events`/`trust_events` já usavam low/medium/high/critical (idêntico);
+`financial_alerts` usava info/warning/critical minúsculo (vocabulário certo, case errado);
+`trust_events` tinha o agravante de DEFAULT `'low'` minúsculo enquanto o código
+(`TrustEventSeverity`) já escrevia LOW/MEDIUM/HIGH maiúsculo — dois vocabulários coexistindo na
+mesma coluna, nunca colididos porque a tabela estava vazia.
+
+**PASSO 0 (inventário) revelou escopo maior que os 8 call-sites originais de `createAlert`:**
+`trust_events.severity` é alimentada não só por `agreement.service.ts`/`evidence.service.ts`
+mas por TODO o domínio `bypass-detection` (`BypassSignalSeverity`, mesmo defeito — vocabulário
+de priority em campo severity) e por `trust-engine.service.ts::EVENT_SEVERITY_MAP` (15 tipos de
+evento). `audit_events.severity` tem 46 arquivos leitores/escritores — convertidos via
+`tsc --noEmit` como inventário mecanizado: mudei os 5 tipos primeiro, o compilador listou
+EXAUSTIVAMENTE os 84 sites que precisavam de conversão (nenhum manual, nenhum esquecido).
+
+**🔴 Achado — 2 defaults LATENTES vs 1 default AO VIVO, não confundidos no relatório:**
+- `alert.repository.ts:71` (`input.severity || 'MEDIUM'`) — LATENTE. Os 8 call-sites reais
+  sempre passavam severity; o caminho nunca foi exercido. → `'WARNING'`.
+- `contact.service.ts` / `event-settlement.service.ts` / `regional-fee.service.ts`
+  (`severity: severity ?? 'low'`, padrão idêntico nos 3, dentro de um `recordAudit(data: Record
+  <string, any>)`) — **AO VIVO**: os 9 call-sites conhecidos NUNCA passam `severity` no `data`;
+  o fallback é o ÚNICO caminho já exercido hoje, não um caso de canto. → `'INFO'` nos 3.
+
+**Fora de escopo, achado e NÃO tocado (não são as 4 colunas nomeadas):**
+`RiskTimelineEvent.severity` (risk-dashboard.types.ts) — projeção local de dashboard, mistura
+trust/evidence/payout/agreement, LOW/MEDIUM/HIGH/CRITICAL; mapeada na FRONTEIRA de leitura
+(risk-dashboard.service.ts:341) para não vazar tipo quebrado, tipo em si preservado. `risk_level`
+(trust.types.ts) — campo diferente, não é severity nem priority por nome. `core/alerts/
+alert-router.ts` — lê `context.severity` de LOG estruturado (canonical-logger.ts, vocabulário
+próprio, INFRA-6/Slack-Pager), já case-insensitive (`.toLowerCase()`), não quebra e não é uma
+das 4 colunas. `PricingAssistanceReport`/`RegionalCapacitySnapshot` contracts, `policy-engine`,
+`reconciliation.service.ts`, `insight-engine.ts` — vocabulários locais próprios, sem repository,
+não persistem em nenhuma das 4 tabelas.
+
+**Migration — ordem importa (achado real via prova E2E, não só teoria):** a 1ª versão fazia
+UPDATE antes de DROP CONSTRAINT — gravar `'INFO'` sob o CHECK antigo (só lowercase) viola a
+própria constraint sendo substituída. Corrigido: DROP → UPDATE → ADD nas 3 tabelas com CHECK.
+`alerts.severity` (ENUM nativo): RENAME do tipo antigo → CREATE do novo → ALTER COLUMN TYPE
+USING (mapeamento) → DROP do tipo antigo — mesmo padrão da migration anterior, mesmo cuidado.
+
+**Guard novo — `audit-severity-priority-canonical-vocabulary.mjs`.** Desafio de desenho: escanear
+TODAS as migrations é o único jeito static de saber o vocabulário vigente, mas Lei 2 proíbe
+editar as migrations antigas (`create_audit_events`, `trust_tables`) que ainda têm o CHECK
+lowercase no texto. Resolvido com REPLAY estatal forward-only (CREATE/ALTER TABLE define
+contexto de tabela; CHECK/CREATE TYPE/RENAME TYPE/DROP TYPE atualizam o vocabulário vigente por
+`tabela.coluna`; só o ESTADO FINAL é validado) — migration antiga já substituída não morde.
+4 vermelhas + 3 verdes provadas com migrations temporárias (apagadas depois, `git status` limpo).
+Exceção nomeada (não allowlist genérica): `actor_relationships.{requester,target}_feed_priority`
+— preferência de feed, não prioridade de tratamento.
+
+**Prova E2E (banco efêmero `unificard_severity_convergence_e2e`):** fase PRE semeia
+`audit_events` com o vocabulário antigo (mesmo tenant, handoff por arquivo) → fase POST prova
+que as 4 linhas foram remapeadas 1:1 (low→INFO, medium→WARNING, high→ERROR, critical→CRITICAL,
+nem uma a mais/menos) E que os 4 CHECKs/ENUM agora REJEITAM o vocabulário antigo E aceitam o
+novo E `createAlert()` real grava com e sem `severity` explícita (14/14 OK).
+
+**Prova de dado em `unificard_dev` (banco OFICIAL, `EXPECTED_DATABASE_NAME` declarado):**
+schema_migrations 549→550. `audit_events`: as MESMAS 4 linhas (mesmos UUIDs), `low`→`INFO`, nem
+uma a mais nem a menos. `alert_severity`: CRITICAL/ERROR/WARNING/INFO/AUDIT. 3 CHECKs conferidos
+via `pg_get_constraintdef`. Dado curado intacto: 75 bairros, 48 policies, 3 grants territoriais,
+1 fundo regional — idêntico antes/depois.
+
+**Higiene:** 3 arquivos (`contact.service.ts`, `event-settlement.service.ts`,
+`regional-fee.service.ts`) ficaram CRLF no meio da fatia — Edit tool converteu o arquivo inteiro,
+não só a linha tocada, e escaparam do primeiro lote de normalização; achado e corrigido antes do
+fechamento (`git diff --check` limpo, diffs voltaram a ~1 linha real cada). `financial-vocabulary`/
+`financial-ssot`: 2 colisões reais corrigidas nos MEUS PRÓPRIOS arquivos de prova (import de
+`financial-alert-repository` trocado por leitura de `pg_constraint`; palavra "payout" num
+comentário trocada por "disbursement"/"várias fontes") — baseline intacta (3884/591), 0 regressão.
+
+NÃO COMMITADO.
+
+---
+
 ## ✅ EXECUTADO — DESTRAVAR O RUNNER: colisão FISCAL_PENDING × audit-segment-fiscal-template (2026-07-31)
 
 **Runner voltou a fechar: 228/228 COMMANDS OK, drift 0.** `backend/scripts/audit-segment-fiscal-template.mjs:187-224`

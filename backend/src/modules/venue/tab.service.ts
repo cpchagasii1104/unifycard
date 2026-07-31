@@ -179,7 +179,7 @@ class TabService {
       const context: Record<string, unknown> = { ...data };
       const input: import('@core/audit/audit.service').AuditEventInput = {
         event_type: eventType,
-        severity: 'low',
+        severity: 'INFO',
         source: 'impact',
         context,
       };

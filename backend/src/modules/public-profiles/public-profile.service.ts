@@ -313,7 +313,7 @@ class PublicProfileService {
       const { auditService } = await import('@core/audit/audit.service');
       await auditService.record(tenantId, {
         event_type: data.eventType,
-        severity: 'low',
+        severity: 'INFO',
         actor_id: (data.createdByUserId || data.updatedByUserId || data.changedByUserId) ?? undefined,
         actor_type: 'user',
         source: 'public_profiles',

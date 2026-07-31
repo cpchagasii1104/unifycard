@@ -321,7 +321,7 @@ class ContactService {
 
       const auditInput: AuditEventInput = {
         event_type: finalEventType,
-        severity: severity ?? 'low',
+        severity: severity ?? 'INFO',
         source: source ?? 'validation',
         actor_id: actor_id ?? actorId ?? undefined,
         actor_type: actor_type ?? actorType ?? undefined,

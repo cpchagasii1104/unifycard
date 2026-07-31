@@ -47,11 +47,11 @@ class BypassDetectionService {
     const hasOffPlatformKeywords = detectedKeywords.length > 0;
 
     // Determinar severidade
-    let severity: BypassSignalSeverity = 'LOW';
+    let severity: BypassSignalSeverity = 'INFO';
     if (hasOffPlatformContact && hasOffPlatformKeywords) {
-      severity = 'HIGH';
+      severity = 'ERROR';
     } else if (hasOffPlatformContact || hasOffPlatformKeywords) {
-      severity = 'MEDIUM';
+      severity = 'WARNING';
     }
 
     return {
@@ -75,7 +75,7 @@ class BypassDetectionService {
         expectedValue,
         difference: detectedValue,
         percentageDifference: detectedValue > 0 ? Infinity : 0,
-        severity: 'HIGH',
+        severity: 'ERROR',
       };
     }
 
@@ -83,11 +83,11 @@ class BypassDetectionService {
     const percentageDifference = difference / expectedValue;
 
     // Determinar severidade baseado em thresholds
-    let severity: BypassSignalSeverity = 'LOW';
+    let severity: BypassSignalSeverity = 'INFO';
     if (percentageDifference >= BYPASS_SEVERITY_THRESHOLDS.VALUE_MISMATCH.HIGH) {
-      severity = 'HIGH';
+      severity = 'ERROR';
     } else if (percentageDifference >= BYPASS_SEVERITY_THRESHOLDS.VALUE_MISMATCH.MEDIUM) {
-      severity = 'MEDIUM';
+      severity = 'WARNING';
     }
 
     return {
@@ -188,7 +188,7 @@ class BypassDetectionService {
     await trustEngineService.registerTrustEvent(tenantId, {
       actorId: input.actorId,
       eventType: trustEventType,
-      severity: input.severity === 'HIGH' ? 'HIGH' : input.severity === 'MEDIUM' ? 'MEDIUM' : 'LOW',
+      severity: input.severity,
       contextType: input.contextType,
       contextId: input.contextId,
       evidencePackId: input.evidencePackId,

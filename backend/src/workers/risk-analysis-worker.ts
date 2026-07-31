@@ -30,7 +30,7 @@ async function ensureRiskAlert(
   await createFinancialAlert(tenantId, {
     alertType: 'FINANCIAL_RISK_DETECTED',
     referenceId,
-    severity: 'critical',
+    severity: 'CRITICAL',
     message,
   });
 }

@@ -25,7 +25,7 @@ async function runAlertCycle(): Promise<void> {
         await createFinancialAlert(row.tenant_id, {
           alertType: 'LARGE_PAYOUT',
           referenceId: row.id,
-          severity: 'warning',
+          severity: 'WARNING',
           message: `Payout muito grande: ${row.amount_cents} centavos (payout_id=${row.id})`,
         });
       }
@@ -41,7 +41,7 @@ async function runAlertCycle(): Promise<void> {
         await createFinancialAlert(row.tenant_id, {
           alertType: 'SETTLEMENT_FAILED',
           referenceId: row.id,
-          severity: 'critical',
+          severity: 'CRITICAL',
           message: `Settlement falhou (settlement_id=${row.id})`,
         });
       }
@@ -57,7 +57,7 @@ async function runAlertCycle(): Promise<void> {
         await createFinancialAlert(row.tenant_id, {
           alertType: 'PAYOUT_FAILED',
           referenceId: row.id,
-          severity: 'critical',
+          severity: 'CRITICAL',
           message: `Payout falhou (payout_id=${row.id})`,
         });
       }

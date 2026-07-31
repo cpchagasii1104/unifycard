@@ -140,7 +140,7 @@ class EvidenceService {
       await trustEngineService.registerTrustEvent(tenantId, {
         actorId: input.openedByActorId,
         eventType: 'dispute_opened',
-        severity: 'MEDIUM',
+        severity: 'WARNING',
         contextType: pack.contextType as any,
         contextId: pack.contextId,
         evidencePackId: packId,

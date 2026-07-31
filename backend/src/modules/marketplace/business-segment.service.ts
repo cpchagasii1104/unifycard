@@ -134,7 +134,7 @@ class BusinessSegmentService {
       const { auditService } = await import('@core/audit/audit.service');
       await auditService.record(tenantId, {
         event_type: data.eventType,
-        severity: 'low',
+        severity: 'INFO',
         actor_id: data.updatedByUserId,
         actor_type: 'user',
         source: 'validation',

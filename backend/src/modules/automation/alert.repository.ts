@@ -68,7 +68,7 @@ class AlertRepository {
       [
         tenantId,
         input.type,
-        input.severity || 'MEDIUM',
+        input.severity || 'WARNING',
         input.message,
         input.entityType || null,
         input.entityId || null,

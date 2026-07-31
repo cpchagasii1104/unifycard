@@ -441,7 +441,7 @@ class SubscriptionService {
       const { alertService } = await import('../automation/alert.service');
       await alertService.createAlert(tenantId, {
         type: 'PAYMENT_FAILED',
-        severity: 'high',
+        severity: 'ERROR',
         message: `Assinatura ${subscriptionId} foi pausada após ${subscription.maxFailures} falhas`,
         entityType: 'subscription',
         entityId: subscriptionId,
@@ -499,7 +499,7 @@ class SubscriptionService {
       const { auditService } = await import('@core/audit/audit.service');
       await auditService.record(tenantId, {
         event_type: (data.eventType as string) ?? 'SUBSCRIPTION_EVENT',
-        severity: 'medium',
+        severity: 'WARNING',
         source: 'automation',
         context: data,
       });

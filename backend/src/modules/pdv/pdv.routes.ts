@@ -85,7 +85,7 @@ const pdvRoutes: FastifyPluginAsync = async (fastify) => {
       // Registrar auditoria — actor_id = operador VALIDADO (representabilidade provada).
       await auditService.record(tenantId, {
         event_type: 'PDV_SESSION_OPENED',
-        severity: 'low' as AuditSeverity,
+        severity: 'INFO' as AuditSeverity,
         actor_id: session.actorId,
         actor_type: 'user',
         source: 'impact' as AuditSource,
@@ -118,7 +118,7 @@ const pdvRoutes: FastifyPluginAsync = async (fastify) => {
       // Registrar auditoria — actor_id/closed_by = operador VALIDADO da sessão.
       await auditService.record(tenantId, {
         event_type: 'PDV_SESSION_CLOSED',
-        severity: 'low' as AuditSeverity,
+        severity: 'INFO' as AuditSeverity,
         actor_id: session.actorId,
         actor_type: 'user',
         source: 'impact' as AuditSource,
@@ -197,7 +197,7 @@ const pdvRoutes: FastifyPluginAsync = async (fastify) => {
       // Registrar auditoria — actor_id/closed_by = operador VALIDADO.
       await auditService.record(tenantId, {
         event_type: 'PDV_SESSION_CLOSED_WITH_SUMMARY',
-        severity: 'low' as AuditSeverity,
+        severity: 'INFO' as AuditSeverity,
         actor_id: summary.operator.actorId,
         actor_type: 'user',
         source: 'impact' as AuditSource,
@@ -242,7 +242,7 @@ const pdvRoutes: FastifyPluginAsync = async (fastify) => {
       // Registrar auditoria — actor_id = operador VALIDADO da sessão (não actionContext cru).
       await auditService.record(tenantId, {
         event_type: 'PDV_ORDER_CREATED',
-        severity: 'low' as AuditSeverity,
+        severity: 'INFO' as AuditSeverity,
         actor_id: target.actorId,
         actor_type: 'user',
         source: 'impact' as AuditSource,
@@ -279,7 +279,7 @@ const pdvRoutes: FastifyPluginAsync = async (fastify) => {
       // Registrar auditoria — actor_id = seller VALIDADO da ordem (não actionContext cru).
       await auditService.record(tenantId, {
         event_type: 'PDV_ITEM_ADDED',
-        severity: 'low' as AuditSeverity,
+        severity: 'INFO' as AuditSeverity,
         actor_id: orderForAuth.sellerActorId,
         actor_type: 'user',
         source: 'impact' as AuditSource,
@@ -317,7 +317,7 @@ const pdvRoutes: FastifyPluginAsync = async (fastify) => {
       // Registrar auditoria — actor_id = seller VALIDADO da ordem (não actionContext cru).
       await auditService.record(tenantId, {
         event_type: 'PDV_ITEM_ADDED_BY_WEIGHT',
-        severity: 'low' as AuditSeverity,
+        severity: 'INFO' as AuditSeverity,
         actor_id: orderForAuth.sellerActorId,
         actor_type: 'user',
         source: 'impact' as AuditSource,
@@ -379,7 +379,7 @@ const pdvRoutes: FastifyPluginAsync = async (fastify) => {
       // Registrar auditoria — PDV-F2B: actor_id = seller VALIDADO da ordem (não actionContext cru).
       await auditService.record(tenantId, {
         event_type: 'PDV_PAYMENT_EXECUTED',
-        severity: 'medium',
+        severity: 'WARNING',
         actor_id: orderForAuth.sellerActorId,
         actor_type: 'user',
         source: 'impact' as AuditSource,

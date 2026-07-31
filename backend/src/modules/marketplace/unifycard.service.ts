@@ -202,7 +202,7 @@ class UnifyCardService {
       const { auditService } = await import('@core/audit/audit.service');
       await auditService.record(tenantId, {
         event_type: data.eventType,
-        severity: 'medium',
+        severity: 'WARNING',
         actor_id: (data.createdByActorId || data.capturedByActorId || data.settledByActorId) ?? undefined,
         actor_type: 'user',
         source: 'unifycard',
