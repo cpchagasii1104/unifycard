@@ -28,15 +28,39 @@
 
 | métrica | valor | como foi medido |
 |---|---|---|
-| `validate:regression-guards` | ✅ **227 COMMANDS OK** · drift **0** | `npm run`, banco `unificard_dev` |
-| `typecheck` backend | ✅ **0 erros** | `tsc -p tsconfig.build.json --noEmit` |
-| Gate `schema-coherence` | ❌ **FAIL 1794** (376 BLOCKER · 1418 CORRUPTOR · 53 DEBT) | **fora do runner e do CI** — ver decomposição |
-| `schema_migrations` (`unificard_dev`) | **548** aplicadas · 549 arquivos · 1 skip governado | query direta |
-| Banco oficial | **`unificard_dev`** · trava fail-closed viva | `6414b3404` |
-| `unificard_local` | **aposentado**, ainda vivo só pelo catálogo de veículos (16 marcas) | 334 tabelas · 547 migrations |
+| `validate:regression-guards` | ✅ **232 COMMANDS OK** · drift **0** | `npm run`, banco `unificard_dev` |
+| `typecheck` backend + frontend | ✅ **0 erros** | `tsc --noEmit` nos dois |
+| Gate `schema-coherence` | ⚠️ **1188 chaves congeladas, gate VERDE** — antes `FAIL 1776`, fora do runner | agora **DENTRO do runner** via `audit-schema-coherence-ratchet.mjs` (`5feeb3de5`) |
+| `schema_migrations` (`unificard_dev`) | **550** aplicadas · 551 arquivos · 1 skip governado | query direta |
+| Banco oficial | **`unificard_dev`** · 334 tabelas · trava fail-closed viva | query direta |
+| `bank_ledger` · `bank_transactions` · `bank_splits` | **0 · 0 · 0** | query direta, 2026-07-31 |
+| Dado curado intacto | **75 bairros · 48 policies** | query direta, 2026-07-31 |
 
-⚠️ **Números que NÃO foram remedidos nesta sessão** (não confie sem reconferir): contagem de
-DTs abertas · `bank_ledger`/`transactions`/`splits` = 0 · estado da PORTA-01.
+### 🔻 OS DOIS TETOS — a única métrica deste projeto que NÃO PODE SUBIR
+
+Antes de 2026-07-31, *"diminuir dívida técnica"* não tinha número: fechava-se o que se
+tropeçava e o total era desconhecido. Agora tem dois, ambos no runner, ambos com trava
+estrutural (o teto é comparado contra a contagem do CÓDIGO — pôr a chave na allowlist não
+salva):
+
+| teto | valor congelado 2026-07-31 | o que conta | guard |
+|---|---|---|---|
+| `BLOCKER-vivo` | **260** | escrita em tabela que não existe, código vivo | `audit-schema-coherence-ratchet.mjs` |
+| `BLOCKER-scripts` | 105 | idem, em scripts/e2e | idem |
+| `CORRUPTOR-vivo` | 364 | leitura em tabela que não existe, código vivo | idem |
+| `CORRUPTOR-scripts` | 1047 | idem, em scripts/e2e | idem |
+| `DEBT-vivo` / `-scripts` | 32 / 18 | — | idem |
+| `query-param as any` | **181** | entrada de usuário chegando ao SQL sem tipo | `audit-query-param-boundary-validation.mjs` |
+
+**Como ler:** número que sobe = alguém introduziu dívida nova e o runner fica vermelho.
+Número que desce = dívida paga de verdade. Não há caminho silencioso para cima.
+
+⚠️ **Declarado, não escondido:** `BLOCKER-vivo` **superestima** o perigo real — parte das 260
+está atrás de contenção 501/403 provada. O gate mede REFERÊNCIA no código; a contenção mede
+ALCANÇABILIDADE em runtime. Ensinar o scanner a descontar contenção o faria mentir sobre a
+primeira para relatar a segunda. Erra-se para o lado conservador de propósito.
+
+⚠️ **Números NÃO remedidos nesta sessão:** contagem total de DTs abertas · estado da PORTA-01.
 
 ## 🔢 QUANTAS DTs EXISTEM — medido 2026-07-30, com o denominador declarado
 
