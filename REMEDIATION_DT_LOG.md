@@ -1,5 +1,99 @@
 # REMEDIATION DT LOG
 
+## 🛑 EXECUTADO E PAROU NA PROVA — F-RISK-DASHBOARD (2026-07-31; GO Clayton "go para a próxima fatia")
+
+**Código corrigido, typechecado, guards verdes. A prova COMPORTAMENTAL de HTTP 200/desconhecido
+pedida no pacote é hoje IMPOSSÍVEL sem tocar a PORTA 01 (selada) — reportado, não contornado.**
+
+### O que media a direção — confirmado, e uma correção
+`risk-dashboard.service.ts` tinha **ZERO** blocos `try` no arquivo inteiro — confirmado por
+leitura completa antes de tocar. `agreements`/`evidence_packs` schema-ghost — confirmado (ausentes
+em `unificard_dev`, medido de novo na DB efêmera). `payout_requests` (citada no pacote) **NÃO** é a
+tabela real por trás de `blockedPayouts`/`failedPayouts` — é `payout_orders` (grep confirmado em
+`payout.repository.ts`/`payout.service.ts`), e essa **também** é schema-ghost (só existe em
+`migrations_archive/0213_payouts.sql`). O enum arquivado lá (`payout_status`:
+PENDING/READY/BLOCKED/EXECUTED/FAILED) bate **exatamente** com `PayoutStatus` em
+`payout.types.ts:9` — não é vocabulário errado (não havia 'BLOCKED' pra inventar), é a MESMA classe
+de problema das outras 3 tabelas (tabela nunca materializada). Composto do mesmo jeito, sem criar
+coluna nem vocabulário.
+
+### O fix (11 sítios de leitura desprotegida → try/catch + honesto)
+`getOverview` (3 blocos: evidence/disputas, payout, agreements) · `listActorRiskProfiles` (4 blocos
+por actor no loop: evidence, escrow, payout, agreements) · `getActorRiskTimeline` (4 blocos: evidence,
+escrow — leitura já era 100% morta, nunca usada, capturada mesmo assim — payout, agreements). Cada
+catch chama `logReadFailure(source, tenantId, err, extra?)` — `console.warn` estruturado nomeando a
+tabela/tenant/actor/causa. Toda métrica derivada de leitura schema-ghost virou `number | undefined`
+(nunca `0`/`false`) em `risk-dashboard.types.ts` (`RiskDashboardOverview` + `ActorRiskProfile`).
+`payout.repository.ts:202,211` — verificado: é caminho de ESCRITA (branching interno construindo
+`UPDATE payout_orders SET...` a partir de um `status: PayoutStatus` já tipado), não fronteira de
+leitura — intocado, é território da Fatia 3.
+
+### 🔴 A prova pedida bate num pin selado — PORTA 01, não descoberto por mim, pré-existente
+As 4 rotas HTTP de risk-dashboard já checavam `isPorta01Closed()` **antes** de chamar o service
+(503 `PORTA_01_CLOSED`) — achado ao ler `risk-dashboard.routes.ts` pra montar o E2E. Pivotei pra
+chamar `riskDashboardService.*` **diretamente** (sem HTTP), assumindo que isso escapava do gate de
+rota. **Não escapa**: `getOverview`/`listActorRiskProfiles`/`getActorRiskTimeline` chamam
+`assertFinancialProjectionAllowed()` **na primeira linha do método**, antes de qualquer leitura —
+inclusive antes de tocar `trustRepository.listProfiles`. Rodei o E2E na DB efêmera
+(`unificard_risk_dashboard_ghost_e2e`) e os 3 métodos lançaram `Porta01FinancialHoldError` de
+imediato — nenhuma das 11 leituras corrigidas nesta fatia chegou a executar.
+
+**Isso reabre a própria frase do pacote.** "É uma superfície VIVA que hoje devolve 500" — hoje, via
+HTTP real, a superfície devolve **503 PORTA_01_CLOSED**, não 500 (a PORTA 01 dispara primeiro, na
+rota E no service). O 500 por `agreements`/`payout_orders`/`evidence_packs` ausente é **real e
+vai voltar** no exato instante em que a PORTA 01 reabrir (é por isso que vale consertar agora,
+proativamente) — mas **não é o comportamento observável hoje**, e não dá pra fingir que é.
+
+**Não toquei a PORTA 01.** `PORTA_HOLD_KEYS` em `company-policy-registry.ts:230-244` tem o próprio
+comentário: "Religar = campanha própria da PORTA 01 (nunca afrouxar aqui)" — DECISION-0189C, selada.
+Nenhum bypass, mock, monkeypatch de `isPorta01Closed`, flag de teste ou caminho paralelo foi
+tentado ou criado.
+
+### O que a prova hoje CONSEGUE mostrar (e mostrou)
+Banco efêmero, migrations vivas (as 3 tabelas continuam ausentes, espelhando `unificard_dev`) →
+`backend/src/scripts/validate-pipeline-e2e-risk-dashboard-schema-ghost.ts` +
+`backend/scripts/run-risk-dashboard-schema-ghost-ephemeral.ps1`. Resultado real: 3/10 verde —
+as 3 pré-condições (agreements/evidence_packs/payout_orders ausentes) batem; os 7 vermelhos são
+TODOS a mesma causa (`PORTA_01_CLOSED` nos 3 métodos + suas dependências). **O runner não mascarou
+nada** — falhou honestamente no ponto exato da descoberta, e ficou assim de propósito (forçar verde
+aqui exigiria tocar a PORTA 01).
+
+### Achado colateral — NÃO corrigido, fora do escopo, registrado
+`trust.repository.ts:79,111` — `riskLevel: row.risk_level as any` sem converter case. DB grava
+minúsculo (`low`/`medium`/`high`/`critical`, CHECK de `trust_profiles`); `actorsByRiskLevel` em
+`getOverview` indexa por chave MAIÚSCULA (`LOW/MEDIUM/HIGH/BLOCKED`) — `actorsByRiskLevel[profile.
+riskLevel]++` provavelmente vira `NaN` silencioso pro contador. Campo DIFERENTE (`risk_level`, não
+`severity`/`status` — já explicitamente fora do escopo de `§4.34` nas fatias anteriores desta
+sessão). Não mexido; reportado por nome pra quem decidir a próxima fatia.
+
+### Guard quebrado pelo meu próprio código — consertado por mim mesma, sem pedir
+`audit-reporting-risk-financial-hold.mjs` (DECISION-0189C D5) faz busca textual por
+`listOrders\s*\(` no arquivo inteiro pra confirmar barreira `assertFinancialProjectionAllowed` no
+método. A migalha que escrevi no topo do arquivo citava `payoutService.listOrders()` em prosa —
+o guard leu isso como "chamada fora de método reconhecível" e falhou (`GATE FAIL`). Reescrevi a
+migalha sem o padrão `listOrders(` literal (removidos parênteses/crase da prosa); guard voltou a
+verde. Runner completo 230/230 confirmado depois do fix.
+
+### Provas
+```
+npm run typecheck (backend)          → 0 erros
+node audit-query-param-boundary-validation.mjs → 181/181 (baseline intocado, este fatia não mexeu)
+npm run validate:regression-guards   → 230 COMMANDS OK (inclui audit-reporting-risk-financial-hold
+                                        e audit-porta01-financial-hold, ambos verdes)
+E2E unificard_risk_dashboard_ghost_e2e → 3/10 (precondições OK; 7 falhas = PORTA_01_CLOSED,
+                                        causa única, documentada acima — não é bug desta fatia)
+git diff --check / git ls-files --eol → LF em todos os 4 arquivos tocados
+```
+
+**Decisão pendente da direção:** como fechar a prova comportamental — (a) aceitar prova
+estática+typecheck+E2E-até-o-limite-da-PORTA-01 como suficiente hoje (o fix é real e necessário
+pro dia em que a PORTA 01 reabrir), ou (b) autorizar explicitamente algum mecanismo de teste
+temporário pra furar a PORTA 01 só neste E2E (mudança na própria PORTA 01 — decisão da direção,
+não da executora), ou (c) esperar uma campanha própria de reabertura da PORTA 01 pra validar ao
+vivo. NÃO COMMITADO.
+
+---
+
 ## ✅ EXECUTADO — F-DISPUTE-SIGNAL (2026-07-31; GO Clayton "GO fatia 1")
 
 **Nasceu do GATE abaixo (DT-ESCROW-ACCOUNTS-SCHEMA-DRIFT-BREAKS-CUSTODY) — parar ali valeu mais

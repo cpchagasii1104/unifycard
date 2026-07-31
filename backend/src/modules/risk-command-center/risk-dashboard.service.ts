@@ -11,6 +11,30 @@ import type {
   ActorRiskFilters,
 } from './risk-dashboard.types';
 
+// ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+// ║ STATUS:  CONTIDO (leituras de tabela schema-ghost, capturadas)
+// ║ NORMA:   F-RISK-DASHBOARD, 2026-07-31
+// ║ NÃO:     deixar agreementRepository.list / evidenceService.listPacks /
+// ║          escrowRepository.list / payoutService.listOrders estourar sem captura —
+// ║          este arquivo tinha ZERO `try` antes desta fatia; qualquer uma das 4 tabelas
+// ║          ausentes (agreements/evidence_packs/escrow_accounts-dispute_status/payout_orders,
+// ║          todas medidas schema-ghost) derrubava o painel inteiro (500), numa superfície VIVA.
+// ║          `payout_orders` (não `payout_requests`) é a tabela real por trás de
+// ║          blockedPayouts/failedPayouts — achado ao investigar o pacote: NÃO existe em
+// ║          unificard_dev (só em migrations_archive/0213_payouts.sql). O enum arquivado
+// ║          (`payout_status`: PENDING/READY/BLOCKED/EXECUTED/FAILED) bate EXATAMENTE com
+// ║          `PayoutStatus` — não é vocabulário errado, é a MESMA classe de problema das outras
+// ║          3 tabelas (nunca materializada), não uma métrica sem fonte.
+// ║ EM VEZ:  captura visível (log nomeando tenant/causa) por leitura; métrica derivada fica
+// ║          `undefined` (desconhecida) na falha, nunca `0`/`false` — `RiskDashboardOverview`/
+// ║          `ActorRiskProfile` foram alargados pra `number | undefined` (risk-dashboard.types.ts).
+// ╚════════════════════════════════════════════════════════════════
+function logReadFailure(source: string, tenantId: string, err: unknown, extra?: Record<string, unknown>): void {
+  console.warn(`[RiskDashboardService] Falha ao ler ${source} (schema-ghost) — métrica(s) dependente(s) ficam UNKNOWN (undefined), nunca 0/false`, {
+    tenantId, ...extra, error: err instanceof Error ? err.message : String(err),
+  });
+}
+
 class RiskDashboardService {
   /**
    * Calcula Overview do Risk Dashboard
@@ -59,24 +83,29 @@ class RiskDashboardService {
     const bypass90 = bypassEvents90.filter((e) => new Date(e.createdAt) >= last90Days).length;
     const bypass180 = bypassEvents180.filter((e) => new Date(e.createdAt) >= last180Days).length;
 
-    // 4. Buscar disputas abertas
-    const { evidenceService } = await import('../evidence/evidence.service');
-    const allPacks = await evidenceService.listPacks(tenantId, { limit: 10000 });
-    const openDisputes = allPacks.filter((p) => p.disputeStatus === 'OPEN').length;
+    // 4. Buscar disputas abertas + 5. Calcular tempo médio de resolução
+    let openDisputes: number | undefined;
+    let averageResolutionTimeDays: number | null | undefined;
+    try {
+      const { evidenceService } = await import('../evidence/evidence.service');
+      const allPacks = await evidenceService.listPacks(tenantId, { limit: 10000 });
+      openDisputes = allPacks.filter((p) => p.disputeStatus === 'OPEN').length;
 
-    // 5. Calcular tempo médio de resolução
-    const resolvedDisputes = allPacks.filter(
-      (p) => p.disputeStatus === 'RESOLVED' && p.openedAt && p.resolvedAt
-    );
-    let averageResolutionTimeDays: number | null = null;
-    if (resolvedDisputes.length > 0) {
-      const totalDays = resolvedDisputes.reduce((sum, p) => {
-        if (p.openedAt && p.resolvedAt) {
-          return sum + Math.round((new Date(p.resolvedAt).getTime() - new Date(p.openedAt).getTime()) / (1000 * 60 * 60 * 24));
-        }
-        return sum;
-      }, 0);
-      averageResolutionTimeDays = Math.round(totalDays / resolvedDisputes.length);
+      const resolvedDisputes = allPacks.filter(
+        (p) => p.disputeStatus === 'RESOLVED' && p.openedAt && p.resolvedAt
+      );
+      averageResolutionTimeDays = null;
+      if (resolvedDisputes.length > 0) {
+        const totalDays = resolvedDisputes.reduce((sum, p) => {
+          if (p.openedAt && p.resolvedAt) {
+            return sum + Math.round((new Date(p.resolvedAt).getTime() - new Date(p.openedAt).getTime()) / (1000 * 60 * 60 * 24));
+          }
+          return sum;
+        }, 0);
+        averageResolutionTimeDays = Math.round(totalDays / resolvedDisputes.length);
+      }
+    } catch (err) {
+      logReadFailure('evidence_packs', tenantId, err);
     }
 
     // 6. Volume financeiro (últimos 365 dias)
@@ -84,22 +113,33 @@ class RiskDashboardService {
     const yearStart = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
     const totalFinancialVolumeCents = await bankReportingRepository.sumBankTransactionVolumeCents(tenantId, yearStart, now);
 
-    // 7. Buscar payouts bloqueados e falhos
-    const { payoutService } = await import('../payout/payout.service');
-    const allPayouts = await payoutService.listOrders(tenantId, { limit: 10000 });
-    const blockedPayouts = allPayouts.filter((p) => p.status === 'BLOCKED').length;
-    const failedPayouts = allPayouts.filter((p) => p.status === 'FAILED').length;
+    // 7. Buscar payouts bloqueados e falhos (payout_orders — schema-ghost, ver migalha no topo)
+    let blockedPayouts: number | undefined;
+    let failedPayouts: number | undefined;
+    try {
+      const { payoutService } = await import('../payout/payout.service');
+      const allPayouts = await payoutService.listOrders(tenantId, { limit: 10000 });
+      blockedPayouts = allPayouts.filter((p) => p.status === 'BLOCKED').length;
+      failedPayouts = allPayouts.filter((p) => p.status === 'FAILED').length;
+    } catch (err) {
+      logReadFailure('payout_orders', tenantId, err);
+    }
 
     // 8. Buscar agreements abandonados (simplificado: agreements PROPOSED há mais de 30 dias sem finalização)
-    const { agreementRepository } = await import('../agreements/agreement.repository');
-    const allAgreements = await agreementRepository.list(tenantId, { limit: 10000 });
-    const abandonedAgreements = allAgreements.filter((a) => {
-      if (a.status === 'proposed' || a.status === 'draft') {
-        const daysSinceUpdate = Math.round((now.getTime() - new Date(a.updatedAt).getTime()) / (1000 * 60 * 60 * 24));
-        return daysSinceUpdate > 30;
-      }
-      return false;
-    }).length;
+    let abandonedAgreements: number | undefined;
+    try {
+      const { agreementRepository } = await import('../agreements/agreement.repository');
+      const allAgreements = await agreementRepository.list(tenantId, { limit: 10000 });
+      abandonedAgreements = allAgreements.filter((a) => {
+        if (a.status === 'proposed' || a.status === 'draft') {
+          const daysSinceUpdate = Math.round((now.getTime() - new Date(a.updatedAt).getTime()) / (1000 * 60 * 60 * 24));
+          return daysSinceUpdate > 30;
+        }
+        return false;
+      }).length;
+    } catch (err) {
+      logReadFailure('agreements', tenantId, err);
+    }
 
     return {
       totalActors: profiles.length,
@@ -169,41 +209,51 @@ class RiskDashboardService {
       const lastBypassAt =
         bypassEvents.length > 0 ? new Date(bypassEvents[0].createdAt) : null;
 
-      // Buscar disputas
-      const allPacks = await evidenceService.listPacks(tenantId, { limit: 10000 });
-      const actorPacks = allPacks.filter((p) => {
-        // Verificar se o actor está envolvido (simplificado: buscar no timeline)
-        return p.timeline.some((e) => e.actorId === profile.actorId);
-      });
+      // Buscar disputas (evidence_packs — schema-ghost, ver migalha no topo do arquivo)
+      let openDisputes: number | undefined;
+      let resolvedDisputes: number | undefined;
+      let averageResolutionTimeDays: number | null | undefined;
+      let lastDisputeAt: Date | null = null;
+      let evidencePackIds: string[] = [];
+      try {
+        const allPacks = await evidenceService.listPacks(tenantId, { limit: 10000 });
+        const actorPacks = allPacks.filter((p) => {
+          // Verificar se o actor está envolvido (simplificado: buscar no timeline)
+          return p.timeline.some((e) => e.actorId === profile.actorId);
+        });
 
-      const openDisputes = actorPacks.filter((p) => p.disputeStatus === 'OPEN').length;
-      const resolvedDisputes = actorPacks.filter((p) => p.disputeStatus === 'RESOLVED').length;
+        openDisputes = actorPacks.filter((p) => p.disputeStatus === 'OPEN').length;
+        resolvedDisputes = actorPacks.filter((p) => p.disputeStatus === 'RESOLVED').length;
 
-      const resolvedWithTime = actorPacks.filter(
-        (p) => p.disputeStatus === 'RESOLVED' && p.openedAt && p.resolvedAt
-      );
-      let averageResolutionTimeDays: number | null = null;
-      if (resolvedWithTime.length > 0) {
-        const totalDays = resolvedWithTime.reduce((sum, p) => {
-          if (p.openedAt && p.resolvedAt) {
-            return sum + Math.round((new Date(p.resolvedAt).getTime() - new Date(p.openedAt).getTime()) / (1000 * 60 * 60 * 24));
-          }
-          return sum;
-        }, 0);
-        averageResolutionTimeDays = Math.round(totalDays / resolvedWithTime.length);
+        const resolvedWithTime = actorPacks.filter(
+          (p) => p.disputeStatus === 'RESOLVED' && p.openedAt && p.resolvedAt
+        );
+        averageResolutionTimeDays = null;
+        if (resolvedWithTime.length > 0) {
+          const totalDays = resolvedWithTime.reduce((sum, p) => {
+            if (p.openedAt && p.resolvedAt) {
+              return sum + Math.round((new Date(p.resolvedAt).getTime() - new Date(p.openedAt).getTime()) / (1000 * 60 * 60 * 24));
+            }
+            return sum;
+          }, 0);
+          averageResolutionTimeDays = Math.round(totalDays / resolvedWithTime.length);
+        }
+
+        lastDisputeAt =
+          actorPacks.length > 0
+            ? (() => {
+                const dates = actorPacks
+                  .map((p) => p.openedAt ?? (p as { createdAt?: Date | string }).createdAt)
+                  .filter((d): d is Date | string => d != null);
+                if (dates.length === 0) return null;
+                const sorted = dates.slice().sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+                return new Date(sorted[0]);
+              })()
+            : null;
+        evidencePackIds = Array.from(new Set(actorPacks.map((p) => p.packId)));
+      } catch (err) {
+        logReadFailure('evidence_packs', tenantId, err, { actorId: profile.actorId });
       }
-
-      const lastDisputeAt =
-        actorPacks.length > 0
-          ? (() => {
-              const dates = actorPacks
-                .map((p) => p.openedAt ?? (p as { createdAt?: Date | string }).createdAt)
-                .filter((d): d is Date | string => d != null);
-              if (dates.length === 0) return null;
-              const sorted = dates.slice().sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
-              return new Date(sorted[0]);
-            })()
-          : null;
 
       // Volume no bank_ledger nas contas do actor (últimos 365 dias)
       const windowStart = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
@@ -215,40 +265,57 @@ class RiskDashboardService {
       );
 
       // Buscar escrow
-      const escrows = await escrowRepository.list(tenantId, { limit: 1000 });
-      // Filtrar escrows relacionados ao actor (via agreements - simplificado)
-      const actorEscrows = escrows; // TODO: Filtrar por agreement.requesterActorId ou providerActorId
-      const escrowHeldCents = actorEscrows
-        .filter((e: { status: string }) => e.status === 'funds_held')
-        .reduce((sum: number, e: { heldAmountCents: number }) => sum + e.heldAmountCents, 0);
-      const escrowReleasedCents = actorEscrows
-        .filter((e: { status: string }) => e.status === 'released')
-        .reduce((sum: number, e: { releasedAmountCents: number }) => sum + e.releasedAmountCents, 0);
+      let escrowHeldCents: number | undefined;
+      let escrowReleasedCents: number | undefined;
+      try {
+        const escrows = await escrowRepository.list(tenantId, { limit: 1000 });
+        // Filtrar escrows relacionados ao actor (via agreements - simplificado)
+        const actorEscrows = escrows; // TODO: Filtrar por agreement.requesterActorId ou providerActorId
+        escrowHeldCents = actorEscrows
+          .filter((e: { status: string }) => e.status === 'funds_held')
+          .reduce((sum: number, e: { heldAmountCents: number }) => sum + e.heldAmountCents, 0);
+        escrowReleasedCents = actorEscrows
+          .filter((e: { status: string }) => e.status === 'released')
+          .reduce((sum: number, e: { releasedAmountCents: number }) => sum + e.releasedAmountCents, 0);
+      } catch (err) {
+        logReadFailure('escrow_accounts', tenantId, err, { actorId: profile.actorId });
+      }
 
-      // Buscar payouts
-      const payouts = await payoutService.listOrders(tenantId, { limit: 10000 });
-      const actorPayouts = payouts.filter((p) => p.actorId === profile.actorId);
-      const blockedPayouts = actorPayouts.filter((p) => p.status === 'BLOCKED').length;
-      const failedPayouts = actorPayouts.filter((p) => p.status === 'FAILED').length;
+      // Buscar payouts (payout_orders — schema-ghost, ver migalha no topo do arquivo)
+      let blockedPayouts: number | undefined;
+      let failedPayouts: number | undefined;
+      let payoutOrderIds: string[] = [];
+      try {
+        const payouts = await payoutService.listOrders(tenantId, { limit: 10000 });
+        const actorPayouts = payouts.filter((p) => p.actorId === profile.actorId);
+        blockedPayouts = actorPayouts.filter((p) => p.status === 'BLOCKED').length;
+        failedPayouts = actorPayouts.filter((p) => p.status === 'FAILED').length;
+        payoutOrderIds = Array.from(new Set(actorPayouts.map((p) => p.orderId)));
+      } catch (err) {
+        logReadFailure('payout_orders', tenantId, err, { actorId: profile.actorId });
+      }
 
       // Buscar agreements
-      const agreements = await agreementRepository.list(tenantId, { limit: 10000 });
-      const actorAgreements = agreements.filter(
-        (a) => a.requesterActorId === profile.actorId || a.providerActorId === profile.actorId
-      );
-      const now2 = new Date();
-      const abandonedAgreements = actorAgreements.filter((a) => {
-        if (a.status === 'proposed' || a.status === 'draft') {
-          const daysSinceUpdate = Math.round((now2.getTime() - new Date(a.updatedAt).getTime()) / (1000 * 60 * 60 * 24));
-          return daysSinceUpdate > 30;
-        }
-        return false;
-      }).length;
+      let abandonedAgreements: number | undefined;
+      let agreementIds: string[] = [];
+      try {
+        const agreements = await agreementRepository.list(tenantId, { limit: 10000 });
+        const actorAgreements = agreements.filter(
+          (a) => a.requesterActorId === profile.actorId || a.providerActorId === profile.actorId
+        );
+        const now2 = new Date();
+        abandonedAgreements = actorAgreements.filter((a) => {
+          if (a.status === 'proposed' || a.status === 'draft') {
+            const daysSinceUpdate = Math.round((now2.getTime() - new Date(a.updatedAt).getTime()) / (1000 * 60 * 60 * 24));
+            return daysSinceUpdate > 30;
+          }
+          return false;
+        }).length;
+        agreementIds = Array.from(new Set(actorAgreements.map((a) => a.agreementId)));
+      } catch (err) {
+        logReadFailure('agreements', tenantId, err, { actorId: profile.actorId });
+      }
 
-      // Coletar IDs relacionados
-      const evidencePackIds = Array.from(new Set(actorPacks.map((p) => p.packId)));
-      const agreementIds = Array.from(new Set(actorAgreements.map((a) => a.agreementId)));
-      const payoutOrderIds = Array.from(new Set(actorPayouts.map((p) => p.orderId)));
       // IDs de linhas bank_ledger por actor: não listamos aqui (custo); ver relatórios / bank_ledger por conta
       const ledgerEntryIds: string[] = [];
 
@@ -383,110 +450,130 @@ class RiskDashboardService {
       });
     }
 
-    // 3. Disputes
-    const { evidenceService } = await import('../evidence/evidence.service');
-    const allPacks = await evidenceService.listPacks(tenantId, { limit: 10000 });
-    const actorPacks = allPacks.filter((p) => {
-      return p.timeline.some((e) => e.actorId === actorId);
-    });
+    // 3. Disputes (evidence_packs — schema-ghost, ver migalha no topo do arquivo). Falha aqui
+    // NÃO gera evento fictício — a timeline fica honestamente PARCIAL (sem os eventos desta
+    // fonte), nunca afirma "sem disputa" via ausência silenciosa; o log nomeia a causa.
+    try {
+      const { evidenceService } = await import('../evidence/evidence.service');
+      const allPacks = await evidenceService.listPacks(tenantId, { limit: 10000 });
+      const actorPacks = allPacks.filter((p) => {
+        return p.timeline.some((e) => e.actorId === actorId);
+      });
 
-    for (const pack of actorPacks) {
-      if (pack.disputeStatus === 'OPEN' && pack.openedAt) {
-        timeline.push({
-          eventId: `dispute-${pack.packId}`,
-          timestamp: pack.openedAt instanceof Date ? pack.openedAt : new Date(pack.openedAt),
-          eventType: 'dispute_opened',
-          severity: 'HIGH',
-          title: 'Disputa Aberta',
-          description: `Disputa aberta em ${pack.contextType}: ${pack.contextId.substring(0, 8)}...`,
-          sourceType: 'evidence',
-          sourceId: pack.packId,
-          evidencePackId: pack.packId,
-          metadata: {
-            contextType: pack.contextType,
-            contextId: pack.contextId,
-          },
-        });
-      }
+      for (const pack of actorPacks) {
+        if (pack.disputeStatus === 'OPEN' && pack.openedAt) {
+          timeline.push({
+            eventId: `dispute-${pack.packId}`,
+            timestamp: pack.openedAt instanceof Date ? pack.openedAt : new Date(pack.openedAt),
+            eventType: 'dispute_opened',
+            severity: 'HIGH',
+            title: 'Disputa Aberta',
+            description: `Disputa aberta em ${pack.contextType}: ${pack.contextId.substring(0, 8)}...`,
+            sourceType: 'evidence',
+            sourceId: pack.packId,
+            evidencePackId: pack.packId,
+            metadata: {
+              contextType: pack.contextType,
+              contextId: pack.contextId,
+            },
+          });
+        }
 
-      if (pack.disputeStatus === 'RESOLVED' && pack.resolvedAt) {
-        timeline.push({
-          eventId: `dispute-resolved-${pack.packId}`,
-          timestamp: pack.resolvedAt instanceof Date ? pack.resolvedAt : new Date(pack.resolvedAt),
-          eventType: 'dispute_resolved',
-          severity: 'MEDIUM',
-          title: 'Disputa Resolvida',
-          description: `Disputa resolvida em ${pack.contextType}: ${pack.contextId.substring(0, 8)}...`,
-          sourceType: 'evidence',
-          sourceId: pack.packId,
-          evidencePackId: pack.packId,
-          metadata: {
-            contextType: pack.contextType,
-            contextId: pack.contextId,
-          },
-        });
+        if (pack.disputeStatus === 'RESOLVED' && pack.resolvedAt) {
+          timeline.push({
+            eventId: `dispute-resolved-${pack.packId}`,
+            timestamp: pack.resolvedAt instanceof Date ? pack.resolvedAt : new Date(pack.resolvedAt),
+            eventType: 'dispute_resolved',
+            severity: 'MEDIUM',
+            title: 'Disputa Resolvida',
+            description: `Disputa resolvida em ${pack.contextType}: ${pack.contextId.substring(0, 8)}...`,
+            sourceType: 'evidence',
+            sourceId: pack.packId,
+            evidencePackId: pack.packId,
+            metadata: {
+              contextType: pack.contextType,
+              contextId: pack.contextId,
+            },
+          });
+        }
       }
+    } catch (err) {
+      logReadFailure('evidence_packs', tenantId, err, { actorId });
     }
 
-    // 4. Escrow Events (simplificado)
-    const { escrowRepository } = await import('../escrow/escrow.repository');
-    const escrows = await escrowRepository.list(tenantId, { limit: 1000 });
-    // TODO: Filtrar escrows relacionados ao actor
+    // 4. Escrow Events (simplificado — leitura não usada hoje, `escrows` nunca é referenciado
+    // depois do fetch; capturado mesmo assim pra não derrubar o resto da timeline)
+    try {
+      const { escrowRepository } = await import('../escrow/escrow.repository');
+      await escrowRepository.list(tenantId, { limit: 1000 });
+      // TODO: Filtrar escrows relacionados ao actor
+    } catch (err) {
+      logReadFailure('escrow_accounts', tenantId, err, { actorId });
+    }
 
-    // 5. Payout Events
-    const { payoutService } = await import('../payout/payout.service');
-    const payouts = await payoutService.listOrders(tenantId, { limit: 10000 });
-    const actorPayouts = payouts.filter((p) => p.actorId === actorId);
+    // 5. Payout Events (payout_orders — schema-ghost, ver migalha no topo do arquivo)
+    try {
+      const { payoutService } = await import('../payout/payout.service');
+      const payouts = await payoutService.listOrders(tenantId, { limit: 10000 });
+      const actorPayouts = payouts.filter((p) => p.actorId === actorId);
 
-    for (const payout of actorPayouts) {
-      if (payout.status === 'BLOCKED') {
-        timeline.push({
-          eventId: `payout-blocked-${payout.orderId}`,
-          timestamp: typeof payout.createdAt === 'string' ? new Date(payout.createdAt) : (payout.createdAt ?? new Date()),
-          eventType: 'payout_blocked',
-          severity: 'HIGH',
-          title: 'Payout Bloqueado',
-          description: `Payout bloqueado: ${payout.amountCents / 100} ${payout.currency}`,
-          sourceType: 'payout',
-          sourceId: payout.orderId,
-          evidencePackId: null,
-          metadata: {
-            amountCents: payout.amountCents,
-            currency: payout.currency,
-            reason: payout.metadata?.blockReason || 'Unknown',
-          },
-        });
+      for (const payout of actorPayouts) {
+        if (payout.status === 'BLOCKED') {
+          timeline.push({
+            eventId: `payout-blocked-${payout.orderId}`,
+            timestamp: typeof payout.createdAt === 'string' ? new Date(payout.createdAt) : (payout.createdAt ?? new Date()),
+            eventType: 'payout_blocked',
+            severity: 'HIGH',
+            title: 'Payout Bloqueado',
+            description: `Payout bloqueado: ${payout.amountCents / 100} ${payout.currency}`,
+            sourceType: 'payout',
+            sourceId: payout.orderId,
+            evidencePackId: null,
+            metadata: {
+              amountCents: payout.amountCents,
+              currency: payout.currency,
+              reason: payout.metadata?.blockReason || 'Unknown',
+            },
+          });
+        }
+
+        if (payout.status === 'FAILED') {
+          timeline.push({
+            eventId: `payout-failed-${payout.orderId}`,
+            timestamp: (() => {
+              const t = payout.updatedAt ?? payout.createdAt;
+              return t != null ? (typeof t === 'string' ? new Date(t) : t) : new Date();
+            })(),
+            eventType: 'payout_failed',
+            severity: 'MEDIUM',
+            title: 'Payout Falhou',
+            description: `Payout falhou: ${payout.amountCents / 100} ${payout.currency}`,
+            sourceType: 'payout',
+            sourceId: payout.orderId,
+            evidencePackId: null,
+            metadata: {
+              amountCents: payout.amountCents,
+              currency: payout.currency,
+              reason: payout.metadata?.failureReason || 'Unknown',
+            },
+          });
+        }
       }
-
-      if (payout.status === 'FAILED') {
-        timeline.push({
-          eventId: `payout-failed-${payout.orderId}`,
-          timestamp: (() => {
-            const t = payout.updatedAt ?? payout.createdAt;
-            return t != null ? (typeof t === 'string' ? new Date(t) : t) : new Date();
-          })(),
-          eventType: 'payout_failed',
-          severity: 'MEDIUM',
-          title: 'Payout Falhou',
-          description: `Payout falhou: ${payout.amountCents / 100} ${payout.currency}`,
-          sourceType: 'payout',
-          sourceId: payout.orderId,
-          evidencePackId: null,
-          metadata: {
-            amountCents: payout.amountCents,
-            currency: payout.currency,
-            reason: payout.metadata?.failureReason || 'Unknown',
-          },
-        });
-      }
+    } catch (err) {
+      logReadFailure('payout_orders', tenantId, err, { actorId });
     }
 
     // 6. Agreements Abandoned
-    const { agreementRepository } = await import('../agreements/agreement.repository');
-    const agreements = await agreementRepository.list(tenantId, { limit: 10000 });
-    const actorAgreements = agreements.filter(
-      (a) => a.requesterActorId === actorId || a.providerActorId === actorId
-    );
+    let actorAgreements: Array<{ status: string; updatedAt: string | Date; agreementId: string }> = [];
+    try {
+      const { agreementRepository } = await import('../agreements/agreement.repository');
+      const agreements = await agreementRepository.list(tenantId, { limit: 10000 });
+      actorAgreements = agreements.filter(
+        (a) => a.requesterActorId === actorId || a.providerActorId === actorId
+      );
+    } catch (err) {
+      logReadFailure('agreements', tenantId, err, { actorId });
+    }
 
     const now = new Date();
     for (const agreement of actorAgreements) {

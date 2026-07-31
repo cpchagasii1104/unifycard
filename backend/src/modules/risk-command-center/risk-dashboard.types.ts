@@ -3,6 +3,15 @@
 // 🔴 BLINDAGEM: Apenas agregações read-only, nenhuma mutação
 // 🔴 BLINDAGEM: Tudo determinístico e rastreável
 
+// ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+// ║ STATUS:  CANÔNICO
+// ║ NORMA:   F-RISK-DASHBOARD, 2026-07-31 — risk-dashboard.service.ts (0 try/catch no arquivo
+// ║          inteiro antes desta fatia; agreements/evidence_packs/payout_orders são schema-ghost)
+// ║ NÃO:     métrica `number` não-opcional forçando `0` quando a leitura de origem falha —
+// ║          `abandonedAgreements = 0` afirma "não há agreement abandonado"; não sabemos.
+// ║ EM VEZ:  `number | undefined` — undefined é "não sabemos", nunca confundir com 0/zero.
+// ╚════════════════════════════════════════════════════════════════
+
 /**
  * Overview do Risk Dashboard
  */
@@ -19,12 +28,12 @@ export interface RiskDashboardOverview {
     last90Days: number;
     last180Days: number;
   };
-  openDisputes: number;
-  averageResolutionTimeDays: number | null;
+  openDisputes: number | undefined;
+  averageResolutionTimeDays: number | null | undefined;
   totalFinancialVolumeCents: number;
-  blockedPayouts: number;
-  failedPayouts: number;
-  abandonedAgreements: number;
+  blockedPayouts: number | undefined;
+  failedPayouts: number | undefined;
+  abandonedAgreements: number | undefined;
   currency: string;
 }
 
@@ -44,15 +53,15 @@ export interface ActorRiskProfile {
     last180Days: number;
     totalCents: number;
   };
-  openDisputes: number;
-  resolvedDisputes: number;
-  averageResolutionTimeDays: number | null;
+  openDisputes: number | undefined;
+  resolvedDisputes: number | undefined;
+  averageResolutionTimeDays: number | null | undefined;
   financialVolumeCents: number;
-  escrowHeldCents: number;
-  escrowReleasedCents: number;
-  blockedPayouts: number;
-  failedPayouts: number;
-  abandonedAgreements: number;
+  escrowHeldCents: number | undefined;
+  escrowReleasedCents: number | undefined;
+  blockedPayouts: number | undefined;
+  failedPayouts: number | undefined;
+  abandonedAgreements: number | undefined;
   lastEventAt: Date | null;
   lastBypassAt: Date | null;
   lastDisputeAt: Date | null;
