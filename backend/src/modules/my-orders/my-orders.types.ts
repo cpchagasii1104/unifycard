@@ -54,7 +54,14 @@ export interface MyOrderItem {
   invoiceId: string | null;
   
   // Indicadores de risco/trust
-  hasOpenDispute: boolean;
+  // ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+  // ║ STATUS:  CANÔNICO
+  // ║ NORMA:   F-DISPUTE-SIGNAL, 2026-07-31 — my-orders.service.ts (3 sítios de leitura)
+  // ║ NÃO:     boolean não-opcional — força um default `false` na falha de leitura, que
+  // ║          afirma "sem disputa" sem saber (RFQ/event, sem service_order, pode ficar unknown).
+  // ║ EM VEZ:  boolean | undefined — undefined é "não sabemos", nunca confundir com false.
+  // ╚════════════════════════════════════════════════════════════════
+  hasOpenDispute: boolean | undefined;
   trustScore: number | null;
   riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'BLOCKED' | null;
   

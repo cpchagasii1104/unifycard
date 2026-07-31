@@ -98,7 +98,22 @@ class PayoutService {
     // (Será validado ao criar o payout)
 
     // Buscar escrow e agreement para preencher hasOpenDispute e status
-    let hasOpenDispute = false;
+    // ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+    // ║ STATUS:  CONTIDO (campo informativo, não bloqueia elegibilidade)
+    // ║ NORMA:   backend/src/modules/services/service-order.types.ts:101 (ServiceOrder.disputedAt
+    // ║          — fonte governada de sinal de disputa) — F-DISPUTE-SIGNAL, 2026-07-31
+    // ║ NÃO:     `hasOpenDispute = false` por default silencioso — afirma "sem disputa" quando na
+    // ║          verdade não conseguimos ler. NÃO compor de service_orders.disputed_at aqui —
+    // ║          este bloco só tem escrowId/agreementId, SEM service_order (medido, GATE
+    // ║          DT-ESCROW-ACCOUNTS-SCHEMA-DRIFT-BREAKS-CUSTODY); inventar o mapeamento seria a
+    // ║          quarta fonte de sinal de disputa que este repositório já tem demais.
+    // ║ EM VEZ:  `undefined` (desconhecido) na falha de leitura, nunca `false` (seguro-falso);
+    // ║          log estruturado nomeando a causa — erro de "tabela/coluna não existe" tem que
+    // ║          aparecer, não sumir. Este campo NÃO é usado para bloquear elegibilidade (o
+    // ║          bloqueio real usa escrow.disputeStatus direto em :66-69, fora desta fatia) —
+    // ║          é só o valor devolvido ao caller, hoje sem consumidor no frontend.
+    // ╚════════════════════════════════════════════════════════════════
+    let hasOpenDispute: boolean | undefined;
     let escrowStatus: string | undefined;
     let agreementStatus: string | undefined;
 
@@ -111,7 +126,9 @@ class PayoutService {
           escrowStatus = escrow.status;
         }
       } catch (err) {
-        // Ignorar erro
+        console.warn('[PayoutService] Falha ao ler escrow para hasOpenDispute/escrowStatus — campo fica UNKNOWN (undefined), nunca false', {
+          tenantId, escrowId, error: err instanceof Error ? err.message : String(err),
+        });
       }
     }
 
@@ -121,7 +138,9 @@ class PayoutService {
         const agreement = await agreementRepository.findById(tenantId, agreementId);
         agreementStatus = agreement?.status;
       } catch (err) {
-        // Ignorar erro
+        console.warn('[PayoutService] Falha ao ler agreement para agreementStatus — campo fica UNKNOWN (undefined)', {
+          tenantId, agreementId, error: err instanceof Error ? err.message : String(err),
+        });
       }
     }
 

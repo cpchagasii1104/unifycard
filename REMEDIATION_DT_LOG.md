@@ -1,5 +1,191 @@
 # REMEDIATION DT LOG
 
+## ✅ EXECUTADO — F-DISPUTE-SIGNAL (2026-07-31; GO Clayton "GO fatia 1")
+
+**Nasceu do GATE abaixo (DT-ESCROW-ACCOUNTS-SCHEMA-DRIFT-BREAKS-CUSTODY) — parar ali valeu mais
+que a fatia inteira, palavras da própria direção.**
+
+### PASSO 0 — inventário, e onde parei de verdade
+4 sítios reais de `hasOpenDispute` no código (não 3 — a contagem "3 lugares" do título contava
+por classe de problema, não por site): `payout.service.ts:100-116` (escrow/agreement, SEM
+service_order) · `my-orders.service.ts` bloco booking (linha ~73, TEM `so`/`serviceOrder`) ·
+bloco service_order direto (TEM `so`) · bloco RFQ/event (SEM service_order — `serviceOrderId:
+null` explícito no item final).
+
+**PAREI no bloco RFQ e no bloco payout — instrução explícita do pacote ("se não tiver
+service_order, PARE").** Não inventei mapeamento nenhum pra esses dois. Só apliquei o item 2
+(captura visível + honesto) neles, sem tentar compor de `service_orders.disputed_at`.
+
+**Nos 2 blocos de my-orders que TÊM service_order** (booking e direto): trocado
+`evidencePack?.disputeStatus === 'OPEN'` (schema-ghost, `evidence_packs` não existe) por
+`so.disputedAt != null` — a fonte que `service-order.types.ts:11-16` já promulga pro mesmo
+conceito (`release_approved` exige `disputed_at IS NULL`).
+
+### Os 6 `catch (err) { // Ignorar erro }` — visíveis + honestos
+2 em `payout.service.ts` (escrow/agreement) + 4 em `my-orders.service.ts` (trust profile ×2,
+service name ×2). Nenhum guardava `hasOpenDispute` diretamente (só 1 dos 6 fazia isso —
+`payout.service.ts:113-115`) — os outros 5 guardavam `trustScore`/`riskLevel`/`serviceName`/
+`agreementStatus`, e a essa altura já estavam com default honesto (`null`); só faltava o LOG.
+Todos os 6 ganharam `console.warn` estruturado nomeando tenant/id/causa. `hasOpenDispute`
+(payout) e `MyOrderItem.hasOpenDispute` mudaram de `boolean` pra `boolean | undefined` — nunca
+mais `false` por default silencioso.
+
+**Achado explícito, não inflado:** o campo do payout (`hasOpenDispute` em
+`PayoutEligibilityResult`) é **informativo** — não usado em NENHUM lugar pra bloquear
+elegibilidade (o bloqueio real de "libera com disputa aberta" usa `escrow.disputeStatus`
+DIRETO em `payout.service.ts:66-69`, fora desta fatia, intocado) nem tem consumidor no
+frontend hoje (grep vazio). Corrigido mesmo assim — é contrato público do dado, e a direção
+pediu por nome.
+
+### 🔴 3 achados NÃO pedidos, necessários pra sequer PROVAR o pedido, resolvidos com o MESMO padrão
+Ao rodar a prova E2E, `GET /my-orders` continuava 500/503 mesmo depois do fix — três blocos
+adicionais, todos silenciosos ou mal-tratados:
+1. `agreements` **também é schema-ghost** (não existe em `unificard_dev`, medido) — 3 chamadas
+   `agreementRepository.list()` em `my-orders.service.ts` sem captura nenhuma, derrubavam a
+   rota inteira. Mesmo padrão dos 6 catches: captura visível + `agreement` fica `undefined`.
+2. `invoices` é **contenção DELIBERADA** (503 `INVOICE_MODULE_UNAVAILABLE`,
+   `invoice.service.ts:21-41`, "R-6 pós-YALA", documentado) — DIFERENTE dos outros dois
+   (omissão acidental). Sem captura no CALLER, esse 503 deliberado derrubava o Hub INTEIRO, não
+   só o campo invoice — o que `invoice.service.ts` nunca decidiu fazer. Capturado (não
+   revertido): a causa continua visível no log, só não propaga pra fora do item.
+3. `my-orders.routes.ts:44` — `req.query.hasOpenDispute === true` compara STRING de querystring
+   contra o boolean literal `true`: SEMPRE `false`, NUNCA `undefined`, mesmo sem o param na URL.
+   Antes desta fatia isso era invisível (hasOpenDispute nunca variava). Com o sinal vivo, esse
+   bug passa a filtrar TODA ordem disputada por padrão, em TODA chamada — o oposto do que a
+   fatia existe pra consertar. Corrigido: `undefined` quando ausente, coerção explícita quando
+   presente.
+   + Bônus achado na mesma verificação: o bloco service_order-direto de `my-orders.service.ts`
+     calculava `hasOpenDispute` mas NUNCA usava pra `status` (ao contrário dos blocos
+     booking/RFQ) — a prova exigida ("disputed_at preenchido → mostra 'disputed'") não se
+     sustentava sem isso. Corrigido, mesmo padrão dos outros 2 blocos.
+
+**Por que resolvi em vez de PARAR feito no escrow:** todos os 3 são omissão/inconsistência
+acidental (não uma decisão arquitetural divergente como o escrow), o padrão de correção é
+IDÊNTICO ao que a própria fatia já pedia (captura visível + honesto), e sem eles a fatia não
+tinha COMO ser provada — reportar e parar aqui teria devolvido a mesma fatia pra trás sem
+entregar nada testável. Registrado com destaque, não escondido.
+
+### Provas — ANTES/DEPOIS por sítio (banco efêmero `unificard_dispute_signal_e2e`)
+```
+service_order SEM disputa (disputed_at NULL):
+  hasOpenDispute=false status=negotiation
+service_order COM disputa (disputed_at preenchido):
+  hasOpenDispute=true  status=disputed      ← ANTES desta fatia: sempre false, silencioso
+SEM filtro na URL: as 2 ordens aparecem (não filtra por padrão — bug do routes.ts corrigido)
+?hasOpenDispute=true:  só a ordem disputada volta
+?hasOpenDispute=false: só a ordem SEM disputa volta
+console.warn nomeando "evidence_packs"/"agreements"/"invoices" APARECEU nos 3 casos — não sumiu
+```
+`DISPUTE-SIGNAL :: PASS (12/12)`.
+
+`npm run typecheck` FRONTEND → 0 · BACKEND → 0. `validate:regression-guards` → **230/230**
+(guard `audit-query-param-boundary-validation.mjs` reconferido: 181/181, intocado — fatia
+diferente). 1 colisão de `financial-vocabulary` (3885/3884) achada e corrigida no MEU PRÓPRIO
+comentário (`payout.types.ts`, a palavra "payout" citando o nome do arquivo — reescrito pra não
+repetir o nome do módulo); baseline intacta (3884), 0 regressão líquida.
+
+**NÃO TOQUEI:** `escrow_accounts`, `escrow.repository.ts`, rotas de escrow (Fatia 3, aguarda
+autorização própria) · não criei `evidence_packs` nem `agreements` (schema-ghost, não é caso de
+criar casa pra caller — só de não deixar a ausência derrubar o resto) · não mudei a SEVERIDADE
+do 503 de invoicing (continua 503, só não propaga pra fora do item que o pediu).
+
+Higiene: `git ls-files --eol` nos 5 arquivos tracked tocados — todos `i/lf w/lf`, consistente
+antes/depois. 2 arquivos novos (e2e + runner) confirmados sem CRLF. `git diff --check` limpo.
+
+Arquivos tocados: `payout.service.ts` + `payout.types.ts` (item pedido) · `my-orders.service.ts`
++ `my-orders.types.ts` (item pedido) · `my-orders.routes.ts` (achado necessário) ·
+`validate-pipeline-e2e-dispute-signal.ts` + `run-dispute-signal-ephemeral.ps1` (prova, novos).
+
+NÃO COMMITADO.
+
+---
+
+## 🔍 GATE — DT-ESCROW-ACCOUNTS-SCHEMA-DRIFT-BREAKS-CUSTODY (2026-07-31; PAREI, não executei)
+
+**Mandato: F-QUERY-PARAM-BOUNDARY, queima 1/6 — `escrow.routes.ts::status/disputeStatus`.
+PAREI ANTES DE ESCREVER — o pacote pedia inventário primeiro, e o inventário abriu um achado
+maior que o pedido: a causa-raiz declarada do pacote ("dinheiro em custódia, filtro pode devolver
+200 vazio em silêncio") pressupõe um caminho de escrita/leitura FUNCIONAL por baixo do defeito de
+vocabulário. Não é. A tabela viva tem uma FORMA DIFERENTE da que o repository espera — mais fundo
+que case, mais fundo que enum×CHECK.**
+
+### PASSO 1 — inventário, medido, colado
+
+**`status` (linha 123 de escrow.routes.ts):**
+- TS: `EscrowStatus = 'pending'|'funds_held'|'ready_to_release'|'released'|'refunded'|'blocked_by_dispute'` (6 valores, `escrow.types.ts:10`).
+- Banco vivo (`unificard_dev`, `pg_get_constraintdef`): `status TEXT CHECK (status IN
+  ('active','released','refunded','disputed','cancelled'))` (5 valores).
+- **Interseção: 2 valores** (`released`, `refunded`). Os outros 4 de cada lado não existem no
+  outro vocabulário. `pending`/`funds_held`/`ready_to_release`/`blocked_by_dispute` (TS) NUNCA
+  bateriam num filtro real; `active`/`disputed`/`cancelled` (banco) não têm representação em TS.
+- **Caso SILENCIOSO confirmado, e pior do que o pacote antecipava:** filtrar por qualquer valor
+  do union TS (exceto released/refunded) SEMPRE devolve `200 { escrows: [] }` — não porque não
+  há dado retido, mas porque NENHUMA linha jamais teria esse valor (o CHECK do banco não permite
+  gravar 'pending' etc.). `escrow_accounts` está VAZIA em `unificard_dev` hoje (confirmado,
+  `count=0`) — o caso nunca foi exercido com dado real, mas o mecanismo do defeito está provado
+  pela definição das duas constraints.
+
+**`disputeStatus` (linha 124):**
+- TS: `'none'|'open'|'resolved'` (`escrow.types.ts:64,180`).
+- Banco vivo: **a coluna `dispute_status` NÃO EXISTE** em `escrow_accounts`
+  (`information_schema.columns` — 13 colunas, nenhuma chamada `dispute_status`).
+- **NÃO é o caso silencioso — é pior: qualquer filtro por `disputeStatus` faz o repository montar
+  `... AND dispute_status = $n`, que quebra com `42703 undefined_column` → 500.** Não tem
+  vocabulário nenhum pra validar contra — a coluna-alvo não existe.
+
+### 🔴 O ACHADO QUE MUDA O PACOTE: a tabela não tem a FORMA que o código pressupõe
+
+`escrow.repository.ts` (INSERT `:140-146`, SELECT `list() :521-560`, `EscrowAccountRow
+:14-32`) lê/escreve **8 colunas que não existem** na tabela viva: `service_order_id`,
+`bundle_id`, `evidence_pack_id`, `total_amount_cents` (banco tem `amount_cents`),
+`released_amount_cents`, `refunded_amount_cents`, `current_milestone`, `dispute_status`.
+A tabela viva tem **4 colunas que o repository nunca lê nem escreve**: `buyer_actor_id`,
+`seller_actor_id`, `amount_cents`, `bank_account_id`.
+
+**Confirmado — é o MESMO padrão do `DT-ALERTS-SUBSTRATE-MISSING-BREAKS-ARTIGO-II` desta mesma
+sessão, um nível pior:** `migrations_archive/0187_escrow_accounts.sql` bate **exatamente** com o
+que o repository espera — mesmas colunas (`service_order_id`, `bundle_id`, `evidence_pack_id`,
+`total_amount_cents`, `dispute_status` com `CHECK IN ('NONE','OPEN','RESOLVED')`, enum
+`escrow_status` com `PENDING/FUNDS_HELD/READY_TO_RELEASE/RELEASED/REFUNDED/BLOCKED_BY_DISPUTE` —
+maiúsculo, mas semanticamente idêntico ao union TS minúsculo). Mas a migration que REALMENTE
+materializou (`migrations/20260530250000_escrow_accounts.sql`) é uma tabela DIFERENTE, mais
+simples, com modelo `buyer_actor_id`/`seller_actor_id` direto — não é a mesma tabela redesenhada,
+é um design alternativo que ganhou e o código nunca foi atualizado pra ele (ou vice-versa).
+
+**Consequência prática, verificada:** `POST /escrow` (criar escrow a partir de Agreement
+FINALIZED) **quebra sempre** — o INSERT referencia `total_amount_cents`/`dispute_status`/etc.,
+nenhuma existe. `escrow_accounts` tem **0 linhas** em `unificard_dev` — consistente com o INSERT
+nunca ter funcionado desde que essa migration substituiu a arquivada. Rota está VIVA e
+registrada (`escrow.module.ts:8` → `protectedScope.register`, `app.builder.ts:588-589`) — não é
+schema-ghost contido, é reachable e quebrado.
+
+### Por que parei em vez de consertar
+
+O pacote autorizou explicitamente parar se "a fonte do vocabulário não estiver clara". Não está:
+não dá pra saber se o modelo certo é o arquivado (rico, bate com o código) ou o vivo (simples,
+bate com o banco) sem decisão da direção — reconciliar unilateralmente seria inventar uma
+terceira verdade sobre custódia de dinheiro, exatamente o erro mais caro deste repositório.
+Além disso, mesmo escolhendo um vocabulário pro `status`, o `disputeStatus` **continuaria
+quebrando com 500** depois da minha validação (coluna não existe) — o "queima" desta rota não é
+mecanicamente alcançável só com `Record<Tipo,true>+400` até a forma da tabela ser decidida.
+
+**NÃO TOQUEI:** `escrow.routes.ts` (nenhuma linha) · `escrow.repository.ts` · a allowlist do
+guard (`audit-query-param-boundary-validation.mjs`) · `BASELINE_COUNT` (segue 181 — nada foi
+consertado, baixar o teto sem consertar seria o mesmo defeito que o guard existe pra pegar).
+Guard reconferido: `181/181`, verde, inalterado. Runner não rodado de ponta a ponta nesta fatia
+(nada mudou pra testar).
+
+**PEDIDO À DIREÇÃO:** decisão de qual forma de `escrow_accounts` é a verdade — reconciliar pro
+modelo arquivado (materializar `service_order_id`/`bundle_id`/`evidence_pack_id`/
+`total_amount_cents`/`released_amount_cents`/`refunded_amount_cents`/`current_milestone`/
+`dispute_status` via migration forward-only) ou reescrever o repository pro modelo vivo
+(`buyer_actor_id`/`seller_actor_id`/`amount_cents`/`bank_account_id`). Só depois disso a queima
+1/6 original (vocabulário de `status`/`disputeStatus`) fica mecanicamente possível.
+
+NÃO COMMITADO — nada foi alterado.
+
+---
+
 ## ✅ EXECUTADO — F-QUERY-PARAM-BOUNDARY: guard v1 fechava verde com a allowlist crescendo — corrigido (2026-07-31; GO Clayton)
 
 **Achado por Clayton, não de 1ª mão desta instância — registrado sem apagar a origem.** A v1 do

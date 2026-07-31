@@ -102,12 +102,19 @@ export interface FailPayoutInput {
 /**
  * Resultado da validação de elegibilidade
  */
+// ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+// ║ STATUS:  CANÔNICO
+// ║ NORMA:   F-DISPUTE-SIGNAL, 2026-07-31 — validatePayoutEligibility (leitura de hasOpenDispute)
+// ║ NÃO:     hasOpenDispute: boolean não-opcional — força um default `false` na falha de
+// ║          leitura, que afirma "sem disputa" sem saber.
+// ║ EM VEZ:  boolean | undefined — undefined é "não sabemos", nunca confundir com false.
+// ╚════════════════════════════════════════════════════════════════
 export interface PayoutEligibilityResult {
   eligible: boolean;
   reasons: string[];
   riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'BLOCKED';
   trustScore: number;
-  hasOpenDispute: boolean;
+  hasOpenDispute: boolean | undefined;
   escrowStatus?: string;
   agreementStatus?: string;
 }

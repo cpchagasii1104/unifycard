@@ -34,25 +34,76 @@ class MyOrdersService {
         metadata: so.metadata,
       };
       const serviceOrder = so;
+      // ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+      // ║ STATUS:  CONTIDO (schema-ghost — tabela agreements ausente, achado ao provar esta
+      // ║          fatia: quebrava a rota INTEIRA antes mesmo de chegar no fix de disputa)
+      // ║ NORMA:   F-DISPUTE-SIGNAL, 2026-07-31 — mesmo padrão do evidence_packs abaixo
+      // ║ NÃO:     deixar a leitura estourar sem captura.
+      // ║ EM VEZ:  captura visível + agreement undefined na falha (os campos derivados de
+      // ║          agreement já eram opcionais/`|| null` — honestos por construção).
+      // ╚════════════════════════════════════════════════════════════════
       const { agreementRepository } = await import('../agreements/agreement.repository');
-      const agreements = await agreementRepository.list(tenantId, { limit: 10000 });
-      const agreement = agreements.find(
-        (a) => a.contextType === 'booking' && a.contextId === booking.bookingId
-      );
+      let agreement: Awaited<ReturnType<typeof agreementRepository.list>>[number] | undefined;
+      try {
+        const agreements = await agreementRepository.list(tenantId, { limit: 10000 });
+        agreement = agreements.find(
+          (a) => a.contextType === 'booking' && a.contextId === booking.bookingId
+        );
+      } catch (err) {
+        console.warn('[MyOrdersService] Falha ao ler agreements (schema-ghost) — agreement fica UNKNOWN', {
+          tenantId, bookingId: booking.bookingId, error: err instanceof Error ? err.message : String(err),
+        });
+      }
 
       // Buscar Evidence Pack
+      // ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+      // ║ STATUS:  CONTIDO (schema-ghost — tabela evidence_packs ausente, medido)
+      // ║ NORMA:   F-DISPUTE-SIGNAL, 2026-07-31
+      // ║ NÃO:     deixar a leitura estourar sem captura — derrubaria a rota inteira (500) pra
+      // ║          QUALQUER usuário com pelo menos 1 booking, hoje. NÃO criar evidence_packs
+      // ║          pra acomodar esta leitura — casa ausente é schema-ghost, frente própria com
+      // ║          GATE se necessário (protocolo §2.3.2).
+      // ║ EM VEZ:  captura visível (log nomeando a causa) + evidencePack fica undefined —
+      // ║          evidencePackId no item final já é honestamente null nesse caso.
+      // ╚════════════════════════════════════════════════════════════════
       const { evidenceService } = await import('../evidence/evidence.service');
-      const evidencePacks = await evidenceService.listPacks(tenantId, { limit: 10000 });
-      const evidencePack = evidencePacks.find(
-        (p) => p.contextType === 'booking' && p.contextId === booking.bookingId
-      );
+      let evidencePack: { packId: string; disputeStatus?: string } | undefined;
+      try {
+        const evidencePacks = await evidenceService.listPacks(tenantId, { limit: 10000 });
+        evidencePack = evidencePacks.find(
+          (p) => p.contextType === 'booking' && p.contextId === booking.bookingId
+        );
+      } catch (err) {
+        console.warn('[MyOrdersService] Falha ao ler evidence_packs (schema-ghost) — evidencePackId fica UNKNOWN', {
+          tenantId, bookingId: booking.bookingId, error: err instanceof Error ? err.message : String(err),
+        });
+      }
 
       // Buscar Invoice (via ServiceOrder)
+      // ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+      // ║ STATUS:  CONTIDO — achado ao provar esta fatia, DIFERENTE dos dois acima: invoicing é
+      // ║          contenção DELIBERADA (503 INVOICE_MODULE_UNAVAILABLE, invoice.service.ts:21-41,
+      // ║          "R-6 pós-YALA", fail-closed documentado), não omissão acidental. Sem captura
+      // ║          aqui, esse 503 deliberado derruba o Hub INTEIRO (todo /my-orders), não só o
+      // ║          campo invoice — o que este arquivo NUNCA decidiu fazer.
+      // ║ NORMA:   F-DISPUTE-SIGNAL, 2026-07-31
+      // ║ NÃO:     deixar o 503 propagar cru — sozinho ele já é honesto (diz a causa), mas
+      // ║          propagado sem captura ele apaga TODO O RESTO da agregação (agreement, trust,
+      // ║          disputa) que não depende de invoice nenhuma.
+      // ║ EM VEZ:  captura visível (preserva a causa no log) + invoice fica null — o resto do
+      // ║          item continua honesto e disponível.
+      // ╚════════════════════════════════════════════════════════════════
       let invoice = null;
       if (serviceOrder) {
-        const { invoiceService } = await import('../invoicing/invoice.service');
-        const invoices = await invoiceService.listInvoices(tenantId, { limit: 10000 });
-        invoice = invoices.find((i) => i.serviceOrderId === serviceOrder?.id);
+        try {
+          const { invoiceService } = await import('../invoicing/invoice.service');
+          const invoices = await invoiceService.listInvoices(tenantId, { limit: 10000 });
+          invoice = invoices.find((i) => i.serviceOrderId === serviceOrder?.id) || null;
+        } catch (err) {
+          console.warn('[MyOrdersService] Falha ao ler invoices (503 INVOICE_MODULE_UNAVAILABLE deliberado, invoice.service.ts) — invoice fica UNKNOWN (null), não derruba o resto do item', {
+            tenantId, serviceOrderId: serviceOrder?.id, error: err instanceof Error ? err.message : String(err),
+          });
+        }
       }
 
       // Buscar Trust Profile
@@ -66,11 +117,21 @@ class MyOrdersService {
           riskLevel = trustProfile.riskLevel;
         }
       } catch (err) {
-        // Ignorar erro
+        console.warn('[MyOrdersService] Falha ao ler trust profile — trustScore/riskLevel ficam UNKNOWN (null)', {
+          tenantId, actorId: booking.requesterActorId, error: err instanceof Error ? err.message : String(err),
+        });
       }
 
       // Verificar disputa aberta
-      const hasOpenDispute = evidencePack?.disputeStatus === 'OPEN';
+      // ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+      // ║ STATUS:  CANÔNICO
+      // ║ NORMA:   service-order.types.ts:101 (ServiceOrder.disputedAt) — a mesma fonte que
+      // ║          `release_approved` já exige NULL para liberar (F-DISPUTE-SIGNAL, 2026-07-31)
+      // ║ NÃO:     evidencePack?.disputeStatus — schema-ghost (tabela ausente), sinal morto.
+      // ║ EM VEZ:  serviceOrder.disputedAt (contexto TEM service_order aqui — so/serviceOrder já
+      // ║          buscado acima, sempre não-nulo neste bloco).
+      // ╚════════════════════════════════════════════════════════════════
+      const hasOpenDispute = serviceOrder.disputedAt != null;
 
       // Determinar status consolidado
       let status: MyOrderItem['status'] = 'negotiation';
@@ -99,7 +160,9 @@ class MyOrdersService {
         const service = await servicesRepository.findById(tenantId, booking.serviceId);
         serviceName = service?.name || null;
       } catch (err) {
-        // Ignorar erro
+        console.warn('[MyOrdersService] Falha ao ler service — serviceName fica UNKNOWN (null)', {
+          tenantId, serviceId: booking.serviceId, error: err instanceof Error ? err.message : String(err),
+        });
       }
 
       orders.push({
@@ -144,23 +207,64 @@ class MyOrdersService {
       }
 
       // Buscar Agreement
+      // ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+      // ║ STATUS:  CONTIDO (schema-ghost — tabela agreements ausente, achado ao provar esta fatia)
+      // ║ NORMA:   F-DISPUTE-SIGNAL, 2026-07-31
+      // ║ NÃO:     deixar a leitura estourar sem captura.
+      // ║ EM VEZ:  captura visível + agreement undefined na falha.
+      // ╚════════════════════════════════════════════════════════════════
       const { agreementRepository } = await import('../agreements/agreement.repository');
-      const agreements = await agreementRepository.list(tenantId, { limit: 10000 });
-      const agreement = agreements.find(
-        (a) => a.contextType === 'service' && a.contextId === so.id
-      );
+      let agreement: Awaited<ReturnType<typeof agreementRepository.list>>[number] | undefined;
+      try {
+        const agreements = await agreementRepository.list(tenantId, { limit: 10000 });
+        agreement = agreements.find(
+          (a) => a.contextType === 'service' && a.contextId === so.id
+        );
+      } catch (err) {
+        console.warn('[MyOrdersService] Falha ao ler agreements (schema-ghost) — agreement fica UNKNOWN', {
+          tenantId, serviceOrderId: so.id, error: err instanceof Error ? err.message : String(err),
+        });
+      }
 
       // Buscar Evidence Pack
+      // ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+      // ║ STATUS:  CONTIDO (schema-ghost — tabela evidence_packs ausente, medido)
+      // ║ NORMA:   F-DISPUTE-SIGNAL, 2026-07-31
+      // ║ NÃO:     deixar a leitura estourar sem captura — derrubaria a rota inteira (500).
+      // ║          NÃO criar evidence_packs — schema-ghost, frente própria com GATE.
+      // ║ EM VEZ:  captura visível + evidencePack undefined na falha (evidencePackId vira
+      // ║          null honestamente).
+      // ╚════════════════════════════════════════════════════════════════
       const { evidenceService } = await import('../evidence/evidence.service');
-      const evidencePacks = await evidenceService.listPacks(tenantId, { limit: 10000 });
-      const evidencePack = evidencePacks.find(
-        (p) => p.contextType === 'service_order' && p.contextId === so.id
-      );
+      let evidencePack: { packId: string; disputeStatus?: string } | undefined;
+      try {
+        const evidencePacks = await evidenceService.listPacks(tenantId, { limit: 10000 });
+        evidencePack = evidencePacks.find(
+          (p) => p.contextType === 'service_order' && p.contextId === so.id
+        );
+      } catch (err) {
+        console.warn('[MyOrdersService] Falha ao ler evidence_packs (schema-ghost) — evidencePackId fica UNKNOWN', {
+          tenantId, serviceOrderId: so.id, error: err instanceof Error ? err.message : String(err),
+        });
+      }
 
       // Buscar Invoice
+      // ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+      // ║ STATUS:  CONTIDO — mesmo achado do bloco de booking acima: invoicing é contenção
+      // ║          DELIBERADA (503 INVOICE_MODULE_UNAVAILABLE), não omissão acidental.
+      // ║ NORMA:   F-DISPUTE-SIGNAL, 2026-07-31
+      // ║ EM VEZ:  captura visível + invoice fica undefined — resto do item continua honesto.
+      // ╚════════════════════════════════════════════════════════════════
       const { invoiceService } = await import('../invoicing/invoice.service');
-      const invoices = await invoiceService.listInvoices(tenantId, { limit: 10000 });
-      const invoice = invoices.find((i) => i.serviceOrderId === so.id);
+      let invoice: Awaited<ReturnType<typeof invoiceService.listInvoices>>[number] | undefined;
+      try {
+        const invoices = await invoiceService.listInvoices(tenantId, { limit: 10000 });
+        invoice = invoices.find((i) => i.serviceOrderId === so.id);
+      } catch (err) {
+        console.warn('[MyOrdersService] Falha ao ler invoices (503 INVOICE_MODULE_UNAVAILABLE deliberado) — invoice fica UNKNOWN, não derruba o resto do item', {
+          tenantId, serviceOrderId: so.id, error: err instanceof Error ? err.message : String(err),
+        });
+      }
 
       // Buscar Trust Profile
       let trustScore: number | null = null;
@@ -173,12 +277,27 @@ class MyOrdersService {
           riskLevel = trustProfile.riskLevel;
         }
       } catch (err) {
-        // Ignorar erro
+        console.warn('[MyOrdersService] Falha ao ler trust profile — trustScore/riskLevel ficam UNKNOWN (null)', {
+          tenantId, actorId: so.customerActorId, error: err instanceof Error ? err.message : String(err),
+        });
       }
 
-      // Determinar status
+      // ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+      // ║ STATUS:  CANÔNICO
+      // ║ NORMA:   service-order.types.ts:101 (ServiceOrder.disputedAt) — F-DISPUTE-SIGNAL, 2026-07-31
+      // ║ NÃO:     evidencePack?.disputeStatus — schema-ghost (tabela ausente), sinal morto.
+      // ║ EM VEZ:  so.disputedAt (contexto TEM service_order aqui — `so` sempre não-nulo).
+      // ╚════════════════════════════════════════════════════════════════
+      const hasOpenDispute = so.disputedAt != null;
+
+      // Determinar status (disputa tem prioridade — achado ao provar a fatia: este bloco
+      // calculava hasOpenDispute mas NUNCA o usava pra status, ao contrário dos blocos de
+      // booking/RFQ; sem isto a prova exigida — "ordem com disputed_at mostra status=disputed"
+      // — não se sustenta para service_order direto).
       let status: MyOrderItem['status'] = 'negotiation';
-      if (so.status === 'completed') {
+      if (hasOpenDispute) {
+        status = 'disputed';
+      } else if (so.status === 'completed') {
         status = 'completed';
       } else if (so.status === 'in_progress') {
         status = 'in_execution';
@@ -188,8 +307,6 @@ class MyOrdersService {
         status = agreement?.status === 'finalized' ? 'agreement_finalized' : 'negotiation';
       }
 
-      const hasOpenDispute = evidencePack?.disputeStatus === 'OPEN';
-
       // Buscar informações do serviço
       let serviceName: string | null = null;
       try {
@@ -197,7 +314,9 @@ class MyOrdersService {
         const service = await servicesRepository.findById(tenantId, so.serviceId);
         serviceName = service?.name || null;
       } catch (err) {
-        // Ignorar erro
+        console.warn('[MyOrdersService] Falha ao ler service — serviceName fica UNKNOWN (null)', {
+          tenantId, serviceId: so.serviceId, error: err instanceof Error ? err.message : String(err),
+        });
       }
 
       orders.push({
@@ -241,20 +360,52 @@ class MyOrdersService {
         if (rfq.status !== 'open' && rfq.status !== 'closed') continue;
 
         // Buscar Agreement relacionado
+        // ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+        // ║ STATUS:  CONTIDO (schema-ghost — tabela agreements ausente, achado ao provar esta fatia)
+        // ║ NORMA:   F-DISPUTE-SIGNAL, 2026-07-31
+        // ║ NÃO:     deixar a leitura estourar sem captura.
+        // ║ EM VEZ:  captura visível + agreement undefined na falha.
+        // ╚════════════════════════════════════════════════════════════════
         const { agreementRepository } = await import('../agreements/agreement.repository');
-        const agreements = await agreementRepository.list(tenantId, { limit: 10000 });
-        const agreement = agreements.find(
-          (a) => a.contextType === 'rfq' && a.contextId === rfq.rfqId
-        );
+        let agreement: Awaited<ReturnType<typeof agreementRepository.list>>[number] | undefined;
+        try {
+          const agreements = await agreementRepository.list(tenantId, { limit: 10000 });
+          agreement = agreements.find(
+            (a) => a.contextType === 'rfq' && a.contextId === rfq.rfqId
+          );
+        } catch (err) {
+          console.warn('[MyOrdersService] Falha ao ler agreements (schema-ghost) — agreement fica UNKNOWN', {
+            tenantId, rfqId: rfq.rfqId, error: err instanceof Error ? err.message : String(err),
+          });
+        }
 
         // Buscar Evidence Pack
+        // ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+        // ║ STATUS:  CONTIDO (schema-ghost — tabela evidence_packs ausente, medido)
+        // ║ NORMA:   F-DISPUTE-SIGNAL, 2026-07-31
+        // ║ NÃO:     este bloco (RFQ/event) NÃO tem service_order — não dá pra compor de
+        // ║          service_orders.disputed_at (norma service-order.types.ts:101) sem inventar
+        // ║          um mapeamento que não existe; PAREI aqui por instrução explícita do pacote
+        // ║          (item 0: "se algum contexto NÃO tiver service_order, PARE e reporte"). NÃO
+        // ║          criar evidence_packs — schema-ghost, frente própria com GATE.
+        // ║ EM VEZ:  captura visível + hasOpenDispute fica undefined (desconhecido) na falha —
+        // ║          nunca false. Este é o único dos 4 sítios de hasOpenDispute desta fatia que
+        // ║          segue sem fonte governada — reportado à direção, não resolvido aqui.
+        // ╚════════════════════════════════════════════════════════════════
         const { evidenceService } = await import('../evidence/evidence.service');
-        const evidencePacks = await evidenceService.listPacks(tenantId, { limit: 10000 });
-        const evidencePack = evidencePacks.find(
-          (p) => p.contextType === 'event' && p.contextId === event.id
-        );
-
-        const hasOpenDispute = evidencePack?.disputeStatus === 'OPEN';
+        let evidencePack: { packId: string; disputeStatus?: string } | undefined;
+        let hasOpenDispute: boolean | undefined;
+        try {
+          const evidencePacks = await evidenceService.listPacks(tenantId, { limit: 10000 });
+          evidencePack = evidencePacks.find(
+            (p) => p.contextType === 'event' && p.contextId === event.id
+          );
+          hasOpenDispute = evidencePack?.disputeStatus === 'OPEN';
+        } catch (err) {
+          console.warn('[MyOrdersService] Falha ao ler evidence_packs (schema-ghost) — hasOpenDispute/evidencePackId ficam UNKNOWN, nunca false', {
+            tenantId, eventId: event.id, error: err instanceof Error ? err.message : String(err),
+          });
+        }
 
         // Determinar status (disputa tem prioridade)
         let status: MyOrderItem['status'] = 'negotiation';
