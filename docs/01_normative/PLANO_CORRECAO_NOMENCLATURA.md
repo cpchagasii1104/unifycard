@@ -1,13 +1,37 @@
 # PLANO DE CORREÇÃO — NOMENCLATURA CANÔNICA
 ## UnifiCard · Baseado em auditoria verificada com evidência de linha
 
+> ## 🔴 STATUS: **VIGENTE COM NÚMEROS VENCIDOS** (tarja de 2026-07-31, autorizada por Clayton)
+>
+> **A doutrina deste plano continua certa** (`_cents`, prefixo `is_`, camelCase em interface,
+> kebab-case de arquivo, evento `v1.`) e **ainda tem violações vivas**. **As CONTAGENS de
+> 2026-04-09 não são o estado atual** — reamostragem de 2026-07-31 contra `unificard_dev`:
+>
+> | Eixo | O que o plano diz | O que se mediu em 2026-07-31 |
+> |---|---|---|
+> | 1 — migrations SQL | 25 violações | **~90% já fechado**; resíduo real: os 3 booleanos de `tenant_semantic_policy` (o plano ainda erra o nome, escreve plural) |
+> | 3 — backend monetário/boolean | 87 + 134 | moldura **stale** (`marketplace-company.service.ts`, `trust.service.ts` não existem mais); mas `ActorCapabilities.can_receive_funds` segue snake_case, vivo |
+> | 4 — snake_case em interfaces | 2.162 campos | **INCONCLUSIVO** — arquivos-alvo mudaram de endereço; re-varrer antes de usar o número |
+> | 5 — frontend | 249 + 48 | progresso **desigual por arquivo**: `bank.ts` fechado; `dashboard.ts` e `calendar.ts` abertos |
+> | 6 — snake_case frontend | 1.543 | **zero progresso** em `marketplace.ts` (cresceu para 5.155 linhas) |
+> | 7 — eventos versionados | 60+ | **zero progresso** — `event.custody.created` ainda sem prefixo `v1.` |
+> | 8 — nomes de arquivo | 5 | **2 fechados, 3 abertos** |
+>
+> **Re-varra o eixo ANTES de abrir qualquer sessão `NOMENCLATURA-*`.** A regra 6 abaixo já
+> mandava isso e ninguém aplicou em 3,5 meses — foi assim que os números envelheceram sem aviso.
+>
+> ⚠️ **Referência quebrada:** a linha abaixo aponta o estado operacional para
+> `STATUS_EXECUCAO_GLOBAL.md`, que desde 2026-07-28 **se autodeclara HISTÓRICO** (conteúdo parado
+> em 2026-07-03), sucedido por `REMEDIATION_DT_LOG.md` (cartório) e
+> `docs/04_audit/PAINEL_DIVIDA_VIVA.md` (placar). Use estes dois.
+
 > **ESTADO OPERACIONAL DO §GLOBAL BLOCK:** ver `STATUS_EXECUCAO_GLOBAL.md`  
 > **REGRA NORMATIVA:** definida em `PLANO_BASE_MODULO.md` (secção §GLOBAL BLOCK).  
 > ⚠️ **Estado operacional pode variar por data.** Ver `STATUS_EXECUCAO_GLOBAL.md`.
 
-**Status:** ACIONÁVEL · BASEADO EM SNAPSHOT REAL  
+**Status:** VIGENTE COM NÚMEROS VENCIDOS · ver tarja acima  
 **Normativo:** `07_NOMENCLATURA_CANONICA.md` v3.3.6  
-**Data:** 2026-04-09  
+**Data:** 2026-04-09 · **reamostrado:** 2026-07-31  
 **Executor:** Cursor (modo código)
 
 ---
@@ -18,7 +42,14 @@ Leia antes de executar qualquer sessão:
 
 1. **Uma sessão = um eixo.** Nunca misture migrations com TypeScript no mesmo contexto.
 2. **Não edite migrations já aplicadas** — crie sempre uma nova migration forward-only.
-3. **Não renomeie campos de contratos públicos marcados `// CONGELADO`** — crie arquivo `.v2.contract.ts`.
+3. ~~**Não renomeie campos de contratos públicos marcados `// CONGELADO`** — crie arquivo `.v2.contract.ts`.~~
+   🔴 **SUSPENSA ENQUANTO O SISTEMA ESTIVER VIRGEM** (Clayton, 2026-07-31). Não há usuário real,
+   transação real nem produto cadastrado — nenhum contrato público tem consumidor externo a
+   proteger. Criar 54 arquivos `.v2.contract.ts` para zero consumidores fabrica dívida em vez de
+   pagá-la. **Enquanto virgem: renomeie NO LUGAR**, sem arquivo v2.
+   **Esta suspensão vence no primeiro usuário/transação real** — a partir daí a regra 3 volta a
+   valer integralmente e contrato publicado só muda por versão. Quem retomar depois disso:
+   confira no banco antes de presumir que ainda é virgem.
 4. **Não faça commits parciais** — cada sessão só fecha quando todos os testes do escopo passam.
 5. **Conversão `snake_case → camelCase` exclusivamente no `.repository.ts`** — nunca em service, routes ou types.
 6. **Verificar antes de editar:** cada item desta lista tem arquivo e linha real. Se o arquivo não tiver o campo indicado, PARAR e reportar — não inventar correção.
