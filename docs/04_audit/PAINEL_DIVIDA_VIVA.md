@@ -45,7 +45,7 @@ DTs abertas · `bank_ledger`/`transactions`/`splits` = 0 · estado da PORTA-01.
 | IDs `DT-*` distintos na história do cartório | **556** | tudo que já foi nomeado como dívida, desde sempre |
 | IDs `F-*` distintos (frentes, não dívidas) | 113 | campanhas, não débitos |
 | `DT-*` **sem marcador de fechamento no cabeçalho** | **314** | varredura estrita — **teto**, não realidade |
-| 🔴 **VIVAS E DEMONSTRADAS hoje** | **7** | alguém provou que quebra. **É este o número acionável** (4 herdadas + 3 novas achadas 2026-07-30) |
+| 🔴 **VIVAS E DEMONSTRADAS hoje** | **11** | alguém provou que quebra. **É este o número acionável.** Subiu de 7 para 11 em 2026-07-30 **depois da auditoria Yala**: +2 reclassificações derrubadas (`event_custody`, `F-EVENT` metade-rota) · +1 divergência FE achada por ela · +1 nova (`DT-DB-RESET`, já resolvida no mesmo dia) |
 | superfície contida (`501`) | **125** em 50 arquivos | **1 só declara prazo** — ver `DT-CONTAINMENT-WITHOUT-DEADLINE` |
 
 > ### 🧭 REGRA DE DECISÃO — quando conter, consertar ou apagar (Clayton, 2026-07-30)
@@ -174,11 +174,13 @@ harnesses** e vigiada por `audit-migration-runner-isolation.mjs`, dentro do runn
 | **Gate `schema-coherence` nunca verde** | 🔄 **remedido 2026-07-30: 1928**, não 1978. `scripts/validate-schema-code-coherence.mjs`, cabeado em `backend/package.json:146`, **fora do runner e do CI**. 🔴 **O gate ESCONDE a própria lista** (`slice(0,5)` + *"e mais N"*, linhas 853-874) — não há flag, env nem modo que mostre tudo; auditá-lo exige reescrever o script. 🔴 `CORRUPTOR` reprova igual a `BLOCKER` (`:903-905`), o nome engana. Composição: **1241 (64%) em `backend/src/scripts/`** (harnesses, não superfície viva) · ~80 são **bugs do próprio parser** (`information_schema`, CTE) · ~600 candidatos reais. **"Religar custa ~zero — só wiring" é FALSO** | **CAUSA-RAIZ** de C3/C13 seguirem vivas sem ninguém notar | medido pela direção 2026-07-30 |
 | ~~**`DT-RBAC-V2-REQUIRE-PERMISSION-DECORATOR-STRUCTURALLY-DEAD`**~~ | 🔄 **RECLASSIFICADO 2026-07-30 → DESENHO, NÃO DÍVIDA.** Ver seção dedicada abaixo | — | — |
 | ~~**`DT-SOCIAL-IMPACT-BALANCE-UPSERT-42P10`**~~ | ✅ **RESOLVIDA** no commit `66cf49eee` — linha estava desatualizada aqui até 2026-07-30 | — | ver "JÁ RESOLVIDAS" |
-| ~~**`event_custody` sem tabela**~~ | 🔄 **RECLASSIFICADO 2026-07-30 → DORMENTE POR DECISÃO, não dívida.** Não existe caminho vivo: as **11 rotas `economic/v2` têm 501 como PRIMEIRA instrução** do handler (`DECISION-0190`), incluindo `custody` (`event.routes.ts:2753`) e `payment/execute` (`:3213`, antes da chamada em `:3291`). Os serviços `event-payment-execution`/`event-payment-prepared` só são alcançáveis por essas rotas. **A alegação "500 garantido em qualquer caminho vivo" era falsa** | — | verificado de 1ª mão |
+| 🔴 **`event_custody` sem tabela** | ⚠️ **RECLASSIFICAÇÃO DA DIREÇÃO DERRUBADA PELA YALA (2026-07-30), confirmada de 1ª mão.** A direção conferiu o 501 do **POST** `custody` e **generalizou para as 11**. Errado: **`GET /:eventId/economic/v2/custody` (`event.routes.ts:2812`) NÃO tem 501 e NÃO tem `preHandler`** — chama `listCustodiesByEvent` (`:2834`) → `SELECT * FROM event_custody` → tabela inexistente → **500 para qualquer autenticado do tenant**. `event_custody` **É dívida viva** | CAUSA | Yala, 2026-07-30 |
 | **Painel econômico A-1** | 🔄 **CORRIGIDO 2026-07-30 — a alegação estava meio errada, e a metade errada era a que assustava.** ❌ **NÃO "paga mais que o total"**: o resolver lança `CALCULATION_INVALID` quando o split fica negativo (`economic-policy-engine.service.ts:292-298`) — **provado por execução**, 4 cenários. ✅ **Verdadeiro:** policy inválida **publica limpa** e só falha em tempo de PAGAMENTO. ✅ Parte já consertada: a exigência de linha `revenue_share` **saiu** do `if (hasBpsLine)` (`economic-policy-write-validation.ts:209`). ⚠️ **O resíduo não é conserto de código — é DECISÃO**: soma de linhas fixas contra o total **não é validável na escrita**, porque o valor da transação é desconhecido ali. ⚠️ FE **não** reverificado | **FALHA TARDIA**, não perda de dinheiro | provado 2026-07-30 |
 | **`C3-actors-insert-fora-writer`** | `identity.service.ts:313` faz `INSERT INTO actors` fora do writer canônico. Alcance hoje **baixo** | CAUSA | `allowlist:8-16` |
 | **`C13-bank-reads-fora-modulo`** | ~15 arquivos leem `bank_*` fora de `modules/bank`. Escopo **CRESCEU** em 28/07 | CAUSA | `allowlist:18-26` |
-| ~~**`F-EVENT-CREATION-CONTRACT-SWEEP`**~~ | 🔄 **RECLASSIFICADO 2026-07-30 → DESENHO, não dívida.** ① *"rota `/events/:id/economic` não existe"*: **verdade** — só existem as 11 sob `/economic/v2` — mas varredura do `frontend/src` não achou **nenhum caller**. Rota inexistente que ninguém chama é ausência, não defeito. ② *"`event_type` órfão de escrita"*: **verdade**, e é **deliberado** — `event.service.ts:188` declara *"F-EVENT-CONCEPT-FIRST-MODEL: `event_type` deixou de ser autoridade… o novo caminho formato-first cria o draft sem ele"*; a identidade migrou para `event_format_concept_id` (**Lei 7**) | — | verificado de 1ª mão |
+| 🔴 **`F-EVENT-CREATION-CONTRACT-SWEEP`** (metade-rota) | ⚠️ **DERRUBADA PELA YALA (2026-07-30), confirmada de 1ª mão.** A direção disse *"varredura do `frontend/src` não achou nenhum caller"* — **a varredura foi TRUNCADA** (`Select-Object -First 10`) e a conclusão saiu de lista parcial. Existem **DOIS callers vivos**: `EventCreationGuidedFlow.tsx:399` (botão Finalizar da etapa 7) e `:619` (`Step7FinalSummary`), ambos `navigate('/events/${id}/economic')`. `App.tsx` registra `events/:id` (`:343`) e `events/new` (`:344`), **NÃO** registra `events/:id/economic`, e **não há catch-all** → **TELA BRANCA no fim do fluxo guiado de criação** | CAUSA | Yala, 2026-07-30 |
+| ⚪ ~~`F-EVENT-…` (metade-coluna `event_type`)~~ | ✅ Reclassificação **mantida de pé pela Yala**: `event_type` órfão é **desenho** (Lei 7, `event.service.ts:188`, F-EVENT-CONCEPT-FIRST-MODEL). ⚠️ Yala mediu migração **parcial**: `event_format_concept_id` em 5/20 eventos, `event_type` em 9/20 | — | — |
+| 🆕🟡 **`DT-ECONOMIC-POLICY-PANEL-FE-BE-DIVERGENCE`** | Yala auditou a metade FRONTEND que a direção declarara **não auditada**. `EconomicPoliciesPage.tsx:464` — `sumOk = bpsLines.length===0 \|\| …` e `canSubmit` exige `sumOk`: policy **só-fixa sem `revenue_share` mostra VERDE e é submetível**, e o backend rejeita com 400 (exigência incondicional em `economic-policy-write-validation.ts:209`). **Fail-closed**, mas o painel promete o que o backend recusa | SINTOMA | Yala, 2026-07-30 |
 | 🆕🔴 **`DT-ALERTS-SUBSTRATE-MISSING-BREAKS-ARTIGO-II`** | **A cadeia constitucional do conflito está SEM SUBSTRATO.** `ARTIGO II` exige *conflito → fato → alerta → humano*; `modules/automation/alert.repository.ts` escreve em `alerts` (`:61` INSERT · `:112` UPDATE · `:154,:173,:231` FROM) e a tabela vive **só em `migrations_archive/0850`**. ⚠️ **`financial_alerts` NÃO é substituto** — está em `migrations/0033`, é 800 migrations **mais antiga** e sempre existiu; são coisas diferentes que coexistiram. Achado pela instância GUARDIÃO; a direção havia classificado errado como "estreitamento de domínio" | CAUSA | confirmado 2026-07-30 |
 | 🆕🔴 **`DT-DB-RESET-SCRIPT-TARGETS-OFFICIAL-DATABASE`** | `backend/src/scripts/reset-database-complete.ts` lê `DATABASE_URL` (padrão `.env` = **o oficial**), faz `DROP DATABASE` (`:390`) e recria (`:393`). **Zero confirmação, zero nome proibido, zero `EXPECTED_DATABASE_NAME`, nenhum caller.** É o mesmo poder destrutivo da Lei corrigida hoje, **em forma executável** — a um comando de distância dos 75 bairros | CAUSA | medido 2026-07-30 |
 | 🆕🔴 **`DT-SERVICE-BUNDLE-READ-ROUTES-NO-AUTHORIZATION`** | **AUTORIDADE.** `service-bundle.routes.ts` tem **4 rotas e ZERO `preHandler`/`requirePermission`**. A checagem (`authorityService.canPerformAction`) vive **dentro do service, só nos 2 POSTs**. Os 2 GETs (`/service-bundles/:bundleId/bookings` `:107` e `/can-confirm` `:129`) filtram **apenas por `tenant_id` + `bundleId`** — **não verificam se quem pede participa do bundle**. Qualquer autenticado do tenant que obtenha um `bundleId` lê os bookings alheios (`serviceId`, `status`). O UUID não é adivinhável, mas **ID opaco não é autorização** — e no fluxo RFQ esses IDs circulam entre atores. Achado pela executora, confirmado de 1ª mão | CAUSA | 2026-07-30 |
@@ -244,6 +246,33 @@ Mais: `DT-ACTOR-EFFECT-INBOX-PROJECTOR-UNSUBSCRIBED` · `DT-NOTIFY-SUBSTRATE-SCH
 
 ## ⚪ DORMENTE POR DECISÃO — **não é dívida**
 
+> ### ⚖️ AUDITORIA YALA — 2026-07-30 · VEREDITO **B** · DUAS RECLASSIFICAÇÕES CAÍRAM
+>
+> A direção tirou 4 itens da lista viva. Clayton advertiu: *"resolver as dívidas, não varrer
+> para debaixo do tapete."* A Yala foi mandatada a **derrubar**, e derrubou **2**:
+>
+> | item | veredito |
+> |---|---|
+> | ① RBAC `requirePermission` = desenho | **DE PÉ** — atacou o `SHADOW_DENY_LEGACY_ALLOW` e provou ser ruído esperado, não bypass |
+> | ② `event_custody` = dormente | 🔴 **DERRUBADA** — o **GET** custody não tem 501; 500 vivo |
+> | ③ Painel A-1 = falha tardia, não perda | **DE PÉ (dinheiro)** — refez a aritmética do zero com fixtures hostis; a plataforma nunca paga a mais |
+> | ④ `F-EVENT-SWEEP` = desenho | 🔴 **DERRUBADA na metade-rota** — 2 callers vivos, tela branca. Metade-coluna de pé |
+>
+> 🔴 **AS DUAS QUEDAS SÃO O MESMO ERRO DA DIREÇÃO — E É O ERRO QUE ELA PASSOU O DIA
+> CRITICANDO NOS OUTROS:** em ②, contou 11 rotas e 16 ocorrências da string `501` e
+> **generalizou sem abrir as 11**; em ④, rodou um grep com `Select-Object -First 10` e
+> **concluiu "nenhum caller" a partir de lista truncada**. Nos dois casos: **amostrou e
+> generalizou.**
+>
+> ⚠️ **Achado adicional da Yala, que o painel omitia:** `requireRole` usa **outra** função —
+> `actor_has_any_role` — que é query **real e CONCEDE** (1 admin vivo em `user_roles`, 10 rotas
+> usam). A seção *"contenção que sustenta o peso"* descrevia só `requirePermission` e por isso
+> **subestima o alcance quando a FASE 6 religar**.
+>
+> **Não auditado pela Yala (declarado):** backend/HTTP real não subiu — o 500 e a tela branca
+> vêm de caminho de código + query real + registro de rotas; ~8 rotas `economic/v2` não foram
+> abertas quanto a efeito antes do 501.
+>
 > ### 🔴🔴 QUATRO DAS SETE ALEGAÇÕES DO PAINEL NÃO SOBREVIVERAM À CONFERÊNCIA (2026-07-30)
 >
 > | alegação original | o que a verificação achou |
