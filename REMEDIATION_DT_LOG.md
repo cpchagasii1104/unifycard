@@ -1,5 +1,159 @@
 # REMEDIATION DT LOG
 
+## ✅ EXECUTADO — F-QUERY-PARAM-BOUNDARY: guard v1 fechava verde com a allowlist crescendo — corrigido (2026-07-31; GO Clayton)
+
+**Achado por Clayton, não de 1ª mão desta instância — registrado sem apagar a origem.** A v1 do
+guard (`audit-query-param-boundary-validation.mjs`, entrada irmã abaixo) tinha `BASELINE_COUNT =
+181` declarado e IMPRESSO na mensagem de saída, mas **nunca comparado a nada** — os dois laços da
+v1 só testavam pertencimento simétrico (`detected` ⊆ `ALLOWLIST` e `ALLOWLIST` ⊆ `detected`).
+Clayton executou o ataque que a instância não tinha rodado: `as any` novo + chave nova na
+allowlist **no mesmo commit** → os dois laços batem ponto-a-ponto (o par novo bate com o par
+novo) → **exit 0**, contagem 182 impressa como se fosse normal. O cabeçalho da v1 (linhas 31-34)
+afirmava *"não existe caminho para a allowlist CRESCER"* — o código não cumpria a garantia que o
+comentário prometia. Exatamente o defeito que este arco inteiro passou o dia arrancando de
+outros guards (`check-migration-numbering.js` antes desta fatia, `schema-coherence-allowlist`
+antes disso) — nasceu no próprio guard que devia impedi-lo.
+
+**Conserto (só `audit-query-param-boundary-validation.mjs` tocado):**
+1. Teto explícito: `detected.size > BASELINE_COUNT` OU `ALLOWLIST.size > BASELINE_COUNT` → FAIL,
+   independente de os dois conjuntos baterem entre si. Os dois checados separadamente (não só um)
+   — travar só um dos dois lados deixa o outro furar.
+2. Ratchet para baixo: se os dois laços de pertencimento passam mas `detected.size <
+   BASELINE_COUNT` (uma rota foi consertada de verdade) e a constante não foi baixada no mesmo
+   commit → FAIL, com o número exato que `BASELINE_COUNT` deveria virar já calculado na mensagem
+   de erro. Sem isto, a primeira rota consertada travaria o runner pra sempre.
+3. Cabeçalho reescrito para descrever o que o código FAZ (as 4 regras + o teto + o ratchet),
+   não uma propriedade que ele não implementava.
+
+**AS 4 PROVAS PEDIDAS, coladas:**
+```
+1) as-any novo, allowlist intocada:
+   ❌ ITEM NOVO ... Detectados: 182 · Allowlist: 181 → FAIL (exit 1)
+
+2) as-any novo + chave nova na allowlist (a que a v1 deixava passar):
+   ❌ CONTAGEM CRESCEU: 182 > 181
+   ❌ ALLOWLIST CRESCEU: 182 > 181 → FAIL (exit 1)
+
+3) linha removida da allowlist, código real intocado (trust.routes.ts::severity):
+   ❌ ITEM NOVO ... Detectados: 181 · Allowlist: 180 → FAIL (exit 1)
+
+4) as-any real REMOVIDO (reports.routes.ts:152, INÓCUO — startDate/endDate/actorId,
+   convertido pra `Record<string, string | undefined>`) + allowlist regenerada (3 entradas
+   podadas — os ordinais de startDate/endDate/actorId POSTERIORES no mesmo arquivo
+   renumeraram, ver nota de fragilidade abaixo) + BASELINE_COUNT 181→178:
+   ✅ PASSOU — Detectados: 178 · Allowlist: 178 (exit 0)
+   → revertido depois (route file + guard), confirmado por hash de blob idêntico ao HEAD
+```
+
+**Fragilidade registrada, não escondida:** a chave `arquivo::símbolo::ordinal` conta ocorrências
+do mesmo símbolo top-to-bottom no arquivo. Remover uma ocorrência do MEIO renumera todas as
+posteriores do mesmo símbolo no mesmo arquivo — a prova 4 confirmou isso na prática
+(`reports.routes.ts` tem 11 casts, vários símbolos repetidos). Consequência prática: podar a
+allowlist depois de um fix não é "apagar 1 linha", é regenerar as entradas daquele símbolo
+naquele arquivo a partir da detecção real (o próprio guard, rodado localmente, mostra o que
+sobrou vs o que sumiu). Não é um bug silencioso — o guard SEMPRE aponta exatamente qual chave
+ficou órfã ou faltando; só exige mais que 1 linha de edição por fix.
+
+**Runner:** `npm run validate:regression-guards` → **230/230 COMMANDS OK**, inalterado (guard já
+estava cabeado, só o conteúdo mudou).
+
+**Higiene:** durante as provas, um `cp` de restauração introduziu CRLF em
+`reports.routes.ts` (autocrlf do ambiente Windows, não intenção); normalizado de volta a LF;
+`git hash-object` confirmou blob idêntico ao HEAD (`095d21061...`) — zero conteúdo alterado.
+`git status` ainda mostra o arquivo como `M` nesta sessão apesar do hash bater; registrado como
+provável artefato de comparação do git no Windows, não conteúdo real — Clayton pode confirmar
+com `git diff` (vazio) do lado dele. `git ls-files --eol` do guard e do runner → LF nos dois.
+NÃO COMMITADO.
+
+---
+
+## ✅ EXECUTADO — F-QUERY-PARAM-BOUNDARY: guard + inventário (2026-07-31; GO Clayton)
+
+**Guard + inventário, NÃO conserto de rota (fora do escopo desta fatia por instrução explícita).**
+`backend/scripts/audit-query-param-boundary-validation.mjs`, novo, wireado em
+`run-regression-guards.mjs`. Runner: **229→230**.
+
+**Origem — 4 membros da mesma família, achados por instâncias diferentes em 2 dias, nenhum é
+achado de 1ª mão desta fatia (a origem não se apaga):**
+1. `service_order_status` (8 valores minúsculos) × `frontend/src/api/service-orders.ts` (5
+   MAIÚSCULOS) — achado **estendendo o padrão de `alert_status`** (ver item 3), corrigido na
+   entrada irmã logo abaixo desta (`DT-SERVICE-ORDER-STATUS-VOCABULARY-MISMATCH`, mesma sessão).
+2. `ServiceOrderDetailPage.tsx` — os 4 CTAs de ação (Confirmar/Iniciar/Completar/Cancelar)
+   sumiam em silêncio pra TODA ordem (comparação sempre falsa) — achado pela auditoria
+   independente ao varrer o mesmo defeito no frontend.
+3. `alert_severity`/`alert_status` — achado pela direção (Clayton), latentes atrás de 501; é o
+   achado ORIGINAL que motivou estender o padrão e chegar ao item 1. **Não localizei estes dois
+   nomes exatos (`alert_severity`/`alert_status`) no backend vivo nesta varredura** (grep por
+   `alert_severity|alert_status|alertSeverity|alertStatus` em todo `backend/src` = zero hits) —
+   ou já foram corrigidos/renomeados entre o achado original e agora, ou vivem em
+   frontend/outra camada fora do escopo `*.routes.ts` que este guard cobre. Registro a lacuna
+   em vez de forçar um encaixe falso.
+4. `services.status` — TEXT sem CHECK, devolveria 200 com lista vazia em vez de erro; confirmado
+   presente em `modules/services/services.routes.ts` (2 sítios).
+
+**A causa comum não é o vocabulário de cada um — é a FRONTEIRA:** `req.query.X as any` remove
+toda checagem de tipo em `*.routes.ts` e deixa entrada de usuário crua alcançar filtros que
+chegam ao SQL. Instrução explícita: **não** construir o guard cruzando vocabulário do banco ×
+união TS (eixo já provado ruído: 90/274 acenderam por coincidência de forma; comparação exata
+deu 15 com 12 falsos positivos, varredura anterior). O guard morde na fronteira, não no
+vocabulário.
+
+**INVENTÁRIO — divergência de número declarada, não escondida.** O mandato citava "55 rotas".
+Varredura própria (regex + brace-matching para delimitar o handler de cada `const query =
+req.query as any`, evitando vazar pra handlers vizinhos): **65 SÍTIOS de cast** (39
+`req.query.X as any`/`(req.query as any).X` de propriedade única + 26 `const V = req.query as
+any` de objeto inteiro). Os 26 de objeto inteiro expõem em média >5 campos cada, sem checagem
+nenhuma — expandidos por PROPRIEDADE realmente usada no mesmo handler (não por linha de cast),
+viram **181 símbolos únicos arquivo:símbolo**. Não cheguei a 55 por nenhuma contagem razoável
+que tentei (por sítio=65, por arquivo único=30, por símbolo vocabulário-filtrado excluindo
+paginação/data/ID=43, por símbolo total=181) — reporto a divergência em vez de forçar o número.
+A allowlist do guard usa **181** (granularidade por parâmetro, não por sítio de cast — um campo
+NOVO lido do MESMO objeto já-castado é o mesmo defeito nascendo de novo sem tocar a linha do
+cast; allowlist por sítio deixaria isso passar batido).
+
+**PROVA VERMELHA→VERDE (2 cenários, ambos pedidos, ambos colados):**
+```
+# 1) as-any NOVO numa rota (arquivo temporário, apagado depois)
+$ node scripts/audit-query-param-boundary-validation.mjs
+❌ ITEM NOVO (não alistado): _tmp_red_proof/temp-red-proof.routes.ts::status::1 ...
+Detectados hoje: 182 · Allowlist: 181 · Baseline congelado: 181
+exit 1
+# apagado o arquivo temporário → volta a 181/181, exit 0
+
+# 2) entrada removida da allowlist, código REAL intocado (trust.routes.ts::severity)
+$ node scripts/audit-query-param-boundary-validation.mjs
+❌ ITEM NOVO (não alistado): modules/trust/trust.routes.ts::severity::1 ...
+Detectados hoje: 181 · Allowlist: 180 · Baseline congelado: 181
+exit 1
+# allowlist restaurada do backup → volta a 181/181, exit 0
+```
+
+**Nota sobre o item 1 (`service_order_status`):** a fatia irmã abaixo já corrigiu o vocabulário
+(`SERVICE_ORDER_STATUS_SET: Record<ServiceOrderStatus, true>` + 400) em
+`service-order.routes.ts:210-239`, mas **NÃO removeu** `const query = req.query as any` (linha
+223) — a validação roda DEPOIS do cast, não em cima dele. Este guard continua mordendo esse
+sítio, corretamente: o buraco de TIPO (`any`) segue aberto mesmo com o valor validado em
+runtime — os dois são defeitos diferentes, o segundo consertado, o primeiro não. Allowlist
+reflete isso sem ambiguidade (`service-order.routes.ts::status::1` segue listado).
+
+**Runner:** `npm run validate:regression-guards` → **230/230 COMMANDS OK** (229→230, confirmado
+pelo `guard-coverage-manifest`: universo 313, zero drift, `CI_DIRECT` 226→227).
+
+**ORDEM DE QUEIMA PROPOSTA dos PERIGOSOS (não executada — só proposta, GO por item é de
+Clayton):** ver bloco de resposta ao mandato para a lista completa com evidência por item; ordem
+por proximidade de dinheiro: (1) `escrow.routes.ts::status/disputeStatus` (dinheiro em custódia)
+· (2) `payout.routes.ts::status` (desembolso) · (3) `ledger.routes.ts::contextType/entryType`
+(livro-razão) · (4) `marketplace/settlement.routes.ts::sourceType/status` (liquidação) · (5)
+`marketplace/unifycard.routes.ts::status/transactionType` (transações) · (6)
+`invoicing/invoice.routes.ts::status/invoiceType` (fiscal) · resto (catálogo/trust/reports/
+agreements/evidence) depois, mesmo padrão `Record<Tipo,true>+400` de `service-order.routes.ts`.
+
+**Escopo respeitado:** nenhuma rota consertada. Arquivos tocados:
+`backend/scripts/audit-query-param-boundary-validation.mjs` (novo) +
+`backend/scripts/run-regression-guards.mjs` (1 linha de wiring) + este cartório. NÃO COMMITADO.
+
+---
+
 ## ✅ EXECUTADO — DT-SERVICE-ORDER-STATUS-VOCABULARY-MISMATCH + itens 2-4 reconfirmados (2026-07-31; GO Clayton)
 
 **Pacote SUBSTITUI o anterior (entrada abaixo, "F-SEVERITY-CANONICAL-CONVERGENCE: FRONTEND") —

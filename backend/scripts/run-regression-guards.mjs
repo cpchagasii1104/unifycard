@@ -306,6 +306,12 @@ const CMDS = [
   // hostis (8 configs × 12 amounts, incluindo as 3 policies legacy_baseline_* semeadas de fato).
   // Roda via tsx (import de módulo .ts). Morde: sum(lines)!==total, linha negativa, linha>total.
   "node --import tsx scripts/audit-economic-policy-split-cent-conservation.mjs",
+  // F-QUERY-PARAM-BOUNDARY (2026-07-31, GO Clayton): 4 membros da mesma família achados em 2 dias
+  // (service_order_status, ServiceOrderDetailPage, alert_severity/alert_status, services.status) —
+  // a causa comum não é vocabulário, é a fronteira `req.query.X as any` em *.routes.ts. Allowlist
+  // congelada com os 181 símbolos de hoje (por arquivo:símbolo); item novo ou entrada removida da
+  // allowlist sem consertar o código = FAIL. Contagem só desce.
+  "node scripts/audit-query-param-boundary-validation.mjs",
   // F-RUNNER-COVERAGE-VISIBILITY-ANTI-DRIFT (ROOT-003 R2): meta-guard que torna a cobertura efetiva
   // VISIVEL e FALHA em drift (guard novo sem wiring). Nao executa guards; deriva o alcance das fontes
   // reais (este CMDS[], os 2 agregadores, actor-writer). Deve ser a ULTIMA entrada (le o array acima).
