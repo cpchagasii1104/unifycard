@@ -40,19 +40,23 @@ Ao despachar subagente, escreva o mandato como **inventário-primeiro, desenho-n
 | **História, causa-raiz, provas** | `REMEDIATION_DT_LOG.md` — **leia o topo**. É cartório append-only, **não é placar** |
 | ⛔ **`dividatecnica.md`** | **HISTÓRICO.** Declara-se obrigatório e mentiu por 24 dias (placar de 06/07 dizendo 163 guards quando eram 227). Evidência sim, estado atual **não**. Não atualize — atualize o PLACAR |
 
-## 3.1 ☠️ ANTES DE RODAR MIGRATION — UMA LEI MANDA APAGAR O BANCO OFICIAL
+## 3.1 ☠️ ANTES DE RODAR MIGRATION — NUNCA contra `unificard_dev`
 
-`docs/01_normative/LEIS_OPERACIONAIS_UNIFICARD.md:196-206` ("REGRA DE AMBIENTE (CRÍTICA)") manda
-`dropdb unificard_dev` **SEMPRE antes de rodar migrations**, e chama de **VIOLAÇÃO** não fazer.
+`unificard_dev` é o **banco OFICIAL** desde 2026-07-29 (`DT-OFFICIAL-DATABASE-LOCK-FAIL-CLOSED`)
+e contém dado curado insubstituível: **75 bairros de Curitiba** (N3 selada, *"NUNCA recarregar"*),
+48 policies, 3 grants, a conta do fundo regional. **Apagá-lo é perda irreversível.**
 
-🔴 **NÃO EXECUTE ISSO.** `unificard_dev` é o **banco OFICIAL** desde 2026-07-29
-(`DT-OFFICIAL-DATABASE-LOCK-FAIL-CLOSED`) e contém dado curado insubstituível: **75 bairros de
-Curitiba** (N3 selada, *"NUNCA recarregar"*), 48 policies, 3 grants, a conta do fundo regional.
+Validação de migration é em **banco efêmero**, criado e destruído na hora — o mecanismo é
+`EXPECTED_DATABASE_NAME`, exercido pelos harnesses `run-*-ephemeral.ps1`. A regra está em
+`docs/01_normative/LEIS_OPERACIONAIS_UNIFICARD.md` → "REGRA DE AMBIENTE (CRÍTICA)".
 
-**Duas normas em conflito, e a mais antiga manda destruir.** Ambiente recriado do zero vale para
-**banco efêmero de teste** — o mecanismo é `EXPECTED_DATABASE_NAME`, usado pelos ~96
-`run-*-ephemeral.ps1`. Detalhe e correção sugerida em `docs/04_audit/PAINEL_DIVIDA_VIVA.md`
-(topo). **Conserto da Lei é ato de Clayton — não edite a norma por conta.**
+> ⚠️ **Correção deste parágrafo em 2026-07-31.** Até hoje esta seção avisava que a Lei mandava
+> `dropdb unificard_dev` e pedia para desobedecê-la. **A Lei já tinha sido corrigida em
+> `4060df0a2`** (autorizada por Clayton) e hoje diz o contrário — "⛔ NUNCA contra
+> `unificard_dev`" — preservando o texto antigo num bloco de histórico. Este arquivo ficou
+> avisando de um perigo que já não existia. **Roteador que descreve norma vencida é a mesma
+> doença que ele existe para evitar** — se você achar outra divergência entre este arquivo e
+> `docs/01_normative/`, a norma vence e é este arquivo que se corrige.
 
 ## 4. Armadilhas — parecem indecididas e NÃO são
 
