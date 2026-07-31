@@ -45,12 +45,37 @@ salva):
 
 | teto | valor congelado 2026-07-31 | o que conta | guard |
 |---|---|---|---|
-| `BLOCKER-vivo` | **260** | escrita em tabela que não existe, código vivo | `audit-schema-coherence-ratchet.mjs` |
+| `BLOCKER-vivo` | **260** | ⚠️ ver ERRATA abaixo — **não é só** tabela ausente | `audit-schema-coherence-ratchet.mjs` |
 | `BLOCKER-scripts` | 105 | idem, em scripts/e2e | idem |
-| `CORRUPTOR-vivo` | 364 | leitura em tabela que não existe, código vivo | idem |
+| `CORRUPTOR-vivo` | 364 | ⚠️ idem | idem |
 | `CORRUPTOR-scripts` | 1047 | idem, em scripts/e2e | idem |
 | `DEBT-vivo` / `-scripts` | 32 / 18 | — | idem |
 | `query-param as any` | **181** | entrada de usuário chegando ao SQL sem tipo | `audit-query-param-boundary-validation.mjs` |
+
+> ### 🔴 ERRATA DA DIREÇÃO (2026-07-31, mesmo dia) — o que estes tetos contam
+>
+> A versão anterior desta tabela dizia que `BLOCKER` = *"escrita em tabela que não existe"*.
+> **É falso.** `validate-schema-code-coherence.mjs:710-775` classifica **sete condições
+> diferentes** sob os mesmos três rótulos. Medido de 1ª mão, 1826 violações:
+>
+> | o que é de verdade | quantas | a tabela existe? |
+> |---|---|---|
+> | **fronteira `bank_*` / `actors`** — leitura/escrita fora do módulo autorizado (Condições 3, 4, 5) | **1178 (64%)** | ✅ **SIM** — é violação de AUTORIDADE, não de schema |
+> | **tabela fantasma** — tabela realmente ausente (Condição 1) | **644** · 156 tabelas distintas · **259 escrita+vivo** | ❌ não |
+> | `metadata_decision` sobre tabela transacional (Condição 7) | 4 | — |
+>
+> **Duas coisas mudam com isto:** (a) o número que dá medo — 1826 — é **majoritariamente
+> fronteira de dinheiro**, um problema real mas de outra natureza, com outro remédio; (b) o
+> universo de fantasmas é **644 sítios / 156 tabelas**, não 1826.
+>
+> **E a Condição 2 do gate detecta COLUNA fantasma — a classe ③ — e reporta ZERO.** A classe ③
+> existe e está provada (`rides_service_types` tem `base_fare_cents`, o código pede `base_fare`;
+> `rides_drivers` grava `level='bronze'` contra CHECK que aceita standard/silver/gold/platinum).
+> Um detector que existe, roda e nunca acha nada é **decoração** — mesma classe do
+> `check-migration-numbering` que cobria 131 de 551 arquivos e estava verde há meses.
+>
+> **Os tetos continuam válidos como ratchet** (nada sobe em silêncio), mas **não os leia como
+> "fantasmas"** até serem separados por condição. Separar é fatia própria.
 
 **Como ler:** número que sobe = alguém introduziu dívida nova e o runner fica vermelho.
 Número que desce = dívida paga de verdade. Não há caminho silencioso para cima.
