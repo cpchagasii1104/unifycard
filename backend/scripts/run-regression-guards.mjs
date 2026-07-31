@@ -313,6 +313,14 @@ const CMDS = [
   // congelada com os 181 símbolos de hoje (por arquivo:símbolo); item novo ou entrada removida da
   // allowlist sem consertar o código = FAIL. Contagem só desce.
   "node scripts/audit-query-param-boundary-validation.mjs",
+  // F-SCHEMA-COHERENCE-RATCHET (2026-07-31, GO Clayton): o gate validate-schema-code-coherence
+  // existia, media certo e esteve VERMELHO (~1800) fora do runner/CI — ninguém o lia; em 30/07 a
+  // direção redescobriu à mão o que ele já listava. Religado por RATCHET: baseline de hoje
+  // congelada (1188 chaves em schema-coherence-ratchet-baseline.json) + 6 TETOS COMPARADOS no
+  // próprio guard (BLOCKER-vivo 260 · BLOCKER-scripts 105 · CORRUPTOR-vivo 364 ·
+  // CORRUPTOR-scripts 1047 · DEBT-vivo 32 · DEBT-scripts 18). Violação nova = FAIL · baseline
+  // inflada = FAIL · contagem só desce (--write-baseline recusa crescer).
+  "node scripts/audit-schema-coherence-ratchet.mjs",
   // F-RUNNER-COVERAGE-VISIBILITY-ANTI-DRIFT (ROOT-003 R2): meta-guard que torna a cobertura efetiva
   // VISIVEL e FALHA em drift (guard novo sem wiring). Nao executa guards; deriva o alcance das fontes
   // reais (este CMDS[], os 2 agregadores, actor-writer). Deve ser a ULTIMA entrada (le o array acima).

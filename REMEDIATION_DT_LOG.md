@@ -1,5 +1,85 @@
 # REMEDIATION DT LOG
 
+## ✅ EXECUTADO — F-SCHEMA-COHERENCE-RATCHET: o gate vermelho e não-lido entra no runner com teto que só desce (2026-07-31; GO Clayton)
+
+**O fato que esta entrada registra para quem chegar depois:** o gate
+`scripts/validate-schema-code-coherence.mjs` existia desde o PLAN, media certo (após 3 rodadas
+de conserto de parser da direção: `01c54f53e`, `25aa17223`), esteve VERMELHO com ~1800
+violações, e **não estava no runner nem em nenhum workflow do CI — ninguém o lia**. Em
+2026-07-30 a direção redescobriu À MÃO (rides, reporting/denúncia, alerts, auth-rate-limit...)
+o que o gate já listava havia meses. A decomposição completa das violações está em
+`docs/04_audit/DECOMPOSICAO_SCHEMA_COHERENCE_2026-07-30.md` — esta fatia NÃO refez aquela
+análise; religou o gate por cima dela.
+
+**Religado por RATCHET, não por "consertar 1776 primeiro":**
+`backend/scripts/audit-schema-coherence-ratchet.mjs` (novo) roda o gate subjacente com
+`--json` (o exit 1 dele é esperado — quem julga é o ratchet), agrega por chave estável
+`arquivo::tabela::padrão::severidade::vivo|scripts` (linha fora da chave — robusto a
+deslocamento), e compara contra a baseline congelada
+`backend/scripts/schema-coherence-ratchet-baseline.json` (**1188 chaves**, geradas do disco +
+`unificard_dev` nesta fatia). O gate subjacente segue rodável avulso com a régua original —
+NADA nele foi relaxado.
+
+**TETOS SEPARADOS (mandato explícito), comparados — não só impressos** (a lição da v1 do
+query-param-boundary, aplicada de nascença aqui):
+`BLOCKER-vivo 260 · BLOCKER-scripts 105 · CORRUPTOR-vivo 364 · CORRUPTOR-scripts 1047 ·
+DEBT-vivo 32 · DEBT-scripts 18` (total 1826). Teto agregado deixaria alguém "melhorar o
+número" limpando harness de e2e enquanto o BLOCKER-vivo cresce — por isso 6 tetos, cada um
+checado contra o CÓDIGO **e** contra a BASELINE separadamente.
+⚠️ **Divergência declarada com a medição do mandato** (376 BLOCKER · 271 vivo): a medição de
+Clayton antecedeu fatias do MESMO dia (rides 501 `f0bddb25e` etc.); a medição de 1ª mão no
+momento do congelamento deu **365 BLOCKER (260 vivo + 105 scripts)** — 11 a menos no vivo,
+scripts idêntico. Congelei a medição real do momento, não a do mandato.
+
+**Regras:** chave nova = FAIL · chave multiplicou = FAIL · bucket > teto (código OU baseline)
+= FAIL · contagem caiu sem baseline/tetos baixados = FAIL com instrução de regeneração
+(`--write-baseline`, que RECUSA rodar se qualquer bucket tiver crescido; os tetos no guard
+ainda exigem edição humana no mesmo commit). Limite honesto, declarado: subir o teto editando
+a constante `CEILINGS` no próprio guard não é detectável pelo guard — é território de code
+review, mesma classe do `BASELINE_COUNT` do query-param e do self-wiring do runner.
+
+**AS 4 PROVAS, coladas:**
+```
+1) violação nova (INSERT em tabela_fantasma_red_proof, arquivo temporário), baseline intocada:
+   ❌ VIOLAÇÃO NOVA (chave fora da baseline) + ❌ TETO ESTOURADO (código): BLOCKER-vivo 261>260
+   → exit 1
+2) violação nova + chave adicionada na baseline (a lacuna da v1 do query-param):
+   ❌ TETO ESTOURADO (código) 261>260 + ❌ TETO ESTOURADO (baseline) 261>260 → exit 1
+   bônus: --write-baseline com bucket crescido → RECUSADO, exit 1
+3) chave real removida da baseline (event-custody::CORRUPTOR), código intocado:
+   ❌ VIOLAÇÃO NOVA (chave fora da baseline): ...event_custody::FROM::CORRUPTOR::vivo (2x) → exit 1
+4) repositório real, baseline restaurada:
+   ✅ GATE OK — 260/260 · 105/105 · 364/364 · 1047/1047 · 32/32 · 18/18 · 1188 chaves → exit 0
+```
+Arquivo temporário de prova apagado; baseline restaurada byte-a-byte do backup.
+
+**Runner: 231→232 COMMANDS OK** (medido, corrida completa).
+
+**PROPOSTA AO ITEM 3 DO MANDATO (decisão de Clayton, não desta instância) — referência atrás
+de contenção 501 provada (ex.: rides, 54 chaves/74 ocorrências na baseline, todas "vivo";
+`rides_driver_availability` = 8 chaves/13 ocorrências): PROPONHO MANTER CONTANDO, sem
+categoria nova.** Argumento: (a) o gate mede REFERÊNCIA (verdade do código); a contenção mede
+ALCANÇABILIDADE (verdade do runtime) — são instrumentos diferentes, e ensinar o scanner a
+descontar contenção o faria mentir sobre a primeira para contar a segunda, além de ser
+exatamente o "relaxar para caber" que o mandato veta; (b) o custo de contar é ZERO depois do
+congelamento — as 74 estão na baseline, não bloqueiam nada, e a decomposição de 30/07 já
+registra a alcançabilidade delas em documento próprio; (c) o benefício de contar é real:
+quando o código morto de rides for excisado, o BLOCKER-vivo/CORRUPTOR-vivo CAI visivelmente —
+referência contida ainda é peso morto a queimar, só não é urgente; (d) a alternativa
+"categoria própria" exigiria um manifesto de contenção por arquivo cruzado com o guard de 501
+— acoplamento entre dois guards que hoje não conversam, custo permanente de manutenção para
+ganho de granularidade que a decomposição já dá em prosa. Custo da minha proposta, declarado:
+o número BLOCKER-vivo (260) SUPERESTIMA o perigo vivo real (parte está atrás de 501/403) —
+quem ler o placar sem ler a decomposição vai achar o buraco maior do que é. Aceito esse custo
+porque o erro na direção conservadora (parecer pior) é o erro barato.
+
+**Escopo respeitado:** nenhuma violação consertada; gate subjacente intocado; arquivos desta
+fatia = `audit-schema-coherence-ratchet.mjs` (novo) + `schema-coherence-ratchet-baseline.json`
+(novo) + 1 bloco de wiring em `run-regression-guards.mjs` + este cartório. Higiene: zero `\r`
+nos 2 arquivos novos; `git ls-files --eol` do runner → LF. NÃO COMMITADO.
+
+---
+
 ## ✅ EXECUTADO + 🔴 ACHADO NOVO — F-RIDES-GHOST-CONTAINMENT (2026-07-31; GO Clayton)
 
 **Origem do achado: o CENSO da direção, não medição de 1ª mão minha** — o pacote chegou com a
