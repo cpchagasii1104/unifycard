@@ -1,5 +1,83 @@
 # REMEDIATION DT LOG
 
+## ✅ `F-ENVIRONMENT-RULE-ENFORCEMENT` — FECHADA (2026-07-30)
+**Executora especialista. A REGRA DE AMBIENTE (LEIS_OPERACIONAIS_UNIFICARD.md, corrigida
+hoje, commit `4060df0a2`) mandava `dropdb unificard_dev` — o banco OFICIAL — antes de toda
+migration. Texto corrigido, mas ZERO enforcement executável. Esta fatia fecha o estopim
+(`reset-database-complete.ts`) e cria o guard que torna a Lei verificável.**
+
+### ✅ TAREFA A — `backend/src/scripts/reset-database-complete.ts`
+Recusa fail-closed ANTES de `connectAsSuperuser`, reaproveitando `OFFICIAL_DATABASE_NAME`
+(`core/database/official-database.ts`, import — nenhuma constante nova, nenhuma lista de
+nomes proibidos escrita à mão): (1) se o alvo é o banco oficial → recusa nomeando o dado em
+risco (75 bairros de Curitiba, 48 policies, 3 grants, fundo regional), `process.exit(1)`,
+sem conectar; (2) se `EXPECTED_DATABASE_NAME` ausente ou divergente do alvo → recusa
+também (a Lei exige declaração explícita, não só "não ser o oficial"). Cabeçalho §6 do
+CLAUDE.md no topo, `STATUS: CONTIDO`. Script NÃO deletado (§5 exige autorização de Clayton).
+
+### ✅ TAREFA B — `backend/scripts/audit-environment-rule-enforcement.mjs` (novo, CMDS[] 227→228)
+3 frentes: (1) todo `.ps1` com `CREATE DATABASE` declara `$env:EXPECTED_DATABASE_NAME`
+direto OU por CADEIA REAL (segue `npx tsx <arquivo>` spawnado e verifica se ESSE arquivo
+declara `EXPECTED_DATABASE_NAME:` num spawn aninhado — nunca allowlist de nome); (2) todo
+`.ts`/`.mjs` fora de `audit-*` com `CREATE DATABASE` referencia `EXPECTED_DATABASE_NAME`
+(guards excluídos por CONVENÇÃO DE PAPEL do próprio repo — `audit-*` é como
+`audit-guard-coverage-manifest.mjs` já identifica guard vs. script operacional, não é
+allowlist nova); (3) `reset-database-complete.ts` mantém a recusa real (comparação exata
+`databaseName === OFFICIAL_DATABASE_NAME`, não só a substring solta).
+
+### 🧪 PROVA (denominador declarado por linha)
+**VERMELHA Tarefa A** (`.env` padrão → `unificard_dev`): `npx tsx
+src/scripts/reset-database-complete.ts` → `❌ RECUSADO: alvo é o banco OFICIAL
+('unificard_dev')... Este script NÃO conectou a nenhum banco.`, `exit 1`. Contagem
+`unificard_dev` ANTES = DEPOIS: `neighborhoods=75 · economic_policies=48 ·
+actor_capability_grants=3 · regional_fund_accounts=1` (idêntico, zero toque — condição
+"se conectar como admin, PARE" nunca disparou).
+
+**VERDE Tarefa A** (`unificard_reset_complete_test_<ts>`, criado por mim,
+`EXPECTED_DATABASE_NAME` = mesmo nome): `✅ Alvo declarado e não-oficial:
+'unificard_reset_complete_test_...' (via EXPECTED_DATABASE_NAME) — prosseguindo.` →
+DROP+CREATE+548 migrations aplicadas → `RELATÓRIO FINAL` com sucesso. Banco efêmero
+dropado ao final, **zero resíduo confirmado por query**.
+
+**VERMELHA do guard, 3 ângulos, todos restaurados:**
+- (a) recusa da Tarefa A neutralizada (`if (false && databaseName === ...)`) → guard
+  morde `reset-database-complete:refuses-official-before-connect`, `exit 1`. 🔎 **Achado
+  próprio no meio da prova**: minha 1ª versão desse check só testava presença solta da
+  substring `OFFICIAL_DATABASE_NAME` + `process.exit(1)` em qualquer lugar do arquivo —
+  não pegava o `false &&`. Corrigido para exigir a comparação REAL
+  (`if (databaseName === OFFICIAL_DATABASE_NAME) {...process.exit(1)`, janela 800 chars
+  — a 1ª tentativa com janela 400 também falhou por ficar curta pro texto real, 587
+  chars de distância; ajustada com medição real, não chute). Restaurado → `exit 0`.
+- (b) `.ps1` temporário (`_tmp_probe_no_declare.ps1`) com `CREATE DATABASE` e sem
+  `EXPECTED_DATABASE_NAME` → guard morde `ps1:all-database-creators-declare-target`,
+  **nomeia o arquivo exato** no erro, `exit 1`. Arquivo apagado depois. Restaurado →
+  `exit 0`.
+- (c) `scripts/run-migration-runner-isolation-ephemeral.ps1` (a exceção legítima) —
+  replay manual da lógica do guard confirma: NÃO declara `$env:EXPECTED_DATABASE_NAME`
+  direto, MAS o `.ts` que ele spawna
+  (`validate-pipeline-e2e-migration-runner-isolation.ts`) declara `EXPECTED_DATABASE_NAME:`
+  num spawn aninhado → reconhecido pela CADEIA, não acusado. Confirmado também dentro do
+  guard real: `216` `.ps1` com `CREATE DATABASE` = `215` diretos + `1` por cadeia, **0
+  sobrando** — bate exatamente com o baseline medido pela direção.
+
+### 🧾 RUNNER E TYPECHECK (banco `unificard_dev`)
+`npm run typecheck` → 0 erros. `npm run validate:regression-guards` → **228 COMMANDS OK**
+(227+1 novo), drift 0. Guard confirmado dentro do runner completo (`CLOSED=5 FAILURES=0`).
+
+### 🚫 NÃO FEITO / FORA DO ESCOPO
+Nenhum script deletado. Lei não editada (já corrigida antes desta fatia).
+`official-database.ts`/`migrate.ts`/`BOOT.ts` intocados. Nenhuma allowlist criada — a
+exceção do runner-isolation é reconhecida por cadeia de spawn real, nunca por nome. Não
+commitado.
+
+### 🧾 DENOMINADOR
+Recusa (vermelha) e não-toque provados contra **`unificard_dev`** (banco oficial, real,
+não efêmero — é o próprio alvo que a Lei protege). Sucesso (verde) provado contra
+`unificard_reset_complete_test_<ts>` (efêmero, criado e destruído nesta fatia, zero
+resíduo). Runner/typecheck: `unificard_dev`. **Confiança: PROVADO** — vermelha e verde do
+script real, 3 ângulos de vermelha do guard (incluindo um achado próprio corrigido em
+tempo real), números do baseline (216/215/1) batendo exatos com a medição da direção.
+
 ## ✅ `DT-SERVICE-BUNDLE-BOOKINGS-GHOST-TABLE-LIVE` — FECHADA (2026-07-30)
 **Executora especialista. Pacote sobre o GATE read-only da direção (abaixo, commit `b1f642a34`).
 Relocação pura, como o GATE já previa: escritor certo, leitor apontava pra tabela morta.**

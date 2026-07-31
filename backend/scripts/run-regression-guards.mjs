@@ -17,6 +17,7 @@ const CMDS = [
   "node scripts/audit-migration-runner-isolation.mjs",
   "node scripts/audit-official-database-lock.mjs",
   "node scripts/audit-auth-rate-limit-substrate.mjs",
+  "node scripts/audit-environment-rule-enforcement.mjs",
   "node scripts/audit-actor-authority-boundary.mjs",
   "node scripts/audit-booking-order-authority-binding.mjs",
   "node scripts/audit-internal-surfaces-containment.mjs",

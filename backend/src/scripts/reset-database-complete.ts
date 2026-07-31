@@ -1,7 +1,16 @@
 // src/scripts/reset-database-complete.ts
 //
+// ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+// ║ STATUS:  CONTIDO
+// ║ NORMA:   docs/01_normative/LEIS_OPERACIONAIS_UNIFICARD.md — REGRA DE AMBIENTE (CRÍTICA);
+// ║          REMEDIATION_DT_LOG.md — trava/guard da regra de ambiente (2026-07-30)
+// ║ NÃO:     rodar contra o banco oficial, nem sem declarar EXPECTED_DATABASE_NAME
+// ║ EM VEZ:  apontar DATABASE_URL para um banco EFÊMERO e declarar
+// ║          EXPECTED_DATABASE_NAME=<mesmo nome> antes de rodar
+// ╚════════════════════════════════════════════════════════════════
+//
 // Script de RESET COMPLETO do banco de dados UnifyCard
-// 
+//
 // OBJETIVO:
 // - Deletar completamente o banco de dados atual (ambiente de desenvolvimento)
 // - Recriar o banco do zero
@@ -20,6 +29,7 @@ import dotenv from 'dotenv';
 import { join } from 'path';
 import { Pool, Client } from 'pg';
 import { execSync } from 'child_process';
+import { OFFICIAL_DATABASE_NAME } from '../core/database/official-database';
 
 // Carrega variáveis de ambiente
 dotenv.config({ path: join(process.cwd(), '.env') });
@@ -378,6 +388,29 @@ async function main() {
   const config = parseDatabaseUrl(databaseUrl);
   const databaseName = config.database;
   const owner = config.user;
+
+  // REGRA DE AMBIENTE (LEIS_OPERACIONAIS_UNIFICARD.md, corrigida 2026-07-30): recusa
+  // fail-closed ANTES DE CONECTAR — nenhuma exceção, sem confirmação interativa (a Lei
+  // já proíbe pedir confirmação; a recusa É a proteção). Reaproveita OFFICIAL_DATABASE_NAME
+  // (core/database/official-database.ts) — a mesma autoridade de migrate.ts/BOOT.ts.
+  if (databaseName === OFFICIAL_DATABASE_NAME) {
+    console.error(`❌ RECUSADO: alvo é o banco OFICIAL ('${OFFICIAL_DATABASE_NAME}').`);
+    console.error(`   DROP+CREATE aqui apagaria dado que não sabe renascer: os 75 bairros de`);
+    console.error(`   Curitiba (N3 selada), 48 economic_policies, 3 actor_capability_grants e a`);
+    console.error(`   conta do fundo regional. Este script NÃO conectou a nenhum banco.`);
+    console.error(`   EM VEZ: aponte DATABASE_URL para um banco EFÊMERO e declare`);
+    console.error(`   EXPECTED_DATABASE_NAME=<mesmo nome> antes de rodar.`);
+    process.exit(1);
+  }
+  const declaredTarget = process.env.EXPECTED_DATABASE_NAME;
+  if (!declaredTarget || declaredTarget !== databaseName) {
+    console.error(`❌ RECUSADO: EXPECTED_DATABASE_NAME não declarado ou não confere com o alvo`);
+    console.error(`   ('${databaseName}'). A REGRA DE AMBIENTE exige declaração explícita antes`);
+    console.error(`   de criar/dropar banco — ausência não é permissão. Este script NÃO conectou.`);
+    console.error(`   EM VEZ: defina EXPECTED_DATABASE_NAME=${databaseName} antes de rodar.`);
+    process.exit(1);
+  }
+  console.log(`✅ Alvo declarado e não-oficial: '${databaseName}' (via EXPECTED_DATABASE_NAME) — prosseguindo.\n`);
 
   let adminClient: Client | null = null;
   let unificardClient: Client | null = null;
