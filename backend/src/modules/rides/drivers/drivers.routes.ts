@@ -9,8 +9,8 @@ import type {
   FastifyReply
 } from 'fastify';
 
-import { runQueryWithTenant, runQueriesWithTenant, runTenantTransaction } from '@core/db';
-import { BadRequestError, NotFoundError, ConflictError } from '@core/errors';
+import { runQueryWithTenant } from '@core/db';
+import { BadRequestError, NotFoundError } from '@core/errors';
 import { driversService } from './drivers.service';
 
 interface DriverParams {
@@ -21,9 +21,32 @@ interface CreateDriverBody {
   fullName?: string;
 }
 
-interface UpdateAvailabilityBody {
+// Contrato preservado para a futura materialização (frente própria).
+export interface UpdateAvailabilityBody {
   isAvailable: boolean;
 }
+
+// ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+// ║ STATUS:  PARCIALMENTE CONTIDO (F-RIDES-GHOST-CONTAINMENT, 2026-07-31)
+// ║ NORMA:   cartório REMEDIATION_DT_LOG.md (topo) — censo endpoint a endpoint desta fatia
+// ║ NÃO:     reativar PATCH /:driverId/availability sem materializar rides_driver_availability
+// ║          (NÃO existe no schema canônico, medido em unificard_dev 2026-07-31). Os outros 3
+// ║          endpoints (GET /, GET /:driverId, POST /) usam rides_drivers, que EXISTE — seguem
+// ║          vivos, não contenha o grupo inteiro. NÃO criar a tabela aqui.
+// ║ EM VEZ:  501 nomeado ANTES de qualquer SQL no endpoint quebrado (padrão automation.routes.ts).
+// ║          Reabrir = frente própria que materializa o substrato E remove esta contenção
+// ║          (guard audit-rides-operational-schema-ghost-containment.mjs).
+// ╚════════════════════════════════════════════════════════════════
+const DRIVER_AVAILABILITY_GHOST_BODY = {
+  ok: false,
+  code: 'RIDES_AVAILABILITY_SCHEMA_GHOST_CONTAINED',
+  error: 'RIDES_AVAILABILITY_SCHEMA_GHOST_CONTAINED',
+  missing_substrate: ['rides_driver_availability'],
+  message:
+    'Driver availability flag endpoint is disabled: table rides_driver_availability does not exist in the ' +
+    'canonical schema. Reopening requires materializing the substrate via its own governed front (GATE + GO). ' +
+    'No money is moved.',
+} as const;
 
 const driversRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
 
@@ -123,46 +146,13 @@ const driversRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
   // =====================================================================
   // PATCH /drivers/:driverId/availability — muda status de disponibilidade
   // =====================================================================
+  // CONTIDO — substrato rides_driver_availability ausente (ver migalha no topo).
   fastify.patch<{ Params: DriverParams; Body: UpdateAvailabilityBody }>(
     '/:driverId/availability',
     {
       preHandler: [fastify.requirePermission(['rides:drivers:write'])],
     },
-    async (req, reply) => {
-      const tenantId = req.tenant?.id;
-      if (!tenantId) throw new BadRequestError('Missing tenant context');
-
-      const { driverId } = req.params;
-      const { isAvailable } = req.body;
-
-      if (typeof isAvailable !== 'boolean') {
-        throw new BadRequestError('isAvailable must be boolean');
-      }
-
-      const row = await runQueryWithTenant<{
-        driver_id: string;
-        is_available: boolean;
-        updated_at: Date;
-      }>(tenantId, {
-        text: `
-          UPDATE rides_driver_availability
-          SET is_available = $3, updated_at = NOW()
-          WHERE tenant_id = $1 AND driver_id = $2
-          RETURNING driver_id, is_available, updated_at;
-        `,
-        values: [tenantId, driverId, isAvailable],
-      });
-
-      if (!row) {
-        throw new NotFoundError('Driver availability not found');
-      }
-
-      return {
-        driver_id: row.driver_id,
-        is_available: row.is_available,
-        updatedAt: row.updated_at,
-      };
-    }
+    async (_req, reply) => reply.status(501).send(DRIVER_AVAILABILITY_GHOST_BODY)
   );
 };
 

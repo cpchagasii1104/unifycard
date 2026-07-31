@@ -1,5 +1,95 @@
 # REMEDIATION DT LOG
 
+## ✅ EXECUTADO + 🔴 ACHADO NOVO — F-RIDES-GHOST-CONTAINMENT (2026-07-31; GO Clayton)
+
+**Origem do achado: o CENSO da direção, não medição de 1ª mão minha** — o pacote chegou com a
+medição pronta (tabelas presentes/ausentes, contagens de rota). Eu verifiquei, confirmei, e o
+censo fino desta fatia AMPLIOU o achado (abaixo). O contexto que o cartório precisa guardar:
+**o DINHEIRO do rides já estava contido** (rotas financeiras comentadas + firewall default-off +
+guard anti-revival) — mas o trilho OPERACIONAL ficou de pé QUEBRADO: motorista ficar online era
+500 cru numa superfície montada em `/rides` (app.builder.ts:448), alcançável por HTTP direto.
+
+### Censo endpoint a endpoint (passo 0 do pacote) — 36 endpoints nos 9 grupos montados
+Resultado em 3 classes (não 2, como o pacote assumia):
+- **17 CONTIDOS nesta fatia** (substrato AUSENTE — schema-ghost): availability 4/4 · safety 5/5 ·
+  demand 4/4 · drivers 1/4 (PATCH availability) · location 1/2 (POST ping) · service-types 2/7
+  (GET+POST /:id/drivers).
+- **3 VIVOS de verdade** (provados 200 no E2E): GET /service-types (SELECT *) ·
+  GET /vehicles/drivers/:id/vehicles (SELECT * WHERE driver_id) · GET /location/distance (zero SQL).
+- 🔴 **16 QUEBRADOS POR DRIFT DE COLUNA — NÃO TOCADOS (fora do mandato)**: ver achado abaixo.
+
+### O que o censo fino corrigiu na medição da direção (verificado em unificard_dev)
+- **Substrato ausente é MAIOR**: além dos 8 nomeados, faltam também `rides_zone_demand_pressure`
+  (lida pelos 2 GETs de demand via LEFT JOIN), `rides_driver_services` (2 endpoints de
+  service-types), `rides_ride_events` (INSERT no /sos, antes das emergency_contacts) e
+  `rides_driver_destinations` (só em availability.service.getStatus, sem caller montado).
+  **As 4 funções** estão ausentes (a direção nomeou 2): `rides_check_driving_limit` (confirmada),
+  `rides_calculate_realtime_earnings`, `rides_calculate_zone_pressure`,
+  `rides_create_auto_zone_incentive`.
+- **`rides_safety_alerts` NÃO é escrita por rota montada**: só por `safety.service.ts`, importado
+  apenas por `safety.controller.ts`, que NADA importa — inalcançável. (A medição a atribuía a
+  safety.routes; safety.routes faz SQL direto e não toca essa tabela.)
+- O 2º `availability.routes.ts` (em `drivers/availability/`) só é importado pelo agregador MORTO
+  `rides/rides.routes.ts` — não montado, não tocado.
+
+### 🔴 ACHADO NOVO (classe inteira fora da medição): DRIFT DE COLUNA nas tabelas "vivas"
+As 14 tabelas rides existem, mas com **shape canônico diferente do que o código montado fala**:
+PK é `id` em TODAS; o código pede `driver_id`/`city_id`/`zone_id`/`ride_id`/`vehicle_id` (em
+WHERE/SELECT/RETURNING), além de colunas que não existem (`active_vehicle_id`, `verifiedAt`,
+`timezone`/`lat`/`lng`/fares em cities, `base_fare`/`capacity_min`/... em service-types,
+`startedAt`/`driving_minutes` em sessions) e **vocabulário divergente** (código grava
+level='bronze'/status='approved'; CHECKs vivos aceitam level standard/silver/gold/platinum,
+status pending/active/suspended/inactive). Consequência: **16 endpoints "de tabela viva" também
+estão mortos**, só que por 42703/23514 em vez de 42P01 — ex.: GET /rides/cities e GET
+/rides/drivers 500 hoje (provado com assert reprodutível no E2E). Parece re-materialização
+canônica posterior das tabelas sem convergir o módulo. **NÃO contive nem corrigi drift — não
+estava no mandato; conter/convergir essa classe é decisão da direção.** O E2E documenta 2 casos.
+
+### O que foi feito (o mandato, exato)
+1. **17 endpoints contidos**: 501 nomeado (`RIDES_*_SCHEMA_GHOST_CONTAINED` + `missing_substrate`
+   listando tabela/função por endpoint), ANTES de qualquer service/SQL, padrão automation.routes.ts.
+   `preHandler` de permissão PRESERVADO (contenção não afrouxa authz). Zero tabela/função criada.
+2. **notify_queue contido na BORDA** (rotas /sos e /share que alcançavam o notificador) —
+   `notify.service.ts` INTOCADO, como mandado.
+3. **Caminho comentado (dinheiro) INTOCADO** — `audit-rides-money-antirevival-guard.mjs` verde no
+   runner completo (ele EXIGE os 9 grupos registrados; contenção foi dentro dos arquivos, nunca
+   desmontando grupo).
+4. **Guard novo** `audit-rides-operational-schema-ghost-containment.mjs` (runner 230→231): morde
+   (A) grupo desmontado, (B) SQL/função fantasma viva em rota montada OU chamada aos entrypoints
+   de service que alcançam fantasma, (C) marcador 501 removido, (D) arquivo novo no fecho de
+   imports com referência fantasma / referência nova em arquivo allowlistado (allowlist congelada:
+   drivers.service, location.service, availability.service, demand.service, zones.service,
+   notify.service — referências dormentes sem caller montado). Prova VERMELHA 3×: SQL fantasma
+   reintroduzido em rota → morde; marcador removido → morde; rota chamando
+   locationService.updateLocation → morde; restaurado → verde.
+5. O guard, na 1ª rodada, pegou 2 lacunas do MEU próprio inventário (rides_zone_demand_pressure
+   em demand.service; notify.service entrando no fecho via demand.service) — corrigido o
+   inventário, não o guard.
+
+### Incidente de procedimento (registrado por honestidade)
+Na prova vermelha usei `git checkout --` para "restaurar" 3 arquivos — que restaurou para o HEAD
+(pré-fatia), apagando contenções ainda não commitadas. Detectado na hora (o guard continuou
+vermelho), reaplicado por completo e TODAS as provas re-rodadas depois disso. Lição: prova
+vermelha salva/restaura por cópia temporária, nunca por git checkout em árvore suja.
+
+### Provas (banco efêmero `unificard_rides_ghost_e2e`, criado/dropado pelo harness)
+```
+E2E RIDES-GHOST-CONTAINMENT :: PASS (29/29), incluindo:
+  ANTES: UPDATE rides_driver_availability → 42P01 · SELECT rides_calculate_realtime_earnings → 42883
+  DEPOIS: POST /rides/availability/online → 501 nomeando os 2 substratos
+  service NÃO alcançado: PATCH /rides/drivers/<uuid>/availability → 501, NÃO 404
+  /sos → 501 nomeando rides_ride_events + notify_queue · /demand/pressure → 501 · etc.
+  VIVOS: GET /service-types 200 (linha semeada) · GET /vehicles/drivers/:id/vehicles 200 · distance 200
+  DRIFT documentado: GET /rides/cities → 500 42703 · GET /rides/drivers → 500 42703
+typecheck BE 0 erros · typecheck FE 0 erros
+runner completo: 231 COMMANDS OK (era 230; anti-revival + PORTA-01 + boundary todos verdes)
+audit-query-param-boundary-validation: 181/181 intacto
+git diff --check limpo · LF nos 10 arquivos tocados
+```
+NÃO COMMITADO.
+
+---
+
 ## 🛑 EXECUTADO E PAROU NA PROVA — F-RISK-DASHBOARD (2026-07-31; GO Clayton "go para a próxima fatia")
 
 **Código corrigido, typechecado, guards verdes. A prova COMPORTAMENTAL de HTTP 200/desconhecido

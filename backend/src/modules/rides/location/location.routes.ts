@@ -9,14 +9,44 @@ import type {
   FastifyReply
 } from 'fastify';
 
-import { BadRequestError } from '@core/errors';
 import { locationService } from './location.service';
 
-interface UpdateLocationBody {
+// Contrato preservado para a futura materialização (frente própria).
+export interface UpdateLocationBody {
   driverId: string;
   lat: number;
   lng: number;
 }
+
+// ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+// ║ STATUS:  PARCIALMENTE CONTIDO (F-RIDES-GHOST-CONTAINMENT, 2026-07-31)
+// ║ NORMA:   cartório REMEDIATION_DT_LOG.md (topo) — censo endpoint a endpoint desta fatia
+// ║ NÃO:     reativar POST /drivers/location sem materializar o substrato da cadeia que ele
+// ║          dispara (locationService.updateLocation → availabilityService.isOnline →
+// ║          rides_driver_availability AUSENTE; depois rides_check_driving_limit e
+// ║          rides_calculate_realtime_earnings, funções AUSENTES; medido em unificard_dev
+// ║          2026-07-31). GET /location/distance é matemática pura (Haversine, zero SQL) —
+// ║          segue vivo, não contenha o grupo inteiro. NÃO criar tabela/função aqui.
+// ║ EM VEZ:  501 nomeado ANTES do service no endpoint quebrado (padrão automation.routes.ts).
+// ║          Reabrir = frente própria que materializa o substrato E remove esta contenção
+// ║          (guard audit-rides-operational-schema-ghost-containment.mjs).
+// ╚════════════════════════════════════════════════════════════════
+const LOCATION_GHOST_BODY = {
+  ok: false,
+  code: 'RIDES_LOCATION_SCHEMA_GHOST_CONTAINED',
+  error: 'RIDES_LOCATION_SCHEMA_GHOST_CONTAINED',
+  missing_substrate: [
+    'rides_driver_availability',
+    '(função) rides_check_driving_limit',
+    '(função) rides_calculate_realtime_earnings',
+    '(função) rides_calculate_zone_pressure',
+  ],
+  message:
+    'Driver location ping is disabled: its chain requires substrate that does not exist in the canonical ' +
+    'schema (rides_driver_availability; functions rides_check_driving_limit, rides_calculate_realtime_earnings, ' +
+    'rides_calculate_zone_pressure). Reopening requires materializing the substrate via its own governed front ' +
+    '(GATE + GO). No money is moved.',
+} as const;
 
 interface DistanceQuery {
   lat1: string;
@@ -30,25 +60,13 @@ const locationRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
   // =====================================================================
   // POST /drivers/location — receber ping de localização
   // =====================================================================
+  // CONTIDO — cadeia depende de substrato ausente (ver migalha no topo).
   fastify.post<{ Body: UpdateLocationBody }>(
     '/drivers/location',
     {
       preHandler: [fastify.requirePermission(['rides:location:write'])],
     },
-    async (req, reply) => {
-      const tenantId = req.tenant?.id;
-      if (!tenantId) throw new BadRequestError('Missing tenant context');
-
-      const { driverId, lat, lng } = req.body;
-      const result = await locationService.updateLocation({
-        tenantId,
-        driverId,
-        lat,
-        lng,
-      });
-
-      return result;
-    }
+    async (_req, reply) => reply.status(501).send(LOCATION_GHOST_BODY)
   );
 
   // =====================================================================

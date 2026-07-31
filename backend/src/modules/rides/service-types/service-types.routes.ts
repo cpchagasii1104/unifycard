@@ -9,9 +9,30 @@ import type {
   FastifyReply
 } from 'fastify';
 
-import { runQueryWithTenant, runQueriesWithTenant, runTenantTransaction } from '@core/db';
-import { BadRequestError, NotFoundError, ConflictError } from '@core/errors';
+import { BadRequestError } from '@core/errors';
 import { serviceTypesService } from './service-types.service';
+
+// ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+// ║ STATUS:  PARCIALMENTE CONTIDO (F-RIDES-GHOST-CONTAINMENT, 2026-07-31)
+// ║ NORMA:   cartório REMEDIATION_DT_LOG.md (topo) — censo endpoint a endpoint desta fatia
+// ║ NÃO:     reativar GET/POST /:id/drivers sem materializar rides_driver_services (NÃO existe
+// ║          no schema canônico, medido em unificard_dev 2026-07-31). Os outros 5 endpoints
+// ║          (CRUD de rides_service_types, que EXISTE) seguem vivos — não contenha o grupo
+// ║          inteiro. NÃO criar a tabela aqui para acomodar o caller.
+// ║ EM VEZ:  501 nomeado ANTES de qualquer SQL nos endpoints quebrados (padrão
+// ║          automation.routes.ts). Reabrir = frente própria que materializa o substrato E
+// ║          remove esta contenção (guard audit-rides-operational-schema-ghost-containment.mjs).
+// ╚════════════════════════════════════════════════════════════════
+const DRIVER_SERVICES_GHOST_BODY = {
+  ok: false,
+  code: 'RIDES_DRIVER_SERVICES_SCHEMA_GHOST_CONTAINED',
+  error: 'RIDES_DRIVER_SERVICES_SCHEMA_GHOST_CONTAINED',
+  missing_substrate: ['rides_driver_services'],
+  message:
+    'Driver↔service-type link endpoints are disabled: table rides_driver_services does not exist in the ' +
+    'canonical schema. Reopening requires materializing the substrate via its own governed front (GATE + GO). ' +
+    'No money is moved.',
+} as const;
 
 interface ServiceTypeParams {
   id: string;
@@ -170,24 +191,7 @@ const serviceTypesRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) 
       const tenantId = req.tenant?.id;
       if (!tenantId) throw new BadRequestError('Missing tenant context');
 
-      const { id } = req.params;
-      const drivers = await runQueriesWithTenant<any>(tenantId, {
-        text: `
-          SELECT
-            ds.driver_id,
-            d.user_id,
-            d.status,
-            d.level,
-            ds.created_at
-          FROM rides_driver_services ds
-          JOIN rides_drivers d ON d.driver_id = ds.driver_id
-          WHERE ds.service_type_id = $1 AND d.tenant_id = $2
-          ORDER BY d.created_at DESC;
-        `,
-        values: [id, tenantId],
-      });
-
-      return drivers;
+      return reply.status(501).send(DRIVER_SERVICES_GHOST_BODY);
     }
   );
 
@@ -204,71 +208,7 @@ const serviceTypesRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) 
       const userId = req.user?.id;
       if (!tenantId || !userId) throw new BadRequestError('Missing tenant or user context');
 
-      const { id: serviceTypeId } = req.params;
-
-      const result = await runTenantTransaction(tenantId, async (trx) => {
-        // pegar driver_id
-        const driverRows = await trx.query({
-          text: `
-            SELECT driver_id
-            FROM rides_drivers
-            WHERE tenant_id = $1 AND user_id = $2
-            LIMIT 1;
-          `,
-          values: [tenantId, userId],
-        });
-
-        if (driverRows.length === 0) throw new NotFoundError('Driver profile not found');
-        const driverId = driverRows[0].driver_id;
-
-        // verificar se já existe
-        const existing = await trx.query({
-          text: `
-            SELECT *
-            FROM rides_driver_services
-            WHERE driver_id = $1 AND service_type_id = $2;
-          `,
-          values: [driverId, serviceTypeId],
-        });
-
-        if (existing.length > 0) {
-          throw new ConflictError('Service already enabled for driver');
-        }
-
-        // verificar compliance mínima do veículo
-        const vehicles = await trx.query({
-          text: `
-            SELECT vehicle_id
-            FROM rides_vehicles
-            WHERE tenant_id = $1 AND driver_id = $2 AND is_active = TRUE
-            LIMIT 1;
-          `,
-          values: [tenantId, driverId],
-        });
-
-        if (vehicles.length === 0) {
-          throw new ConflictError('Driver has no active vehicle');
-        }
-
-        // inserir
-        const rows = await trx.query({
-          text: `
-            INSERT INTO rides_driver_services (
-              driver_id,
-              service_type_id,
-              created_at
-            )
-            VALUES ($1, $2, NOW())
-            RETURNING *;
-          `,
-          values: [driverId, serviceTypeId],
-        });
-
-        return rows[0];
-      });
-
-      reply.code(201);
-      return result;
+      return reply.status(501).send(DRIVER_SERVICES_GHOST_BODY);
     }
   );
 };
