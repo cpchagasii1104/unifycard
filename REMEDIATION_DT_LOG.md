@@ -1,5 +1,61 @@
 # REMEDIATION DT LOG
 
+## 🔍 GATE — `DT-ALERTS-SUBSTRATE-MISSING-BREAKS-ARTIGO-II` (2026-07-31)
+
+**Direção, read-only.** Resultado: **criar a tabela é necessário e NÃO é suficiente** — o
+substrato ausente estava mascarando **dois outros defeitos**.
+
+### A cadeia constitucional e o que a interrompe
+`ARTIGO II`: *"Conflito nunca gera ação automática"* — conflito gera fato, fato gera alerta,
+alerta vai ao humano. O código escreve em `alerts`
+(`modules/automation/alert.repository.ts:61` INSERT · `:112` UPDATE · `:154,:173,:231` FROM).
+A tabela vive **só** em `migrations_archive/0850_alerts.sql`.
+
+⚠️ **`financial_alerts` NÃO é substituto** — `migrations/0033`, **800 migrations mais antiga**,
+sempre viva, domínio diferente. Coexistiram. *(Erro de classificação da direção, corrigido pelo
+GUARDIÃO.)*
+
+### 🔴 DOIS MODOS DE FALHA, na mesma tabela ausente
+| caller | comportamento |
+|---|---|
+| `core/reputation/penalty.service.ts:394-411` | **ENGOLE** — `try/catch` → `console.warn`, comentário *"Não bloquear se alerta falhar"*. **O conflito acontece, o alerta se perde, ninguém é avisado.** É a quebra constitucional silenciosa |
+| `modules/automation/automation.service.ts:75+` (6×) | erro **SOBE** → 500 |
+| `modules/subscriptions/subscription.service.ts:442` | erro **SOBE** → 500 |
+
+Alcance: `modules/automation` **registrado** em `app.builder.ts:724-725` (`protectedScope`,
+`/automation`).
+
+### ✅ A DDL arquivada SERVE — e já carrega a norma
+`0850_alerts.sql` bate **exatamente** com o que o código escreve (`tenant_id, type, severity,
+message, entity_type, entity_id, metadata` + `status`, `created_at`, `acknowledged_at`,
+`resolved_at`). E o cabeçalho dela já promulga o `ARTIGO II`: *"alertas são gerados por
+automações, mas resolvidos manualmente · NÃO executar economia automaticamente · NÃO tomar
+decisão irreversível"*. **Relocação, não autoria.**
+
+### 🔴 MAS: o ENUM é FECHADO, e 2 callers escrevem fora dele
+`alert_type` aceita 8 valores. Escrevem fora:
+| caller | valor | veredito da direção |
+|---|---|---|
+| `automation.service.ts:75` | `'variant'` | 🐛 **BUG.** A própria DDL comenta que `'variant'` é valor de **`entity_type`**, não de `type`. Puseram o tipo da ENTIDADE no campo do tipo do ALERTA |
+| `penalty.service.ts:396` | `'RISK_SCORE_LOW'` | ⚖️ **VOCABULÁRIO NOVO** — domínio de reputação, legítimo, que o enum nunca teve |
+
+**Criar a tabela sem resolver isso troca `42P01` por `invalid input value for enum`.**
+
+### 🧭 O CONSERTO SÃO TRÊS PASSOS, E UM É DECISÃO
+1. **Relocar a DDL** de `migrations_archive/0850` como migration forward-only. *(executora)*
+2. **Corrigir `'variant'`** — é bug de campo trocado. *(executora, mas exige confirmar qual
+   valor correto pelo contexto do caller)*
+3. ⚖️ **DECIDIR `RISK_SCORE_LOW`**: entra no enum (migration de vocabulário) ou mapeia para
+   `OTHER`? **Enum é vocabulário governado** (`07_NOMENCLATURA_CANONICA`) — **não é escolha de
+   executora.** ⚠️ Mapear para `OTHER` apaga a distinção entre alerta de risco de reputação e
+   "outro"; crescer o enum cria vocabulário. **É decisão de Clayton.**
+
+⚠️ **O que este GATE NÃO decide:** se `penalty.service` deveria continuar engolindo o erro. Hoje
+ele segue com a penalidade mesmo sem alertar — e o `ARTIGO II` diz que conflito **não gera ação
+automática**. Isso é questão constitucional própria, maior que a tabela.
+
+---
+
 ## 🔏 SELO — DUAS CONCLUSÕES, AUDITADAS E CONFIRMADAS (2026-07-31)
 
 **Autoridade: Clayton.** A direção recomendou selar **apenas estas duas**, e apenas elas —
