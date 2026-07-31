@@ -1,5 +1,43 @@
 # REMEDIATION DT LOG
 
+## 🔍 GATE — `DT-EVENT-GUIDED-FLOW-WHITE-SCREEN-ON-FINISH` (2026-07-30)
+
+**Direção, read-only.** Derrubada da Yala confirmada e investigada até a causa.
+
+### O defeito
+`EventCreationGuidedFlow.tsx:399` (botão **Finalizar** da etapa 7) e `:619`
+(`onAdvanceToEconomic` do `Step7FinalSummary`) fazem
+`navigate('/events/${id}/economic')`. `App.tsx` registra `events/:id` (`:343`) e `events/new`
+(`:344`), **não** registra `events/:id/economic`, e **não há catch-all** → **tela branca no fim
+do fluxo guiado de criação de evento**.
+
+### Não é regressão — o destino NUNCA existiu
+```
+git log --all -S "events/:id/economic" -- frontend/src/App.tsx   → VAZIO
+git log --all -S 'path="events/:id/economic"'                    → VAZIO
+```
+Em **nenhum commit, em nenhuma branch**. Os `navigate` nasceram apontando para o vazio em
+`c4c45ec77` (*"Gate 3 closed: legacy financial writes fully blocked"*). Também **não existe
+componente de página** para esse caminho — só `Step6EconomicPreview` (etapa **dentro** do
+fluxo) e `EconomicPoliciesPage` (admin, outra coisa).
+
+### 🔴 A DECISÃO QUE O GATE FECHA — e por que NÃO se constrói a página
+O comentário em `:395-398` declara a intenção: *"ETAPA 7: Finalizar (avançar para **fase
+econômica**)"*. **Mas a fase econômica é a família `economic/v2`**, que a **`DECISION-0190`
+contém por decisão selada** — e desde 2026-07-30 as **11 de 11** rotas devolvem `501`.
+
+**Construir a tela seria construir interface para o que a decisão selada recusa.** O frontend
+estaria prometendo uma fase que o backend nega com `501`. O conserto é o fluxo **terminar
+honestamente**, não ganhar destino novo.
+
+**Destino correto:** `/events/${id}` — registrado (`App.tsx:343`), renderiza `EventDetailPage`
+→ `EventPage`, componente real. É o evento que o usuário acabou de criar.
+
+⚠️ **O que este GATE NÃO decide:** se a fase econômica deve existir como produto algum dia.
+Isso é decisão de Clayton e depende de religar `economic/v2` — que exige GO próprio.
+
+---
+
 ## ✅ `F-EVENT-ECONOMIC-V2-CONTAINMENT-COMPLETUDE` — FECHADA (2026-07-30)
 **Executora especialista. Completa contenção JÁ SELADA pela DECISION-0190 (8 de 11 rotas
 economic/v2) — achado da Yala (veredito B, PAINEL_DIVIDA_VIVA.md): `advance` (POST),
