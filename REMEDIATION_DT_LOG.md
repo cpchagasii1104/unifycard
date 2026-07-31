@@ -1,5 +1,61 @@
 # REMEDIATION DT LOG
 
+## ✅ EXECUTADO — DESTRAVAR O RUNNER: colisão FISCAL_PENDING × audit-segment-fiscal-template (2026-07-31)
+
+**Runner voltou a fechar: 228/228 COMMANDS OK, drift 0.** `backend/scripts/audit-segment-fiscal-template.mjs:187-224`
+— a checagem "estado de onboarding NUNCA vira coluna/tabela persistida (0169 §9)" deixou de varrer o
+CORPO INTEIRO de qualquer migration com regex cego e passou a ancorar pelo ALVO (identificador sendo
+definido): (a) coluna/tipo cujo PRÓPRIO NOME contém um dos 4 tokens (`onboarding_state`,
+`ready_for_activation`, `fiscal_pending`, `partially_validated`) — inequívoco por si só; (b) bloco de
+valores (`CREATE TYPE ... AS ENUM` / `CHECK (col IN (...))`) só conta se o alvo (tipo/coluna) nomeia
+onboarding/checklist/template, OU se ≥2 tokens do vocabulário 0169 §9 co-ocorrem no MESMO bloco
+(prova a progressão real, não coincidência de 1 palavra com outro domínio). Nenhum dos 4 tokens foi
+removido; as outras 2 checagens do mesmo loop (`:222` tabela onboarding, `:226` FK template→tax_*)
+não foram tocadas; nenhuma exceção por nome de domínio foi adicionada (a âncora é positiva —
+vocabulário do próprio 0169 — não uma allowlist negativa de "tudo-menos-alert_type").
+
+**3 provas vermelhas, migrations temporárias apagadas depois:**
+1. `CREATE TABLE ... (onboarding_state TEXT NOT NULL)` → GATE FAIL (2 achados: identificador +
+   check pré-existente de tabela-onboarding, ambos intocados).
+2. `CREATE TYPE onboarding_progress_status AS ENUM ('no_template','suggested','fiscal_pending')` →
+   GATE FAIL, nomeando alvo="onboarding_progress_status" e os 3 valores.
+3. (extra, não pedido) `CREATE TYPE wizard_progress_status AS ENUM ('fiscal_pending','ready_for_activation')`
+   — nome do tipo NÃO menciona onboarding, só a co-ocorrência de 2 tokens → GATE FAIL mesmo assim
+   (prova que o sinal (b) funciona sozinho, não só via nome).
+Confirmado: sem as migrations temporárias, guard volta a OK; `git status` sem sobra.
+
+**Isolamento antes/depois, mesmo conjunto de migrations (com `20260731120000_alerts_substrate.sql` viva):**
+regex antiga → `GATE FAIL` citando `FISCAL_PENDING` do `alert_type`; regex nova (ancorada) → `GATE OK`.
+
+`npm run typecheck` → 0. `npm run validate:regression-guards` → **228 COMMANDS OK, drift 0** (completo,
+não parou em nenhum gate). LF normalizado + `git diff --check` limpo. NÃO COMMITADO.
+
+**⚠️ CORREÇÃO AO PARÁGRAFO ACIMA (achado da direção, 2026-07-31, mesmo dia):** *"nenhum dos 4 tokens
+foi removido"* era verdade **por linha de código** e **FALSO por comportamento**. A âncora (a) original
+só via `^\s*<token>` — início de linha. `ALTER TABLE x ADD COLUMN onboarding_state TEXT;` define o
+identificador em MEIO de linha e escapava: `GATE OK` num caso que deveria morder. Escala: 135/550
+migrations usam `ADD COLUMN` (344 ocorrências) — via dominante de evolução de schema aqui, não caso
+de canto. Corrigido: (a) agora cobre DOIS caminhos — início-de-linha (coluna inline de
+`CREATE TABLE (...)`, estilo deste repo) **e** alvo de palavra-chave de definição em meio de linha
+(`ADD COLUMN [IF NOT EXISTS]`, `RENAME COLUMN...TO`, `RENAME TO`, `ALTER TABLE`, `CREATE TABLE`,
+`CREATE TYPE`). Regra (b) não foi tocada (a direção verificou de 1ª mão e confirmou correta). 8 provas
+coladas (5 vermelhas: `ADD COLUMN`, `ADD COLUMN IF NOT EXISTS`, `RENAME COLUMN...TO`,
+`CREATE TABLE tenant_onboarding_state`, + as 3 anteriores em regressão; 3 verdes: repositório real,
+`COMMENT ON ... IS 'fiscal_pending...'`, `CREATE TYPE alert_type AS ENUM ('FISCAL_PENDING','OTHER')`).
+`validate:regression-guards` reconfirmado em 228/228 após a correção.
+
+**🔴 PONTO CEGO DECLARADO (guard que não declara o próprio buraco é decoração):** 1 único token do
+vocabulário 0169 §9 dentro de um bloco de valores (`CREATE TYPE`/`CHECK IN`) cujo alvo tem NOME NEUTRO
+— ex.: `CREATE TYPE some_state AS ENUM ('draft','ready_for_activation')`, um só token, nome que não
+diz "onboarding" — **NÃO morde, por desenho**. É o preço de não ter falso-positivo (regra (b) exige
+≥2 tokens co-ocorrendo OU nome de alvo no domínio onboarding/checklist/template). Se uma violação real
+de 0169 §9 algum dia chegar assim — um valor por vez, em tipo de nome genérico — este guard não vê.
+Mitigação parcial: `CREATE TABLE`/`CREATE TYPE` cujo NOME é neutro mas alguma COLUNA/VALOR é
+inequivocamente nomeada (`onboarding_state`, etc.) ainda cai na regra (a). O buraco é estritamente
+"1 valor solto, nome de alvo neutro, dentro de ENUM/CHECK" — não coluna, não tabela.
+
+---
+
 ## ❌ ERRATA DA DIREÇÃO — a "Tarefa B" do GATE do `alerts` NUNCA EXISTIU (2026-07-31)
 
 O GATE `abb3a6c7a` afirmou: *"`automation.service.ts:75` escreve `type: 'variant'` — é bug, puseram

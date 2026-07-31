@@ -184,11 +184,68 @@ for (const f of walkTs(join(ROOT, 'src'))) {
   }
 }
 
-// estado do onboarding NUNCA vira coluna/tabela persistida (0169 §9) — em QUALQUER migration
+// estado do onboarding NUNCA vira coluna/tabela persistida (0169 §9) — em QUALQUER migration.
+// Âncora pelo ALVO (identificador sendo definido: coluna/tipo), NÃO por lista de exceção de
+// domínio — allowlist de nome apodrece (histórico deste repo). Um valor isolado de OUTRO enum
+// (ex.: alert_type.FISCAL_PENDING — SPRINT 50, "documento fiscal pendente de um PEDIDO", automação
+// operacional) não é onboarding persistido; a progressão real de 0169 §9 sempre teria ≥2 destes
+// tokens no MESMO bloco de valores, ou o alvo (tipo/coluna) nomeado como onboarding/checklist.
+const ONBOARDING_VOCAB = ['no_template', 'suggested', 'applied_draft', 'fiscal_pending', 'partially_validated', 'ready_for_activation'];
+const ONBOARDING_TOKEN_RE = /onboarding_state|ready_for_activation|fiscal_pending|partially_validated/i;
+// achado 2026-07-31: coluna/tipo pode ser nomeado no INÍCIO da linha (estilo deste repo — uma
+// coluna por linha dentro de CREATE TABLE (...)) OU em MEIO de linha, como ALVO de uma
+// palavra-chave de definição (ALTER TABLE ... ADD COLUMN, RENAME COLUMN ... TO, RENAME TO) —
+// 135/550 migrations usam ADD COLUMN (344 ocorrências), é a via dominante de evolução de schema
+// aqui, não caso de canto. As DUAS formas são cobertas; em ambas o token só conta na POSIÇÃO DO
+// IDENTIFICADOR sendo definido, nunca dentro de aspas (mantém COMMENT ON ... IS '...' e
+// 'FISCAL_PENDING' de alert_type fora — isso é o teto do sinal (a); ver PONTO CEGO no cartório).
+const DEF_KEYWORD_PATTERNS = [
+  /ADD COLUMN\s+(?:IF NOT EXISTS\s+)?(\w+)/gi,
+  /RENAME COLUMN\s+\w+\s+TO\s+(\w+)/gi,
+  /RENAME TO\s+(\w+)/gi,
+  /ALTER TABLE\s+(?:IF EXISTS\s+)?(\w+)/gi,
+  /CREATE TABLE\s+(?:IF NOT EXISTS\s+)?(\w+)/gi,
+  /CREATE TYPE\s+(\w+)/gi,
+];
+function namedOnboardingIdentifier(src) {
+  const lineStart = src.match(/^\s*(\w*(?:onboarding_state|ready_for_activation|fiscal_pending|partially_validated)\w*)\s+\S/im);
+  if (lineStart) return lineStart[1];
+  for (const re of DEF_KEYWORD_PATTERNS) {
+    re.lastIndex = 0;
+    let m;
+    while ((m = re.exec(src)) !== null) {
+      if (ONBOARDING_TOKEN_RE.test(m[1])) return m[1];
+    }
+  }
+  return null;
+}
+function findSchemaValueBlocks(src) {
+  const blocks = [];
+  const typeRe = /CREATE TYPE\s+(\w+)\s+AS ENUM\s*\(([\s\S]*?)\)\s*;/gi;
+  let m;
+  while ((m = typeRe.exec(src)) !== null) blocks.push({ target: m[1], body: m[2] });
+  const checkRe = /CHECK\s*\(\s*(\w+)\s+IN\s*\(([\s\S]*?)\)\s*\)/gi;
+  while ((m = checkRe.exec(src)) !== null) blocks.push({ target: m[1], body: m[2] });
+  return blocks;
+}
 for (const f of readdirSync(join(ROOT, 'migrations')).filter((f) => f.endsWith('.sql'))) {
   const src = stripSql(readFileSync(join(ROOT, 'migrations', f), 'utf-8'));
-  if (/onboarding_state|ready_for_activation|fiscal_pending|partially_validated/i.test(src)) {
-    failures.push(`migrations/${f}: estado de onboarding fiscal PERSISTIDO em schema — 0169 §9 exige read-model derivado/recomputável, nunca coluna de verdade.`);
+  // (a) identificador (coluna/tipo/tabela) NOMEADO com um dos tokens — inequívoco por si só,
+  // qualquer domínio; início-de-linha OU alvo de ADD COLUMN/RENAME/ALTER/CREATE (ver função acima).
+  const namedIdent = namedOnboardingIdentifier(src);
+  if (namedIdent) {
+    failures.push(`migrations/${f}: coluna/tipo/tabela NOMEADO "${namedIdent}" com vocabulário de onboarding (0169 §9) — read-model deve ser derivado/recomputável, nunca coluna/tipo/tabela de verdade.`);
+  }
+  // (b) bloco de VALORES (CREATE TYPE ... AS ENUM / CHECK ... IN (...)): só conta se o alvo
+  // nomeia onboarding/checklist/template, OU se ≥2 tokens do vocabulário 0169 §9 co-ocorrem no
+  // MESMO bloco (prova a progressão real — não coincidência de 1 palavra com outro domínio).
+  for (const { target, body } of findSchemaValueBlocks(src)) {
+    if (!ONBOARDING_TOKEN_RE.test(body)) continue;
+    const hits = ONBOARDING_VOCAB.filter((tok) => new RegExp(`'${tok}'`, 'i').test(body));
+    const targetIsOnboardingDomain = /onboarding|checklist|template/i.test(target);
+    if (targetIsOnboardingDomain || hits.length >= 2) {
+      failures.push(`migrations/${f}: estado de onboarding fiscal PERSISTIDO em schema (alvo "${target}", valores: ${hits.join(', ')}) — 0169 §9 exige read-model derivado/recomputável, nunca coluna de verdade.`);
+    }
   }
   if (/CREATE TABLE (IF NOT EXISTS )?\w*(fiscal_checklist|checklist_fiscal|onboarding)\w*/i.test(src)) {
     failures.push(`migrations/${f}: tabela de checklist/onboarding persistido — o checklist é derivado em runtime (0169 §4/§9), nunca gravado.`);
