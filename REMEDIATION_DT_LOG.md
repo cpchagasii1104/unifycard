@@ -1,5 +1,89 @@
 # REMEDIATION DT LOG
 
+## ✅ `F-EVENT-ECONOMIC-V2-CONTAINMENT-COMPLETUDE` — FECHADA (2026-07-30)
+**Executora especialista. Completa contenção JÁ SELADA pela DECISION-0190 (8 de 11 rotas
+economic/v2) — achado da Yala (veredito B, PAINEL_DIVIDA_VIVA.md): `advance` (POST),
+`custody` (GET) e `split` (GET) ficaram de fora, e o GET custody devolvia 500 pra
+qualquer autenticado do tenant. Não é contenção nova — é a mesma forma copiada do vizinho.**
+
+### ✅ EXECUTADO — 1 arquivo material + 3 de suporte (guard/e2e/harness estendidos)
+`backend/src/core/events/event.routes.ts` — as 3 rotas ganharam o MESMO bloco 501 já usado
+nas outras 8 (mesmo `error`/`code`
+`EVENT_ECONOMIC_V2_SANDBOX_SUBSTRATE_NOT_IMPLEMENTED`, mesma citação `DECISION-0190 §4/§9`,
+corpo original preservado abaixo intocado). 11 ocorrências do marcador de contenção no
+arquivo (confirmado por `grep -c`), 0→3 novas, 8 preexistentes intocadas.
+
+**Guard estendido** (`audit-economic-v2-containment.mjs`, hospedeiro natural — já existia,
+já vigiava exatamente esta contenção): as 3 rotas migraram do array `OUT_OF_MAP` (que
+proibia contenção nelas) para `MANDATED` (que agora exige). Regra (d) de anti-drift do
+universo permanece em 11.
+
+**E2E permanente estendido** (`validate-pipeline-e2e-economic-v2-containment.ts`,
+introspecção real via `onRoute`, zero literal de path hardcoded): T1 agora espera 11/11
+contidas, zero carve-out; T2 dispara POST **e** GET nas 11; T4/T5 antigas (que provavam
+que as 3 de fora continuavam vivas) removidas — não fazem mais sentido, a regra inverteu.
+
+**Harness `.ps1` reaproveitado** (`run-economic-v2-containment-ephemeral.ps1` — já
+declarava `EXPECTED_DATABASE_NAME`, satisfazia o requisito sem mudança estrutural; só
+cabeçalho atualizado).
+
+### 🧪 PROVA COMPORTAMENTAL — HTTP real, banco `unificard_econv2_probe` (efêmero, probe manual)
+**VERMELHA** (`event.routes.ts` revertido via `git stash`, 3 chamadas diretas + 1 controle):
+```
+GET  .../custody  → 500 {"error":{"code":"INTERNAL_ERROR",...}}
+  (log real: 'relação "event_custody" não existe' — 42P01, exatamente o diagnóstico da Yala)
+POST .../advance  → 500 {"error":{"code":"INTERNAL_ERROR",...}}
+  (log real: 'coluna "status" não existe' em payment_intents — 🔎 ACHADO BÔNUS: advance
+  tinha um SEGUNDO bug real, não mencionado no pacote, também fechado por esta contenção)
+GET  .../split    → 200 {"splits":[]}  (essa funcionava, só não tinha a contenção devida)
+POST .../custody (controle, já contida) → 501 (confirma que a bateria de prova é válida)
+```
+
+**VERDE** (fix restaurado, mesmas 4 chamadas):
+```
+GET  .../custody  → 501 EVENT_ECONOMIC_V2_SANDBOX_SUBSTRATE_NOT_IMPLEMENTED
+POST .../advance  → 501 EVENT_ECONOMIC_V2_SANDBOX_SUBSTRATE_NOT_IMPLEMENTED
+GET  .../split    → 501 EVENT_ECONOMIC_V2_SANDBOX_SUBSTRATE_NOT_IMPLEMENTED
+POST .../custody (controle) → 501 (sem regressão)
+```
+Banco de probe dropado ao final, zero resíduo confirmado por query.
+
+**Harness permanente de ponta a ponta** (PWSH 7, `unificard_economic_v2_containment_e2e`):
+`RESULTADO: 5/5 verdes` (T1 inventário 11/11 · T2 as 11 POST+GET → 501 dono incluso · T3
+zero side-effect · T4 Δbank=0 · T5 guard verde). Banco efêmero dropado, zero resíduo
+confirmado.
+
+**Guard vermelho/verde**: bloco 501 removido da rota `advance` → guard morde nomeando
+`rota advance (POST): contenção 501 ... AUSENTE`, `exit 1`. Restaurado → `GATE OK`, `exit 0`.
+
+### 🔴 ACHADO PRÓPRIO — pescado pelo runner completo, consertado na hora
+O runner completo (`validate:regression-guards`) **falhou de verdade** na primeira rodada:
+`red-gates-baseline` acusou `financial-vocabulary: 3885 / max 3884` (DECISION-0158, ratchet
+só-desce). Rastreado por diff before/after (`git stash`): meu comentário novo em
+`validate-pipeline-e2e-economic-v2-containment.ts:12` usava a palavra isolada "split" —
+token proibido fora de `src/core/bank`. `event.routes.ts` NÃO contribuiu (mesmas
+ocorrências pré-existentes, só deslocadas de linha pela inserção). Reescrito o comentário
+sem a palavra proibida (mantendo o sentido: "a 3ª rota de leitura da família"). Recontado:
+**3884/3884**, `red-gates-baseline` verde de novo.
+
+### 🧾 RUNNER E TYPECHECK (banco `unificard_dev`)
+`npm run typecheck` → 0 erros. `npm run validate:regression-guards` → **228 COMMANDS OK**
+(guard estendido, não novo — `CMDS[]` inalterado), drift 0. `economic-v2-containment` e
+`red-gates-baseline` confirmados `GATE OK` dentro do runner completo.
+
+### 🚫 NÃO FEITO / FORA DO ESCOPO
+Nenhuma tabela `event_custody` criada. As 8 rotas já contidas intocadas (confirmado: mesmo
+texto, mesma posição relativa, só deslocadas por linha). Frontend intocado. Não commitado.
+
+### 🧾 DENOMINADOR
+Prova comportamental vermelha/verde: `unificard_econv2_probe` (efêmero, criado/destruído
+manualmente para a prova cirúrgica das 3 rotas + controle, zero resíduo). Harness
+permanente: `unificard_economic_v2_containment_e2e` (efêmero, criado/destruído pelo
+`.ps1`, zero resíduo). Runner/typecheck/vocabulário: `unificard_dev`. **Confiança:
+PROVADO** — vermelha por HTTP real com causa-raiz exata (42P01) e achado bônus (bug
+distinto em advance), verde com ida-e-volta, guard vermelho/verde, e um achado próprio
+(vocabulário financeiro) pescado pelo próprio runner e corrigido antes de fechar.
+
 ## ✅ `F-ENVIRONMENT-RULE-ENFORCEMENT` — FECHADA (2026-07-30)
 **Executora especialista. A REGRA DE AMBIENTE (LEIS_OPERACIONAIS_UNIFICARD.md, corrigida
 hoje, commit `4060df0a2`) mandava `dropdb unificard_dev` — o banco OFICIAL — antes de toda

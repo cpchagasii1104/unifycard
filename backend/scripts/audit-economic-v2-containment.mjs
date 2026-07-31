@@ -3,33 +3,29 @@
 // SELADA · VEREDITO A · SELO COMPLETO DOCS-ONLY em 2026-07-20; material desta fatia é a execução
 // autorizada da frente §9, com novo GO material explícito).
 //
-// DECISION-0190 §4 define a família institucionalmente contida (8 operações, todas POST):
-//   custody · split · payment/authorize · payment/execute · payment/revoke · refund · chargeback ·
-//   chargeback/resolve
-// com código canônico de borda: 501 EVENT_ECONOMIC_V2_SANDBOX_SUBSTRATE_NOT_IMPLEMENTED, ANTES de
-// qualquer novo estado/side-effect (§4, §9 "zero chamada aos services contidos").
+// DECISION-0190 §4 define a família institucionalmente contida. Achado da Yala (veredito B,
+// 2026-07-30, PAINEL_DIVIDA_VIVA.md): a contenção só tinha sido aplicada em 8 das 11 rotas —
+// advance (POST), custody (GET) e split (GET) ficaram de fora, e o GET custody devolvia 500
+// (42P01, tabela event_custody inexistente) para qualquer autenticado do tenant. Completado
+// nesta fatia: as 11 rotas da família (todas sob '/:eventId/economic/v2/') têm o MESMO 501
+// EVENT_ECONOMIC_V2_SANDBOX_SUBSTRATE_NOT_IMPLEMENTED como PRIMEIRA instrução do handler.
 //
-// FORA da família enumerada em §4 (não contidas por este guard, MAPA explícito e intencional):
-//   - POST /:eventId/economic/v2/advance — handoff de fase (event_outbox apenas; ZERO Bank/custódia/
-//     split/autorização — verificado em event-economic-phase.service.ts); não citado em §4.
-//   - GET  /:eventId/economic/v2/custody — leitura (listCustodiesByEvent); §5 exige que estados
-//     existentes permaneçam "disponíveis para auditoria" — leitura precisa continuar viva.
-//   - GET  /:eventId/economic/v2/split — leitura (listSplitsByEvent); mesmo racional do GET custody.
+// As 11 operações contidas (mix de POST e GET — leitura NÃO é exceção; nenhuma delas tem
+// substrato sandbox real, então nenhuma pode responder com dado):
+//   advance · custody (POST) · custody (GET) · split (POST) · split (GET) · payment/authorize ·
+//   payment/execute · payment/revoke · refund · chargeback · chargeback/resolve
 //
-// MORDE (regressão da contenção) se, para qualquer uma das 8 rotas mandatadas:
+// MORDE (regressão da contenção) se, para qualquer uma das 11 rotas:
 //   (a) o código de contenção 501 EVENT_ECONOMIC_V2_SANDBOX_SUBSTRATE_NOT_IMPLEMENTED sumir da região
 //       do handler (ANTES do sink real do service) — writer/service voltaria a ser alcançável;
 //   (b) a contenção deixar de ser a PRIMEIRA instrução do handler — qualquer `await` aparecendo ANTES
 //       dela na região (ex.: leitura de evento, chamada a serviço) reabriria a janela de side-effect
-//       pré-contenção que a DECISION-0190 exige fechada (§4: "ANTES de criar novos estados... ou chamar
-//       seus services");
+//       (ou, nas 3 leituras, a janela de 500 contra tabela fantasma) pré-contenção que a DECISION-0190
+//       exige fechada;
 //   (c) a citação de base normativa (DECISION-0190) for removida do comentário do guard de contenção
 //       (perda de rastreabilidade da autoridade da contenção);
-//   (d) o universo de sub-rotas da família (path literal '/:eventId/economic/v2/') divergir de 11
-//       (8 contidas + 3 fora-do-mapa) — sinal de rota nova/removida sem reclassificação neste guard;
-//   (e) qualquer uma das 3 rotas FORA do mapa (advance, GET custody, GET split) ganhar a contenção 501
-//       antes do próprio sink — sinal de over-broadening não autorizado pela DECISION-0190 §4 (o
-//       escopo da contenção é exatamente as 8, não "toda rota que comece com /economic/v2").
+//   (d) o universo de sub-rotas da família (path literal '/:eventId/economic/v2/') divergir de 11 —
+//       sinal de rota nova/removida sem reclassificação neste guard.
 //
 // Região-ancorado: para cada sink (chamada real ao service, literal única no arquivo), a região do
 // handler é [ÚLTIMO 'async (req, reply) => {' ANTES do sink, sink). Comment/literal-aware via strip de
@@ -59,13 +55,13 @@ const CONTAINMENT_CODE = 'EVENT_ECONOMIC_V2_SANDBOX_SUBSTRATE_NOT_IMPLEMENTED';
 const DECISION_MARKER = 'DECISION-0190';
 const HANDLER_MARKER = 'async (req, reply) => {';
 
-// (d) anti-drift do universo: exatamente 11 registros de path sob a família (8 contidas + 3 fora-do-mapa).
+// (d) anti-drift do universo: exatamente 11 registros de path sob a família (todas contidas).
 // Checado no RAW (o path literal não vive em comentário, então strip não muda a contagem).
 const FAMILY_PATH_NEEDLE = "'/:eventId/economic/v2/";
 const familyPathCount = raw.split(FAMILY_PATH_NEEDLE).length - 1;
 if (familyPathCount !== 11) {
   note(
-    `universo de rotas da família economic/v2 mudou: ${familyPathCount} registros de path encontrados (esperado 11 = 8 contidas + 3 fora-do-mapa: advance, GET custody, GET split). ` +
+    `universo de rotas da família economic/v2 mudou: ${familyPathCount} registros de path encontrados (esperado 11, todas contidas). ` +
     `Rota nova/removida precisa de reclassificação explícita neste guard (§4 da DECISION-0190 antes de estender a contenção).`
   );
 }
@@ -90,10 +86,14 @@ function regionForSink(sinkNeedle, label) {
   return { region, regionStripped: stripTs(region), sinkIdx, hStart };
 }
 
-// As 8 rotas MANDATADAS pela DECISION-0190 §4 (sink real de cada service, literal única no arquivo).
+// As 11 rotas MANDATADAS (sink real de cada service, literal única no arquivo). advance, custody
+// (GET) e split (GET) entraram nesta fatia — completam o mapa que faltava desde a DECISION-0190.
 const MANDATED = [
+  ['advance (POST)', 'eventEconomicPhaseService.advanceToEconomicPhase('],
   ['custody (POST)', 'eventCustodyService.createCustody('],
+  ['custody (GET)', 'eventCustodyService.listCustodiesByEvent('],
   ['split (POST)', 'eventSplitDeclarativeService.calculateSplit('],
+  ['split (GET)', 'eventSplitDeclarativeService.listSplitsByEvent('],
   ['payment/authorize (POST)', 'eventPaymentPreparedService.authorizePayment('],
   ['payment/revoke (POST)', 'eventPaymentPreparedService.revokeAuthorization('],
   ['payment/execute (POST)', 'eventPaymentExecutionService.executePayment('],
@@ -110,33 +110,19 @@ for (const [label, sinkNeedle] of MANDATED) {
   // (a) contenção FUNCIONAL presente na região (regionStripped — decoy em comentário não conta).
   const containIdx = regionStripped.indexOf(CONTAINMENT_CODE);
   if (containIdx < 0) {
-    note(`rota ${label}: contenção 501 ${CONTAINMENT_CODE} AUSENTE (fora de comentário) antes do sink '${sinkNeedle}' — writer real alcançável (regressão da DECISION-0190 §4).`);
+    note(`rota ${label}: contenção 501 ${CONTAINMENT_CODE} AUSENTE (fora de comentário) antes do sink '${sinkNeedle}' — writer/reader real alcançável (regressão da DECISION-0190 §4).`);
     continue;
   }
 
   // (b) a contenção é a PRIMEIRA instrução — nenhum `await` na região (código real) antes dela.
   const beforeContain = regionStripped.slice(0, containIdx);
   if (/\bawait\b/.test(beforeContain)) {
-    note(`rota ${label}: existe 'await' ANTES da contenção 501 na região do handler — a contenção deixou de ser a PRIMEIRA instrução (janela de side-effect pré-contenção reaberta, viola DECISION-0190 §4).`);
+    note(`rota ${label}: existe 'await' ANTES da contenção 501 na região do handler — a contenção deixou de ser a PRIMEIRA instrução (janela de side-effect/500 pré-contenção reaberta, viola DECISION-0190 §4).`);
   }
 
   // (c) citação de base normativa preservada (vive em comentário — checado no RAW da região).
   if (!region.includes(DECISION_MARKER)) {
     note(`rota ${label}: citação de base normativa (${DECISION_MARKER}) ausente do comentário de contenção — perda de rastreabilidade da autoridade da contenção.`);
-  }
-}
-
-// (e) as 3 rotas FORA do mapa NÃO devem ter ganho a contenção (over-broadening não autorizado).
-const OUT_OF_MAP = [
-  ['advance (POST, fora do mapa — handoff de fase, event_outbox apenas)', 'eventEconomicPhaseService.advanceToEconomicPhase('],
-  ['custody (GET, fora do mapa — leitura, §5 auditoria)', 'eventCustodyService.listCustodiesByEvent('],
-  ['split (GET, fora do mapa — leitura, §5 auditoria)', 'eventSplitDeclarativeService.listSplitsByEvent('],
-];
-for (const [label, sinkNeedle] of OUT_OF_MAP) {
-  const found = regionForSink(sinkNeedle, label);
-  if (!found) continue;
-  if (found.regionStripped.includes(CONTAINMENT_CODE)) {
-    note(`rota ${label}: ganhou a contenção 501 ${CONTAINMENT_CODE} — over-broadening não autorizado pela DECISION-0190 §4 (o escopo da contenção é exatamente as 8 rotas mandatadas, não toda rota economic/v2).`);
   }
 }
 
@@ -146,10 +132,9 @@ if (fails.length > 0) {
   process.exit(1);
 }
 console.log(
-  'GATE OK [economic-v2-containment] — DECISION-0190 §4: as 8 rotas mandatadas (custody, split, ' +
-  'payment/authorize, payment/execute, payment/revoke, refund, chargeback, chargeback/resolve) 501 ' +
-  'EVENT_ECONOMIC_V2_SANDBOX_SUBSTRATE_NOT_IMPLEMENTED como PRIMEIRA instrução do handler, ANTES de ' +
-  'qualquer service/side-effect. Citação DECISION-0190 preservada em cada uma. As 3 rotas fora do mapa ' +
-  '(advance, GET custody, GET split) permanecem vivas e sem over-broadening. Universo de rotas da ' +
-  'família = 11 (sem drift).'
+  'GATE OK [economic-v2-containment] — DECISION-0190 §4: as 11 rotas da família economic/v2 (advance, ' +
+  'custody POST/GET, split POST/GET, payment/authorize, payment/execute, payment/revoke, refund, ' +
+  'chargeback, chargeback/resolve) 501 EVENT_ECONOMIC_V2_SANDBOX_SUBSTRATE_NOT_IMPLEMENTED como PRIMEIRA ' +
+  'instrução do handler, ANTES de qualquer service/side-effect. Citação DECISION-0190 preservada em ' +
+  'cada uma. Universo de rotas da família = 11 (sem drift).'
 );

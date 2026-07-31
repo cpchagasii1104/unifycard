@@ -1,7 +1,7 @@
 # run-economic-v2-containment-ephemeral.ps1
 # Orquestra o E2E validate-pipeline-e2e-economic-v2-containment em DB EFEMERA. NUNCA toca unificard_dev.
-# F-EVENT-ECONOMIC-V2-HONEST-CONTAINMENT (DECISION-0190 SS4/SS9) - 8 rotas mandatadas -> 501 honesto
-# ANTES de qualquer side-effect; 3 rotas fora do mapa (leitura + handoff de fase) permanecem vivas.
+# F-EVENT-ECONOMIC-V2-HONEST-CONTAINMENT (DECISION-0190 SS4/SS9) - as 11 rotas da familia -> 501
+# honesto ANTES de qualquer side-effect. Completado 2026-07-30 (achado da Yala): zero carve-out.
 $ErrorActionPreference = 'Stop'
 Set-Location $PSScriptRoot\..
 

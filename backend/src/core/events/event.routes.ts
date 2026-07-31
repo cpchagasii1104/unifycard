@@ -2657,6 +2657,16 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (req, reply) => {
+      // 🔴 F-EVENT-ECONOMIC-V2-HONEST-CONTAINMENT (DECISION-0190 §4/§9) — CONTENÇÃO HONESTA. Toda a família
+      // HTTP economic/v2 permanece institucionalmente não implementada (substrato sandbox financeiro nunca
+      // materializado) — 501 honesto como PRIMEIRA instrução do handler, ANTES de qualquer leitura/efeito
+      // colateral. Corpo original preservado ABAIXO, intocado, para a futura frente material com GO próprio.
+      return reply.status(501).send({
+        error: 'EVENT_ECONOMIC_V2_SANDBOX_SUBSTRATE_NOT_IMPLEMENTED',
+        code: 'EVENT_ECONOMIC_V2_SANDBOX_SUBSTRATE_NOT_IMPLEMENTED',
+        message: 'Contenção honesta (DECISION-0190): esta operação da família economic/v2 aguarda substrato sandbox real, novo GO institucional e selo próprio antes de qualquer efeito colateral.',
+      });
+
       if (!req.user) {
         return sendEventHttpError(reply, req, 401, ErrorCode.UNAUTHORIZED, 'Not authenticated');
       }
@@ -2822,6 +2832,16 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (req, reply) => {
+      // 🔴 F-EVENT-ECONOMIC-V2-HONEST-CONTAINMENT (DECISION-0190 §4/§9) — CONTENÇÃO HONESTA. Toda a família
+      // HTTP economic/v2 permanece institucionalmente não implementada (substrato sandbox financeiro nunca
+      // materializado) — 501 honesto como PRIMEIRA instrução do handler, ANTES de qualquer leitura/efeito
+      // colateral. Corpo original preservado ABAIXO, intocado, para a futura frente material com GO próprio.
+      return reply.status(501).send({
+        error: 'EVENT_ECONOMIC_V2_SANDBOX_SUBSTRATE_NOT_IMPLEMENTED',
+        code: 'EVENT_ECONOMIC_V2_SANDBOX_SUBSTRATE_NOT_IMPLEMENTED',
+        message: 'Contenção honesta (DECISION-0190): esta operação da família economic/v2 aguarda substrato sandbox real, novo GO institucional e selo próprio antes de qualquer efeito colateral.',
+      });
+
       if (!req.user) {
         return sendEventHttpError(reply, req, 401, ErrorCode.UNAUTHORIZED, 'Not authenticated');
       }
@@ -2967,6 +2987,16 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (req, reply) => {
+      // 🔴 F-EVENT-ECONOMIC-V2-HONEST-CONTAINMENT (DECISION-0190 §4/§9) — CONTENÇÃO HONESTA. Toda a família
+      // HTTP economic/v2 permanece institucionalmente não implementada (substrato sandbox financeiro nunca
+      // materializado) — 501 honesto como PRIMEIRA instrução do handler, ANTES de qualquer leitura/efeito
+      // colateral. Corpo original preservado ABAIXO, intocado, para a futura frente material com GO próprio.
+      return reply.status(501).send({
+        error: 'EVENT_ECONOMIC_V2_SANDBOX_SUBSTRATE_NOT_IMPLEMENTED',
+        code: 'EVENT_ECONOMIC_V2_SANDBOX_SUBSTRATE_NOT_IMPLEMENTED',
+        message: 'Contenção honesta (DECISION-0190): esta operação da família economic/v2 aguarda substrato sandbox real, novo GO institucional e selo próprio antes de qualquer efeito colateral.',
+      });
+
       if (!req.user) {
         return sendEventHttpError(reply, req, 401, ErrorCode.UNAUTHORIZED, 'Not authenticated');
       }

@@ -1,22 +1,26 @@
 /**
  * E2E — F-EVENT-ECONOMIC-V2-HONEST-CONTAINMENT (DECISION-0190 §4/§9, SELADA · VEREDITO A).
  *
- * Prova, via HTTP real (app.inject, sem frontend), que a família economic/v2 mandatada pela decisão
- * devolve o 501 honesto ANTES de qualquer service/side-effect, e que as rotas FORA do mapa (§4 não as
- * cita) permanecem vivas. As rotas alvo NÃO são digitadas como literais operacionais neste arquivo —
- * são descobertas dinamicamente via o hook onRoute do Fastify (introspecção real do plugin registrado),
- * e classificadas apenas por MÉTODO HTTP + sufixo do path (nenhuma palavra de vocabulário financeiro
- * fora do domínio Bank é introduzida como token novo neste arquivo — DECISION-0158 ratchet).
+ * Prova, via HTTP real (app.inject, sem frontend), que TODA a família economic/v2 devolve o 501
+ * honesto ANTES de qualquer service/side-effect. As rotas alvo NÃO são digitadas como literais
+ * operacionais neste arquivo — são descobertas dinamicamente via o hook onRoute do Fastify
+ * (introspecção real do plugin registrado), e classificadas apenas por MÉTODO HTTP + sufixo do
+ * path (nenhuma palavra de vocabulário financeiro fora do domínio Bank é introduzida como token
+ * novo neste arquivo — DECISION-0158 ratchet).
  *
- *   T1 inventário: 11 rotas descobertas sob a família (8 POST mandatadas + 3 fora do mapa).
- *   T2 as 8 mandatadas → 501 EVENT_ECONOMIC_V2_SANDBOX_SUBSTRATE_NOT_IMPLEMENTED, MESMO para o
- *      DONO do evento (chamador legítimo) — a contenção não distingue autoridade, contém TUDO.
+ * 🔴 COMPLETADO 2026-07-30 (achado da Yala, veredito B): até esta fatia, 3 das 11 rotas ficavam
+ * FORA da contenção — advance (POST), custody (GET) e a 3ª rota de leitura da família (GET). O
+ * GET custody, em particular, lia da tabela schema-ghost `event_custody` (nunca migrada) e
+ * devolvia 500 (42P01) para QUALQUER autenticado do tenant — endpoint vivo, sem preHandler,
+ * quebrado desde a gênese. Agora as 11 rotas têm o MESMO 501, sem exceção — leitura NÃO é carve-out.
+ *
+ *   T1 inventário: 11 rotas descobertas sob a família — TODAS contidas, zero carve-out.
+ *   T2 as 11 → 501 EVENT_ECONOMIC_V2_SANDBOX_SUBSTRATE_NOT_IMPLEMENTED, MESMO para o DONO do
+ *      evento (chamador legítimo) — a contenção não distingue autoridade, contém TUDO.
  *   T3 zero side-effect: contadores (bank_ledger+bank_transactions, event_custody,
- *      event_payment_authorization) idênticos antes/depois da bateria das 8 chamadas.
- *   T4 as 2 rotas GET fora do mapa continuam vivas (200, sem o código de contenção).
- *   T5 a rota de handoff de fase (fora do mapa) continua viva (não devolve o código de contenção).
- *   T6 Δbank = 0.
- *   T7 guard audit-economic-v2-containment verde.
+ *      event_payment_authorization) idênticos antes/depois da bateria das 11 chamadas.
+ *   T4 Δbank = 0.
+ *   T5 guard audit-economic-v2-containment verde.
  *
  * 🔒 DB EFÊMERA (wrapper run-economic-v2-containment-ephemeral.ps1). NUNCA unificard_dev.
  */
@@ -122,7 +126,7 @@ async function main(): Promise<void> {
   const discovered: { method: string; url: string; bodySchema: unknown }[] = [];
   app.addHook('onRoute', (routeOptions: any) => {
     // Fastify auto-registra HEAD para toda rota GET (exposeHeadRoutes) — não é uma rota real do plugin,
-    // filtrado aqui para o inventário não inflar (2 GET → 2 HEAD auto-gerados, não fazem parte do MAP).
+    // filtrado aqui para o inventário não inflar (rotas GET → HEAD auto-gerados, não fazem parte do MAP).
     if (
       typeof routeOptions.url === 'string' &&
       routeOptions.url.includes('economic') &&
@@ -140,24 +144,17 @@ async function main(): Promise<void> {
   await app.ready();
 
   try {
-    const contained = discovered.filter((r) => r.method === 'POST' && !r.url.endsWith('/advance'));
-    const carveOutRead = discovered.filter((r) => r.method === 'GET');
-    const carveOutAdvance = discovered.filter((r) => r.url.endsWith('/advance'));
-
-    // T1 — inventário completo e provado (anti-drift do MAP desta fatia).
+    // T1 — inventário completo e provado: TODAS as 11 são contidas agora, zero carve-out.
     record(
-      'T1 inventário: 11 rotas descobertas (8 mandatadas + 3 fora do mapa: 2 leitura + 1 handoff de fase)',
-      discovered.length === 11 && contained.length === 8 && carveOutRead.length === 2 && carveOutAdvance.length === 1,
-      `total=${discovered.length} contidas=${contained.length} leitura=${carveOutRead.length} handoff=${carveOutAdvance.length}`
+      'T1 inventário: 11 rotas descobertas na família economic/v2, TODAS contidas (zero carve-out)',
+      discovered.length === 11,
+      `total=${discovered.length}`
     );
 
     // event_custody/event_payment_authorization são schema-ghost — NUNCA migradas (confirmado: nenhuma
-    // migration em migrations/*.sql cria essas tabelas). Consistente com a causa-raiz da DECISION-0190
-    // (substrato pressuposto e nunca materializado): antes desta contenção, alcançar o service faria a
-    // rota estourar 500 (relação inexistente) em vez do 501 honesto. count() tolera a ausência (mesmo
-    // padrão do irmão validate-pipeline-e2e-event-economic-authority-binding.ts) — contagem 0 nesse caso
-    // ainda prova "zero side-effect": ou a tabela não existe (nada pôde ser gravado), ou existe e a
-    // contagem não mudou.
+    // migration em migrations/*.sql cria essas tabelas). count() tolera a ausência (mesmo padrão do
+    // irmão validate-pipeline-e2e-event-economic-authority-binding.ts) — contagem 0 nesse caso ainda
+    // prova "zero side-effect": ou a tabela não existe (nada pôde ser gravado), ou existe e não mudou.
     const countTolerant = async (sql: string, p: unknown[] = []): Promise<number> => {
       try { return await count(sql, p); } catch { return 0; }
     };
@@ -167,21 +164,25 @@ async function main(): Promise<void> {
     const custodyBefore = await countTolerant(`SELECT count(*)::int AS n FROM event_custody WHERE event_id = $1`, [eventId]);
     const authBefore = await countTolerant(`SELECT count(*)::int AS n FROM event_payment_authorization WHERE event_id = $1`, [eventId]);
 
-    // T2 — cada uma das 8 rotas mandatadas devolve o 501 honesto, mesmo para o DONO do evento.
+    // T2 — cada uma das 11 rotas (POST e GET) devolve o 501 honesto, mesmo para o DONO do evento.
     let allContained = true;
     const containedDetails: string[] = [];
-    for (const route of contained) {
+    for (const route of discovered) {
       const url = route.url.replace(':eventId', eventId);
-      const payload = synth(route.bodySchema);
-      const res = await app.inject({ method: 'POST', url, headers: { 'content-type': 'application/json' }, payload: JSON.stringify(payload) });
+      const opts: any = { method: route.method, url };
+      if (route.method === 'POST') {
+        opts.headers = { 'content-type': 'application/json' };
+        opts.payload = JSON.stringify(synth(route.bodySchema));
+      }
+      const res = await app.inject(opts);
       const body = JSON.parse(res.body || '{}');
       const ok = res.statusCode === 501 && body?.code === CONTAINMENT_CODE;
       if (!ok) allContained = false;
-      containedDetails.push(`${url} → status=${res.statusCode} code=${body?.code}`);
+      containedDetails.push(`${route.method} ${url} → status=${res.statusCode} code=${body?.code}`);
     }
-    record('T2 as 8 rotas mandatadas → 501 EVENT_ECONOMIC_V2_SANDBOX_SUBSTRATE_NOT_IMPLEMENTED (dono do evento incluso)', allContained, containedDetails.join(' | '));
+    record('T2 as 11 rotas (POST+GET) → 501 EVENT_ECONOMIC_V2_SANDBOX_SUBSTRATE_NOT_IMPLEMENTED (dono do evento incluso)', allContained, containedDetails.join(' | '));
 
-    // T3 — zero side-effect (contadores idênticos antes/depois da bateria completa das 8 chamadas).
+    // T3 — zero side-effect (contadores idênticos antes/depois da bateria completa das 11 chamadas).
     const bankAfterBattery = await count(`SELECT ((SELECT count(*) FROM bank_ledger) + (SELECT count(*) FROM bank_transactions))::int AS n`);
     const custodyAfter = await countTolerant(`SELECT count(*)::int AS n FROM event_custody WHERE event_id = $1`, [eventId]);
     const authAfter = await countTolerant(`SELECT count(*)::int AS n FROM event_payment_authorization WHERE event_id = $1`, [eventId]);
@@ -191,48 +192,14 @@ async function main(): Promise<void> {
       `bank ${bankBefore}→${bankAfterBattery} · custody ${custodyBefore}→${custodyAfter} · authorization ${authBefore}→${authAfter}`
     );
 
-    // T4 — as 2 rotas de leitura fora do mapa NÃO foram engolidas pela contenção (continuam executando a
-    // PRÓPRIA lógica, não o 501). Achado real desta bateria: GET custody já lia da tabela schema-ghost
-    // event_custody (nunca migrada) e por isso já devolvia 500 ANTES desta fatia — pré-existente, não
-    // introduzido aqui, não é uma das 8 rotas mandatadas pela DECISION-0190 §4, e permanece intocado. A
-    // outra rota de leitura (store em memória) devolve 200. O critério de "continua viva" é NÃO ter sido
-    // engolida pelo 501 de contenção — não "sempre 200", que dependeria de um defeito pré-existente alheio
-    // a esta fatia.
-    let allReadsLive = true;
-    const readDetails: string[] = [];
-    for (const route of carveOutRead) {
-      const url = route.url.replace(':eventId', eventId);
-      const res = await app.inject({ method: 'GET', url });
-      const notContained = res.statusCode !== 501 && !(res.body || '').includes(CONTAINMENT_CODE);
-      if (!notContained) allReadsLive = false;
-      readDetails.push(`${url} → status=${res.statusCode} contido=${!notContained}`);
-    }
-    record('T4 as 2 rotas de leitura fora do mapa não foram engolidas pela contenção (executam a própria lógica)', allReadsLive, readDetails.join(' | '));
-
-    // T5 — a rota de handoff de fase (fora do mapa) continua viva — não devolve o código de contenção
-    // (o handoff é event_outbox puro, sem Bank/custódia/autorização; seu próprio contrato de negócio
-    // pode recusar por pré-condição, o que é aceitável — o que NÃO pode é ter sido engolida pela 501).
-    let advanceLive = true;
-    const advanceDetails: string[] = [];
-    for (const route of carveOutAdvance) {
-      const url = route.url.replace(':eventId', eventId);
-      const payload = synth(route.bodySchema);
-      const res = await app.inject({ method: 'POST', url, headers: { 'content-type': 'application/json' }, payload: JSON.stringify(payload) });
-      const body = JSON.parse(res.body || '{}');
-      const ok = body?.code !== CONTAINMENT_CODE;
-      if (!ok) advanceLive = false;
-      advanceDetails.push(`${url} → status=${res.statusCode} code=${body?.code}`);
-    }
-    record('T5 rota de handoff de fase (fora do mapa) continua viva (não engolida pela contenção)', advanceLive, advanceDetails.join(' | '));
-
-    // T6 — Δbank = 0 (fim a fim, do início do teste até aqui).
+    // T4 — Δbank = 0 (fim a fim, do início do teste até aqui).
     const bankFinal = await count(`SELECT ((SELECT count(*) FROM bank_ledger) + (SELECT count(*) FROM bank_transactions))::int AS n`);
-    record('T6 Δbank = 0', bankFinal === bankBefore, `${bankBefore} → ${bankFinal}`);
+    record('T4 Δbank = 0', bankFinal === bankBefore, `${bankBefore} → ${bankFinal}`);
 
-    // T7 — guard estrutural verde.
+    // T5 — guard estrutural verde.
     let guard = false;
     try { execSync('node scripts/audit-economic-v2-containment.mjs', { cwd, encoding: 'utf8' }); guard = true; } catch { guard = false; }
-    record('T7 guard audit-economic-v2-containment verde', guard);
+    record('T5 guard audit-economic-v2-containment verde', guard);
   } finally {
     await app.close();
   }
@@ -245,7 +212,7 @@ async function main(): Promise<void> {
     await pool.end();
     process.exit(1);
   }
-  console.log('✨ Família economic/v2 mandatada (DECISION-0190 §4) honestamente contida ANTES de qualquer side-effect; rotas fora do mapa permanecem vivas; Δbank=0.');
+  console.log('✨ Família economic/v2 INTEIRA (11 rotas, DECISION-0190 §4 completado) honestamente contida ANTES de qualquer side-effect; Δbank=0.');
   await pool.end();
   process.exit(0);
 }
