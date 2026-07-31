@@ -115,10 +115,18 @@ independente antes de ser aceito.
 
 ---
 
-## ☠️ RISCO DESTRUTIVO VIVO — UMA LEI MANDA APAGAR O BANCO OFICIAL
+## ✅ RESOLVIDO NO MESMO DIA — a Lei que mandava apagar o banco oficial
 
 **`DT-LAW-MANDATES-DROPPING-OFFICIAL-DATABASE`** · achado pela instância GUARDIÃO em
-2026-07-30, **confirmado de 1ª mão pela direção no mesmo dia**.
+2026-07-30, confirmado de 1ª mão pela direção, **corrigido com autorização de Clayton no mesmo
+dia**. A regra passou a nomear **banco EFÊMERO** e a proibir explicitamente o oficial; o
+histórico da correção ficou dentro da própria Lei.
+
+⏳ **PENDENTE:** a Lei segue **sem enforcement** — nenhum guard verifica a REGRA DE AMBIENTE.
+Invariante proposta: *todo `.ps1` que faz `CREATE DATABASE` declara `EXPECTED_DATABASE_NAME`*
+(2 violações reais achadas em 2026-07-29, uma delas quebrando harness). Sem isso, a Lei é texto.
+
+<details><summary>Registro do que a Lei dizia antes (histórico)</summary>
 
 `docs/01_normative/LEIS_OPERACIONAIS_UNIFICARD.md:196-206` — nível 2 de precedência, abaixo
 apenas da Constituição:
@@ -151,9 +159,13 @@ e no boot. **Duas normas, sentidos opostos, e a mais antiga manda destruir.**
 🔴 **NÃO é a direção quem corrige.** Alterar Lei é ato de Clayton. A direção **não editou** a
 norma — registrou, escalou e apontou daqui e do `CLAUDE.md`.
 
-**Correção sugerida (não aplicada):** a regra de ambiente recriado vale para **bancos efêmeros
-de teste**, nunca para o oficial. O mecanismo governado já existe e é o `EXPECTED_DATABASE_NAME`
-dos ~96 harnesses.
+**Correção aplicada em 2026-07-30** (autorizada por Clayton): a regra passou a valer para
+**banco efêmero**, com proibição explícita do oficial. **Não houve regressão** — `unificard_dev`
+tinha 548 migrations acumuladas e os 75 bairros vivos, o que prova que o texto **já não era
+seguido**; e a garantia protegida (schema determinístico do zero) é exercida pelos **216
+harnesses** e vigiada por `audit-migration-runner-isolation.mjs`, dentro do runner.
+
+</details>
 
 ## 🔴 VIVA E DEMONSTRADA — alguém provou que quebra hoje
 

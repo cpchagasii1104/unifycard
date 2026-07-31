@@ -195,15 +195,48 @@ Nada nesta secção altera a **Lei 5** (financeiro), nem a soberania de **CONCEP
 
 ## REGRA DE AMBIENTE (CRÍTICA)
 
-> **OBRIGATÓRIO:** Execução de migrations somente em ambiente recriado do zero.
+> **OBRIGATÓRIO:** validação de migrations somente em ambiente **EFÊMERO**, recriado do zero
+> e destruído ao fim.
+
+### ⛔ NUNCA contra `unificard_dev`
+
+`unificard_dev` é o **BANCO OFICIAL** (`DT-OFFICIAL-DATABASE-LOCK-FAIL-CLOSED`, 2026-07-29) e
+contém dado curado **insubstituível**: os **75 bairros oficiais de Curitiba** (frente N3 selada,
+*"produto intocável, NUNCA recarregar"*), as policies econômicas, os grants de capability e a
+conta do fundo regional. **Apagá-lo é perda irreversível.**
+
+### O mecanismo governado
+
+É o mesmo dos **216 harnesses** `run-*-ephemeral.ps1` que já exercem esta regra continuamente:
 
 ```powershell
-# SEMPRE antes de rodar migrations
-dropdb -h localhost -U postgres unificard_dev
-createdb -h localhost -U postgres -E UTF8 unificard_dev
+$db = "unificard_<frente>_e2e_$stamp"
+& $psql $maintUrl -c "CREATE DATABASE $db;"
+$env:DATABASE_URL          = "$prefix$db"
+$env:EXPECTED_DATABASE_NAME = $db          # trava fail-closed EXIGE esta declaração
+npx tsx src/core/db/migrate.ts
+# ... e2e ...
+& $psql $maintUrl -c "DROP DATABASE IF EXISTS $db WITH (FORCE);"
 ```
 
-**Execução fora de ambiente recriado = VIOLAÇÃO**
+**Rodar migration contra banco NÃO-efêmero sem declarar `EXPECTED_DATABASE_NAME` = VIOLAÇÃO.**
+**Criar banco efêmero sem declarar `EXPECTED_DATABASE_NAME` = VIOLAÇÃO** — a trava recai sobre
+`OFFICIAL_DATABASE_NAME` e aborta com `exit 2`.
+
+> ### 🔧 HISTÓRICO DESTA CORREÇÃO — 2026-07-30, autorizada por Clayton
+> Até esta data a regra mandava, em bloco literal, `dropdb unificard_dev` **SEMPRE antes de rodar
+> migrations**, e chamava de VIOLAÇÃO não fazer. **Nomeava o banco oficial.** Um agente cumprindo
+> a norma destruiria os 75 bairros, 48 policies, 3 grants e a conta do fundo regional.
+>
+> A contradição foi achada pela instância GUARDIÃO e confirmada de 1ª mão pela direção. **Não
+> houve regressão ao corrigir**, e a prova é o próprio banco: `unificard_dev` tem **548 migrations
+> acumuladas e os 75 bairros vivos** — se a regra estivesse sendo cumprida ao pé da letra, estaria
+> vazio. **A existência do dado provava que o texto já não era seguido.** O que mudou foi o texto
+> passar a descrever o que os 216 harnesses já fazem — e que já é seguro.
+>
+> A **garantia** protegida pela regra (migration produz schema determinístico do zero) **não foi
+> afrouxada**: ela é exercida pelos 216 harnesses e vigiada por `audit-migration-runner-isolation.mjs`,
+> dentro do runner.
 
 ---
 
