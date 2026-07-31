@@ -10,7 +10,10 @@
 // editá-las): (a) coluna/CHECK/ENUM *severity* aceitar valor fora do vocabulário de severity;
 // (b) coluna/CHECK/ENUM *priority* aceitar valor fora do vocabulário de priority; (c) qualquer
 // valor fora de UPPER_CASE; (d) vocabulário de priority colado em coluna severity (ou o
-// contrário) — o "não são sinônimos" de §4.34, raiz do defeito original desta frente.
+// contrário) — o "não são sinônimos" de §4.34, raiz do defeito original desta frente; (e) coluna
+// *severity*/*priority* DEFINIDA sem CHECK nem ENUM — achado 2026-07-31 (auditoria da direção,
+// e95fb825f): sem constraint, "UPPER_CASE" é INEXEQUÍVEL no banco — foi assim que
+// financial_alerts.severity nasceu (TEXT, zero constraint) antes desta frente existir.
 //
 // Exceção NOMEADA (não allowlist genérica de arquivo/domínio): actor_relationships.
 // requester_feed_priority / target_feed_priority são preferência de EXIBIÇÃO de feed
@@ -63,10 +66,42 @@ function splitStatements(src) {
   return stmts.filter(Boolean);
 }
 
+function extractParenBody(s, openIdx) {
+  // s[openIdx] === '(' — retorna o conteúdo até o ')' correspondente (respeita aninhamento).
+  let depth = 0;
+  for (let i = openIdx; i < s.length; i++) {
+    if (s[i] === '(') depth += 1;
+    else if (s[i] === ')') { depth -= 1; if (depth === 0) return s.slice(openIdx + 1, i); }
+  }
+  return null;
+}
+
+function splitTopLevelCommas(s) {
+  const parts = [];
+  let depth = 0;
+  let start = 0;
+  for (let i = 0; i < s.length; i++) {
+    if (s[i] === '(') depth += 1;
+    else if (s[i] === ')') depth -= 1;
+    else if (s[i] === ',' && depth === 0) { parts.push(s.slice(start, i)); start = i + 1; }
+  }
+  parts.push(s.slice(start));
+  return parts;
+}
+
+const NON_COLUMN_KEYWORDS = /^(CONSTRAINT|PRIMARY|FOREIGN|UNIQUE|CHECK|EXCLUDE|LIKE)$/i;
+// §4.34 é "Tipo: VARCHAR(20)" — ancora pelo TIPO da coluna, não só pelo nome. Um INTEGER
+// chamado "priority" (ordem de aplicação, ex.: economic_policies.priority) NÃO é o vocabulário
+// de §4.34 — é campo numérico de ordenação, achado real ao ligar esta checagem (2026-07-31).
+// ENUM nativo (ex.: alert_severity) também conta — é a forma tipada do vocabulário, não foge.
+const STRING_TYPE_RE = /^(TEXT|VARCHAR|CHAR|CHARACTER)/i;
+const isStringLikeType = (typeToken) => STRING_TYPE_RE.test(typeToken) || /severity|priority/i.test(typeToken);
+
 // ── replay estatal ao longo de TODAS as migrations, em ordem ──
 const checkTargets = new Map(); // key "table.column" -> string[] valores
 const enumTypes = new Map(); // key "typeName" -> string[] valores (undefined = tipo morto/renomeado)
 const columnEnumType = new Map(); // key "table.column" -> typeName (ENUM nativo)
+const definedColumns = new Map(); // key "table.column" -> true (existe no estado final; DROP COLUMN remove)
 
 const migDir = join(ROOT, 'migrations');
 const files = readdirSync(migDir).filter((f) => f.endsWith('.sql')).sort();
@@ -119,6 +154,36 @@ for (const f of files) {
         checkTargets.set(`${currentTable}.${col}`, values);
       }
     }
+
+    // existência de coluna (independente de ter constraint) — achado 2026-07-31: coluna sem
+    // CHECK/ENUM passava livre por nunca ser REGISTRADA em lugar nenhum.
+    if (currentTable) {
+      // CREATE TABLE <t> ( <col> <tipo> ..., <col2> <tipo2> ..., CONSTRAINT ..., ... )
+      const createOpen = stmt.match(/CREATE TABLE(?:\s+IF NOT EXISTS)?\s+\w+\s*\(/i);
+      if (createOpen) {
+        const openIdx = createOpen.index + createOpen[0].length - 1;
+        const body = extractParenBody(stmt, openIdx);
+        if (body) {
+          for (const piece of splitTopLevelCommas(body)) {
+            const m = piece.trim().match(/^(\w+)\s+(\w+)/);
+            if (m && !NON_COLUMN_KEYWORDS.test(m[1]) && isStringLikeType(m[2])) {
+              definedColumns.set(`${currentTable}.${m[1]}`, true);
+            }
+          }
+        }
+      }
+      // ALTER TABLE <t> ADD COLUMN [IF NOT EXISTS] <col> <tipo>
+      for (const m of stmt.matchAll(/ADD COLUMN\s+(?:IF NOT EXISTS\s+)?(\w+)\s+(\w+)/gi)) {
+        if (isStringLikeType(m[2])) definedColumns.set(`${currentTable}.${m[1]}`, true);
+      }
+      // ALTER TABLE <t> DROP COLUMN [IF EXISTS] <col> — some do estado final (e do que a coluna sabia)
+      for (const m of stmt.matchAll(/DROP COLUMN\s+(?:IF EXISTS\s+)?(\w+)/gi)) {
+        const key = `${currentTable}.${m[1]}`;
+        definedColumns.delete(key);
+        checkTargets.delete(key);
+        columnEnumType.delete(key);
+      }
+    }
   }
 }
 
@@ -168,9 +233,23 @@ for (const [key, typeName] of columnEnumType) {
   validate(`estado final (ENUM ${typeName}) ${key}`, col, values);
 }
 
+// (e) coluna definida SEM CHECK e SEM ENUM no estado final — §4.34 inexequível no banco.
+let relevantDefinedColumns = 0;
+for (const [key] of definedColumns) {
+  const col = key.split('.').pop();
+  if (EXCLUDED_COLUMNS.has(col)) continue;
+  const domain = classify(col);
+  if (!domain) continue;
+  relevantDefinedColumns += 1;
+  const hasCheck = checkTargets.has(key);
+  const hasEnum = columnEnumType.has(key) && enumTypes.get(columnEnumType.get(key)) !== undefined;
+  if (hasCheck || hasEnum) continue;
+  failures.push(`estado final (SEM CONSTRAINT) ${key}: coluna *${domain}* existe sem CHECK nem ENUM — §4.34 "UPPER_CASE" é inexequível no banco sem constraint (foi assim que financial_alerts.severity nasceu antes desta frente).`);
+}
+
 if (failures.length > 0) {
   console.error('GATE FAIL [severity-priority-canonical-vocabulary]:');
   for (const f of failures) console.error('   - ' + f);
   process.exit(1);
 }
-console.log(`GATE OK [severity-priority-canonical-vocabulary] — estado final de ${checked} coluna(s) *severity*/*priority* (de ${checkTargets.size + columnEnumType.size} CHECK/ENUM totais varridos) batem com §4.34 (UPPER_CASE, vocabulário correto, sem mistura priority↔severity). Exceção nomeada: actor_relationships.{requester,target}_feed_priority (preferência de feed, não prioridade de tratamento). Resolvido por replay forward-only — migrations antigas já substituídas não mordem.`);
+console.log(`GATE OK [severity-priority-canonical-vocabulary] — estado final de ${checked} coluna(s) *severity*/*priority* (de ${checkTargets.size + columnEnumType.size} CHECK/ENUM totais varridos) batem com §4.34 (UPPER_CASE, vocabulário correto, sem mistura priority↔severity); ${relevantDefinedColumns} coluna(s) *severity*/*priority* definida(s) no schema (de ${definedColumns.size} colunas totais varridas), TODAS com CHECK ou ENUM (0 sem constraint). Exceção nomeada: actor_relationships.{requester,target}_feed_priority (preferência de feed, não prioridade de tratamento). Resolvido por replay forward-only — migrations antigas já substituídas não mordem.`);
