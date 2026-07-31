@@ -66,7 +66,15 @@ Validação de migration é em **banco efêmero**, criado e destruído na hora �
 - **Motor legado ≠ canônico.** `bank-split-engine.service.ts` é legado, cercado por tripwire. O canônico é `economic_policy_engine` + PE-3 → `createTransactionWithExplicitSplitLines`. **Não faça o legado ler policy** — `DECISION-0048` removeu `resolveSplitPolicy` e o arquivo diz *"NÃO reintroduzir"*.
 - **Comentários podem MENTIR.** Casos reais confirmados: `regional-fund-governance.service.ts` diz que filtra elegibilidade "por região" e **a query não filtra região nenhuma**; `user-group-allocation.service.ts` se anuncia *"CONTINUOUS PRODUCTION"* estando revogado. **Confirme no código, não no comentário.**
 - **Bloqueios podem estar VENCIDOS.** Ex.: o hold do nível `neighborhood` alega *"catálogo de bairros não governado"* — mas os 75 bairros oficiais de Curitiba foram selados (frente N3). Sempre verifique se a justificativa de um bloqueio ainda é verdadeira **e** se havia outras causas não resolvidas.
-- **Cap de participação em grupos = 3** (D12/`DECISION-0188`), vivo com trigger/lock — não é configuração.
+- **Cap de participação em grupos = 3** (D12/`DECISION-0188`) — é decisão vigente, **não é configuração**.
+  🔴 **Mas NÃO tem garantia estrutural.** Até 2026-07-31 esta linha dizia *"vivo com trigger/lock"* e as
+  duas metades eram falsas (derrubado por auditoria independente, verificado por mim em `unificard_dev`):
+  os únicos triggers em tabela de grupo são de **imutabilidade** (`fn_gam_enforce_immutability`,
+  histórico append-only da 0188 D7); **zero** função de cap em `pg_proc`; o único UNIQUE de
+  `group_members` é `(tenant_id, group_id, user_id)` — impede o mesmo usuário no MESMO grupo, não
+  limita a 3. Nenhum advisory lock / `FOR UPDATE` / `SERIALIZABLE` em `groups.service|repository`.
+  O cap é **check-then-act em código** (`groups.service.ts`) → **TOCTOU**: dois requests concorrentes
+  leem 2, ambos inserem, resulta 4. **Vai mexer em grupos? A garantia não existe — não presuma.**
 - **Janela de indicação:** 1 ano está vivo e hardcoded; a de 5 anos é **PENDENTE, nunca promulgada** (`DECISION-0139`).
 
 ## 5. O rito (não se autorize)

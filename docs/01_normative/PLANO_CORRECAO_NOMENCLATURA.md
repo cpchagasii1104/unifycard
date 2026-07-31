@@ -47,9 +47,21 @@ Leia antes de executar qualquer sessão:
    transação real nem produto cadastrado — nenhum contrato público tem consumidor externo a
    proteger. Criar 54 arquivos `.v2.contract.ts` para zero consumidores fabrica dívida em vez de
    pagá-la. **Enquanto virgem: renomeie NO LUGAR**, sem arquivo v2.
-   **Esta suspensão vence no primeiro usuário/transação real** — a partir daí a regra 3 volta a
-   valer integralmente e contrato publicado só muda por versão. Quem retomar depois disso:
-   confira no banco antes de presumir que ainda é virgem.
+   **GATILHO DE VENCIMENTO — medível por query, não por julgamento:**
+   ```sql
+   SELECT count(*) FROM bank_transactions;   -- > 0 = SUSPENSÃO VENCIDA, regra 3 volta a valer
+   ```
+   A partir da primeira linha, contrato publicado só muda por versão.
+
+   > ⚠️ **Correção de 2026-07-31, mesma data.** A primeira redação vencia "no primeiro usuário
+   > real" e afirmava que não havia nenhum. **A premissa era falsa** — auditoria independente
+   > mediu `users=4`, `actors=6`, `companies=1`, `events=21`, `posts=10` em `unificard_dev`.
+   > O que é verdade é `bank_transactions=0`, `bank_ledger=0`, `products=0`. Um gatilho que
+   > ninguém consegue responder com uma query é contenção sem prazo — exatamente o defeito que
+   > este repositório nomeou e passou a recusar. Trocado por um binário e checável.
+   > A outra metade da premissa foi atacada e **sobreviveu**: `packages/contracts` é
+   > `"private": true`, consumido só dentro do repositório — sem app publicado, sem registry,
+   > nenhum consumidor externo a proteger.
 4. **Não faça commits parciais** — cada sessão só fecha quando todos os testes do escopo passam.
 5. **Conversão `snake_case → camelCase` exclusivamente no `.repository.ts`** — nunca em service, routes ou types.
 6. **Verificar antes de editar:** cada item desta lista tem arquivo e linha real. Se o arquivo não tiver o campo indicado, PARAR e reportar — não inventar correção.
