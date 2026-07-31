@@ -2,11 +2,18 @@
 // ETAPA 7 — Resumo Final
 // FASE 5.0 — Event Creation Orchestration
 //
+// ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+// ║ STATUS:  CONTIDO
+// ║ NORMA:   DECISION-0190 §4 — família economic/v2 institucionalmente contida (501 nas 11 rotas)
+// ║ NÃO:     prometer "fase econômica" no CTA — não existe tela, nem rota, nem substrato
+// ║ EM VEZ:  onFinish navega para /events/:id (página real do evento)
+// ╚════════════════════════════════════════════════════════════════
+//
 // 🔴 REGRAS:
 // - Resumo completo
 // - Aviso claro: "Nada foi pago, reservado ou contratado."
-// - CTA permitido: "Avançar para fase econômica"
-// - CTA proibido: "Finalizar evento", "Criar evento", "Confirmar"
+// - CTA permitido: "Ver Evento"
+// - CTA proibido: "Finalizar evento", "Criar evento", "Confirmar", "Avançar para fase econômica"
 
 import { useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
@@ -17,10 +24,10 @@ import './Step7FinalSummary.css';
 interface Step7FinalSummaryProps {
   data: GuidedFlowData;
   onComplete: () => void;
-  onAdvanceToEconomic: () => void;
+  onFinish: () => void;
 }
 
-export default function Step7FinalSummary({ data, onAdvanceToEconomic }: Step7FinalSummaryProps) {
+export default function Step7FinalSummary({ data, onFinish }: Step7FinalSummaryProps) {
   // F-EVENT-ORCHESTRATION-PHASE-B-WRITE: necessidades vêm do backend (event_operational_needs), não do
   // operational_roles morto. Governadas por concept_id.
   const [needs, setNeeds] = useState<OperationalNeed[]>([]);
@@ -105,9 +112,8 @@ export default function Step7FinalSummary({ data, onAdvanceToEconomic }: Step7Fi
           <p>
             <strong>Nada foi pago, reservado ou contratado.</strong>
             <br />
-            Este é apenas um rascunho declarativo. Para avançar para a fase econômica,
-            você poderá criar custódia, calcular split e autorizar pagamentos.
-            Nenhuma execução ocorre automaticamente.
+            Este é apenas um rascunho declarativo. Você pode revisar, editar e acompanhar
+            os próximos passos diretamente na página do evento.
           </p>
         </div>
       </div>
@@ -115,13 +121,12 @@ export default function Step7FinalSummary({ data, onAdvanceToEconomic }: Step7Fi
       <div className="step-actions">
         <button
           className="step-button step-button-primary"
-          onClick={onAdvanceToEconomic}
+          onClick={onFinish}
         >
-          Avançar para Fase Econômica (sem execução)
+          Ver Evento
         </button>
         <p className="cta-auxiliary-text">
-          A fase econômica não executa pagamentos automaticamente.
-          Nenhum valor será cobrado sem autorizações explícitas.
+          Nenhum valor foi cobrado, nada foi reservado ou contratado.
         </p>
       </div>
     </div>

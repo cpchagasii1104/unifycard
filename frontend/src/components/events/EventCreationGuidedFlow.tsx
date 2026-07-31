@@ -1,4 +1,12 @@
 // src/components/events/EventCreationGuidedFlow.tsx
+//
+// ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+// ║ STATUS:  CONTIDO
+// ║ NORMA:   DECISION-0190 §4 — família economic/v2 institucionalmente contida (501 nas 11 rotas)
+// ║ NÃO:     navegar para /events/:id/economic — rota nunca existiu, tela branca
+// ║ EM VEZ:  navegar para /events/:id (EventDetailPage, rota real registrada em App.tsx)
+// ╚════════════════════════════════════════════════════════════════
+//
 // FASE 5.0 — Fluxo Guiado de Criação de Evento
 // 🔴 FRONTEND CANÔNICO — CAMADA DERIVADA
 // - NÃO cria verdade
@@ -392,11 +400,12 @@ export default function EventCreationGuidedFlow({ initialAudienceKeys, groupId }
     setCurrentStep(7);
   };
 
-  // ETAPA 7: Finalizar (avançar para fase econômica ou salvar)
+  // ETAPA 7: Finalizar — rascunho já criado, ir para a página do evento.
   const handleStep7Complete = () => {
     if (data.event_id) {
-      // Navegar para fase econômica (sem executar nada)
-      navigate(`/events/${data.event_id}/economic`);
+      // Página do evento (rota real). "/economic" nunca existiu (DECISION-0190: família
+      // economic/v2 contida, 501 nas 11 rotas) — navegar pra lá era tela branca garantida.
+      navigate(`/events/${data.event_id}`);
     }
   };
 
@@ -614,9 +623,10 @@ export default function EventCreationGuidedFlow({ initialAudienceKeys, groupId }
           <Step7FinalSummary
             data={data}
             onComplete={handleStep7Complete}
-            onAdvanceToEconomic={() => {
+            onFinish={() => {
               if (data.event_id) {
-                navigate(`/events/${data.event_id}/economic`);
+                // Página do evento (rota real) — "/economic" nunca existiu (DECISION-0190).
+                navigate(`/events/${data.event_id}`);
               }
             }}
           />

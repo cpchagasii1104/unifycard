@@ -25,7 +25,11 @@
 //   (c) a citação de base normativa (DECISION-0190) for removida do comentário do guard de contenção
 //       (perda de rastreabilidade da autoridade da contenção);
 //   (d) o universo de sub-rotas da família (path literal '/:eventId/economic/v2/') divergir de 11 —
-//       sinal de rota nova/removida sem reclassificação neste guard.
+//       sinal de rota nova/removida sem reclassificação neste guard;
+//   (e) o FRONTEND voltar a navegar para um path terminando em "/economic" — essa rota NUNCA existiu
+//       no App.tsx (DT-EVENT-GUIDED-FLOW-WHITE-SCREEN-ON-FINISH, 2026-07-30): tela branca garantida,
+//       e prometeria uma fase institucionalmente contida por esta mesma DECISION-0190. Cross-check
+//       read-only sobre frontend/src, mesmo padrão de audit-disputes-frontend-honest-containment.mjs.
 //
 // Região-ancorado: para cada sink (chamada real ao service, literal única no arquivo), a região do
 // handler é [ÚLTIMO 'async (req, reply) => {' ANTES do sink, sink). Comment/literal-aware via strip de
@@ -126,6 +130,24 @@ for (const [label, sinkNeedle] of MANDATED) {
   }
 }
 
+// (e) cross-check honesto do FRONTEND — nenhum navigate() real aponta pra um path terminando em
+// "/economic" (comment-stripped: a orientação canônica em comentário, que CITA o path proibido
+// como exemplo do que não fazer, não pode contar como violação).
+const FRONTEND_FILES = [
+  ['EventCreationGuidedFlow.tsx', resolve(ROOT, '..', 'frontend', 'src', 'components', 'events', 'EventCreationGuidedFlow.tsx')],
+  ['Step7FinalSummary.tsx', resolve(ROOT, '..', 'frontend', 'src', 'components', 'events', 'guided-flow', 'Step7FinalSummary.tsx')],
+];
+for (const [label, feAbs] of FRONTEND_FILES) {
+  if (!existsSync(feAbs)) {
+    note(`frontend (${label}): arquivo ausente — cross-check honesto não verificável.`);
+    continue;
+  }
+  const feStripped = stripTs(readFileSync(feAbs, 'utf8'));
+  if (/\/economic[`'"]/.test(feStripped)) {
+    note(`frontend (${label}): navega para um path terminando em "/economic" — rota que NUNCA existiu (App.tsx não a registra), tela branca garantida, e prometeria fase contida pela DECISION-0190.`);
+  }
+}
+
 if (fails.length > 0) {
   console.error('GATE FAIL [economic-v2-containment]:');
   for (const f of fails) console.error('   - ' + f);
@@ -136,5 +158,6 @@ console.log(
   'custody POST/GET, split POST/GET, payment/authorize, payment/execute, payment/revoke, refund, ' +
   'chargeback, chargeback/resolve) 501 EVENT_ECONOMIC_V2_SANDBOX_SUBSTRATE_NOT_IMPLEMENTED como PRIMEIRA ' +
   'instrução do handler, ANTES de qualquer service/side-effect. Citação DECISION-0190 preservada em ' +
-  'cada uma. Universo de rotas da família = 11 (sem drift).'
+  'cada uma. Universo de rotas da família = 11 (sem drift). Frontend (EventCreationGuidedFlow.tsx + ' +
+  'Step7FinalSummary.tsx) não navega para nenhum path "/economic" (cross-check honesto).'
 );

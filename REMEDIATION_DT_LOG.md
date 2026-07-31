@@ -1,5 +1,92 @@
 # REMEDIATION DT LOG
 
+## ✅ `DT-EVENT-GUIDED-FLOW-WHITE-SCREEN-ON-FINISH` — FECHADA (2026-07-31)
+**Executora especialista. Primeira fatia de frontend desta campanha. Pacote corrigido em
+tempo real pela direção: a exigência original de "print de navegador" era INEXEQUÍVEL —
+o repositório não tem Playwright/Puppeteer/Cypress (só vitest+jsdom, zero teste de
+frontend). Substituída por prova estática decisiva + HTTP explicitamente não-probatório,
+com a validação visual final delegada a Clayton.**
+
+### 🔎 ACHADO PRÓPRIO — corrige o GATE da direção
+O GATE (commit `865f9468a`) tratou `handleStep7Complete`/`onComplete` (:399, via prop
+`onComplete` do `Step7FinalSummary`) e `onAdvanceToEconomic` (:619) como **dois caminhos
+vivos**. Não são. `Step7FinalSummary.tsx` desestruturava só
+`{ data, onAdvanceToEconomic }` — **`onComplete` nunca era chamado por nenhum botão**. O
+footer fixo de `EventCreationGuidedFlow.tsx` só tem "Cancelar"/"Voltar" (sem "Finalizar").
+**Um dos dois `navigate` era MINA (código morto, alcançável só se alguém reconectar
+`onComplete` a um botão no futuro), não CAMINHO.** Corrigir os dois continua certo — mina
+desarmada é melhor que mina documentada — mas a prova de vermelha/verde por clique só é
+possível no caminho real (`onFinish`, ex-`onAdvanceToEconomic`).
+
+### ✅ EXECUTADO — 3 arquivos
+1. **`frontend/src/components/events/EventCreationGuidedFlow.tsx`**: cabeçalho §6 (5
+   linhas, `STATUS: CONTIDO`, `NORMA: DECISION-0190 §4`, `EM VEZ: /events/:id`). Os 2
+   `navigate` (:399 e :619, antigo) → `/events/${data.event_id}` (rota real, `App.tsx:343`).
+   Comentários mentirosos (:395 "avançar para fase econômica", :398 "Navegar para fase
+   econômica") reescritos para descrever o que de fato acontece. Prop renomeada
+   `onAdvanceToEconomic` → `onFinish` nos dois lados.
+2. **`frontend/src/components/events/guided-flow/Step7FinalSummary.tsx`**: interface e
+   destructure atualizados (`onFinish`); botão "Avançar para Fase Econômica (sem execução)"
+   → "Ver Evento"; aviso e texto auxiliar reescritos sem prometer custódia/split/autorização
+   de pagamento (família contida pela DECISION-0190); cabeçalho de regras do arquivo
+   atualizado (CTA permitido agora é "Ver Evento"; "Avançar para fase econômica" entrou na
+   lista de CTA proibido).
+3. **`backend/scripts/audit-economic-v2-containment.mjs`** (hospedeiro natural — mesmo
+   domínio DECISION-0190, já estendido nesta sessão): seção (e) nova, cross-check honesto
+   do FRONTEND (mesmo padrão de `audit-disputes-frontend-honest-containment.mjs` — backend
+   guard lendo `frontend/src` read-only): nenhum dos 2 arquivos pode navegar para um path
+   terminando em `/economic`.
+
+### 🧪 PROVA — banco `unificard_dev`, frontend em `localhost:5173`, backend em `localhost:3000`
+**1. Estática e decisiva:**
+```
+App.tsx:343  <Route path="events/:id" element={<EventDetailPage />} />
+App.tsx:344  <Route path="events/new" element={<EventCreationPage />} />
+grep 'path="\*"|catch-all|NotFound' App.tsx → ZERO resultado (sem catch-all)
+```
+Nenhuma rota casa com `events/:id/economic` — confirma a causa-raiz do GATE sem
+reinvestigar. `grep -rn "events/.*economic" frontend/src` → **1 ocorrência**, e é o próprio
+comentário de orientação §6 que EXPLICA o que não fazer (texto, não código executável).
+
+**2. HTTP no SPA (substitui o print, com a ressalva explícita pedida):**
+```
+GET /events/<fake-uuid>/economic → HTTP 200
+GET /events/<fake-uuid>          → HTTP 200
+diff dos dois corpos → IDÊNTICOS (ambos servem só o shell index.html)
+```
+**O 200 NÃO prova que a tela renderiza** — é exatamente por isso que a tela branca passou
+despercebida: o servidor Vite serve o mesmo shell pra qualquer path, e é o React Router,
+no cliente, que decide se algo aparece. Essa prova mostra a CAUSA do problema (o HTTP não
+denuncia nada), não a ausência dele. Validação visual final fica com Clayton.
+
+**3. Guard vermelho/verde** (seção nova (e)): `/economic` reintroduzido nos 2 `navigate` de
+`EventCreationGuidedFlow.tsx` → guard morde nomeando o arquivo (`frontend
+(EventCreationGuidedFlow.tsx): navega para um path terminando em "/economic"`), `exit 1`.
+Restaurado → `GATE OK`, `exit 0`.
+
+### 🧾 RUNNER E TYPECHECK
+`cd frontend && npm run typecheck` → 0 erros (tsc limpo). `npm run lint` → **não
+executável neste ambiente** (`eslint` não instalado, gap pré-existente do ambiente, não
+desta fatia — confirmado: `node_modules/.bin/eslint` ausente). `cd backend && npm run
+typecheck` → 0 erros. `npm run validate:regression-guards` (banco `unificard_dev`) → **228
+COMMANDS OK** (guard estendido, não novo), drift 0. `economic-v2-containment` confirmado
+`GATE OK` com a menção do cross-check de frontend dentro do runner completo.
+
+### 🚫 NÃO FEITO / FORA DO ESCOPO (mandato explícito)
+Página `/events/:id/economic` NÃO criada. Rota NÃO registrada. Catch-all NÃO adicionado em
+App.tsx. Etapas 0-6 e `Step6EconomicPreview` intocados. **Primeira suíte de teste de
+frontend do projeto NÃO criada** — desproporcional para um conserto de 2 linhas;
+infraestrutura de teste (Playwright/Cypress) é frente própria, com GO próprio. Não
+commitado.
+
+### 🧾 DENOMINADOR
+Prova estática: repositório (App.tsx, diffs, grep). Prova HTTP: frontend dev server
+(`localhost:5173`, Vite) — declarada explicitamente como NÃO-probatória de renderização.
+Runner/typecheck backend: `unificard_dev`. Typecheck frontend: sem banco (compilação
+estática). **Confiança: PROVADA a causa-raiz e o conserto por prova estática decisiva +
+guard vermelho/verde** — a prova visual (renderização real no navegador) fica pendente,
+delegada a Clayton, por falta de ferramenta neste ambiente (não por omissão).
+
 ## 🔍 GATE — `DT-EVENT-GUIDED-FLOW-WHITE-SCREEN-ON-FINISH` (2026-07-30)
 
 **Direção, read-only.** Derrubada da Yala confirmada e investigada até a causa.
