@@ -1,5 +1,35 @@
 # REMEDIATION DT LOG
 
+## 🧭 DECISÃO D-E DE CLAYTON — `RISK_SCORE_LOW` ENTRA NO ENUM (2026-07-31)
+
+**Autoridade: Clayton.** Recomendação da direção, aceita. `alert_type` passa a ter **9 valores**:
+os 8 da DDL arquivada (`migrations_archive/0850_alerts.sql`) **+ `RISK_SCORE_LOW`**.
+
+**Razões registradas, em ordem de peso:**
+1. **`OTHER` é o balde que ninguém lê.** A cadeia do `ARTIGO II` termina em *"alerta vai para o
+   humano"*, e o humano tria por tipo. Risco de reputação em "outro" cumpre a letra e falha o
+   propósito.
+2. **Assimetria de reversibilidade.** Adicionar valor é aditivo — basta parar de usar.
+   Colapsar em `OTHER` **destrói informação**: ninguém recupera depois quais `OTHER` eram risco.
+3. **A alternativa seria pior.** Sem lugar aqui, quem chega depois cria substrato próprio de
+   alerta para reputação — a **quarta** verdade sobre alerta, ao lado de `alerts`,
+   `financial_alerts` e `system_notifications`.
+
+> ### ⚠️ RESSALVA REGISTRADA — vai voltar, e é melhor estar escrita
+> Os 8 valores originais são todos de **automação operacional** (estoque, pagamento, payout,
+> fiscal, pedido, reserva) — a DDL nasceu no *"SPRINT 50: AUTOMAÇÕES OPERACIONAIS"*.
+> `RISK_SCORE_LOW` é **Trust & Safety**, outra família.
+>
+> Um valor não quebra nada. **Se vierem mais alertas de T&S, o enum vira mistura de domínios —
+> que é como enum apodrece.** Se chegar lá, o certo NÃO é um enum maior: é **separar o eixo
+> DOMÍNIO do eixo TIPO**. Não é motivo para não adicionar agora; é motivo para não repetir sem
+> pensar.
+
+**Estado verificado antes de decidir:** `alert_type`, `alert_severity` e `alert_status`
+**NÃO existem** no `unificard_dev` — a migration cria os três do zero, sem `ALTER TYPE`.
+
+---
+
 ## 🔍 GATE — `DT-ALERTS-SUBSTRATE-MISSING-BREAKS-ARTIGO-II` (2026-07-31)
 
 **Direção, read-only.** Resultado: **criar a tabela é necessário e NÃO é suficiente** — o
