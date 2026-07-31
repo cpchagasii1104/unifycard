@@ -89,6 +89,7 @@
 }
 .econ-sum-indicator--ok { background: #e3f6e9; color: #1a7f37; }
 .econ-sum-indicator--bad { background: #fdecea; color: #b3261e; }
+.econ-sum-indicator--info { background: #eef1f7; color: #3b4252; }
 
 .econ-modal__actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
 

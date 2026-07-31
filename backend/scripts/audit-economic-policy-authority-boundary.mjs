@@ -43,7 +43,14 @@
 //      edição de policy existente por baixo da trava de imutabilidade (Artigo V);
 //  (h) a função assertPolicyLinesValid (ponto de extensão único de limites) perder a checagem de
 //      faixa de bps (0..10000), a checagem de soma fechando 10000, ou a exigência de linha
-//      revenue_share — a regressão silenciosa do único portão de percentual.
+//      revenue_share — a regressão silenciosa do único portão de percentual;
+//  (i) DT-ECONOMIC-POLICY-PANEL-FE-BE-DIVERGENCE (2026-07-31): o FRONTEND (EconomicPoliciesPage.tsx)
+//      voltar a decidir SOZINHO se uma policy é válida — reimplementando a regra de revenue_share
+//      dentro de `canSubmit` ("espelho" que divergiu quando o backend mudou de propósito e ficou
+//      pra trás: painel mostrava verde pra policy que o servidor recusava, e bloqueava policy que
+//      o servidor aceitava). O backend é a ÚNICA autoridade (400 com mensagem pronta); o FE só
+//      projeta o input do usuário. Cross-check read-only sobre frontend/src, mesmo padrão de
+//      audit-economic-v2-containment.mjs (e) / audit-disputes-frontend-honest-containment.mjs.
 //
 // Region-anchored (regionBetween, mesmo helper de audit-event-sector-meia-floor.mjs); comment/
 // literal-aware (strip TS antes de qualquer match de código real). Fail-closed.
@@ -316,6 +323,31 @@ const WRITE_PATH_FILES = [ROUTE_PATH, REPO_PATH, VALIDATION_PATH];
   }
 }
 
+// ══════════════════════ (i) FE não decide validade de policy por regra própria (canSubmit) ═══════
+{
+  const FE_PATH = 'frontend/src/admin/EconomicPoliciesPage.tsx';
+  const feAbs = resolve(ROOT, '..', FE_PATH);
+  if (!existsSync(feAbs)) {
+    note('FE-FILE-MISSING', `${FE_PATH}: arquivo ausente — cross-check de FE não decidir validade não verificável.`);
+  } else {
+    const feCode = stripTs(readFileSync(feAbs, 'utf8'));
+    const canSubmitRegion = regionBetween(feCode, 'const canSubmit =', ';');
+    if (!canSubmitRegion) {
+      note('FE-CANSUBMIT-REGION', `${FE_PATH}: definição de canSubmit não encontrada (marcador ausente) — DT-ECONOMIC-POLICY-PANEL-FE-BE-DIVERGENCE não verificável.`);
+    } else {
+      if (/revenue_share/i.test(canSubmitRegion)) {
+        note('FE-CANSUBMIT-REVENUE-SHARE', `${FE_PATH}: canSubmit voltou a referenciar 'revenue_share' — o frontend voltou a decidir validade de policy por regra própria; o backend é a única autoridade (400 com mensagem pronta).`);
+      }
+      if (/\bsumOk\b/.test(canSubmitRegion)) {
+        note('FE-CANSUBMIT-SUMOK', `${FE_PATH}: canSubmit voltou a referenciar 'sumOk' (a variável composta que causou a divergência FE/BE original) — reimplementação de regra de negócio no cliente.`);
+      }
+    }
+    if (/Falta uma linha revenue_share/i.test(feCode)) {
+      note('FE-DEAD-ERROR-TEXT', `${FE_PATH}: texto "Falta uma linha revenue_share" reapareceu — era o veredito ERRADO do espelho divergente; a mensagem correta vem do backend (400), nunca de texto fixo no cliente.`);
+    }
+  }
+}
+
 if (fails.length > 0) {
   console.error('GATE FAIL [economic-policy-authority-boundary]:');
   for (const f of fails) console.error('   - ' + f);
@@ -329,5 +361,6 @@ console.log(
   'nunca actionContext.actorId — DECISION-0113 canal-1); zero rota PUT/PATCH/DELETE (Artigo V); ' +
   'POST restrito aos 2 paths mandatados (versão nova + ' +
   'ativação draft→active); changeReason obrigatório (Artigo XI); o único UPDATE em ' +
-  'economic_policies é a ativação; assertPolicyLinesValid preserva faixa/soma/revenue_share.'
+  'economic_policies é a ativação; assertPolicyLinesValid preserva faixa/soma/revenue_share; ' +
+  'frontend (EconomicPoliciesPage.tsx) não decide validade de policy — canSubmit sem revenue_share/sumOk.'
 );

@@ -456,12 +456,20 @@ export default function EconomicPoliciesPage() {
     }
   };
 
-  // ── Soma ao vivo (fonte de verdade: bps inteiro, igual ao backend) ──────────────────────────
+  // ── Soma ao vivo — PROJEÇÃO do input do usuário, não veredito de validade ──────────────────
+  // DT-ECONOMIC-POLICY-PANEL-FE-BE-DIVERGENCE: esta tela chegou a reimplementar a exigência de
+  // linha `revenue_share` (bps inteiro, "espelhando" economic-policy-write-validation.ts). O
+  // backend mudou o PROPÓSITO da regra (linha ficou incondicional — toda policy precisa de
+  // revenue_share, não só as que têm bps) e o espelho ficou pra trás: por um tempo o painel
+  // mostrou verde/habilitado pra policy que o servidor recusava, e bloqueou policy que o
+  // servidor aceitava. Consertar o espelho só reinicia o relógio até a próxima divergência.
+  // "Frontend nunca cria verdade — projeta verdade resolvida": `bpsSum` é só a soma do que o
+  // usuário já digitou (aritmética, não decisão de negócio) — informativo, NUNCA gate de
+  // submissão pela presença/ausência de revenue_share. Quem decide se a policy é válida é o
+  // backend (400 com mensagem pronta, já traduzida em friendlyErrorMessage abaixo).
   const bpsLines = form.lines.filter((l) => l.valueMode === 'bps' && l.bps !== null);
   const bpsSum = bpsLines.reduce((acc, l) => acc + (l.bps ?? 0), 0);
   const hasAnyLine = form.lines.length > 0;
-  const hasRevenueShareAmongBps = bpsLines.some((l) => l.lineType === 'revenue_share');
-  const sumOk = bpsLines.length === 0 || (bpsSum === 10000 && hasRevenueShareAmongBps);
   const everyLineHasValue = form.lines.every(
     (l) => (l.valueMode === 'bps' ? l.bps !== null : l.fixedAmountCents !== null)
   );
@@ -479,7 +487,6 @@ export default function EconomicPoliciesPage() {
   const canSubmit =
     hasAnyLine &&
     everyLineHasValue &&
-    sumOk &&
     everyRegionalFundLineValid &&
     form.policyCode.trim().length > 0 &&
     form.moduleContext.trim().length > 0 &&
@@ -1013,14 +1020,13 @@ export default function EconomicPoliciesPage() {
               <button className="econ-btn econ-btn--ghost" onClick={addLine}>+ Adicionar linha</button>
             </div>
 
-            <div className={`econ-sum-indicator ${sumOk ? 'econ-sum-indicator--ok' : 'econ-sum-indicator--bad'}`}>
+            {/* Projeção do que o usuário digitou (soma de bps) — NUNCA um veredito de validade da
+                policy. O backend decide se a policy é aceitável; a mensagem de erro dele (se houver)
+                aparece no toast após o submit, via friendlyErrorMessage. */}
+            <div className="econ-sum-indicator econ-sum-indicator--info">
               {bpsLines.length === 0
                 ? 'Nenhuma linha percentual nesta versão (só valores fixos).'
-                : sumOk
-                  ? `Total: ${(bpsSum / 100).toFixed(2)}% ✓`
-                  : bpsSum !== 10000
-                    ? `Total: ${(bpsSum / 100).toFixed(2)}% ✗ — precisa fechar exatamente 100%`
-                    : 'Falta uma linha revenue_share entre as linhas percentuais ✗'}
+                : `Total das linhas percentuais: ${(bpsSum / 100).toFixed(2)}%`}
             </div>
 
             {!everyRegionalFundLineValid && (
