@@ -299,7 +299,7 @@ não atalho.
 
 ---
 
-## D11 — A ORDEM DA TELA DE ENTRADA, E A CAIXA DE MENSAGENS
+## D10 — A ORDEM DA TELA DE ENTRADA, E A CAIXA DE MENSAGENS
 
 A tela de entrada da Ajuda do passageiro (Uber) tem hierarquia estrita, e ela não é estética:
 
@@ -327,7 +327,7 @@ registra a dependência para que ninguém construa a caixa de mensagens duas vez
 
 ---
 
-## D10 — A SAÍDA HUMANA NUNCA DESAPARECE
+## D11 — A SAÍDA HUMANA NUNCA DESAPARECE
 
 No iFood o ícone de fone de ouvido está **em todas as telas** de ajuda; no ML, *"Fale conosco"*
 fica ao pé da página. Autoatendimento vem primeiro (D6), **mas o contato humano nunca fica
@@ -346,7 +346,15 @@ Docs-only, e o limite é duro:
 - ❌ **Não fixa a lista de tipos de operação** (D3.1) nem o enum de `module` (D3.2) — ambos saem de GATE.
 - ❌ **Não toca `support_tickets`**, `financial_disputes` nem `reconciliation_disputes`.
 - ❌ **Não abre PORTA-1** e não movimenta dinheiro. O destino DISPUTA *desemboca* em estorno, mas o mecanismo financeiro segue sob as travas vigentes — e **D7 proíbe explicitamente** qualquer caminho novo.
-- ❌ **Não cria assistente, não liga IA, não define fluxo de emergência.** D6 a D10 fixam **regras** para quando isso for construído; nenhuma delas autoriza construir.
+- ❌ **Não cria assistente, não liga IA, não define fluxo de emergência.** D6 a D11 fixam **regras** para quando isso for construído; nenhuma delas autoriza construir.
+- ❌ 🔴 **Não liga o destino FEEDBACK.** `reputation_scores` · `actor_scores` · `reviews` ·
+  `ratings` **NÃO EXISTEM** (vivos são `actor_reputation` e `trust_score_snapshots`). Rotear
+  avaliação sem resolver isso cria o **quinto caminho morto, com o usuário na frente** — ver
+  **D1.6**. Fica aqui, e não só no corpo, porque **quem executa lê os LIMITES**.
+
+> **Nota de numeração:** as cláusulas vão de **D0 a D11**. **Não existe D5** — a seção de limites
+> era D5 na 1ª redação e virou **🚧 LIMITES** na emenda de 2026-07-30, por não ser cláusula.
+> Citar "D5" é erro de citação, não cláusula ausente.
 
 ---
 

@@ -299,7 +299,7 @@ marcado como leitura-apenas.
 | `predefined_services` → `services` | `global_user_id` → `actor_id`; `base_price`+`discount_percentage` → `price_cents`. Modelo econômico diferente |
 | `cultural_event_checkins` → `event_checkins` | **PERDA**: `check_in_method`, `geo_lat`, `geo_lng`, `device_fingerprint` não existem no vivo |
 | `checkins` → `event_checkins` | genérico (`context_type`, `context_id`, `token_id`) → **específico de evento**. Estreitamento |
-| `alerts` → `financial_alerts` | alerta **genérico** (`entity_type`, `entity_id`) → **só financeiro**. Estreitamento de domínio |
+| ~~`alerts` → `financial_alerts`~~ | 🔴 **CLASSIFICAÇÃO ERRADA — CORRIGIDA 2026-07-30** (achado da instância GUARDIÃO, confirmado de 1ª mão). **NÃO é estreitamento: os dois NUNCA foram a mesma tabela.** `financial_alerts` está em `migrations/0033` — **vivo desde sempre**; `alerts` está em `migrations_archive/0850` — criado **800 migrations depois** e arquivado no `REBASE-03`. Coexistiram. O código (`modules/automation/alert.repository.ts` `:61` INSERT · `:112` UPDATE · `:154,:173,:231` FROM) escreve no **arquivado**. ⚠️ **Renomear carimbaria como resolvido um buraco constitucional:** o `ARTIGO II` exige a cadeia *conflito → fato → alerta → humano*, e **essa cadeia está sem substrato**. Sai das migrações conceituais e vira **DT própria** |
 | `social_chat_messages` → `chat_messages` | **PERDA**: `intent`, `confidence`, `categories`, `suggested_actions` — a camada de IA some |
 
 ### ✅ RENAME PLAUSÍVEL — fila executável, com ajuste declarado (5 nomes)
