@@ -60,6 +60,45 @@ está atrás de contenção 501/403 provada. O gate mede REFERÊNCIA no código;
 ALCANÇABILIDADE em runtime. Ensinar o scanner a descontar contenção o faria mentir sobre a
 primeira para relatar a segunda. Erra-se para o lado conservador de propósito.
 
+### 🗺️ ONDE A DÍVIDA MORA — `BLOCKER-vivo` por módulo (205 chaves, medido 2026-07-31)
+
+🔴 **NÃO é o módulo `rides`.** Ele é **29 de 205** (14%). A dívida está espalhada por **43
+módulos** e **164 tabelas distintas**. O `rides` só foi o primeiro que abrimos.
+
+| sítios | tabelas | módulo |
+|---|---|---|
+| 29 | 16 | `rides` |
+| 18 | 11 | `marketplace` |
+| 11 | 6 | `profile` |
+| 11 | 5 | `work` |
+| 10 | 6 | `pilot` |
+| 9 | 4 | `human-mvp` |
+| 7 | 7 | `observability` |
+| 7 | 4 | `memory` · 7·3 `organization` · 7·5 `presence` |
+| 6 | 4 | `loyalty` |
+| 5 | 3-4 | `events` · `reporting` · `reputation` · `cultural` · `payments` · `venue` |
+| 4 | 2 | `payout` · `policy-engine` |
+| 3 | 2 | `publication` · `care` · `contextual-messaging` |
+| ≤2 | 1 | **26 módulos** — `notify` · `agreements` · `evidence` · `invoicing` · `subscriptions` · `votes` · `automation` · `unifybank` · `bank` · `companies` · `social` · `media` · … |
+
+**A forma da dívida importa mais que o total:** 7 módulos concentram ~46% dos sítios, e
+**26 módulos têm 1 ou 2 sítios cada** — cauda longa, mecânica de conter.
+
+**A unidade de trabalho NÃO é "205 sítios" nem "164 tabelas". São 43 decisões de módulo**, e
+cada uma é a mesma pergunta binária: *este módulo é produto vivo?*
+· **vivo** → materializar as tabelas a partir do `migrations_archive`, forward-only, frente
+  própria com GATE (é ressuscitar desenho arquivado — nunca "criar a casa para caber o caller")
+· **não vivo** → conter na borda com 501 nomeado e aposentar o caller
+Sem essa resposta, cada tabela vira pesquisa. Com ela, a cauda de 26 módulos é uma fatia só.
+
+### 🧬 AS TRÊS POPULAÇÕES — causas diferentes, remédios diferentes
+
+| classe | quantas | causa | mede-se? |
+|---|---|---|---|
+| ① tabela AUSENTE, `CREATE TABLE` no `migrations_archive` | **140** | gênesis/REBASE-03 (`705792271`, 2026-02-11): 313 migrations arquivadas, schema refeito, **o código que as usava ficou**. Zero ambíguas — todas têm DDL no archive e nenhuma nas migrations atuais | ✅ pelo gate |
+| ② tabela que **nunca existiu em lugar nenhum** — nem no archive | **~21** | 🔴 **DESCONHECIDA.** Não é dívida de migração. Nunca investigada | ✅ pelo gate |
+| ③ tabela **EXISTE**, re-materializada no formato canônico, caller nunca convergido | **?** | ex.: as 14 tabelas vivas de `rides` — PK virou `id`, valores viraram `_cents`, vocabulário virou governado; o módulo ainda pede `driver_id`, `base_fare`, grava `level='bronze'` contra CHECK que aceita standard/silver/gold/platinum | 🔴 **NÃO** — o gate mede existência de tabela, não forma. Invisível. Sem medição |
+
 ⚠️ **Números NÃO remedidos nesta sessão:** contagem total de DTs abertas · estado da PORTA-01.
 
 ## 🔢 QUANTAS DTs EXISTEM — medido 2026-07-30, com o denominador declarado
