@@ -1,6 +1,178 @@
 # REMEDIATION DT LOG
 
-## ✅ EXECUTADO — F-MIGRATION-NUMBERING-GATE-REAL-COVERAGE (2026-07-31; GO Clayton)
+## ✅ EXECUTADO — DT-SERVICE-ORDER-STATUS-VOCABULARY-MISMATCH + itens 2-4 reconfirmados (2026-07-31; GO Clayton)
+
+**Pacote SUBSTITUI o anterior (entrada abaixo, "F-SEVERITY-CANONICAL-CONVERGENCE: FRONTEND") —
+itens 2/3/4 daquele pacote são os mesmos, reconfirmados intactos nesta fatia. O item novo é o
+1 (`/service-orders`), achado ao ESTENDER o padrão do `alert_status` para outra tabela — não é
+regressão desta frente nem deste arco (código do bug é de `f121bd1e7`, 28/06).**
+
+**⚠️ Recorte da fatia F-SEVERITY-CANONICAL-CONVERGENCE original excluiu o frontend inteiro — foi
+a auditoria independente que achou os itens 2-4; a direção achou o item da `AlertStatus` que a
+auditoria não pegou; e foi ESTENDENDO o padrão pro `service_order_status` que o item 1 apareceu
+— nenhum destes é achado meu de 1ª mão, registrando para não apagar a origem.**
+
+### Item 1 · VIVO — `/service-orders` (500 real, tela montada)
+`service_order_status` (8 valores minúsculos) vs `frontend/src/api/service-orders.ts:15`
+(5 valores MAIÚSCULOS) — faltavam exatamente os 3 estados de dinheiro do ciclo de liberação de
+escrow (`seller_pending`, `release_approved`, `funds_released`).
+
+**PAREI antes de rotular os 3 estados novos — instrução explícita do pacote.** Nenhum rótulo em
+português existia em código/docs para eles. Perguntei via pergunta estruturada; Clayton respondeu
+com os 3 rótulos EXATOS + 4 regras que valem mais que o texto:
+- `seller_pending` → **"Aguardando Confirmação do Comprador"** (nomeia quem deve agir — o nome
+  da coluna sugere o contrário).
+- `release_approved` → **"Aprovada para Liberação"** — NUNCA "Liberada"/particípio de liberar:
+  a norma diz "aprovado para FUTURA liberação, NÃO fundos liberados".
+- `funds_released` → **"Liberado para a Carteira"** — NUNCA "Fundos Liberados"/"Pago"/"Recebido":
+  dinheiro vai pra `actor_wallet` INTERNA, saque é pedido+aprovação à parte
+  (DT-ACTOR-WALLET-PAYOUT-WIRING), rótulo que promete conta é mentira sobre dinheiro.
+
+**Corrigido:**
+- `frontend/src/api/service-orders.ts:15` — `ServiceOrderStatus` 8 valores minúsculos.
+- `frontend/src/pages/ServiceOrdersPage.tsx` — `getStatusBadgeClass`/`getStatusLabel` (8 casos),
+  `<select>` de filtro (8 options), 2 usos hardcoded de `'DRAFT'` (estado inicial + contador de
+  pendentes).
+- `frontend/src/pages/ServiceOrdersPage.css` — 3 classes de badge novas (cores distintas de
+  `status-completed` de propósito: dinheiro em trânsito ≠ serviço concluído).
+- 🔴 **Achado ao estender, não pedido no pacote:** `ServiceOrderDetailPage.tsx` tinha o MESMO
+  bug, com efeito PIOR — `canConfirm`/`canStart`/`canComplete`/`canCancel` comparavam
+  `order.status` (sempre minúsculo, vindo do banco) contra literais MAIÚSCULOS, logo eram
+  SEMPRE `false`: os 4 CTAs de ação (Confirmar/Iniciar/Completar/Cancelar) ficavam ocultos para
+  TODA ordem, em silêncio, sem erro nenhum — pior que o 500 da listagem, porque não avisa
+  ninguém. Corrigido: case-fix estrito, `canCancel` NÃO estendido aos 3 estados de escrow
+  (extensão de elegibilidade de cancelamento em estado de dinheiro é decisão de produto, não
+  decisão de case-fix — fora do que corrigi).
+- `backend/src/modules/services/service-order.routes.ts:210` — `query.status as any` sem
+  validar → `SERVICE_ORDER_STATUS_SET: Record<ServiceOrderStatus, true>` (o TS falha a
+  compilação se `ServiceOrderStatus` mudar e este objeto não acompanhar — nunca dessincroniza,
+  composto do vocabulário governado, não enumerado à parte) + 400 honesto para valor fora do
+  enum, antes de bater no Postgres.
+
+**Prova E2E HTTP real (banco efêmero `unificard_so_status_vocab_e2e`,
+`run-service-order-status-vocabulary-ephemeral.ps1`):** 8 service_orders semeadas (1 por
+status), `GET /services/service-orders?status=X` para cada um dos 8 → 200 + linha do status
+certo na resposta; `status=DRAFT` (maiúsculo) e `status=nonsense` → 400 (não 500).
+`SERVICE-ORDER-STATUS-VOCABULARY :: PASS (18/18)`.
+
+### Itens 2-4 — reconfirmados intactos (ver detalhe na entrada anterior)
+`automation.ts` (AlertSeverity/AlertStatus), `trust.ts` (TrustEvent.severity),
+`AlertsPage.tsx` (cores), `App.tsx` (comentário da rota desligada) — todos ainda no estado
+corrigido da fatia anterior; nada foi revertido.
+
+### Item 3 (reconciliation-metrics) — segue PARADO, não executado
+Sem mudança desde a fatia anterior: `reconciliation-metrics.routes.ts:40` intocado.
+
+### Provas — frontend manda / banco aceita, lado a lado (tabela consolidada)
+| Campo | Frontend ANTES | Frontend DEPOIS | Banco (unificard_dev / efêmera, ao vivo) |
+|---|---|---|---|
+| `alerts.severity` | LOW/MEDIUM/HIGH/CRITICAL | CRITICAL/ERROR/WARNING/INFO/AUDIT | CRITICAL/ERROR/WARNING/INFO/AUDIT |
+| `alerts.status` | OPEN/ACK/RESOLVED | open/ack/resolved | open/ack/resolved |
+| `trust_events.severity` | LOW/MEDIUM/HIGH | CRITICAL/ERROR/WARNING/INFO/AUDIT | CRITICAL/ERROR/WARNING/INFO/AUDIT |
+| `service_orders.status` | DRAFT/CONFIRMED/IN_PROGRESS/COMPLETED/CANCELLED (5) | draft/confirmed/in_progress/completed/seller_pending/release_approved/funds_released/cancelled (8) | draft/confirmed/in_progress/completed/seller_pending/release_approved/funds_released/cancelled (8, `pg_enum`) |
+
+`npm run typecheck` FRONTEND → 0 · BACKEND → 0 · `validate:regression-guards` → **229/229**
+(2 scripts novos são harness de prova E2E, não guard — não entram no CMDS[], contagem
+inalterada por desenho, mesmo padrão dos e2e anteriores desta sessão).
+
+**Higiene:** `git ls-files --eol` nos 5 arquivos tocados — todos nasceram `i/lf`; o Edit tool
+converteu 4 deles pra CRLF no meio da fatia (`service-order.routes.ts`,
+`ServiceOrderDetailPage.tsx`, `ServiceOrdersPage.css`, `ServiceOrdersPage.tsx`) — achado e
+normalizado de volta pra LF antes do fechamento; `git diff --check` limpo.
+
+NÃO COMMITADO por mim.
+
+---
+
+## ✅ EXECUTADO — F-SEVERITY-CANONICAL-CONVERGENCE: FRONTEND (2026-07-31; GO Clayton)
+
+**Origem: recorte da fatia F-SEVERITY-CANONICAL-CONVERGENCE excluiu o frontend — "erro meu de
+recorte", palavras da direção.** Backend convergiu (`e95fb825f`), mas nenhum arquivo de
+`frontend/src` foi tocado; foi a AUDITORIA INDEPENDENTE que achou, não o recorte original. Isto
+fecha os 6 itens que a auditoria + a própria direção levantaram.
+
+**4 arquivos corrigidos, §4.34 (severity) + §4.11 (status):**
+1. `frontend/src/api/automation.ts:16-32` — `AlertSeverity` era `'LOW'|'MEDIUM'|'HIGH'|'CRITICAL'`
+   (vocabulário morto; nunca existiu no enum vivo `alert_severity`) → `'CRITICAL'|'ERROR'|
+   'WARNING'|'INFO'|'AUDIT'`. Prova vermelha da direção contra `unificard_dev`:
+   `SELECT count(*) FROM alerts WHERE severity='HIGH'` → `ERRO: valor de entrada é inválido
+   para enum alert_severity: "HIGH"`. O filtro ia cru pro SQL via `alert.repository.ts` — não
+   devolvia vazio, QUEBRAVA.
+2. MESMO ARQUIVO, achado da direção que a auditoria não pegou: `AlertStatus` era
+   `'OPEN'|'ACK'|'RESOLVED'` → `'open'|'ack'|'resolved'`. Banco (`alert_status`) já estava
+   CERTO em minúsculo (§4.11 manda status em snake_case lowercase) — quem estava errado era o
+   frontend. Banco NÃO foi tocado.
+3. `frontend/src/pages/AlertsPage.tsx` — `getSeverityColor` (5 casos, era 4 — ganhou `AUDIT`) +
+   todos os literais de status (filtro `filter==='OPEN'`→`'open'`, botões `setFilter('OPEN')`→
+   `setFilter('open')`, `alert.status===...`, `handleUpdateStatus(id,'ACK')`→`'ack'`, etc.) —
+   9 sites de status + 1 switch de severity.
+4. `frontend/src/api/trust.ts:37` — `TrustEvent.severity` era `'LOW'|'MEDIUM'|'HIGH'` (vocabulário
+   de priority) → `'CRITICAL'|'ERROR'|'WARNING'|'INFO'|'AUDIT'`. Verificado: nenhum consumidor
+   vivo no frontend hoje filtra por este campo (só `RiskLevel`, campo SEPARADO, é comparado em
+   `TrustAlert.tsx`/`TrustBadge.tsx`/`BypassAlert.tsx`/`PayoutOrderPanel.tsx` — não mexido, não é
+   regido por §4.34). Corrigido mesmo sem consumidor vivo — é o tipo público do dado, e a
+   direção pediu por nome.
+
+**Verificado e confirmado FORA de escopo (mesmo vocabulário, campo/tabela diferente, não tocado):**
+`frontend/src/api/risk-dashboard.ts:84` (LOW/MEDIUM/HIGH/CRITICAL) bate com
+`RiskTimelineEvent.severity` do backend — projeção de dashboard, deixada como está de propósito
+na fatia anterior (fronteira em `risk-dashboard.service.ts:341`). `src/api/policies.ts:102`,
+`src/api/marketplace.ts:4703,5046` — batem com tipos locais do backend
+(`policy.types.ts`/`PricingAssistanceReport`/`RegionalCapacitySnapshot`) já confirmados
+sem persistência nas 4 tabelas governadas. `pending-actions`/`operational-limits` (blocking/
+attention/info) — vocabulário de UI local, sem tabela por trás.
+
+**Item 5 — PAREI, não executei (instrução explícita da direção):**
+`backend/src/core/reconciliation/reconciliation-metrics.routes.ts:40` devolve
+`severity: full.totalDrifts > 0 ? 'critical' : 'low'` no CORPO HTTP de `GET
+/admin/metrics/reconciliation/summary`. Investigado, não tocado. Consumidores achados: NENHUM
+`frontend/src` parseia este campo programaticamente hoje (grep vazio); `docs/runbooks/
+reconciliation.md:38-39` documenta o campo para uso humano/ops; rota registrada com prefixo
+`/metrics/reconciliation` em `unifybank.module.ts` e catalogada como admin-facing em
+`docs/02_decisions/MAPA_DENOMINADOR_TENANT_SHARED_ISOLATION.md` — que TAMBÉM já registra uma DT
+OPEN separada e anterior nesta mesma rota (`DT-INVENTORY-RECONCILIATION-METRICS-INSTITUTIONAL-
+AUTHORITY-MISSING`, tenantId client-supplied/nullable — eixo de autoridade, não de vocabulário).
+Proposta: mudar corpo de resposta é contrato público (mesmo sem consumidor TS interno, pode
+haver monitoramento/Grafana/curl externo ao repo dependendo do literal 'critical'/'low') —
+decisão da direção se convergir agora (breaking) ou versionar/coordenar com o runbook.
+
+**Achado colateral, investigado, NÃO tocado (fora do que foi pedido, mas mesma classe de
+problema):** `automation.routes.ts:3-4` ainda comenta *"as tabelas `alerts` e `scheduled_actions`
+NÃO existem"* — parcialmente FALSO desde `20260731120000_alerts_substrate.sql` (`alerts` existe;
+`scheduled_actions` continua ausente, essa parte segue verdadeira). Não corrigido porque a
+direção não pediu e mexer no cabeçalho de um arquivo de contenção de rota é mais sensível que um
+comentário de tipo — decisão de escopo da direção, não minha.
+
+**`App.tsx:489-502` — comentário atualizado, rota SEGUE comentada (não religada por conta
+própria):** razão original (*"tabela `alerts` ausente em runtime"*) morreu com
+`20260731120000_alerts_substrate.sql` (commit `27c71eb09`; `unificard_dev` em 550 migrations).
+Comentário agora diz a verdade de hoje: tabela existe, o bloqueio real é
+`automation.routes.ts:27-31` devolvendo 501 em toda rota `/automation/alerts*` antes de
+qualquer service (contenção deliberada, F-AUTHORITY-Z2-R8N) — e nomeia os 2 passos que faltam
+para religar (descontingenciar as rotas de alerts especificamente + reconectar aos handlers de
+alertService), como ato da direção.
+
+**Provas — frontend manda / banco aceita, lado a lado:**
+| Campo | Frontend ANTES | Frontend DEPOIS | Banco aceita |
+|---|---|---|---|
+| `alerts.severity` | LOW/MEDIUM/HIGH/CRITICAL | CRITICAL/ERROR/WARNING/INFO/AUDIT | CRITICAL/ERROR/WARNING/INFO/AUDIT (pg_enum `alert_severity`) |
+| `alerts.status` | OPEN/ACK/RESOLVED | open/ack/resolved | open/ack/resolved (pg_enum `alert_status`) |
+| `trust_events.severity` | LOW/MEDIUM/HIGH | CRITICAL/ERROR/WARNING/INFO/AUDIT | CRITICAL/ERROR/WARNING/INFO/AUDIT (CHECK `trust_events_severity_check`) |
+
+`npm run typecheck` no FRONTEND → 0 (confirma: nenhum consumidor interno quebrou com a troca de
+vocabulário — se algum comparasse literal contra o tipo antigo, o compilador teria acusado).
+`npm run typecheck` no BACKEND → 0. `validate:regression-guards` → **229/229** (fatia é
+frontend-only + leitura no backend; runner não regrediu).
+
+Higiene: `git ls-files --eol` nos 4 arquivos tocados — `automation.ts`/`trust.ts`/
+`AlertsPage.tsx` são `i/crlf w/crlf` (CRLF é a convenção NATIVA desses 3 arquivos no git, não
+introduzida por mim); `App.tsx` é `i/lf w/lf`. Ambos consistentes antes/depois — `git diff
+--check` limpo, nenhuma mistura de EOL introduzida.
+
+NÃO COMMITADO por mim — nenhum `git commit` executado nesta fatia.
+
+---
+
 
 **O guard esteve verde por meses cobrindo 131 de 551 arquivos — e ninguém notou porque guard
 verde não é lido.** `check-migration-numbering.js` fazia `return` antecipado em qualquer nome de
