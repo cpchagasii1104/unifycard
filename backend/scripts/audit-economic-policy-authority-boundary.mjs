@@ -324,6 +324,19 @@ const WRITE_PATH_FILES = [ROUTE_PATH, REPO_PATH, VALIDATION_PATH];
 }
 
 // ══════════════════════ (i) FE não decide validade de policy por regra própria (canSubmit) ═══════
+// ESTRUTURAL, não nominal (achado da direção 2026-07-31): checar só os nomes 'sumOk'/'revenue_share'
+// deixa passar a MESMA regra sob nome novo (ex.: `policyLooksValid = ... l.lineType === '...'`).
+// A invariante real: NADA na cadeia de dependências de `canSubmit` pode inspecionar `lineType` —
+// comparar lineType É reimplementar regra de negócio (linha existe/não-existe de um tipo). Contar
+// linha, checar campo vazio ou `submitting` é completude de formulário, não validade de policy.
+//
+// Exceção JÁ CONHECIDA e fora de escopo desta fatia: `everyRegionalFundLineValid` (via
+// `invalidRegionalFundLines`) inspeciona `lineType === 'regional_fund'` — espelho reconhecido no
+// próprio código-fonte (comentário :468-471) que a direção decidiu NÃO tocar aqui. Tolerada SEM
+// allowlist de nome: o guard conta QUANTAS variáveis/trechos na cadeia inspecionam lineType e
+// permite NO MÁXIMO 1 (o estado atual, seja lá qual for o nome dela). 0 também passa (se o dia
+// vier em que regional_fund parar de inspecionar lineType, o guard não quebra por isso). 2+ é
+// sempre regressão — não importa o nome da 2ª variável.
 {
   const FE_PATH = 'frontend/src/admin/EconomicPoliciesPage.tsx';
   const feAbs = resolve(ROOT, '..', FE_PATH);
@@ -331,15 +344,71 @@ const WRITE_PATH_FILES = [ROUTE_PATH, REPO_PATH, VALIDATION_PATH];
     note('FE-FILE-MISSING', `${FE_PATH}: arquivo ausente — cross-check de FE não decidir validade não verificável.`);
   } else {
     const feCode = stripTs(readFileSync(feAbs, 'utf8'));
-    const canSubmitRegion = regionBetween(feCode, 'const canSubmit =', ';');
-    if (!canSubmitRegion) {
+    const JS_KEYWORDS = new Set([
+      'const', 'let', 'var', 'function', 'return', 'if', 'else', 'for', 'while', 'true', 'false',
+      'null', 'undefined', 'typeof', 'new', 'this', 'void', 'in', 'of', 'instanceof', 'class',
+      'extends', 'super', 'import', 'export', 'default', 'from', 'as', 'async', 'await', 'yield',
+      'try', 'catch', 'finally', 'throw', 'switch', 'case', 'break', 'continue', 'do', 'delete',
+    ]);
+    const stripStrings = (s) => s.replace(/'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|`(?:[^`\\]|\\.)*`/g, "''");
+    const referencedIdentifiers = (exprNoStrings) => {
+      const out = new Set();
+      const re = /(^|[^.\w$])([a-zA-Z_$][\w$]*)\b/g;
+      let m;
+      while ((m = re.exec(exprNoStrings)) !== null) {
+        if (!JS_KEYWORDS.has(m[2])) out.add(m[2]);
+      }
+      return out;
+    };
+    // Acha `const <name> = <expr>;` em QUALQUER lugar do arquivo (mesmo escopo de função de
+    // EconomicPoliciesPage) e devolve SÓ <expr> (parênteses/colchetes/chaves balanceados, sem o
+    // prefixo `const <name> =` — crítico: incluir o prefixo faria o próprio nome '<name>' aparecer
+    // como identificador referenciado, criando um auto-loop espúrio na BFS abaixo).
+    const extractConstDefinition = (code, name) => {
+      const re = new RegExp(`\\bconst\\s+${name}\\s*=`);
+      const m = re.exec(code);
+      if (!m) return null;
+      let i = m.index + m[0].length;
+      const start = i;
+      let depth = 0;
+      while (i < code.length) {
+        const ch = code[i];
+        if ('([{'.includes(ch)) depth++;
+        else if (')]}'.includes(ch)) depth--;
+        else if (ch === ';' && depth === 0) break;
+        i++;
+      }
+      return code.slice(start, i);
+    };
+    // BFS pela cadeia de dependências a partir do texto (só-RHS) de canSubmit; devolve o conjunto
+    // de "violadores" — o próprio canSubmit (inline) e/ou nomes de const cuja definição inspeciona
+    // lineType diretamente. 'canSubmit' entra pré-visitado (defesa extra contra auto-loop).
+    const collectLineTypeInspectors = (code, rootExprRaw) => {
+      const violators = new Set();
+      if (/\blineType\b/.test(rootExprRaw)) violators.add('(inline, no próprio canSubmit)');
+      const visited = new Set(['canSubmit']);
+      const queue = [...referencedIdentifiers(stripStrings(rootExprRaw))];
+      while (queue.length > 0) {
+        const name = queue.shift();
+        if (visited.has(name)) continue;
+        visited.add(name);
+        const def = extractConstDefinition(code, name);
+        if (!def) continue; // não é const local resolvível (campo de form, prop, import) — fora do escopo do cross-check
+        if (/\blineType\b/.test(def)) violators.add(name);
+        for (const nested of referencedIdentifiers(stripStrings(def))) {
+          if (!visited.has(nested)) queue.push(nested);
+        }
+      }
+      return violators;
+    };
+
+    const canSubmitRaw = extractConstDefinition(feCode, 'canSubmit');
+    if (!canSubmitRaw) {
       note('FE-CANSUBMIT-REGION', `${FE_PATH}: definição de canSubmit não encontrada (marcador ausente) — DT-ECONOMIC-POLICY-PANEL-FE-BE-DIVERGENCE não verificável.`);
     } else {
-      if (/revenue_share/i.test(canSubmitRegion)) {
-        note('FE-CANSUBMIT-REVENUE-SHARE', `${FE_PATH}: canSubmit voltou a referenciar 'revenue_share' — o frontend voltou a decidir validade de policy por regra própria; o backend é a única autoridade (400 com mensagem pronta).`);
-      }
-      if (/\bsumOk\b/.test(canSubmitRegion)) {
-        note('FE-CANSUBMIT-SUMOK', `${FE_PATH}: canSubmit voltou a referenciar 'sumOk' (a variável composta que causou a divergência FE/BE original) — reimplementação de regra de negócio no cliente.`);
+      const violators = collectLineTypeInspectors(feCode, canSubmitRaw);
+      if (violators.size > 1) {
+        note('FE-CANSUBMIT-LINETYPE-INSPECTION', `${FE_PATH}: canSubmit depende de ${violators.size} variável(is)/trecho(s) que inspecionam lineType (${[...violators].join(', ')}) — no máximo 1 é tolerado (a exceção JÁ conhecida de regional_fund, fora de escopo desta fatia). Qualquer inspeção de lineType na cadeia de canSubmit é reimplementação de regra de negócio (DT-ECONOMIC-POLICY-PANEL-FE-BE-DIVERGENCE) — não importa o nome da variável.`);
       }
     }
     if (/Falta uma linha revenue_share/i.test(feCode)) {

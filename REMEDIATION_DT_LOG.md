@@ -135,6 +135,66 @@ backend (não simulação), mensagem de erro real capturada e roteada pela lógi
 extração do frontend (copiada do código, não reimplementada), escrita real revertida com
 contagem antes/depois/pós-desfazer, guard vermelho/verde nos dois ângulos de regressão.
 
+### ➕ ADENDO (2026-07-31) — ① guard virou estrutural · ② D-B absorvida
+**① O guard não segurava por um 3º ângulo.** A direção testou
+`policyLooksValid = form.lines.length === 0 || form.lines.some(l => l.lineType === 'revenue_share')`
+alimentando `canSubmit` — mesma regra, nome novo → `GATE OK` (o guard só vigiava os textos
+`revenue_share`/`sumOk`). Reescrito para ser **estrutural, não nominal**:
+`audit-economic-policy-authority-boundary.mjs` seção (i) agora resolve a CADEIA de
+dependências de `canSubmit` (BFS sobre `const <nome> = <expr>` no arquivo, recursivo) e
+falha se **mais de 1** variável/trecho alcançável inspecionar `lineType` — o "1" tolerado é
+`everyRegionalFundLineValid`/`invalidRegionalFundLines` (exceção JÁ conhecida, fora de
+escopo), tolerada **sem allowlist de nome**: o guard não sabe o nome dela, só CONTA quantos
+inspetores de `lineType` existem na cadeia. 2+ é sempre regressão, não importa o nome.
+
+🔎 **Achado próprio, corrigido em tempo real durante a prova:** minha 1ª versão usava
+`regionBetween(feCode, 'const canSubmit =', ';')`, que INCLUI o prefixo `const canSubmit =`
+no texto retornado — isso fazia o identificador `canSubmit` aparecer como "referenciado por
+si mesmo", criando um auto-loop espúrio que contava a MESMA violação inline duas vezes sob
+rótulos diferentes (`(inline...)` + `canSubmit`) quando `lineType` era inserido direto no
+corpo de `canSubmit`. Não gerava falso-negativo (ainda mordia), mas a lista de violadores
+saía errada. Corrigido trocando por `extractConstDefinition` (mesma função usada pra
+resolver os nomes da cadeia, que devolve só o RHS) + `canSubmit` pré-visitado no BFS.
+
+**Prova — 4 vermelhas (a da direção + 3 minhas, nomes diferentes), todas restauradas:**
+1. `policyLooksValid` (exata da direção, checagem direta em `form.lines.some`) → guard morde
+   `FE-CANSUBMIT-LINETYPE-INSPECTION`, nomeia `policyLooksValid` E `invalidRegionalFundLines`
+   (2 violadores), `exit 1`. Restaurado → `exit 0`.
+2. `formLinesOk` → `missingKindOfLine` (2 saltos de distância, via variável intermediária) →
+   guard morde, nomeia corretamente a raiz `missingKindOfLine` (não o wrapper), `exit 1`.
+   Restaurado → `exit 0`.
+3. `lineType` inline direto na própria expressão de `canSubmit` (sem nome nenhum) → guard
+   morde via rótulo `(inline, no próprio canSubmit)`, `exit 1`. Restaurado → `exit 0` — e foi
+   nesta prova que o bug do auto-loop apareceu e foi corrigido (ver achado acima).
+4. Baseline legítimo de hoje (`hasAnyLine`, `everyLineHasValue`, `everyRegionalFundLineValid`,
+   campos de texto, `!submitting`) → verde em TODAS as rodadas acima (nunca houve falso
+   positivo travando o painel).
+
+**② D-B absorvida.** `frontend/src/admin/EconomicPoliciesPage.tsx`: nova constante
+`fixedLinesSumCents` (soma de `fixedAmountCents` das linhas, só calculada quando
+`bpsLines.length === 0` — policy só-fixa) + bloco `econ-sum-indicator--warn` (classe CSS
+nova, âmbar) mostrando *"Esta policy é inválida para transações abaixo de R$ X (soma das
+linhas fixas)."* — só quando `bpsLines.length === 0 && fixedLinesSumCents > 0`.
+`canSubmit` **não referencia** `fixedLinesSumCents` (confirmado por leitura — é aviso, não
+gate; D-B é explícita: "zero campo novo, zero regra nova, zero rejeição").
+
+**Prova (execução real da expressão, sem navegador, mesmo método da fatia original):**
+```
+Cenário só-fixa (500+200 cents): { bpsLinesCount: 0, fixedLinesSumCents: 700,
+  showsWarning: true, text: 'Esta policy é inválida para transações abaixo de R$ 7.00
+  (soma das linhas fixas).' }
+Cenário com bps (7000+3000): { bpsLinesCount: 2, fixedLinesSumCents: 0,
+  showsWarning: false, text: null }
+```
+
+**Runner e typecheck (adendo):** `frontend typecheck` → 0. `backend typecheck` → 0.
+`npm run validate:regression-guards` (banco `unificard_dev`) → **228 COMMANDS OK** (guard
+estendido, não novo), drift 0. `economic-policy-authority-boundary` confirmado `GATE OK`
+dentro do runner completo, com a versão estrutural da seção (i).
+
+**Não feito (escopo do adendo):** nenhum campo novo criado. `canSubmit` não passou a
+depender de `fixedLinesSumCents`. Backend intocado. Não commitado.
+
 ## ✅ `DT-EVENT-GUIDED-FLOW-WHITE-SCREEN-ON-FINISH` — FECHADA (2026-07-31)
 **Executora especialista. Primeira fatia de frontend desta campanha. Pacote corrigido em
 tempo real pela direção: a exigência original de "print de navegador" era INEXEQUÍVEL —

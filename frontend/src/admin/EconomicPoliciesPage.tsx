@@ -470,6 +470,14 @@ export default function EconomicPoliciesPage() {
   const bpsLines = form.lines.filter((l) => l.valueMode === 'bps' && l.bps !== null);
   const bpsSum = bpsLines.reduce((acc, l) => acc + (l.bps ?? 0), 0);
   const hasAnyLine = form.lines.length > 0;
+  // D-B (Clayton, 2026-07-31, REMEDIATION_DT_LOG.md "QUATRO DECISÕES"): policy só-fixa CONTINUA
+  // PERMITIDA (proibir desfaria o conserto deliberado de write-validation.ts:202-208 e rejeitaria
+  // policy que hoje publica e funciona). O painel só AVISA — nunca bloqueia — com o MÍNIMO
+  // DERIVADO: soma das linhas fixas, que é aritmética sobre o próprio input do usuário (mesma
+  // natureza de bpsSum acima), não regra de negócio nova. Zero campo novo, zero rejeição.
+  const fixedLinesSumCents = bpsLines.length === 0
+    ? form.lines.reduce((acc, l) => acc + (l.valueMode === 'fixed' ? (l.fixedAmountCents ?? 0) : 0), 0)
+    : 0;
   const everyLineHasValue = form.lines.every(
     (l) => (l.valueMode === 'bps' ? l.bps !== null : l.fixedAmountCents !== null)
   );
@@ -1028,6 +1036,13 @@ export default function EconomicPoliciesPage() {
                 ? 'Nenhuma linha percentual nesta versão (só valores fixos).'
                 : `Total das linhas percentuais: ${(bpsSum / 100).toFixed(2)}%`}
             </div>
+
+            {/* D-B: aviso, NÃO bloqueio — policy só-fixa segue permitida e submissível. */}
+            {bpsLines.length === 0 && fixedLinesSumCents > 0 && (
+              <div className="econ-sum-indicator econ-sum-indicator--warn">
+                {`Esta policy é inválida para transações abaixo de R$ ${(fixedLinesSumCents / 100).toFixed(2)} (soma das linhas fixas).`}
+              </div>
+            )}
 
             {!everyRegionalFundLineValid && (
               <div className="econ-sum-indicator econ-sum-indicator--bad">
