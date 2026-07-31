@@ -88,22 +88,39 @@ export default function ServiceOrderDetailPage() {
     });
   };
 
+  // ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+  // ║ STATUS:  CANÔNICO
+  // ║ NORMA:   backend/src/modules/services/service-order.types.ts:4-36 + decisão de rótulo de
+  // ║          Clayton, 2026-07-31 (mesma decisão aplicada em ServiceOrdersPage.tsx)
+  // ║ NÃO:     comparar order.status contra DRAFT/CONFIRMED/IN_PROGRESS/COMPLETED/CANCELLED
+  // ║          maiúsculo — achado 2026-07-31: como order.status SEMPRE vem minúsculo do banco,
+  // ║          canConfirm/canStart/canComplete/canCancel eram SEMPRE false — os 4 CTAs de ação
+  // ║          ficavam ocultos para TODA ordem, em silêncio, sem erro (nenhuma tela quebrava,
+  // ║          só nunca mostrava o botão). Mesma causa-raiz de ServiceOrdersPage.tsx, achado ao
+  // ║          estender o caso, não pedido no pacote original.
+  // ║ EM VEZ:  minúsculo. Escopo do fix é SÓ o case bug — não estendi canCancel aos 3 estados de
+  // ║          escrow (seller_pending/release_approved/funds_released): se cancelamento nesses
+  // ║          estados é permitido é decisão de produto/dinheiro, não decisão de case-fix.
+  // ╚════════════════════════════════════════════════════════════════
   const getStatusLabel = (status: string) => {
     switch (status) {
-      case 'DRAFT': return 'Rascunho';
-      case 'CONFIRMED': return 'Confirmada';
-      case 'IN_PROGRESS': return 'Em Andamento';
-      case 'COMPLETED': return 'Concluída';
-      case 'CANCELLED': return 'Cancelada';
+      case 'draft': return 'Rascunho';
+      case 'confirmed': return 'Confirmada';
+      case 'in_progress': return 'Em Andamento';
+      case 'completed': return 'Concluída';
+      case 'seller_pending': return 'Aguardando Confirmação do Comprador';
+      case 'release_approved': return 'Aprovada para Liberação';
+      case 'funds_released': return 'Liberado para a Carteira';
+      case 'cancelled': return 'Cancelada';
       default: return status;
     }
   };
 
   // 🔴 ENTITY DETAIL PAGE: Verificações apenas para exibir CTAs (não executar ações)
-  const canConfirm = order?.status === 'DRAFT' && activeActor?.actor_id === order.workerActorId;
-  const canStart = order?.status === 'CONFIRMED' && activeActor?.actor_id === order.workerActorId;
-  const canComplete = order?.status === 'IN_PROGRESS' && activeActor?.actor_id === order.workerActorId;
-  const canCancel = order && ['DRAFT', 'CONFIRMED', 'IN_PROGRESS'].includes(order.status);
+  const canConfirm = order?.status === 'draft' && activeActor?.actor_id === order.workerActorId;
+  const canStart = order?.status === 'confirmed' && activeActor?.actor_id === order.workerActorId;
+  const canComplete = order?.status === 'in_progress' && activeActor?.actor_id === order.workerActorId;
+  const canCancel = order && ['draft', 'confirmed', 'in_progress'].includes(order.status);
 
   if (isLoading) {
     return (

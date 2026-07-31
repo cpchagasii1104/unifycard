@@ -11,7 +11,30 @@ import type {
   CancelServiceOrderInput,
   ServiceOrderFilters,
   ConfirmFinancialTermsInput,
+  ServiceOrderStatus,
 } from './service-order.types';
+
+// ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+// ║ STATUS:  CANÔNICO
+// ║ NORMA:   service-order.types.ts (ServiceOrderStatus, fonte do enum vivo service_order_status)
+// ║ NÃO:     `query.status as any` sem validar — valor fora do enum bate direto no Postgres e
+// ║          vira 500 (achado: FE declarava 5 dos 8 valores, filtro cru quebrava a query).
+// ║ EM VEZ:  validar contra este Record — TS falha a compilação se ServiceOrderStatus mudar e
+// ║          este objeto não acompanhar (chave faltando/sobrando), então nunca dessincroniza.
+// ╚════════════════════════════════════════════════════════════════
+const SERVICE_ORDER_STATUS_SET: Record<ServiceOrderStatus, true> = {
+  draft: true,
+  confirmed: true,
+  in_progress: true,
+  completed: true,
+  seller_pending: true,
+  release_approved: true,
+  funds_released: true,
+  cancelled: true,
+};
+function isServiceOrderStatus(v: string): v is ServiceOrderStatus {
+  return Object.prototype.hasOwnProperty.call(SERVICE_ORDER_STATUS_SET, v);
+}
 
 const serviceOrderRoutes = async (fastify: FastifyInstance) => {
   // 🔴 DECISION-0113 F6.5.6a (ordem comercial privada): ler uma service-order exige ser PARTE legítima —
@@ -207,7 +230,14 @@ const serviceOrderRoutes = async (fastify: FastifyInstance) => {
     if (query.serviceId) filters.serviceId = query.serviceId;
     if (query.workerActorId) filters.workerActorId = query.workerActorId;
     if (query.customerActorId) filters.customerActorId = query.customerActorId;
-    if (query.status) filters.status = query.status as any;
+    if (query.status) {
+      if (!isServiceOrderStatus(query.status)) {
+        return reply.status(400).send({
+          error: `status inválido: "${query.status}". Valores aceitos: ${Object.keys(SERVICE_ORDER_STATUS_SET).join(', ')}`,
+        });
+      }
+      filters.status = query.status;
+    }
     if (query.scheduledStartFrom) filters.scheduledStartFrom = new Date(query.scheduledStartFrom);
     if (query.scheduledStartTo) filters.scheduledStartTo = new Date(query.scheduledStartTo);
     if (query.limit) filters.limit = parseInt(query.limit);

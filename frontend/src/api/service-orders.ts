@@ -12,7 +12,25 @@ import { apiFetch, apiFetchJson } from './client';
 // (offerings.ts já segue o mesmo padrão '/services/offerings'.) NÃO montar rota raiz no backend.
 const SERVICE_ORDERS_BASE = '/services/service-orders';
 
-export type ServiceOrderStatus = 'DRAFT' | 'CONFIRMED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+// ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+// ║ STATUS:  CANÔNICO
+// ║ NORMA:   backend/src/modules/services/service-order.types.ts (ServiceOrderStatus — fonte
+// ║          do enum vivo service_order_status, 8 valores, minúsculo/snake_case)
+// ║ NÃO:     5 valores em MAIÚSCULA (achado 2026-07-31: FE só declarava draft/confirmed/
+// ║          in_progress/completed/cancelled — faltavam os 3 estados de dinheiro do escrow;
+// ║          filtro cru quebrava a query com 500 em /service-orders, tela montada e ao vivo).
+// ║ EM VEZ:  os 8 valores minúsculos, incluindo seller_pending/release_approved/funds_released
+// ║          (ciclo de liberação de escrow — ver comentário de cada um em ServiceOrdersPage.tsx).
+// ╚════════════════════════════════════════════════════════════════
+export type ServiceOrderStatus =
+  | 'draft'
+  | 'confirmed'
+  | 'in_progress'
+  | 'completed'
+  | 'seller_pending'
+  | 'release_approved'
+  | 'funds_released'
+  | 'cancelled';
 
 export interface ServiceOrder {
   id: string;
@@ -73,7 +91,7 @@ export interface ServiceOrderFilters {
 }
 
 /**
- * Criar nova ordem de serviço (status: DRAFT)
+ * Criar nova ordem de serviço (status: draft)
  */
 export async function createServiceOrder(input: CreateServiceOrderInput): Promise<ServiceOrder> {
   const response = await apiFetch(SERVICE_ORDERS_BASE, {
@@ -133,7 +151,7 @@ export async function getServiceOrder(orderId: string): Promise<ServiceOrder> {
 }
 
 /**
- * Confirmar ordem de serviço (DRAFT → CONFIRMED)
+ * Confirmar ordem de serviço (draft → confirmed)
  * Cria Calendar Event automaticamente
  */
 export async function confirmServiceOrder(
@@ -158,7 +176,7 @@ export async function confirmServiceOrder(
 }
 
 /**
- * Iniciar ordem de serviço (CONFIRMED → IN_PROGRESS)
+ * Iniciar ordem de serviço (confirmed → in_progress)
  */
 export async function startServiceOrder(
   orderId: string,
@@ -184,7 +202,7 @@ export async function startServiceOrder(
 }
 
 /**
- * Completar ordem de serviço (IN_PROGRESS → COMPLETED)
+ * Completar ordem de serviço (in_progress → completed)
  */
 export async function completeServiceOrder(
   orderId: string,
@@ -303,7 +321,7 @@ export async function confirmServiceOrderFinancialTerms(
  * - NÃO cria comissão
  * - NÃO cria split
  * - Bloqueia agenda explicitamente
- * - Status inicial: CONFIRMED
+ * - Status inicial: confirmed
  */
 export async function confirmBookingFromDecision(
   bookingId: string,

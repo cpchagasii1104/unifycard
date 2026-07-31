@@ -16,9 +16,9 @@ export default function ServiceOrdersPage() {
   const [orders, setOrders] = useState<ServiceOrder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  // Ajuste UX: Filtro padrão DRAFT para funcionários
+  // Ajuste UX: Filtro padrão draft para funcionários
   const [statusFilter, setStatusFilter] = useState<ServiceOrderStatus | 'ALL'>(
-    activeActor?.actor_type === 'page' ? 'DRAFT' : 'ALL'
+    activeActor?.actor_type === 'page' ? 'draft' : 'ALL'
   );
   const [entityNames, setEntityNames] = useState<Record<string, { service?: string | null; worker?: string | null; customer?: string | null }>>({});
   const [pendingCount, setPendingCount] = useState<number>(0);
@@ -107,7 +107,7 @@ export default function ServiceOrdersPage() {
     if (!activeActor || activeActor.actor_type !== 'page') return;
     
     try {
-      const filters: any = { workerActorId: activeActor.actor_id, status: 'DRAFT' };
+      const filters: any = { workerActorId: activeActor.actor_id, status: 'draft' };
       const pending = await listServiceOrders(filters);
       setPendingCount(pending.length);
     } catch {
@@ -118,22 +118,40 @@ export default function ServiceOrdersPage() {
 
   const getStatusBadgeClass = (status: ServiceOrderStatus) => {
     switch (status) {
-      case 'DRAFT': return 'status-draft';
-      case 'CONFIRMED': return 'status-confirmed';
-      case 'IN_PROGRESS': return 'status-in-progress';
-      case 'COMPLETED': return 'status-completed';
-      case 'CANCELLED': return 'status-cancelled';
+      case 'draft': return 'status-draft';
+      case 'confirmed': return 'status-confirmed';
+      case 'in_progress': return 'status-in-progress';
+      case 'completed': return 'status-completed';
+      case 'seller_pending': return 'status-seller-pending';
+      case 'release_approved': return 'status-release-approved';
+      case 'funds_released': return 'status-funds-released';
+      case 'cancelled': return 'status-cancelled';
       default: return 'status-default';
     }
   };
 
+  // ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+  // ║ STATUS:  CANÔNICO
+  // ║ NORMA:   backend/src/modules/services/service-order.types.ts:4-36 (comentário de cada
+  // ║          estado do ciclo de liberação de escrow) + decisão de rótulo de Clayton, 2026-07-31
+  // ║ NÃO:     "Fundos Liberados"/"Pagamento Recebido"/"Pago" para funds_released — sugere
+  // ║          dinheiro disponível pra saque; funds_released só move pra actor_wallet INTERNA,
+  // ║          saque é pedido+aprovação à parte (payout-request.routes.ts é REQUEST-ONLY).
+  // ║          NÃO usar "Liberada"/particípio de liberar em release_approved — a norma diz que
+  // ║          é aprovação para FUTURA liberação, NÃO fundos liberados; misturar destrói a
+  // ║          distinção que a própria migration/tipo existe pra preservar.
+  // ║ EM VEZ:  os 3 rótulos abaixo, decisão explícita de Clayton (não inventados pela IA).
+  // ╚════════════════════════════════════════════════════════════════
   const getStatusLabel = (status: ServiceOrderStatus) => {
     switch (status) {
-      case 'DRAFT': return 'Rascunho';
-      case 'CONFIRMED': return 'Confirmada';
-      case 'IN_PROGRESS': return 'Em Andamento';
-      case 'COMPLETED': return 'Concluída';
-      case 'CANCELLED': return 'Cancelada';
+      case 'draft': return 'Rascunho';
+      case 'confirmed': return 'Confirmada';
+      case 'in_progress': return 'Em Andamento';
+      case 'completed': return 'Concluída';
+      case 'seller_pending': return 'Aguardando Confirmação do Comprador';
+      case 'release_approved': return 'Aprovada para Liberação';
+      case 'funds_released': return 'Liberado para a Carteira';
+      case 'cancelled': return 'Cancelada';
       default: return status;
     }
   };
@@ -232,11 +250,14 @@ export default function ServiceOrdersPage() {
           onChange={(e) => setStatusFilter(e.target.value as ServiceOrderStatus | 'ALL')}
         >
           <option value="ALL">Todas</option>
-          <option value="DRAFT">Rascunho</option>
-          <option value="CONFIRMED">Confirmadas</option>
-          <option value="IN_PROGRESS">Em Andamento</option>
-          <option value="COMPLETED">Concluídas</option>
-          <option value="CANCELLED">Canceladas</option>
+          <option value="draft">Rascunho</option>
+          <option value="confirmed">Confirmadas</option>
+          <option value="in_progress">Em Andamento</option>
+          <option value="completed">Concluídas</option>
+          <option value="seller_pending">Aguardando Confirmação do Comprador</option>
+          <option value="release_approved">Aprovadas para Liberação</option>
+          <option value="funds_released">Liberadas para a Carteira</option>
+          <option value="cancelled">Canceladas</option>
         </select>
       </div>
 

@@ -121,6 +121,23 @@
   color: #991b1b;
 }
 
+/* ciclo de liberação de escrow (service-order.types.ts:4-36) — cores distintas de
+   status-completed de propósito: dinheiro em trânsito não é a mesma coisa que serviço concluído */
+.status-seller-pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.status-release-approved {
+  background: #e0e7ff;
+  color: #3730a3;
+}
+
+.status-funds-released {
+  background: #ede9fe;
+  color: #5b21b6;
+}
+
 .order-info p {
   margin: 0.5rem 0;
   color: #4b5563;
