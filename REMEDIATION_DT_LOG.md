@@ -1,5 +1,90 @@
 # REMEDIATION DT LOG
 
+## ❌ ERRATA DA DIREÇÃO — a "Tarefa B" do GATE do `alerts` NUNCA EXISTIU (2026-07-31)
+
+O GATE `abb3a6c7a` afirmou: *"`automation.service.ts:75` escreve `type: 'variant'` — é bug, puseram
+o tipo da ENTIDADE no campo do tipo do ALERTA."*
+
+**FALSO. A executora parou e provou** — e estava certa em parar.
+
+```
+:76  type: isOutOfStock ? 'INVENTORY_OUT_OF_STOCK' : 'INVENTORY_LOW_STOCK'   ← correto, sempre foi
+:79  entityType: 'variant'                                                   ← campo DIFERENTE, correto
+```
+
+**Causa do erro:** a direção mediu com `-match "type:\s*'([A-Z_]+)'"` em PowerShell. **`-match` é
+case-INSENSITIVE por padrão**, então `[A-Z_]+` casou `variant` (minúsculo) dentro de
+`entity_type: 'variant'`. O relatório saiu dizendo `type='variant'`.
+
+🔴 **É o TERCEIRO erro de medição da direção neste arco**, e os três têm a mesma forma —
+**ferramenta configurada de um jeito, resultado lido como se fosse de outro**:
+1. contou 11 rotas e generalizou sem abrir as 11 *(derrubado pela Yala)*
+2. `Select-Object -First 10` truncou um grep e virou "nenhum caller" *(derrubado pela Yala)*
+3. `-match` case-insensitive virou "bug de campo trocado" *(derrubado pela executora)*
+
+**Lição para o próximo:** quando a direção reporta um achado extraído por regex, **o achado vale o
+regex**. Cole o comando junto do achado — foi assim que a executora conseguiu derrubar este.
+
+**Nenhum código foi tocado na Tarefa B. Não havia bug.** Os outros dois callers do GATE já
+escreviam valor válido (`penalty.service.ts:397` → `RISK_SCORE_LOW`; `subscription.service.ts:443`
+→ `PAYMENT_FAILED`), o que a fatia confirmou ao provar os 9 valores.
+
+---
+
+## ✅/⛔ EXECUTADO — `DT-ALERTS-SUBSTRATE-MISSING-BREAKS-ARTIGO-II` (2026-07-31)
+
+**TAREFA A — relocada e APLICADA em `unificard_dev`.** `backend/migrations/20260731120000_alerts_substrate.sql`:
+3 ENUMs + tabela `alerts` + 5 índices + RLS(ENABLE+FORCE) + trigger `updated_at`, relocados de
+`migrations_archive/0850_alerts.sql`. `alert_type` nasce com 9 valores (8 originais + `RISK_SCORE_LOW`,
+DECISÃO D-E). `schema_migrations`: 548→549 em `unificard_dev`. Prova RED (42P01, banco efêmero sem a
+migration) + GREEN (grava) + 9-valores (9/9 aceitos, incluindo RISK_SCORE_LOW) — runner
+`backend/scripts/run-alerts-substrate-ephemeral.ps1` + `backend/src/scripts/validate-pipeline-e2e-alerts-substrate.ts`.
+
+🔴 **2 correções mecânicas na relocação (achado, não decisão de vocabulário):**
+1. FK `tenants(tenant_id)` (arquivada) → `tenants(id)` (PK viva atual) — sem isso a migration não roda.
+2. `alert_severity`/`alert_status` da DDL arquivada em MAIÚSCULO (`'HIGH'`,`'OPEN'`) vs `automation.types.ts`
+   + TODOS os 5 callers vivos em minúsculo (`'high'`,`'open'`) — relocar literal trocaria 42P01 por
+   `invalid input value for enum` em 100% das escritas. Migration corrigida para minúsculo (bate com o TS,
+   que é o layer vivo e mais recente). `alert_type` (maiúsculo) já batia — não mexido.
+
+**TAREFA B — PAROU. Causa-raiz declarada está ERRADA.** O GATE (linha 69/`:52`/`:69` acima) afirma que
+`automation.service.ts:75` escreve `type: 'variant'`. **Não escreve — nunca escreveu.** Linha 75 real é
+`await alertService.createAlert(tenantId, {`; linha 76 já grava o valor correto do enum
+(`isOutOfStock ? 'INVENTORY_OUT_OF_STOCK' : 'INVENTORY_LOW_STOCK'`). O único `'variant'` no arquivo é
+`entityType: 'variant'` (:79, correto) e `entity_type: 'variant'` no audit log (:98, campo diferente,
+correto). `git log -S"type: 'variant'"` confirma: a única ocorrência histórica do fragmento é dentro de
+`entity_type: 'variant'` (falso-positivo de substring) — o arquivo nunca teve `type: 'variant'` desde que
+foi criado (`c4c45ec77`, Jan/2026). Os outros 2 callers citados no GATE também já escrevem valor válido:
+`penalty.service.ts:397` → `'RISK_SCORE_LOW'`; `subscription.service.ts:443` → `'PAYMENT_FAILED'`.
+**Nenhum código foi tocado para TAREFA B — não há bug para corrigir.** Se a direção quer que algo mude
+aqui, precisa de um novo GATE com a causa-raiz certa.
+
+**Guard — ESTENDIDO** (não criado; `CMDS[]` segue em 228). `audit-automation-human-mvp-ghost-containment.mjs`
+ganhou a invariante: nenhum dos 8 call-sites vivos de `alertService.createAlert()` (6 automation.service.ts +
+1 subscription.service.ts + 1 penalty.service.ts) escreve `type:` fora do enum extraído da própria migration
+(fonte única, sem lista duplicada). Prova vermelha real: mutado `automation.service.ts` para
+`type: 'NOT_A_REAL_ENUM_VALUE'` → guard morde (exit 1, mensagem nomeando o valor inválido) → restaurado via
+`git checkout --` → `git diff` vazio → guard verde de novo.
+
+⛔ **RUNNER BLOQUEADO em posição 167/228** — `audit-segment-fiscal-template.mjs` (regex cego
+`/onboarding_state|ready_for_activation|fiscal_pending|partially_validated/i` varrendo TODAS as migrations,
+domínio DECISION-0169 §9 "onboarding fiscal de business_templates"). Colide com `FISCAL_PENDING`, um dos 8
+valores ORIGINAIS do enum `alert_type` (SPRINT 50 — "documento fiscal pendente de um PEDIDO", domínio de
+automação operacional, nada a ver com onboarding de template). Isolamento causal provado: guard OK sem a
+migration, FAIL só com ela presente; `FISCAL_PENDING` é herdado do arquivo (não inventado agora) e é um dos
+8 valores que a DECISÃO D-E mandou relocar tal-qual. **NÃO toquei em `audit-segment-fiscal-template.mjs`** —
+é guard de outro domínio, selado por outra DECISION, fora do mandato desta fatia; alterá-lo seria "afrouxar
+verificação" por atalho. Runner fica em 227/228 efetivos + 1 colisão de vocabulário aguardando decisão da
+direção (regex do guard precisa de âncora de contexto — coluna/tabela real, não corpo inteiro da migration).
+
+`npm run typecheck` → 0. `npm run migrate` (unificard_dev, `EXPECTED_DATABASE_NAME=unificard_dev`) → 548→549,
+`alerts` viva, 9 valores confirmados via `pg_enum`. Vocabulário financeiro: 2 arquivos novos ajustados
+(renomeado campo `amount`/valor `'payout'` nos meus próprios arquivos de prova) para não regredir a baseline
+(3884, intacta). Nenhuma escrita em `unificard_dev` precisou de undo — a migration É o entregável permanente.
+LF normalizado + `git diff --check` limpo em todos os arquivos tocados. NÃO COMMITADO.
+
+---
+
 ## 🧭 DECISÃO D-E DE CLAYTON — `RISK_SCORE_LOW` ENTRA NO ENUM (2026-07-31)
 
 **Autoridade: Clayton.** Recomendação da direção, aceita. `alert_type` passa a ter **9 valores**:
