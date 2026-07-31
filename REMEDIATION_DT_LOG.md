@@ -1,5 +1,77 @@
 # REMEDIATION DT LOG
 
+## 🔏 SELO — DUAS CONCLUSÕES, AUDITADAS E CONFIRMADAS (2026-07-31)
+
+**Autoridade: Clayton.** A direção recomendou selar **apenas estas duas**, e apenas elas —
+são as únicas do arco de 2026-07-30/31 que passaram por **auditoria adversarial independente**
+(instância YALA, mandatada a DERRUBAR, parecer em
+`docs/04_audit/PARECER_YALA_RECLASSIFICACOES_4_2026-07-30.md`).
+
+> **O critério que torna este selo diferente dos dois falsos de 2026-07-28:** não é
+> *"a direção conferiu"*. A direção conferiu de 1ª mão **e mesmo assim errou duas vezes no
+> mesmo arco** (contou 11 rotas sem abrir as 11; truncou um grep e concluiu "nenhum caller").
+> **Verificação da direção não basta.** O que basta é alguém mandatado a derrubar tentar,
+> falhar, e **dizer o que atacou**.
+
+---
+
+### ✅ SELO 1 — `requirePermission` é **DESENHO**, não dívida
+
+`actor_has_permission` faz `RETURN FALSE` incondicional **por desenho documentado** —
+fail-closed citando `AUTHORITY_PRECEDENCE.md §4.4`, com a **FASE 6** nomeada como quem
+substitui. Pela regra do vocabulário (*dormente por decisão não é dívida*), a classificação
+anterior como CAUSA/dívida viva estava errada.
+
+**O que a Yala ATACOU e não derrubou:** executou `pg_get_functiondef` no banco vivo ·
+perseguiu os logs `SHADOW_DENY_LEGACY_ALLOW` e provou serem **ruído esperado** do caminho
+legado `canActAs` (fachada separada), **não bypass do decorator** · testou a rota do "500
+mascarado" (`bank-balance-consolidation`) e confirmou o 403.
+
+> ### ⚠️ O QUE ESTE SELO **NÃO** DIZ
+> - **Não diz que `requireRole` é fail-closed.** A Yala achou o contrário: `requireRole` usa
+>   **outra** função — `actor_has_any_role` — que é **query real e CONCEDE** (1 admin vivo em
+>   `user_roles`, 10 rotas usam). **Isso segue ABERTO e o painel subestimava o alcance.**
+> - Não diz que é seguro deixar assim para sempre.
+> - **Não autoriza tocar na FASE 6.** Segue valendo: ninguém encosta nela antes do
+>   `F-SCHEMA-GHOST-REACHABILITY-SWEEP` — o `RETURN FALSE` mascara 176 chamadas em 44 arquivos
+>   de rota, e pelo menos uma escrevia em tabela inexistente.
+
+---
+
+### ✅ SELO 2 — o resolver econômico **NUNCA paga mais que o total**
+
+`calculatePolicySplits` **conserva ou lança**: havendo linha `revenue_share`, ou
+`Σ == amountCents` no retorno, ou `CALCULATION_INVALID` (recusa split negativo,
+`economic-policy-engine.service.ts:292-298`). A alegação do painel *"policy que paga mais que
+o total"* fica **REFUTADA**.
+
+**O que a Yala ATACOU e não derrubou:** **refez a aritmética do ZERO** (recalculou, não
+conferiu) com fixtures hostis — fixo+bps 100% · duas linhas `revenue_share` · só-fixo
+estourando · `bps=0` sem absorvedora. A invariante sobreviveu a todas.
+
+> ### ⚠️ O QUE ESTE SELO **NÃO** DIZ
+> - **Não diz que a policy só-fixa está resolvida.** Ela publica limpa e quebra em tempo de
+>   PAGAMENTO — **falha tardia**, agora mitigada pelo aviso de mínimo derivado (decisão `D-B`,
+>   `94e825abc`), **não eliminada**.
+> - Não diz nada sobre policy estar *bem configurada* — diz que o motor não paga a mais.
+> - Não abre a PORTA-01 e não autoriza religar caller monetário.
+
+---
+
+⚠️ **NADA MAIS DO ARCO 2026-07-30/31 ESTÁ SELADO.** Os sete consertos materiais do dia
+(trava do banco oficial · Lei de ambiente · script de reset · rate-limit de auth · gate
+`schema-coherence` · `service_bookings` · contenção `economic/v2` · tela branca · painel
+econômico) têm verificação de 1ª mão da direção e prova da executora — **mas nenhum passou por
+auditoria adversarial.** Estão commitados e guardados por runner; **não estão selados.**
+
+**Recomendação da direção para o próximo selo, por custo do erro:** ① `DECISION-0195`
+(17 cláusulas de Trust & Safety, escritas pela direção, nunca auditadas) · ② o bloco
+irreversível (trava do banco + Lei + script de reset — erro ali custa os 75 bairros de
+Curitiba) · ③ rate-limit de auth (segurança em rota pública) · ④ dinheiro
+(`economic/v2` + painel).
+
+---
+
 ## 🧭 QUATRO DECISÕES DE CLAYTON — 2026-07-31
 
 Tomadas em bloco para destravar 4 das 10 dívidas vivas. **Autoridade: Clayton.** A direção
