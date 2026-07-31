@@ -1,5 +1,140 @@
 # REMEDIATION DT LOG
 
+## 🧭 QUATRO DECISÕES DE CLAYTON — 2026-07-31
+
+Tomadas em bloco para destravar 4 das 10 dívidas vivas. **Autoridade: Clayton.** A direção
+apresentou opções e recomendação; a escolha foi dele em todas as quatro. Registradas aqui
+porque decisão que vive só no chat não sobrevive à próxima instância.
+
+### D-A · Gate `schema-coherence`: os harnesses ganham **4ª classe**, não exclusão
+Os **1173 de 1794** que vivem em `backend/src/scripts/` passam a ser reportados como classe
+**`harness`** — **contada, visível e NÃO-bloqueante** — ao lado de bloqueante/corruptora/débito.
+**Não** se exclui `backend/src/scripts/` da varredura.
+**Razão:** exclusão por nome de diretório é o mesmo mecanismo que apodreceu 7 de 10 entradas do
+allowlist; um script que um dia vire rota real ficaria invisível. Aditivo — não muda veredito
+de nada existente. *(Origem da proposta: instância GUARDIÃO.)*
+
+### D-B · Policy só-fixa é **PERMITIDA**; o painel exibe o **mínimo derivado**
+Continua permitida policy composta só de `fixedAmountCents`. O painel passa a calcular a soma
+das linhas fixas e avisar **na escrita**: *"esta policy é inválida para transações abaixo de R$ X"*.
+**Razão:** proibir desfaria o conserto deliberado de `economic-policy-write-validation.ts:202-208`
+e rejeitaria policy que hoje publica e funciona — seria regressão. O mínimo **não precisa ser
+declarado**: já é derivável. Zero campo novo, zero regra nova, zero rejeição. *(Origem: GUARDIÃO.)*
+
+### D-C · No conflito de `/reports`, **o FINANCEIRO muda de prefixo**
+`modules/reports` (relatório financeiro, `app.builder.ts:716`) sai de `/reports`. O núcleo de
+**denúncia** (`core/reporting`, `:257`) **fica** com `/reports`.
+**Razão:** é o significado natural da palavra, e a `DECISION-0195` já nomeia a tabela `reports`
+e o núcleo em `core/reporting` — mudar o outro lado desalinharia decisão e código antes de
+nascer. Menos superfície afetada: o financeiro está atrás de `requirePermission`, hoje
+inalcançável.
+⚠️ **Muda contrato de API** — `00_AGENT_PROTOCOL §2.2.8`: começa pelo contrato, depois o código.
+**Exige GATE de consumidores antes de qualquer fatia.**
+
+### D-D · As 125 contenções: cortar por *"esconde caminho vivo?"*
+Não é campanha exaustiva. O critério é o que pescou `service_bookings` e `event_custody`:
+**esconde tela ou rota que alguém usa?**
+· **sim** → ganha **dono e prazo** agora
+· **não** → recebe `ARQUIVADO` / `SUPERADO`
+**Razão:** converte 125 numa lista pequena e real. *(Origem: GUARDIÃO.)*
+
+⚠️ **A quinta decisão — selo da `DECISION-0195` — NÃO foi tomada.** Segue pendente, e a direção
+recomenda auditoria Yala antes do selo: ela derrubou 2 de 4 reclassificações da direção em
+2026-07-30.
+
+---
+
+## ✅ `DT-ECONOMIC-POLICY-PANEL-FE-BE-DIVERGENCE` — FECHADA (2026-07-31)
+**Executora especialista. TOCA DINHEIRO (painel de policy econômica) — §8 lido. Pacote v2
+substituiu v1 em tempo real: v1 mandava "espelhar exatamente" a regra do backend no FE — a
+direção percebeu que isso É o próprio vício que causou o defeito (alguém espelhou, o
+backend mudou de propósito, o espelho ficou pra trás) e corrigiu antes de eu fechar a
+fatia. v1 foi revertido (`git checkout`) sem deixar resíduo; só v2 foi executado.**
+
+### ✅ EXECUTADO — 3 arquivos
+1. **`frontend/src/admin/EconomicPoliciesPage.tsx`**: `canSubmit` deixou de depender de
+   `sumOk` (a variável composta bps+revenue_share que causou a divergência) — removida a
+   linha `sumOk &&` do gate de submissão. `hasRevenueShareAmongBps` e `sumOk` **deletados**
+   (zero ocorrência no arquivo, confirmado por grep). `bpsLines`/`bpsSum` continuam
+   calculados — viraram PROJEÇÃO pura do que o usuário digitou (aritmética, não decisão de
+   negócio), nunca gate. Indicador (:1016-1023 antigo) reescrito: mostra só "Total das
+   linhas percentuais: X%", sem "✓/✗" e sem o texto errado "Falta uma linha revenue_share
+   entre as linhas percentuais" (removido — a mensagem certa agora vem do backend).
+   Comentário extenso adicionado explicando o porquê (doutrina "frontend nunca cria
+   verdade — projeta verdade resolvida").
+2. **`frontend/src/admin/EconomicPoliciesPage.css`**: classe nova `.econ-sum-indicator--info`
+   (neutra, cinza) para o indicador-projeção — não reutiliza `--ok`/`--bad` (que ficam só
+   para o indicador de `regional_fund`, intocado).
+3. **`backend/scripts/audit-economic-policy-authority-boundary.mjs`** (hospedeiro natural —
+   já é o guard da fatia inteira F-ECONOMIC-POLICY-ADMIN-FRONT, só cobria backend): seção
+   (i) nova, cross-check ao FRONTEND — `canSubmit` não pode voltar a referenciar
+   `revenue_share` nem `sumOk`; o texto morto "Falta uma linha revenue_share" não pode
+   reaparecer.
+
+### 🧪 PROVA COMPORTAMENTAL — banco `unificard_econ_policy_fe_test` (efêmero)
+Sem navegador: chamei as funções REAIS do backend (`assertCreatePolicyVersionRequestValid`
++ `economicPolicyRepository.createPolicyVersionWithLines`, as MESMAS que a rota HTTP
+chama) via `tsx`, e repliquei a extração EXATA de `apiFetch`/`friendlyErrorMessage`
+(copiadas linha a linha do código real, não reimplementadas de memória) sobre o JSON de
+resposta real.
+
+**Cenário (a) — só-fixa SEM revenue_share:**
+```
+HTTP status que a rota devolveria: 400
+Corpo JSON: {"ok":false,"message":"economic_policy: nenhuma linha revenue_share entre as
+linhas informadas — o resolver precisa de uma linha revenue_share para absorver o resíduo
+de arredondamento (K_pe_7); sem ela, a resolução falha em tempo de pagamento real."}
+Texto que apareceria no toast: [idêntico à mensagem acima — friendlyErrorMessage passa
+mensagens "economic_policy:" direto, sem tradução]
+```
+`canSubmit` (código atual): **true** para este form (nenhuma regra de linha bloqueia mais)
+— o botão estaria habilitado, o POST seria disparado, e o 400 acima é o que a tela mostra.
+
+**Cenário (b) — bps=10000 + revenue_share FIXA (deve ser ACEITO):**
+```
+economic_policies ANTES: 0
+✅ assertCreatePolicyVersionRequestValid passou (backend aceita)
+✅ WRITE REAL ACEITO. policy.id = 1e87ab3c-... status = draft
+economic_policies DEPOIS: 1
+economic_policies APÓS DESFAZER: 0
+```
+Escrita real desfeita (`DELETE` em `economic_policy_lines` + `economic_policies`),
+contagem antes/depois/pós-desfazer = 0/1/0.
+
+### 🔒 `canSubmit` sem revenue_share (item 3 da prova)
+`grep -n "revenue_share" EconomicPoliciesPage.tsx` → só aparece em: labels de vocabulário
+(`LINE_TYPES`), `emptyLine()` (valor default da 1ª linha do formulário, não validação), e
+os comentários novos que EXPLICAM a mudança. **Zero ocorrência dentro da definição de
+`canSubmit`.**
+
+### 🧪 GUARD VERMELHO/VERDE (2 ângulos)
+(a) `sumOk` reintroduzido dentro de `canSubmit` → guard morde `FE-CANSUBMIT-SUMOK`, `exit
+1`. Restaurado → `exit 0`.
+(b) `form.lines.some(l => l.lineType === 'revenue_share')` reintroduzido diretamente em
+`canSubmit` → guard morde `FE-CANSUBMIT-REVENUE-SHARE`, `exit 1`. Restaurado → `exit 0`.
+
+### 🧾 RUNNER E TYPECHECK
+`frontend typecheck` → 0 erros. `backend typecheck` → 0 erros. `npm run
+validate:regression-guards` (banco `unificard_dev`) → **228 COMMANDS OK** (guard
+estendido, não novo), drift 0. `economic-policy-authority-boundary` confirmado `GATE OK`
+com a menção do cross-check de frontend dentro do runner completo.
+
+### 🚫 NÃO FEITO / FORA DO ESCOPO (mandato explícito v2)
+Regra "corrigida" NÃO reimplementada em JS — nenhuma nova versão de `sumOk`/
+`hasRevenueShare` foi criada, nem escondida sob outro nome. Backend intocado. Nenhum
+endpoint de validação criado. Regras de `regional_fund` (:472-477) intocadas — mesma
+categoria de "regra espelhada", mas fora do escopo desta fatia por decisão explícita da
+direção. Nenhuma policy criada no banco oficial (só no efêmero, desfeita). Não commitado.
+
+### 🧾 DENOMINADOR
+Prova comportamental (ambos os cenários, escrita real + desfazer): banco efêmero
+`unificard_econ_policy_fe_test`, criado e destruído nesta fatia, zero resíduo confirmado.
+Runner/typecheck backend: `unificard_dev`. Typecheck frontend: sem banco (compilação
+estática). **Confiança: PROVADO** — os dois cenários exercitados contra código REAL do
+backend (não simulação), mensagem de erro real capturada e roteada pela lógica real de
+extração do frontend (copiada do código, não reimplementada), escrita real revertida com
+contagem antes/depois/pós-desfazer, guard vermelho/verde nos dois ângulos de regressão.
+
 ## ✅ `DT-EVENT-GUIDED-FLOW-WHITE-SCREEN-ON-FINISH` — FECHADA (2026-07-31)
 **Executora especialista. Primeira fatia de frontend desta campanha. Pacote corrigido em
 tempo real pela direção: a exigência original de "print de navegador" era INEXEQUÍVEL —
