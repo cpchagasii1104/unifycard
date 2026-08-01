@@ -47,6 +47,28 @@ o mínimo real é R$80. **1 de 3 eventos com setor já mente o preço ao comprad
 partir de" ≤ menor preço de setor; hoje nada valida isso. Executora **reportou e não consertou** —
 correto, era fora do escopo dela.
 
+> 🔴 **CORREÇÃO DA REGRA, pela direção (2026-08-01).** A formulação *"o 'a partir de' deve ser
+> **≤** o menor preço de setor"* — que veio do GATE e que a direção repetiu duas vezes — **está
+> errada e é justamente por isso que este caso escapou**: `5000 ≤ 8000` **satisfaz a regra** e
+> mente do mesmo jeito. Uma regra de desigualdade permite anunciar qualquer valor abaixo do real.
+> **A regra correta é de IGUALDADE:** havendo setores, o "a partir de" **É** o menor
+> `inteira_price_cents` — não um valor qualquer abaixo dele. Sem setores, é `ticket_price_cents`.
+> Isso não altera a decisão (B) de Clayton (o campo continua existindo como vitrine); corrige a
+> *invariante* que (B) exige.
+>
+> ⚠️ **Calibragem da gravidade, para não repetir o exagero de hoje:** o firewall
+> `CHECKOUT_FINANCIAL_RUNTIME_ENABLED` é **default OFF** (`=== 'true'`, ausente do `.env`), e
+> `CheckoutService.processCheckout` chama `assertCheckoutFinancialRuntimeEnabled` antes de tudo.
+> Logo **nada é cobrado hoje** — a mentira é de **EXIBIÇÃO**, não de cobrança. É real e engana,
+> mas ninguém perde dinheiro. Traçado do componente ao firewall, não inferido.
+>
+> **Pontos de leitura que precisam derivar (medidos, para o mandato não errar caminho):**
+> `core/events/event.service.ts:61` `toEvent()` — serializador único, `:75` devolve
+> `ticketPriceCents` cru · `:1592` a SELECT de leitura · `modules/events/event.repository.ts:143`
+> `:176` `:309` — três SELECTs de listagem. O payload **não** devolve setores hoje, então o
+> frontend **não tem como derivar** — tem de vir resolvido do backend
+> ([[project_frontend_nunca_cria_verdade]]).
+
 ### 📌 Resíduos nomeados (nenhum por esquecimento)
 `audience_relationship_types` não religado (mesmo padrão barato de `location_mode`) ·
 `frontend/src/api/events.ts:798,801` usa `\api\events\` com **barra invertida** ·
