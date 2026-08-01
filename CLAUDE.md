@@ -20,6 +20,43 @@ Antes de escrever *"falta X"*, *"não existe X"*, *"precisa criar X"* — **prov
 
 Ao despachar subagente, escreva o mandato como **inventário-primeiro, desenho-nunca**.
 
+## 2.1 🔴 COMO VOCÊ VAI ERRAR — tem uma assinatura só, e ela se repete
+
+Em **um único dia (2026-07-31) a direção errou 16 medições**. Não foram 16 erros diferentes:
+foram **16 vezes o mesmo**, e ele tem forma fixa —
+
+> **uma ferramenta configurada de um jeito, e o resultado lido como se fosse de outro.**
+
+`Select-Object -First 10` truncou um grep e virou *"nenhum caller"* (havia dois, com tela branca
+no fim) · `-match` do PowerShell é **case-insensitive** e casou minúsculo dentro de `[A-Z_]+`,
+gerando relato de bug inexistente · `grep -c $'\r'` leu a letra "r" e acusou 23.284 CRLF falsos ·
+pastas "gêmeas" deduzidas pelo NOME tinham **zero** arquivo em comum · um relatório de ONTEM em
+`docs/_reports/` foi apresentado como medição de hoje · a tabela apontada por nome (`payout_requests`)
+não era a que o código usa (`payout_orders`, ausente). **Os 16 casos, com quem derrubou cada um:
+topo do `REMEDIATION_DT_LOG.md`, entrada "ERRATA DA DIREÇÃO".**
+
+**As regras que sobraram — todas custaram caro:**
+
+- 🔴 **Cole o COMANDO junto do achado.** Achado extraído por ferramenta vale o que a ferramenta
+  vale. Foi assim que 7 dos 16 caíram — derrubados por outra instância, não por cuidado próprio.
+- **Leia a QUERY, nunca o nome** do módulo, arquivo ou tabela. Nome que "bate" com a expectativa
+  é a evidência mais fraca deste repositório.
+- **Arquivo datado é foto, não estado.** Rode o comando.
+- **Antes de despachar mandato, releia a norma que você vai citar.** Duas vezes a executora seria
+  mandada ao lugar errado (uma delas para a tabela **legado** que a DECISION manda aposentar).
+- **Conferir ≠ atacar.** Guard que você confere passa; guard que você ATACA revela o buraco.
+  Construa a violação e prove que morde — no formato que ninguém testou.
+- **Teto tem que ser COMPARADO, não impresso.** Dois guards nasceram com baseline declarada,
+  impressa na mensagem de sucesso e **nunca comparada** — verdes anunciando *"a contagem só pode
+  descer"* com a contagem maior. Compare contra a contagem do **CÓDIGO**, não só contra a
+  allowlist; senão adicionar a chave "resolve" o vermelho.
+- **Allowlist que pode crescer é permissão; que só encolhe é dívida com saída.**
+- **Zero é uma afirmação; desconhecido é a verdade.** Métrica que falhou ao ler não pode reportar
+  `0`/`false` — isso afirma *"não há"*. Reporte indefinido e faça o erro APARECER.
+- **Contenção só não é adiamento** quando nada a alcança, OU quando tem prazo verificável por
+  query e dono. *"Vence no primeiro usuário real"* não é gatilho; `SELECT count(*) FROM
+  bank_transactions > 0` é.
+
 ## 3. Roteamento — assunto → fonte que JÁ decide
 
 | Vai mexer em… | Leia ANTES |
@@ -85,8 +122,24 @@ Validação de migration é em **banco efêmero**, criado e destruído na hora �
 - Executora cujo **próprio código** viola regra existente: **conserta sozinha**.
 - **Um guard que nunca falha é decoração** — force o vermelho antes de confiar nele.
 - **Deleção de módulo pré-existente exige autorização explícita do dono**, mesmo com decisão que a justifique.
-- Windows: `Write`/`Edit` geram **CRLF** — normalize para LF e rode `git diff --check` antes de commitar.
+- **Instância que PARA vale mais que instância que entrega.** A executora parou duas vezes em
+  2026-07-31 e as duas renderam mais que a fatia. Nunca recompense contorno de trava selada com
+  bypass "só para o teste".
 - Rode o **runner completo** (`npm run validate:regression-guards`), não só o E2E da sua fatia.
+
+**Higiene de árvore compartilhada** — outras instâncias escrevem ao mesmo tempo:
+
+- ⛔ **NUNCA `git add -A`.** Varre trabalho em andamento alheio para dentro do seu commit, sob
+  uma mensagem que não o descreve. Aconteceu em `2d0d2275c` (4 arquivos de frontend num commit
+  sobre nota normativa; errata em `b60ccd0f7`). **Stage por caminho explícito, sempre.**
+- ⛔ **Prova vermelha NÃO escreve em diretório compartilhado** (`backend/migrations/`). Um
+  arquivo temporário envenenou a corrida do runner de outra instância, que investigou como
+  flakiness.
+- **CRLF:** a verificação autoritativa é `git ls-files --eol` (espera-se `i/lf w/lf`), **não**
+  grep de `\r`. Alguns arquivos são **nativamente CRLF no índice** — "normalizar" ali gera diff
+  de arquivo inteiro à toa. Rode `git diff --check` antes de commitar.
+- **`git status` com `M` e blob idêntico ao HEAD** = cache de `stat` sujo (um `cp` tocou o
+  mtime). Confirme com `git hash-object` × `git rev-parse HEAD:<arquivo>` antes de investigar.
 
 ## 6. A regra do acesso (DECISION-0193 · protocolo §7.1)
 
