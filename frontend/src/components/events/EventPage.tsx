@@ -145,7 +145,7 @@ export default function EventPage({ eventId: propEventId, onNavigateToCheckout }
         }
 
         // Carregar resumo de fechamento do evento (se estiver concluído)
-        if (eventData.status === 'FINISHED' || eventData.status === 'CANCELLED') {
+        if (eventData.status === 'ended' || eventData.status === 'cancelled') {
           try {
             const closureSummary = await getEventClosureSummary(eventId);
             setEventClosureSummary(closureSummary);
@@ -166,7 +166,7 @@ export default function EventPage({ eventId: propEventId, onNavigateToCheckout }
         const loadRelatedData = async () => {
           try {
             // Preview de disponibilidade
-            if (eventData.status === 'PUBLISHED' || eventData.status === 'ONGOING') {
+            if (eventData.status === 'published' || eventData.status === 'active') {
               try {
                 const availabilityData = await getEventAvailabilityPreview(eventId);
                 setAvailability(availabilityData);
@@ -268,9 +268,9 @@ export default function EventPage({ eventId: propEventId, onNavigateToCheckout }
     return dt.toFormat("dd/MM/yyyy 'às' HH:mm");
   };
 
-  const isCTADisabled = !event || 
-                       event.status === 'CANCELLED' || 
-                       event.status === 'FINISHED' ||
+  const isCTADisabled = !event ||
+                       event.status === 'cancelled' ||
+                       event.status === 'ended' ||
                        (event.maxCapacity !== null && event.currentOccupancy !== undefined && event.currentOccupancy >= event.maxCapacity);
 
   // Funções de renderização para evitar JSX complexo aninhado
@@ -739,7 +739,7 @@ export default function EventPage({ eventId: propEventId, onNavigateToCheckout }
       {/* CTAs - Adaptados por estado e otimizados por métricas */}
       <div className="event-page-ctas">
         {/* 🔴 ENTITY DETAIL PAGE: CTA explícito para Publicar (apenas para draft) */}
-        {event.status === 'DRAFT' && (
+        {event.status === 'draft' && (
           <button
             className="event-page-cta event-page-cta-primary"
             onClick={async () => {
@@ -849,8 +849,8 @@ export default function EventPage({ eventId: propEventId, onNavigateToCheckout }
 
       {isCTADisabled && (
         <div className="event-page-disabled-message">
-          {event.status === 'CANCELLED' && 'Este evento foi cancelado'}
-          {event.status === 'FINISHED' && 'Este evento já foi finalizado'}
+          {event.status === 'cancelled' && 'Este evento foi cancelado'}
+          {event.status === 'ended' && 'Este evento já foi finalizado'}
           {event.maxCapacity !== null && event.currentOccupancy >= event.maxCapacity && 'Ingressos esgotados'}
         </div>
       )}

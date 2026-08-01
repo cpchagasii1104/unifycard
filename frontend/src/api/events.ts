@@ -2,6 +2,12 @@
 // API de eventos (read-only e multi-atores)
 import { apiFetch, apiFetchJson } from './client';
 
+// ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+// ║ STATUS:  CANÔNICO
+// ║ NORMA:   docs/01_normative/07_NOMENCLATURA_CANONICA.md §7 (frontend espelha a API)
+// ║ NÃO:     inventar vocabulário de status paralelo ao CHECK real de `events.status`
+// ║ EM VEZ:  os 6 valores abaixo; rótulo/agrupamento por fase vive em EventStatusBadge.tsx
+// ╚════════════════════════════════════════════════════════════════
 export interface Event {
   id: string;
   title: string;
@@ -15,7 +21,7 @@ export interface Event {
   acceptsParking: boolean;
   maxCapacity: number | null;
   currentOccupancy: number;
-  status: 'DRAFT' | 'PUBLISHED' | 'ONGOING' | 'FINISHED' | 'CANCELLED';
+  status: 'draft' | 'declared' | 'published' | 'active' | 'ended' | 'cancelled';
   timezone: string;
   state?: 'PRE' | 'DURING' | 'POST';
   stateInfo?: {

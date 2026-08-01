@@ -31,7 +31,7 @@ export default function EventCard({
 
   // Registrar visualização quando card aparece no feed
   useEffect(() => {
-    if (!hasTrackedView && (status === 'PUBLISHED' || status === 'ONGOING')) {
+    if (!hasTrackedView && (status === 'published' || status === 'active')) {
       trackEventMetric(eventId, 'VIEW', { source: 'feed' });
       setHasTrackedView(true);
     }
@@ -39,7 +39,7 @@ export default function EventCard({
 
   // Carregar preview de disponibilidade
   useEffect(() => {
-    if (status === 'PUBLISHED' || status === 'ONGOING') {
+    if (status === 'published' || status === 'active') {
       getEventAvailabilityPreview(eventId)
         .then(setAvailability)
         .catch((error) => {

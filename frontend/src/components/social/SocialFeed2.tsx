@@ -270,7 +270,7 @@ export default function SocialFeed2() {
         } else if (unifiedData.posts) {
           // Fallback: compatibilidade com formato antigo
           const eventItems = unifiedData.posts
-            .filter((p: any) => p.eventId && p.event && (p.event.status === 'PUBLISHED' || p.event.status === 'ONGOING'))
+            .filter((p: any) => p.eventId && p.event && (p.event.status === 'published' || p.event.status === 'active'))
             .map((p: any) => ({
               eventId: p.event!.id,
               title: p.event!.title,
