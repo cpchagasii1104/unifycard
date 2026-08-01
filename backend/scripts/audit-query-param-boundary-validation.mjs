@@ -106,7 +106,7 @@ const ALLOWLIST = new Set([
   "modules/marketplace/supplier.routes.ts::status::1", "modules/marketplace/unifycard.routes.ts::actorId::1",
   "modules/marketplace/unifycard.routes.ts::limit::1", "modules/marketplace/unifycard.routes.ts::offset::1",
   "modules/marketplace/unifycard.routes.ts::paymentIntentId::1", "modules/marketplace/unifycard.routes.ts::status::1",
-  "modules/marketplace/unifycard.routes.ts::transactionType::1", "modules/payout/payout.routes.ts::status::1",
+  "modules/marketplace/unifycard.routes.ts::transactionType::1",
   "modules/public-profiles/public-profile.routes.ts::profileType::1", "modules/relationships/actor-relationship.routes.ts::label::1",
   "modules/relationships/actor-relationship.routes.ts::status::1", "modules/reports/reports.routes.ts::actorId::1",
   "modules/reports/reports.routes.ts::actorId::2", "modules/reports/reports.routes.ts::actorId::3",
@@ -157,7 +157,10 @@ const ALLOWLIST = new Set([
   "modules/trust/trust.routes.ts::eventType::1", "modules/trust/trust.routes.ts::riskLevel::1",
   "modules/trust/trust.routes.ts::severity::1",
 ]);
-const BASELINE_COUNT = 181;
+// RATCHET DOWN 181→180 (2026-08-01, F-PAYOUT-READER-CONTAINMENT): a contenção dos readers de
+// payout em 503 removeu `req.query.status as any` de payout.routes.ts. Não foi conserto planejado
+// deste teto — foi ganho de carona, e o guard exigiu que a allowlist encolhesse no MESMO commit.
+const BASELINE_COUNT = 180;
 
 // ============================================================================
 // VARREDURA — mesma lógica de detecção usada para gerar a allowlist acima.

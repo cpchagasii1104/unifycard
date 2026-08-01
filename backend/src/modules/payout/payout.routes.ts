@@ -3,7 +3,8 @@
 // 🔴 BLINDAGEM: RBAC obrigatório (apenas FINANCE/OWNER/ADMIN)
 
 import type { FastifyInstance } from 'fastify';
-import { payoutService } from './payout.service';
+// O service não é mais importado aqui: com readers em 503 e writers em 403, nenhuma rota deste
+// arquivo o alcança. Ele segue intacto no módulo — sumiu a ARESTA, não o código.
 import { BadRequestError, ForbiddenError, UnauthorizedError } from '@core/errors';
 import { ErrorCode } from '@core/errors/error-codes';
 
@@ -12,8 +13,12 @@ import { ErrorCode } from '@core/errors/error-codes';
 // FAIL-CLOSED (403 PAYOUT_HTTP_EXECUTION_DISABLED). Não chamam payoutService executor, não movem dinheiro,
 // não criam settlement, não marcam payout pago/executado. A execução real (após aprovação no Core, com
 // revalidação de saldo no Bank + bloqueio por recovery obligations + locks + idempotência) é frente FUTURA
-// (F-PAYOUT-EXECUTION-SEAL). availableBalanceCents/seller_available NÃO autorizam payout. Os GET readers
-// seguem gateados por requirePayoutPermission (subject server-side = req.user; actorId = filtro de leitura).
+// (F-PAYOUT-EXECUTION-SEAL). availableBalanceCents/seller_available NÃO autorizam payout.
+// ⚠️ CORRIGIDO 2026-08-01: esta nota dizia "Os GET readers seguem gateados por
+// requirePayoutPermission". **Deixou de ser verdade** — todos os readers agora devolvem 503
+// `PORTA_01_CLOSED` uniforme, sem preHandler, sob a DECISION-0189B D2. O preHandler saiu de
+// propósito: 403 para quem não tem a chave e 503 para quem tem vazaria quem a detém.
+// `requirePayoutPermission` segue vivo — só nos writers fail-closed (403).
 const PAYOUT_HTTP_EXECUTION_DISABLED = {
   ok: false,
   code: 'PAYOUT_HTTP_EXECUTION_DISABLED',
@@ -64,45 +69,24 @@ const payoutRoutes = async (fastify: FastifyInstance) => {
     async (_req, reply) => reply.status(403).send(PAYOUT_HTTP_EXECUTION_DISABLED)
   );
 
-  fastify.get<{
-    Querystring: {
-      status?: string;
-      startDate?: string;
-      endDate?: string;
-      limit?: number;
-      offset?: number;
-    };
-  }>('/payouts/batches', { preHandler: requirePayoutPermission }, async (req, reply) => {
-    if (!req.tenant) {
-      throw new BadRequestError('Tenant required', ErrorCode.MISSING_TENANT);
-    }
-    const tenantId = req.tenant.id;
-    const filters = {
-      status: req.query.status as any,
-      startDate: req.query.startDate ? new Date(req.query.startDate) : undefined,
-      endDate: req.query.endDate ? new Date(req.query.endDate) : undefined,
-      limit: req.query.limit,
-      offset: req.query.offset,
-    };
-
-    const batches = await payoutService.listBatches(tenantId, filters);
-
-    return reply.send({ batches, totalCents: batches.length });
+  // 🔒 DECISION-0189B D2 (estendida em 2026-08-01) — os readers de batch recebem a MESMA contenção
+  // que `/orders` já tinha. Não é decisão nova: é o mesmo veredito aplicado aos irmãos que ficaram
+  // fora das DUAS ondas (0128 conteve os writers com 403; 0189B D2 conteve `/orders` com 503).
+  // DEFEITO REAL, medido: `payout_batches` e `payout_orders` NÃO EXISTEM no schema canônico, então
+  // `listBatches`/`getBatchById`/`getOrderById` devolviam **42P01** — erro de banco cru, num
+  // caminho de dinheiro, autenticado. Não era 200 vazio nem 404.
+  // FORMA: 503 uniforme e SEM preHandler, de propósito — 403 para quem não tem a chave e 503 para
+  // quem tem vaza quem a detém. "Idêntica com e sem actorId" é o texto da própria 0189B.
+  // ⛔ NÃO religue ao substrato: a leitura governada é frente PRÓPRIA da abertura da PORTA 01
+  // (PermissionKey de leitura + filtro por actor/empresa + recurso server-side + audit + no-store).
+  // Materializar a tabela para fazer estes handlers rodarem é forward-only e cria a segunda casa.
+  fastify.get('/payouts/batches', async (_req, reply) => {
+    return reply.status(503).send({ code: 'PORTA_01_CLOSED' });
   });
 
-  fastify.get<{ Params: { batchId: string } }>(
-    '/payouts/batches/:batchId',
-    { preHandler: requirePayoutPermission },
-    async (req, reply) => {
-      if (!req.tenant) {
-        throw new BadRequestError('Tenant required', ErrorCode.MISSING_TENANT);
-      }
-      const tenantId = req.tenant.id;
-      const batch = await payoutService.getBatchById(tenantId, req.params.batchId);
-
-      return reply.send({ batch });
-    }
-  );
+  fastify.get<{ Params: { batchId: string } }>('/payouts/batches/:batchId', async (_req, reply) => {
+    return reply.status(503).send({ code: 'PORTA_01_CLOSED' });
+  });
 
   // 🔒 DECISION-0189B D2 — GET /payouts/orders DESATIVADO enquanto a PORTA 01 estiver fechada.
   // Resposta UNIFORME 503 `{ code: 'PORTA_01_CLOSED' }`, idêntica com e sem `actorId`. NÃO lista
@@ -128,15 +112,11 @@ const payoutRoutes = async (fastify: FastifyInstance) => {
 
   fastify.get<{ Params: { orderId: string } }>(
     '/payouts/orders/:orderId',
-    { preHandler: requirePayoutPermission },
-    async (req, reply) => {
-      if (!req.tenant) {
-        throw new BadRequestError('Tenant required', ErrorCode.MISSING_TENANT);
-      }
-      const tenantId = req.tenant.id;
-      const order = await payoutService.getOrderById(tenantId, req.params.orderId);
-
-      return reply.send({ order });
+    // 🔒 DECISION-0189B D2 — mesma contenção do `GET /payouts/orders` e dos readers de batch.
+    // `getOrderById` lia `payout_orders`, tabela AUSENTE → 42P01 em caminho de dinheiro.
+    // 503 UNIFORME, sem preHandler (o 403/503 diferenciado vazaria quem tem a permissão).
+    async (_req, reply) => {
+      return reply.status(503).send({ code: 'PORTA_01_CLOSED' });
     }
   );
 
