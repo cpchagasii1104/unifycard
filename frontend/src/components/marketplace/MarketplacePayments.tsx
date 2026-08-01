@@ -56,7 +56,7 @@ export default function MarketplacePayments() {
     setIsLoading(true);
     try {
       const ords = await listOrders();
-      setOrders(ords.filter((o: any) => o.status === 'SUBMITTED'));
+      setOrders(ords.filter((o: any) => o.status === 'submitted'));
     } catch (error: any) {
       showToast('Erro ao carregar pedidos: ' + (error.message || 'Erro desconhecido'), 'error');
     } finally {

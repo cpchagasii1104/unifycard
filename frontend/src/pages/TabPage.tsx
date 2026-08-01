@@ -45,7 +45,7 @@ export default function TabPage() {
       } else {
         // Usar o primeiro order ou o mais recente
         const latestOrder = data.orders[data.orders.length - 1];
-        if (latestOrder.status === 'DRAFT' || latestOrder.status === 'SUBMITTED') {
+        if (latestOrder.status === 'draft' || latestOrder.status === 'submitted') {
           setCurrentOrderId(latestOrder.id);
         }
       }
@@ -182,7 +182,7 @@ export default function TabPage() {
         </div>
       )}
 
-      {showPayment && currentOrder && currentOrder.status === 'SUBMITTED' && (
+      {showPayment && currentOrder && currentOrder.status === 'submitted' && (
         <div className="payment-section">
           <h2>Pagamento</h2>
           {!paymentStatus ? (

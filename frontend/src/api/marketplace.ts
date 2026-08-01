@@ -838,11 +838,24 @@ export async function createLot(input: {
 // NOTA: Interfaces renomeadas para evitar conflito com versão pública (carrinho simples)
 // A versão pública usa Order e OrderItem definidos acima (linhas 189-205)
 
+// ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+// ║ STATUS:  CANÔNICO — case corrigido 2026-08-01
+// ║ NORMA:   07_NOMENCLATURA_CANONICA §4.11 (lifecycle = snake_case minúsculo) e §7
+// ║          (o frontend espelha EXATAMENTE o contrato da API; não cria alias)
+// ║ NÃO:     comparar contra MAIÚSCULO. O CHECK de `orders.status` no banco é
+// ║          draft·submitted·cancelled·expired·pending·processing·completed·failed, o
+// ║          backend grava e compara minúsculo (order.service.ts:50-51) e devolve CRU.
+// ║          'SUBMITTED' === 'submitted' é false: TEXT+CHECK não grita como enum, então
+// ║          a lista voltava VAZIA e o botão sumia, sem erro e sem log.
+// ║ EM VEZ:  minúsculo, exatamente como o banco. Se precisar de mais um estado, leia o
+// ║          CHECK com pg_get_constraintdef antes — nunca deduza pelo tipo TypeScript,
+// ║          que é uma AFIRMAÇÃO e não uma checagem de runtime.
+// ╚════════════════════════════════════════════════════════════════
 export interface LegacyOrder {
   id: string;
   buyerActorId: string;
   sellerActorId: string;
-  status: 'DRAFT' | 'SUBMITTED' | 'CANCELLED' | 'EXPIRED';
+  status: 'draft' | 'submitted' | 'cancelled' | 'expired';
   totalQuantity: number;
   metadata?: Record<string, any>;
   createdAt: string;

@@ -220,7 +220,7 @@ export default function MarketplaceOrders() {
             <h3>Pedido {selectedOrder.id.substring(0, 8)}</h3>
             <p><strong>Status:</strong> <StatusBadge status={selectedOrder.status} type="order" /></p>
 
-            {selectedOrder.status === 'DRAFT' && (
+            {selectedOrder.status === 'draft' && (
               <>
                 <button onClick={() => setShowItemForm(!showItemForm)} style={{ marginRight: '0.5rem' }}>
                   {showItemForm ? 'Cancelar' : '+ Adicionar Item'}
