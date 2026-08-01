@@ -84,7 +84,10 @@ Maior que Eventim/diskingressos, com Actors e economia autogerida.
 ### C3 · CONTRATAÇÃO ORQUESTRADA (needs → descoberta → RFQ → bind)
 - **Objetivo:** o evento declara necessidade (banda/som/segurança) → ACHA fornecedor pela via canônica + faceta de
   gênero → cotação (RFQ) → VINCULA (event_actors). Persistir RFQ (metadata→tabela) e split declarativo (in-memory→tabela).
-- **Acopla:** `event_operational_needs` (vivo) + `event_rfq` (vivo) + marketplace-canonical-search + professional-c1
+- **Acopla:** `event_operational_needs` (vivo, **6 linhas**) + RFQ (⚠️ **NÃO É TABELA** — vive em
+  `events.metadata.rfqs`, JSON; `event-rfq.service.ts:33` confirma. Este plano dizia "`event_rfq` (vivo)"
+  como se fosse tabela: **corrigido 2026-08-01**, `\dt *rfq*` → nenhuma relação. Persistir RFQ em tabela
+  continua sendo o trabalho desta fase, não um fato já entregue) + marketplace-canonical-search + professional-c1
   (unificar as 2 vias de matching) + C2 (event_actors). **HOLD:** `acceptQuote` contido (R7b) — levantar exige
   fluxo de confirmação do provider (decisão soberana). **Prova:** E2E. **Deps:** C1, C2. **Decisão soberana:** levantar HOLD acceptQuote.
 

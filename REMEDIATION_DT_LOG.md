@@ -1,5 +1,59 @@
 # REMEDIATION DT LOG
 
+## 🔍 GATE — F-EVENT-ORGANIZER-CONTINUITY: o ciclo existe no EVENTO, não nas FASES (2026-08-01)
+
+GATE read-only da instância de eventos, **verificado de 1ª mão pela direção** (cada número abaixo
+foi remedido contra `unificard_dev`). Origem: Clayton — *"as informações precisam se conectar com
+as fases posteriores… a lógica ainda não fecha para uma organização"*.
+
+**O diagnóstico:** `events.status` (draft·declared·published·active·ended·cancelled) descreve o
+EVENTO. Não existe leitura de **por fase** — o organizador não vê se local está resolvido, se há
+setores, se a vaquinha está configurada. É por isso que ele abandona rascunho e não volta.
+
+**Conferido por mim, comando a comando:**
+| alegação | verificação |
+|---|---|
+| `event_rfq` não é tabela | ✅ `information_schema` → **nenhuma relação com "rfq"**. Vive em `events.metadata.rfqs` |
+| `events` tem 28 colunas | ✅ 28 |
+| `event_sectors` viva | ✅ **3 linhas** · `event_operational_needs` ✅ **6 linhas** |
+| `availability` sem evento | ✅ 67 linhas: `user` 48 · `service_offering` 3 · `page` 16 — **zero `event`** |
+
+🔴 **O plano estava errado e foi corrigido:** `EVENT_ENGINE_COMPLETION_PLAN.md:87` declarava
+`event_rfq` como *"(vivo)"*, sugerindo tabela entregue. Não existe. Persistir RFQ em tabela
+**continua sendo trabalho da fase**, não fato consumado. Mesma classe do `AGENT_BOOTSTRAP`
+apontando pasta inexistente — documento afirmando entrega que não houve.
+
+**A distinção que o organizador não consegue fazer hoje, e é o cerne:**
+· **FALTANDO** = culpa dele, tem botão · **AGUARDANDO** = trava do sistema (porta-01), não tem
+botão. Hoje as duas aparecem idênticas — nada aparece nos dois casos. É isso que faz procurar
+botão que não existe.
+
+**Três categorias, não confundir:**
+1. **write-only funcional** (`location_mode`, `timezone`, `event_format_concept_id`,
+   `audience_relationship_types` + 3 chaves de `metadata`) — o wizard escreve, **nenhuma tela
+   relê**. Precisa de UMA leitura consolidada. **Zero decisão soberana, zero coluna nova.**
+2. **vivo no backend, invisível ao organizador** (`event_operational_needs`, RFQ em metadata).
+3. **genuinamente não implementado** (`event_actors`/C2; `acceptQuote` 403 por decisão R7b).
+
+✅ **Painel de progresso por fase é construível HOJE sem coluna nem tabela nova** — a instância
+provou que os sinais já existem e são deriváveis. Não desenhou a solução, só provou que ela não
+exige 2ª verdade.
+
+### 🔴 DECISÃO SOBERANA PENDENTE — o PREÇO (entra no pacote G0)
+`events.ticket_price_cents` (flat, exigido >0 para publicar pago) × `event_sectors.inteira_price_cents`
+(por setor). Os únicos componentes de compra (`EventCheckout`, `EventCheckoutModal`) leem **só o
+primeiro** — zero referência a `event_sectors`. A migration `20260724100000:2-11` declara a
+desconexão como intencional (*"a VENDA = PORTA-01, FORA"*), então **não é bug silencioso**.
+**Quando um evento tem setores, o `ticket_price_cents`:**
+· **(A) deixa de valer** — setor é a única verdade; custo: `if (hasSectors)` no checkout de G2 +
+  feed/cards passam a mostrar "a partir de".
+· **(B) vira "a partir de"** — piso/vitrine; custo: regra de coerência (piso ≤ menor setor, senão
+  mente ao comprador); menos mudança de tela.
+· **(C) proibido coexistir** — escolhe um modelo; custo: gate bloqueando `createEventSector` e um
+  jeito de trocar de modelo; mais fricção, zero ambiguidade.
+
+---
+
 ## ✅ DT-BANK-RECONCILIATION-HISTORY-DORMANT — FECHADA POR REMOÇÃO, não por isenção (2026-08-01)
 
 **GO explícito de Clayton para a deleção** (módulo pré-existente). Fecha o achado 【4】 da
