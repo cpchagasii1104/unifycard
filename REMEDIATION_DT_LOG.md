@@ -1,5 +1,60 @@
 # REMEDIATION DT LOG
 
+## 🔴 GATE — F-EVENT-PUBLISH-FUNNEL: 25 eventos existem e NENHUM chega ao usuário; o funil está partido em TRÊS pontos (2026-08-01, direção)
+
+**Não é tela quebrada.** `criar → declarar → publicar → aparecer no feed` tem três interrupções
+**independentes**, e cada uma sozinha já zeraria o resultado. Enquanto durar, a vertical **eventos**
+do mínimo não demonstra nada — e **rede social** também não, porque o feed é onde o evento apareceria.
+
+```
+psql → status dos 25: draft=12 · declared=13 · published=0 · active=0
+       datetime_start: NULO em 25 de 25
+       desired_time_windows (JSON): 9 eventos têm janela candidata
+       availability owner_type='event': 0 linhas
+tsx  → assertTransitionAllowed('draft','published')    → BLOQUEADO
+       assertTransitionAllowed('declared','published') → PERMITIDO
+```
+
+| # | elo partido | evidência (traçada até o handler, não inferida) |
+|---|---|---|
+| **1** | **ninguém grava `datetime_start`** — a capacidade **EXISTE e não é usada** | `event.service.ts:593` monta `datetime_start = $N` em `updateEvent`; `event.routes.ts:789` aceita o campo. O wizard grava só janela candidata em JSON; `EventOrganizerPanel.tsx:47` declara `datetimeStart` no tipo e **nunca o usa** |
+| **2** | **o botão "Publicar" está no estado ERRADO** | `EventPage.tsx:742` e `EventosPage.tsx:237` condicionam a `status === 'draft'` — e `draft → published` é **proibido**. O wizard leva a `declared` (`EventCreationGuidedFlow.tsx:242`), onde **nenhum dos dois** renderiza o botão |
+| **3** | **o feed exige as DUAS coisas** | `core/feed/feed.routes.ts:239` — `status IN ('published','active') AND datetime_start >= NOW()` |
+
+🔴 **A composição é o que mata:** quem termina o wizard fica em `declared` **sem botão**; quem para
+antes fica em `draft` **com um botão que erra**; e mesmo publicando, o evento sairia do feed por
+data nula. **Zero publicados não é coincidência — é o único resultado possível.**
+
+**Causa-raiz nomeada:** `'declared'` existe **apenas** no tipo TS do frontend (`api/events.ts:24`).
+**Nenhum componente reage a esse estado.** O backend ganhou `declared` (decisão de Clayton,
+`event-visibility.service.ts:10`) e o frontend **nunca soube** — é a mesma classe do
+`EventStatusBadge`, um andar acima: não é o valor que diverge, é o ESTADO INTEIRO que ninguém trata.
+
+⚠️ **Nem E2E nem guard** cobrem publicação de evento — verificado. O defeito não tinha como ser pego.
+
+### ❌ O QUE **NÃO** É A CAUSA — verificado, para ninguém perseguir o alvo errado
+A direção começou investigando `cultural_events` (ausente) e o `catch` de `cultural.routes.ts:424`
+que devolve **200 com lista vazia** por desenho (*"NUNCA quebrar o feed"*). É defeito real, **e não
+é o motivo**: não há evento publicado para o feed mostrar. **Fatia separada.** Idem
+`EventCheckout.tsx` (componente morto, zero renderizações) e `EventCheckoutModal` (só chamado por
+`CulturalEventCard`, que opera sobre IDs de `cultural_events`).
+
+### 📐 O CONSERTO — religamento, backend INTOCADO
+`updateEvent` já grava a data · a rota já aceita o campo · a máquina de estados já está correta.
+**Nada a criar no backend.** A fatia é frontend contra capacidade existente:
+① campo de data no `EventOrganizerPanel` — **o painel de progresso que ACUSA a falta passa a ser o
+que a FECHA** · ② "Publicar" em `declared`, **desabilitado sem data** (publicar sem data gera evento
+publicado e invisível — pior que não publicar, porque parece resolvido) · ③ o wizard guiado retoma
+rascunho (`EventCreationPage.tsx:27-35` só repassa `eventId` quando `form=legacy`).
+**GO de Clayton:** *"resolva da forma certa e deixe o sistema funcionando no fluxo certo de ponta a
+ponta"* — autorizado escolher a melhor opção por o sistema estar virgem.
+
+**Critério de sucesso, verificável por query:** hoje `0` eventos satisfazem o filtro do feed.
+**Depois da fatia, `0` é FALHA, não sucesso.**
+
+---
+
+
 ## 🟢 DECISÕES DE CLAYTON — PF ganha dinheiro · ERP segue a chave · online sobrepõe agenda (2026-08-01)
 
 ### (A) ✅ **A PESSOA FÍSICA PODE GANHAR DINHEIRO.**
