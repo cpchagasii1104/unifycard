@@ -129,6 +129,14 @@ export default function EventOrganizerPanel({ eventId }: EventOrganizerPanelProp
   const [resolvingCep, setResolvingCep] = useState(false);
   const [savingLocal, setSavingLocal] = useState(false);
 
+  // --- Agenda (F-EVENT-PUBLISH-FUNNEL ①): datetime_start/end JÁ existem na coluna e no PATCH
+  // (event.service.ts:592-594, event.routes.ts:789-790) — ninguém no frontend gravava. Pré-preenche
+  // da primeira janela candidata (metadata.declaration.desired_time_windows) quando ainda não há
+  // data confirmada — o organizador CONFIRMA em vez de redigitar.
+  const [agendaStart, setAgendaStart] = useState('');
+  const [agendaEnd, setAgendaEnd] = useState('');
+  const [savingAgenda, setSavingAgenda] = useState(false);
+
   // --- Vaquinha (S1)
   const [accessType, setAccessType] = useState<'' | 'gratuito' | 'pago' | 'contribuicao_opcional'>('');
   const [minAttendees, setMinAttendees] = useState('');
@@ -177,8 +185,21 @@ export default function EventOrganizerPanel({ eventId }: EventOrganizerPanelProp
         if (cancelled || !ev?.id) return;
         setEvent(ev);
         // Pré-preenchimento com a verdade resolvida do backend
-        const meta = (ev.metadata ?? {}) as { location_name?: unknown };
+        const meta = (ev.metadata ?? {}) as {
+          location_name?: unknown;
+          declaration?: { desired_time_windows?: Array<{ start_datetime?: string; end_datetime?: string }> };
+        };
         setLocationName(typeof meta.location_name === 'string' ? meta.location_name : '');
+        // Agenda: se já há data CONFIRMADA (coluna), ela manda. Senão, pré-preenche da primeira
+        // janela CANDIDATA declarada no wizard — o organizador confirma, não redigita do zero.
+        if (ev.datetimeStart) {
+          setAgendaStart(isoToLocalInput(ev.datetimeStart));
+          setAgendaEnd(isoToLocalInput(ev.datetimeEnd));
+        } else {
+          const firstWindow = meta.declaration?.desired_time_windows?.[0];
+          setAgendaStart(isoToLocalInput(firstWindow?.start_datetime ?? null));
+          setAgendaEnd(isoToLocalInput(firstWindow?.end_datetime ?? null));
+        }
         setAccessType(ev.eventAccessType ?? '');
         setMinAttendees(ev.minAttendees != null ? String(ev.minAttendees) : '');
         setFundingDeadline(isoToLocalInput(ev.fundingDeadlineAt));
@@ -224,13 +245,17 @@ export default function EventOrganizerPanel({ eventId }: EventOrganizerPanelProp
       items.push({ dimension: 'Local', category: 'faltando', label: 'Nenhum local declarado ainda' });
     }
 
-    // 2. AGENDA — honestidade obrigatória: "declarada candidata", nunca "confirmada" (availability
-    // owner_type='event' = 0 linhas hoje; a SSOT temporal real ainda não existe para eventos).
+    // 2. AGENDA — 3 estados (F-EVENT-PUBLISH-FUNNEL ①). CONFIRMADA = events.datetime_start
+    // preenchido (a coluna que o feed lê, feed.routes.ts:238-244) — NÃO é a SSOT de agenda
+    // (availability, fase B1, ainda 0 linhas owner_type='event'); é o campo do PRÓPRIO evento.
+    // "Candidata" nunca vira "confirmada" sozinha — precisa da ação explícita em ③ Agenda abaixo.
     const windows = meta.declaration?.desired_time_windows;
-    if (Array.isArray(windows) && windows.length > 0) {
-      items.push({ dimension: 'Agenda', category: 'pronto', label: `${windows.length} janela(s) candidata(s) declarada(s) — ainda NÃO confirmada(s) na agenda oficial` });
+    if (event.datetimeStart) {
+      items.push({ dimension: 'Agenda', category: 'pronto', label: `CONFIRMADA: ${new Date(event.datetimeStart).toLocaleString('pt-BR')}` });
+    } else if (Array.isArray(windows) && windows.length > 0) {
+      items.push({ dimension: 'Agenda', category: 'faltando', label: `${windows.length} janela(s) candidata(s) declarada(s) — AINDA NÃO confirmada(s); confirme abaixo em "🗓️ Agenda"` });
     } else {
-      items.push({ dimension: 'Agenda', category: 'faltando', label: 'Nenhuma janela de data/hora declarada' });
+      items.push({ dimension: 'Agenda', category: 'faltando', label: 'Nenhuma janela de data/hora declarada nem confirmada' });
     }
 
     // 3. SETORES — opcional por natureza (um evento simples pode nunca precisar).
@@ -328,6 +353,33 @@ export default function EventOrganizerPanel({ eventId }: EventOrganizerPanelProp
       showToast(friendlyError(err, 'Erro ao salvar o local'), 'error');
     } finally {
       setSavingLocal(false);
+    }
+  };
+
+  // F-EVENT-PUBLISH-FUNNEL ①: mesmo padrão de handleSaveLocal — patch via updateEvent, campo já
+  // aceito pelo backend (datetime_start/datetime_end). NÃO cria linha em `availability` (fase B1,
+  // GATE próprio) — só grava a coluna que o feed já lê (feed.routes.ts:238-244).
+  const handleSaveAgenda = async () => {
+    if (!agendaStart) { showToast('Informe a data/hora de início', 'error'); return; }
+    setSavingAgenda(true);
+    try {
+      // Rede de segurança final: mesmo que "Fim" tenha ficado vazio por algum caminho (ex.: usuário
+      // apagou), SEMPRE manda os dois — nunca só datetimeStart (bug do backend, ver onChange acima).
+      const endIso = agendaEnd
+        ? new Date(agendaEnd).toISOString()
+        : new Date(new Date(agendaStart).getTime() + 3 * 60 * 60 * 1000).toISOString();
+      const patch: UpdateEventInput = {
+        datetime_start: new Date(agendaStart).toISOString(),
+        datetime_end: endIso,
+      };
+      await updateEvent(eventId, patch);
+      showToast('Agenda confirmada', 'success');
+      const res = await getEventById(eventId);
+      setEvent(res.event as unknown as OrganizerEventView);
+    } catch (err) {
+      showToast(friendlyError(err, 'Erro ao confirmar a agenda'), 'error');
+    } finally {
+      setSavingAgenda(false);
     }
   };
 
@@ -493,6 +545,57 @@ export default function EventOrganizerPanel({ eventId }: EventOrganizerPanelProp
           disabled={savingLocal}
         >
           {savingLocal ? 'Salvando…' : 'Salvar local'}
+        </button>
+      </section>
+
+      {/* ============ AGENDA (F-EVENT-PUBLISH-FUNNEL ①) ============ */}
+      <section className="organizer-section">
+        <h3 className="organizer-section-title">🗓️ Agenda</h3>
+        {event.datetimeStart ? (
+          <p className="organizer-hint">
+            Data confirmada: <strong>{new Date(event.datetimeStart).toLocaleString('pt-BR')}</strong>
+            {event.datetimeEnd && <> até <strong>{new Date(event.datetimeEnd).toLocaleString('pt-BR')}</strong></>}
+          </p>
+        ) : (
+          <p className="organizer-hint organizer-hint-warn">
+            Sem data confirmada — o evento não aparece no feed (exige data futura) e não pode ser
+            publicado enquanto isto estiver vazio.
+          </p>
+        )}
+        <div className="organizer-form-grid">
+          <label className="organizer-field">
+            <span>Início</span>
+            <input
+              type="datetime-local"
+              value={agendaStart}
+              onChange={(e) => {
+                const v = e.target.value;
+                setAgendaStart(v);
+                // ⚠️ Backend (event.service.ts:508-509) rejeita SÓ-início quando o evento nunca teve
+                // fim gravado (new Date(null)=epoch 1970 < início real). Sugere Início+3h, VISÍVEL e
+                // editável — não é dado escondido, é um palpite que o organizador pode apagar/trocar.
+                if (v && !agendaEnd) {
+                  const suggested = new Date(new Date(v).getTime() + 3 * 60 * 60 * 1000);
+                  setAgendaEnd(isoToLocalInput(suggested.toISOString()));
+                }
+              }}
+            />
+          </label>
+          <label className="organizer-field">
+            <span>Fim</span>
+            <input
+              type="datetime-local"
+              value={agendaEnd}
+              onChange={(e) => setAgendaEnd(e.target.value)}
+            />
+          </label>
+        </div>
+        <button
+          className="organizer-button organizer-button-primary"
+          onClick={handleSaveAgenda}
+          disabled={savingAgenda || !agendaStart}
+        >
+          {savingAgenda ? 'Salvando…' : 'Confirmar agenda'}
         </button>
       </section>
 

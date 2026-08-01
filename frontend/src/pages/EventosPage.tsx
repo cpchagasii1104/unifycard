@@ -24,6 +24,9 @@ interface EventFromFeed {
   acceptsConsumption: boolean;
   actor_id?: string;
   actor_type?: string;
+  // F-EVENT-PUBLISH-FUNNEL: null quando a fonte do item não carrega data (posts com
+  // linked_event/intent=event) — honesto: sem dado, botão fica desabilitado, não adivinha.
+  datetimeStart?: string | null;
 }
 
 export default function EventosPage() {
@@ -93,6 +96,7 @@ export default function EventosPage() {
               acceptsConsumption: false,
               actor_id: post.actor?.actor_id,
               actor_type: post.actor?.actor_type,
+              datetimeStart: null, // esta fonte (linked_event) não carrega data — honesto, não adivinha
             });
           }
           // Posts com intent=event
@@ -109,6 +113,7 @@ export default function EventosPage() {
                 acceptsConsumption: metadata.accepts_consumption || false,
                 actor_id: post.actor?.actor_id,
                 actor_type: post.actor?.actor_type,
+                datetimeStart: null, // metadata do post não carrega data — honesto, não adivinha
               });
             }
           }
@@ -131,6 +136,7 @@ export default function EventosPage() {
             acceptsConsumption: item.event.acceptsConsumption || false,
             actor_id: undefined, // Eventos standalone não têm actor direto no feed
             actor_type: undefined,
+            datetimeStart: item.event.startTime, // FeedEvent.startTime é real (event-feed-adapter.ts)
           }));
         
         eventItems.push(...standaloneEvents);
@@ -234,14 +240,24 @@ export default function EventosPage() {
               acceptsConsumption={event.acceptsConsumption}
               onClick={() => navigate(`/events/${event.eventId}`)}
             />
-            {isEventOwner(event) && event.status === 'draft' && (
-              <button
-                className="eventos-publish-button"
-                onClick={() => handlePublishEvent(event.eventId)}
-                disabled={isPublishing === event.eventId}
-              >
-                {isPublishing === event.eventId ? 'Publicando...' : 'Publicar'}
-              </button>
+            {/* F-EVENT-PUBLISH-FUNNEL ②: declared->published é a transição PERMITIDA
+                (event.aggregate.ts:51); draft->published é PROIBIDA (draft:['declared','cancelled']).
+                Desabilitado sem data: publicar sem data deixaria o evento publicado e invisível
+                no feed (feed.routes.ts exige datetime_start futura). */}
+            {isEventOwner(event) && event.status === 'declared' && (
+              <>
+                <button
+                  className="eventos-publish-button"
+                  onClick={() => handlePublishEvent(event.eventId)}
+                  disabled={isPublishing === event.eventId || !event.datetimeStart}
+                  title={!event.datetimeStart ? 'Defina a data do evento antes de publicar' : undefined}
+                >
+                  {isPublishing === event.eventId ? 'Publicando...' : 'Publicar'}
+                </button>
+                {!event.datetimeStart && (
+                  <p className="eventos-publish-disabled-reason">Defina a data antes de publicar</p>
+                )}
+              </>
             )}
           </div>
         ))}

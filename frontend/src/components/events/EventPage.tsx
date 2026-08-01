@@ -698,10 +698,10 @@ export default function EventPage({ eventId: propEventId, onNavigateToCheckout }
       {/* Datas */}
       <div className="event-page-dates">
         <div className="event-page-date">
-          <strong>Início:</strong> {formatDateTime(event.startTime, event.timezone)}
+          <strong>Início:</strong> {event.datetimeStart ? formatDateTime(event.datetimeStart, event.timezone) : 'Ainda não confirmada'}
         </div>
         <div className="event-page-date">
-          <strong>Fim:</strong> {event.endTime ? formatDateTime(event.endTime, event.timezone) : 'Não definido'}
+          <strong>Fim:</strong> {event.datetimeEnd ? formatDateTime(event.datetimeEnd, event.timezone) : 'Não definido'}
         </div>
       </div>
 
@@ -738,24 +738,37 @@ export default function EventPage({ eventId: propEventId, onNavigateToCheckout }
 
       {/* CTAs - Adaptados por estado e otimizados por métricas */}
       <div className="event-page-ctas">
-        {/* 🔴 ENTITY DETAIL PAGE: CTA explícito para Publicar (apenas para draft) */}
-        {event.status === 'draft' && (
-          <button
-            className="event-page-cta event-page-cta-primary"
-            onClick={async () => {
-              try {
-                await publishEvent(event.id);
-                showToast('Evento publicado com sucesso!', 'success');
-                // Recarregar evento para atualizar status
-                const updatedEvent = await getEvent(event.id);
-                setEvent(updatedEvent);
-              } catch (err: any) {
-                showToast(err.message || 'Erro ao publicar evento', 'error');
-              }
-            }}
-          >
-            📢 Publicar Evento
-          </button>
+        {/* F-EVENT-PUBLISH-FUNNEL ②: a transição real é declared->published (event.aggregate.ts:51,
+            ALLOWED_TRANSITIONS) — draft->published é PROIBIDA (draft:['declared','cancelled']).
+            O CTA tinha a condição trocada: aparecia no estado errado (draft, onde o backend
+            SEMPRE recusaria) e sumia no estado certo (declared, os 13 eventos presos). */}
+        {event.status === 'declared' && (
+          <>
+            <button
+              className="event-page-cta event-page-cta-primary"
+              disabled={!event.datetimeStart}
+              title={!event.datetimeStart ? 'Defina a data do evento antes de publicar' : undefined}
+              onClick={async () => {
+                try {
+                  await publishEvent(event.id);
+                  showToast('Evento publicado com sucesso!', 'success');
+                  // Recarregar evento para atualizar status
+                  const updatedEvent = await getEvent(event.id);
+                  setEvent(updatedEvent);
+                } catch (err: any) {
+                  showToast(err.message || 'Erro ao publicar evento', 'error');
+                }
+              }}
+            >
+              📢 Publicar Evento
+            </button>
+            {!event.datetimeStart && (
+              <p className="event-page-cta-disabled-reason">
+                Publicar sem data deixaria o evento publicado e INVISÍVEL no feed (que exige data
+                futura) — defina a data antes.
+              </p>
+            )}
+          </>
         )}
 
         {event.stateInfo?.state === 'PRE' && event.ticketPrice !== null && event.ticketPrice > 0 && (
@@ -937,8 +950,8 @@ export default function EventPage({ eventId: propEventId, onNavigateToCheckout }
           categoryId: event?.metadata?.categoryId || null,
           cityId: event?.cityId || null,
           stateId: event?.metadata?.stateId || null,
-          startDate: event?.startTime || undefined,
-          endDate: event?.endTime || undefined,
+          startDate: event?.datetimeStart || undefined,
+          endDate: event?.datetimeEnd || undefined,
         }}
         selectedServices={selectedServices}
       />

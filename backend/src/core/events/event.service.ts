@@ -504,15 +504,30 @@ class EventService {
     }
 
     // 5. Validar datas (se fornecidas)
+    // ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+    // ║ STATUS:  CANÔNICO — corrigido 2026-08-01 (F-EVENT-PUBLISH-FUNNEL)
+    // ║ NORMA:   ausência de data é ESTADO VÁLIDO em `events` (datetime_start/_end são NULLABLE e
+    // ║          estavam NULOS em 25 de 25 eventos quando isto foi corrigido)
+    // ║ NÃO:     `new Date(valorPossivelmenteNulo)`. `new Date(null)` é **epoch 1970**, e `isNaN`
+    // ║          NÃO pega — passa direto pela guarda de data inválida. Era o defeito: quem enviava
+    // ║          só `datetimeStart` (o caso normal, "Fim" é opcional) num evento sem `datetime_end`
+    // ║          comparava contra 1970 e era SEMPRE recusado com "datetimeEnd deve ser posterior".
+    // ║          O espelho também mordia: só `datetimeEnd` num evento sem início passava, gravando
+    // ║          fim sem começo.
+    // ║ EM VEZ:  ausente → `null`, e cada validação só roda quando tem o que validar.
+    // ╚════════════════════════════════════════════════════════════════
     if (input.datetimeStart || input.datetimeEnd) {
-      const startDate = input.datetimeStart ? new Date(input.datetimeStart) : new Date(event.datetimeStart);
-      const endDate = input.datetimeEnd ? new Date(input.datetimeEnd) : new Date(event.datetimeEnd);
-      
-      if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+      const rawStart = input.datetimeStart ?? event.datetimeStart;
+      const rawEnd = input.datetimeEnd ?? event.datetimeEnd;
+      const startDate = rawStart ? new Date(rawStart) : null;
+      const endDate = rawEnd ? new Date(rawEnd) : null;
+
+      if ((startDate && isNaN(startDate.getTime())) || (endDate && isNaN(endDate.getTime()))) {
         throw new BadRequestError('Datas inválidas');
       }
 
-      if (endDate <= startDate) {
+      // Só compara quando existem AS DUAS pontas. Evento com início e sem fim é válido.
+      if (startDate && endDate && endDate <= startDate) {
         throw new BadRequestError('datetimeEnd deve ser posterior a datetimeStart');
       }
     }

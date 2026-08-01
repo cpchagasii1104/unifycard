@@ -15,6 +15,11 @@ export interface Event {
   eventType: string;
   startTime: string;
   endTime: string;
+  // F-EVENT-PUBLISH-FUNNEL: nomes REAIS do payload vivo (event.service.ts toEvent) — `startTime`/
+  // `endTime` acima NUNCA são devolvidos por este endpoint (EventPage.tsx lia undefined). NÃO
+  // removi os antigos (blast radius de outros consumidores não verificado nesta fatia).
+  datetimeStart?: string | null;
+  datetimeEnd?: string | null;
   cityId: string | null;
   ticketPrice: number | null;
   acceptsConsumption: boolean;
