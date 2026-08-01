@@ -1,5 +1,52 @@
 # REMEDIATION DT LOG
 
+## 🔴 GATE — DT-PAYOUT-RISK-GATE-NEVER-FIRES: a trava de desembolso por risco compara um valor que NUNCA existiu (2026-08-01)
+
+**Não é bug de invenção — é desenho anterior deixado para trás pelo gênesis.** Medido de 1ª mão
+pela direção durante a fatia do marketplace; **NÃO corrigido, porque exige decisão nomeada.**
+
+```
+banco  trust_profiles.risk_level  CHECK (low, medium, high, critical)     ← TEXT+CHECK
+código trust.types.ts:10          'LOW' | 'MEDIUM' | 'HIGH' | 'BLOCKED'
+archive 0067_trust_profiles.sql:29-34  CREATE TYPE risk_level AS ENUM ('LOW','MEDIUM','HIGH','BLOCKED')
+                                       ← IDÊNTICO ao TypeScript, byte por byte
+```
+
+O gênesis (REBASE-03) re-materializou `trust_profiles` como TEXT+CHECK minúsculo e **trocou
+`BLOCKED` por `critical`**. O código ficou fiel ao desenho antigo.
+
+### Por que isto é pior que os outros casos de case
+`payout.service.ts:44` faz `if (trustProfile.riskLevel === 'BLOCKED')` — é **a trava de desembolso
+por risco**. `'BLOCKED'` não existe no banco e nunca existiu depois do gênesis, logo **a trava
+nunca disparou e nunca vai disparar**. É caminho de dinheiro.
+
+E há um segundo andar: o código escreve `'MEDIUM'` contra um CHECK minúsculo, então **nenhum
+INSERT em `trust_profiles` jamais funcionou** — a tabela tem **0 linhas** e **ninguém escreve
+`critical`** (grep negativo em `src/modules/trust/`). O subsistema de confiança inteiro está morto,
+não só a trava.
+
+### 🔴 POR QUE A DIREÇÃO NÃO CORRIGIU
+Pela regra do `CLAUDE.md §3.2`: **conjunto igual ignorando case = renomeação segura em massa;
+conjunto DIFERENTE = houve mudança de desenho, exige decisão nomeada.** Aqui o conjunto difere:
+`LOW/MEDIUM/HIGH` → `low/medium/high` é renomeação, mas **`BLOCKED` → `critical` é julgamento**.
+
+**A pergunta para Clayton, uma frase:** `critical` significa *"bloqueado, não desembolsa"* — e a
+trava de `payout.service.ts:44` passa a morder nele? Ou `critical` é apenas o topo da escala de
+risco, e *"bloqueado"* deixou de ser um estado, precisando de outro mecanismo para travar o
+desembolso?
+
+Mapear errado aqui **cria um bloqueio que não existia** ou **mantém desembolso destravado achando
+que travou**. As duas são piores que o estado atual conhecido. Tentativa anterior de corrigir isto
+foi **revertida de propósito** pela direção: meia-correção em caminho de dinheiro é pior que o
+defeito.
+
+⚠️ Contenção honesta: `bank_ledger`/`bank_transactions`/`bank_splits` = **0 linhas**, `trust_profiles`
+= 0, `payout_requests` = 0. **Nada alcança isto hoje.** O gatilho verificável por query é
+`SELECT count(*) FROM payout_requests > 0` — não *"quando houver usuário real"*.
+
+---
+
+
 ## ✅ EXECUTADO · VERIFICADO PELA DIREÇÃO · ⚠️ NÃO SELADO — MIGRATION APLICADA + 2 ERRATAS DA DIREÇÃO + 2 DECISÕES DE CLAYTON (2026-08-01)
 
 **GO de Clayton: "GO para suas recomendações"** — respondeu de uma vez as três coisas que travavam.
