@@ -168,6 +168,9 @@ export interface Event {
   // fundingDeadlineAt = PRAZO da vaquinha (fecha o "prometer"), DISTINTO de datetimeEnd (fim do evento).
   fundingDeadlineAt?: string | null; // ISO 8601 (timestamptz)
   isAllOrNothing?: boolean; // prefixo booleano canônico is_
+  // F-EVENT-ORGANIZER-CONTINUITY: coluna já existia, nunca era relida no agregado (mesmo padrão do
+  // resto desta lista) — o painel do organizador precisa distinguir "a definir depois" de "faltando".
+  locationMode?: EventLocationMode | null;
   completedAt?: string | null; // ISO 8601
   createdAt: string; // ISO 8601
   updatedAt: string; // ISO 8601

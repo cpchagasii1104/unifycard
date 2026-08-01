@@ -197,6 +197,10 @@ class EventRepository {
       conditions.push(`actor_id = $${paramIndex}`);
       params.push(filters.organizerActorId);
       paramIndex++;
+    } else if (filters.organizerActorIds && filters.organizerActorIds.length > 0) {
+      conditions.push(`actor_id = ANY($${paramIndex}::uuid[])`);
+      params.push(filters.organizerActorIds);
+      paramIndex++;
     }
 
     if (filters.locationActorId) {
@@ -256,11 +260,12 @@ class EventRepository {
       }
     } else if (filters.visibilityMode === 'organizer_dashboard') {
       // SEM piso público — mas dashboard SÓ existe atrelado a um organizer (a rota só ativa este modo após
-      // canRepresentActor(organizerActorId)). Defesa: sem organizerActorId → nunca devolve nada (1 = 0).
-      if (!filters.organizerActorId) {
+      // canRepresentActor(organizerActorId), ou uma lista já resolvida via organizerActorIds — mesma
+      // garantia, plural). Defesa: sem nenhum dos dois → nunca devolve nada (1 = 0).
+      if (!filters.organizerActorId && !(filters.organizerActorIds && filters.organizerActorIds.length > 0)) {
         conditions.push('1 = 0');
       } else {
-        // organizerActorId já restringiu actor_id acima. Cliente estreita por status/visibility livremente.
+        // organizerActorId/organizerActorIds já restringiu actor_id acima. Cliente estreita por status/visibility livremente.
         if (filters.status) {
           conditions.push(`status = $${paramIndex}`);
           params.push(sprint76StatusToDb(filters.status));

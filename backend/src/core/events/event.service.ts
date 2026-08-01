@@ -48,6 +48,7 @@ interface EventRow {
   min_attendees: number | null;
   funding_deadline_at: string | null;
   is_all_or_nothing: boolean | null;
+  location_mode: string | null;
   createdAt: string;
   updatedAt: string;
   metadata: Record<string, any> | null;
@@ -79,6 +80,9 @@ class EventService {
       // banco; ?? false blinda linhas antigas lidas antes do backfill físico (defensivo, coincide com o default).
       fundingDeadlineAt: row.funding_deadline_at ?? null,
       isAllOrNothing: row.is_all_or_nothing ?? false,
+      // F-EVENT-ORGANIZER-CONTINUITY: religa a leitura de location_mode (coluna já existia, nunca era
+      // devolvida — o painel do organizador precisa distinguir "a definir depois" de "faltando").
+      locationMode: (row.location_mode ?? null) as Event['locationMode'],
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
       metadata: row.metadata || {},
@@ -1591,6 +1595,7 @@ class EventService {
         min_attendees,
         funding_deadline_at,
         is_all_or_nothing,
+        location_mode,
         created_at AS "createdAt",
         updated_at AS "updatedAt",
         metadata

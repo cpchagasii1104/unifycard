@@ -148,6 +148,10 @@ export interface EventCheckIn {
  */
 export interface EventFilters {
   organizerActorId?: string;
+  // F-EVENT-ORGANIZER-CONTINUITY: plural de organizerActorId — usuário pode representar N actors
+  // (canRepresentActor é per-actor). Resolução da lista é responsabilidade do CALLER (server-side,
+  // nunca actorId declarado pelo cliente); este filtro só aplica o IN já resolvido.
+  organizerActorIds?: string[];
   locationActorId?: string;
   status?: EventStatus;
   startAtFrom?: Date | string;

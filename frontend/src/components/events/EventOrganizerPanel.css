@@ -167,3 +167,90 @@
     flex: 1 1 100%;
   }
 }
+
+/* ============ PROGRESSO (F-EVENT-ORGANIZER-CONTINUITY) ============ */
+
+.organizer-progress-list {
+  list-style: none;
+  margin: 0 0 0.75rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.organizer-progress-item {
+  display: grid;
+  grid-template-columns: 1.5rem 12rem 9rem 1fr;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  border-left: 4px solid transparent;
+  background: #f9fafb;
+}
+
+.organizer-progress-icon {
+  font-size: 1rem;
+}
+
+.organizer-progress-dimension {
+  font-weight: 600;
+  color: #111;
+}
+
+.organizer-progress-status {
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.organizer-progress-detail {
+  color: #4b5563;
+  font-size: 0.9rem;
+}
+
+.organizer-progress-item.progress-pronto {
+  border-left-color: #10b981;
+}
+.organizer-progress-item.progress-pronto .organizer-progress-status {
+  color: #10b981;
+}
+
+.organizer-progress-item.progress-faltando {
+  border-left-color: #ef4444;
+  background: #fef2f2;
+}
+.organizer-progress-item.progress-faltando .organizer-progress-status {
+  color: #ef4444;
+}
+
+.organizer-progress-item.progress-aguardando {
+  border-left-color: #f59e0b;
+  background: #fffbeb;
+}
+.organizer-progress-item.progress-aguardando .organizer-progress-status {
+  color: #b45309;
+}
+
+.organizer-progress-item.progress-nao-implementado {
+  border-left-color: #9ca3af;
+}
+.organizer-progress-item.progress-nao-implementado .organizer-progress-status {
+  color: #6b7280;
+}
+
+.organizer-progress-item.progress-opcional {
+  border-left-color: #d1d5db;
+  opacity: 0.85;
+}
+.organizer-progress-item.progress-opcional .organizer-progress-status {
+  color: #9ca3af;
+}
+
+@media (max-width: 768px) {
+  .organizer-progress-item {
+    grid-template-columns: 1fr;
+  }
+}

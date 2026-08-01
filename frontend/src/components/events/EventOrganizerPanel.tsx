@@ -7,6 +7,13 @@
 // (manage_events/create_events exatos, DECISION-0189A — 403 fail-closed). Regras de vaquinha/setor são
 // espelhadas como dica; o 400 do backend (VAQUINHA_* / SECTOR_*) é quem decide, traduzido em toast pt-BR.
 // Δbank=0: preços/metas são valores DECLARADOS de catálogo; dinheiro real = PORTA-01, FORA.
+//
+// ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+// ║ STATUS:  CANÔNICO
+// ║ NORMA:   EVENT_ENGINE_COMPLETION_PLAN.md (fases A-G) + CLAUDE.md §2 ("onde já existe")
+// ║ NÃO:     persistir "passo"/"progresso" como estado próprio (2ª verdade sobre o domínio)
+// ║ EM VEZ:  computeProgress() deriva SEMPRE de campos já existentes (event/sectors/needs)
+// ╚════════════════════════════════════════════════════════════════
 
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -15,8 +22,10 @@ import {
   updateEvent,
   listEventSectors,
   createEventSector,
+  getOperationalNeeds,
   type EventSector,
   type UpdateEventInput,
+  type OperationalNeed,
 } from '../../api/events';
 import { resolveCep } from '../../api/location';
 import { useActiveActor } from '../../contexts/ActiveActorContext';
@@ -40,9 +49,19 @@ interface OrganizerEventView {
   maxAttendees: number | null;
   minAttendees: number | null;
   eventAccessType: 'gratuito' | 'pago' | 'contribuicao_opcional' | null;
+  ticketPriceCents: number | null;
   fundingDeadlineAt: string | null;
   isAllOrNothing: boolean;
+  locationMode: 'fixed_place' | 'hybrid' | 'to_be_defined' | null;
   metadata: Record<string, unknown> | null;
+}
+
+/** Uma dimensão do ciclo do organizador, no painel de progresso (F-EVENT-ORGANIZER-CONTINUITY). */
+type ProgressCategory = 'pronto' | 'faltando' | 'aguardando' | 'nao_implementado' | 'opcional';
+interface ProgressItem {
+  dimension: string;
+  category: ProgressCategory;
+  label: string;
 }
 
 // De-para dos códigos de erro do backend → mensagem amigável pt-BR. O backend é a autoridade:
@@ -96,6 +115,7 @@ export default function EventOrganizerPanel({ eventId }: EventOrganizerPanelProp
 
   const [event, setEvent] = useState<OrganizerEventView | null>(null);
   const [sectors, setSectors] = useState<EventSector[]>([]);
+  const [operationalNeeds, setOperationalNeeds] = useState<OperationalNeed[]>([]);
 
   // --- Local (S2)
   const [locationName, setLocationName] = useState('');
@@ -136,6 +156,17 @@ export default function EventOrganizerPanel({ eventId }: EventOrganizerPanelProp
     }
   }, [eventId]);
 
+  // Reusa a MESMA leitura que o wizard já usa (Step5OperationalRoles) — não inventa endpoint novo,
+  // só liga a leitura ao painel de progresso (F-EVENT-ORGANIZER-CONTINUITY item 5).
+  const loadOperationalNeeds = useCallback(async () => {
+    try {
+      const needs = await getOperationalNeeds(eventId);
+      setOperationalNeeds(Array.isArray(needs) ? needs : []);
+    } catch {
+      setOperationalNeeds([]);
+    }
+  }, [eventId]);
+
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
@@ -158,8 +189,9 @@ export default function EventOrganizerPanel({ eventId }: EventOrganizerPanelProp
     };
     load();
     loadSectors();
+    loadOperationalNeeds();
     return () => { cancelled = true; };
-  }, [eventId, loadSectors]);
+  }, [eventId, loadSectors, loadOperationalNeeds]);
 
   // Owner-only como HINT de UX (a autoridade real — manage_events/create_events — é do backend).
   if (!event || !activeActor || activeActor.actor_id !== event.actorId) {
@@ -169,6 +201,91 @@ export default function EventOrganizerPanel({ eventId }: EventOrganizerPanelProp
   const usedCapacity = sectors.reduce((sum, s) => sum + s.capacity, 0);
   const remainingCapacity = event.maxAttendees != null ? event.maxAttendees - usedCapacity : null;
   const nextSectorNumber = sectors.length > 0 ? Math.max(...sectors.map((s) => s.sectorNumber)) + 1 : 1;
+
+  // F-EVENT-ORGANIZER-CONTINUITY: painel de progresso, 100% DERIVADO (nada persistido como "passo").
+  // As 3 categorias-problema não podem se confundir (GATE 2026-08-01):
+  //   FALTANDO      → o organizador pode agir AGORA, a leitura só nunca tinha sido ligada de volta.
+  //   AGUARDANDO    → depende da PORTA-01 (dinheiro) ou de decisão contida — não é culpa de quem organiza.
+  //   NÃO IMPLEMENTADO → fase futura do plano; a tabela/writer simplesmente não existe ainda.
+  const computeProgress = (): ProgressItem[] => {
+    const meta = (event.metadata ?? {}) as {
+      location_name?: unknown;
+      declaration?: { desired_time_windows?: unknown[] };
+    };
+    const items: ProgressItem[] = [];
+
+    // 1. LOCAL — "endereço completo" não é reconferido aqui (sem endpoint, ver aviso na seção Local);
+    // o sinal disponível é o nome declarado + o modo escolhido.
+    if (event.locationMode === 'to_be_defined') {
+      items.push({ dimension: 'Local', category: 'aguardando', label: 'Você decidiu definir depois — não é falta, é adiamento seu' });
+    } else if (typeof meta.location_name === 'string' && meta.location_name.trim()) {
+      items.push({ dimension: 'Local', category: 'pronto', label: `Nome declarado: "${meta.location_name}" (endereço detalhado não é reconferido nesta tela)` });
+    } else {
+      items.push({ dimension: 'Local', category: 'faltando', label: 'Nenhum local declarado ainda' });
+    }
+
+    // 2. AGENDA — honestidade obrigatória: "declarada candidata", nunca "confirmada" (availability
+    // owner_type='event' = 0 linhas hoje; a SSOT temporal real ainda não existe para eventos).
+    const windows = meta.declaration?.desired_time_windows;
+    if (Array.isArray(windows) && windows.length > 0) {
+      items.push({ dimension: 'Agenda', category: 'pronto', label: `${windows.length} janela(s) candidata(s) declarada(s) — ainda NÃO confirmada(s) na agenda oficial` });
+    } else {
+      items.push({ dimension: 'Agenda', category: 'faltando', label: 'Nenhuma janela de data/hora declarada' });
+    }
+
+    // 3. SETORES — opcional por natureza (um evento simples pode nunca precisar).
+    if (sectors.length > 0) {
+      items.push({ dimension: 'Setores', category: 'pronto', label: `${sectors.length} setor(es) configurado(s)` });
+    } else {
+      items.push({ dimension: 'Setores', category: 'opcional', label: 'Nenhum setor — opcional, use se o evento tiver preços por área (pista/camarote/etc.)' });
+    }
+
+    // 4. VAQUINHA — só se aplica em contribuição opcional; não marcar "faltando" em evento pago/gratuito simples.
+    if (event.eventAccessType !== 'contribuicao_opcional') {
+      items.push({ dimension: 'Vaquinha', category: 'opcional', label: 'Não se aplica (acesso não é "contribuição opcional")' });
+    } else if (event.isAllOrNothing && (!event.fundingDeadlineAt || event.minAttendees == null)) {
+      items.push({ dimension: 'Vaquinha', category: 'faltando', label: 'Tudo-ou-nada ativo, mas falta meta de participantes e/ou prazo' });
+    } else {
+      items.push({ dimension: 'Vaquinha', category: 'pronto', label: event.isAllOrNothing ? 'Tudo-ou-nada configurado com meta e prazo' : 'Contribuição opcional configurada (sem tudo-ou-nada)' });
+    }
+
+    // 5. PREÇO — decisão de Clayton (2026-08-01, opção B): ticket_price_cents = "a partir de"; setores
+    // detalham. "Resolvido" = tem valor anunciado OU tem setor com preço. Não se aplica a evento gratuito.
+    if (event.eventAccessType === 'gratuito') {
+      items.push({ dimension: 'Preço', category: 'opcional', label: 'Não se aplica (evento gratuito)' });
+    } else if ((event.ticketPriceCents ?? 0) > 0 || sectors.length > 0) {
+      items.push({ dimension: 'Preço', category: 'pronto', label: 'Preço resolvido (valor anunciado e/ou setores com preço)' });
+    } else {
+      items.push({ dimension: 'Preço', category: 'faltando', label: 'Nenhum preço definido (nem valor anunciado, nem setor)' });
+    }
+
+    // 6. PERFORMERS/CONTRATAÇÃO — "necessidade declarada" deriva; "contratação fechada" não é
+    // derivável hoje (RFQ vive em JSON não-indexável) e o aceite está contido por decisão (R7b).
+    if (operationalNeeds.length > 0) {
+      items.push({ dimension: 'Performers / contratação', category: 'pronto', label: `${operationalNeeds.length} necessidade(s) declarada(s)` });
+    } else {
+      items.push({ dimension: 'Performers / contratação', category: 'faltando', label: 'Nenhuma necessidade declarada (banda, som, segurança...)' });
+    }
+    items.push({ dimension: 'Fechar contratação (aceite de proposta)', category: 'aguardando', label: 'Contido por decisão (R7b) até a porta-01 — não depende de você' });
+
+    // 7. AUDIÊNCIA — visibility sempre tem valor no banco (default 'public'); nunca é "faltando".
+    // (audience_relationship_types não é devolvido pela leitura atual do evento — refinamento
+    // fica de fora deste painel até essa leitura também ser ligada, fora do escopo desta fatia.)
+    items.push({ dimension: 'Audiência / visibilidade', category: 'pronto', label: 'Sempre tem valor (padrão: pública) — nunca fica vazio' });
+
+    // 8. Elenco estruturado — genuinamente não implementado (tipo existe, tabela não).
+    items.push({ dimension: 'Elenco / line-up estruturado', category: 'nao_implementado', label: 'Ainda não existe no sistema (event_actors não foi criada) — hoje o vínculo vive em Setores/Contratar' });
+
+    return items;
+  };
+  const progressItems = computeProgress();
+  const PROGRESS_META: Record<ProgressCategory, { icon: string; label: string; className: string }> = {
+    pronto: { icon: '✅', label: 'Pronto', className: 'progress-pronto' },
+    faltando: { icon: '🔴', label: 'Faltando (você pode agir agora)', className: 'progress-faltando' },
+    aguardando: { icon: '🟡', label: 'Aguardando (porta-01 / decisão contida)', className: 'progress-aguardando' },
+    nao_implementado: { icon: '⚪', label: 'Não implementado ainda', className: 'progress-nao-implementado' },
+    opcional: { icon: '·', label: 'Opcional / não se aplica', className: 'progress-opcional' },
+  };
 
   const onVenueCepChange = async (raw: string) => {
     setVenueCep(raw);
@@ -284,6 +401,29 @@ export default function EventOrganizerPanel({ eventId }: EventOrganizerPanelProp
   return (
     <div className="event-organizer-panel">
       <h2 className="event-organizer-panel-title">🛠️ Gestão do organizador</h2>
+
+      {/* ============ PROGRESSO ============ */}
+      <section className="organizer-section organizer-progress-section">
+        <h3 className="organizer-section-title">📊 Progresso do evento</h3>
+        <ul className="organizer-progress-list">
+          {progressItems.map((item, idx) => {
+            const meta = PROGRESS_META[item.category];
+            return (
+              <li key={idx} className={`organizer-progress-item ${meta.className}`}>
+                <span className="organizer-progress-icon" aria-hidden="true">{meta.icon}</span>
+                <span className="organizer-progress-dimension">{item.dimension}</span>
+                <span className="organizer-progress-status">{meta.label}</span>
+                <span className="organizer-progress-detail">{item.label}</span>
+              </li>
+            );
+          })}
+        </ul>
+        <p className="organizer-hint organizer-hint-muted">
+          🔴 Faltando = você pode agir agora. 🟡 Aguardando = depende da porta-01 (dinheiro) ou de
+          decisão já contida — não é algo que falta você fazer. ⚪ Não implementado = fase futura do
+          sistema, ainda não existe.
+        </p>
+      </section>
 
       {/* ============ LOCAL ============ */}
       <section className="organizer-section">
