@@ -207,14 +207,14 @@ Sem essa resposta, cada tabela vira pesquisa. Com ela, a cauda de 26 módulos é
 
 ## 🗓️ REGISTRO DE SESSÕES — o que cada fatia mudou no placar
 
-### 🔴 EM VOO AGORA — 2026-08-01, direção prestes a compactar
+### 🔴 EM VOO AGORA — atualizado 2026-08-01, fim da sessão
 
-**Se você é a direção e acabou de chegar: isto é o que estava acontecendo.**
+**Se você é a direção e acabou de chegar: isto é o que está aberto. Árvore LIMPA.**
 
 | frente | estado | o que falta |
 |---|---|---|
-| **YALA — auditoria do arco** | mandato enviado, **aguardando parecer** | 5 afirmações, por irreversibilidade: ① severity completa (migration 550 no banco OFICIAL) · ② religamento do Bank ao SSOT de reconciliação · ③ os 17 endpoints contidos do `rides` · ④ o teto que desceu (260→259, 353→353) · ⑤ **o PLACAR e o `CLAUDE.md` descrevem a realidade?** ⚠️ **27 dos 28 commits do arco NUNCA passaram por auditoria independente** — a direção verificou de 1ª mão e commitou, que é o atalho que o rito proíbe. Clayton cobrou, com razão. |
-| **EVENTOS — vocabulário de status** | executora entregou, **na árvore, não commitado** | 5 arquivos (`api/events.ts`, `EventStatusBadge`, `EventPage`, `EventCard`, `SocialFeed2`), raiz = contrato TS fictício. Verificar de 1ª mão antes de commitar. |
+| **YALA — auditoria do arco** | ✅ **ENTREGUE E ABSORVIDA** (`f9cef79c7`) | 2 SOBREVIVEM (severity · 17 contenções `rides`) · 1 COM RESSALVA (reconciliação: `reference_id` guarda CONTA no motor e TENANT no manual — **não tratado**) · **2 DERRUBADAS**, as duas da direção. Achado 【4】 **fechado por remoção** em `b9f21c07b`. 🔴 **NADA FOI SELADO** — selo é ato de Clayton; o que sobreviveu ao ataque está pronto. |
+| **EVENTOS — vocabulário de status** | ✅ **COMMITADO** (`c00732439`) | verificado de 1ª mão: 6 valores contra o banco, zero resíduo maiúsculo nos 5 arquivos, typecheck BE+FE 0, runner 234. ⚠️ `SocialFeed2:630` intocado de propósito — é `cultural_events`, tabela que **não existe** no schema vivo. |
 | **EVENTOS — lista + retomar rascunho** | **BLOQUEADA por decisão de Clayton** | *"meus eventos" inclui o que criei representando outro actor?* Sem isso a query não se escreve. Desenho já fechado: lista = `actor_id` todos os estados · feed = published+ de todos · retomar = reidratar por `eventId`, passo **derivado no backend** (nunca `localStorage` — seria 2ª verdade sobre os 12 rascunhos que JÁ estão no banco). |
 | **DETECTOR DE 3 LADOS** | desenhado, **não despachado** | Clayton propôs padronizar case em massa; medição mostrou que só **2 de 7** membros eram case puro — os outros 5 eram vocabulário. Mas os "valores inventados" são o **desenho anterior** (ver `CLAUDE.md §3.2`). O detector compara **código × `migrations_archive` × banco vivo** e classifica: renomeação pura (seguro em massa) · conversão conhecida · estado novo · estado morto. `GHOST-COLUMN 0/0` já reservado no ratchet; a Condição 2 do `schema-coherence` está **cega por apelido** (89,9% do SQL usa `a.`/`bt.`). |
 | **BLINDAGEM DE MIGRATION** | mandato escrito, **não despachado** | 166 de 551 migrations citam norma por caminho (30%). Teto congelado nas 385 sem blindagem; migration NOVA sem `o quê + norma por caminho + por quê` = FAIL. ⛔ Não é campanha — Lei 2 é forward-only e "cabeçalho falso é pior que ausente". |
