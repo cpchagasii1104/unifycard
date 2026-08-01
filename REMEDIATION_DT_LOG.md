@@ -1,5 +1,47 @@
 # REMEDIATION DT LOG
 
+## 🔴 ERRATA DA DIREÇÃO — os valores "inventados" eram o desenho ANTERIOR (2026-08-01)
+
+**20º erro do arco, e ele reclassifica a família inteira de defeitos de vocabulário.**
+
+A direção afirmou, em mais de uma fatia, que `ONGOING`/`SOLD_OUT`/`FINISHED` (eventos),
+`'BLOCKED'` (risk_level/payout) e o enum de escrow eram **valores inventados pelo frontend**.
+Clayton contestou — *"talvez no início a ideia era boa, ela só foi mal executada"* — e a
+medição deu razão a ele:
+
+```
+migrations_archive/0790_events_lifecycle_extension.sql
+  CHECK (status IN ('DRAFT','PUBLISHED','ONGOING','FINISHED','CANCELLED'))
+frontend/src/api/events.ts:18
+  status: 'DRAFT'|'PUBLISHED'|'ONGOING'|'FINISHED'|'CANCELLED'
+  → IDÊNTICO, byte por byte.
+```
+Idem `'BLOCKED'` em `migrations_archive/0213_payouts.sql` e o enum de escrow em `0187`.
+
+**O código não divergiu — foi DEIXADO PARA TRÁS.** O sistema era coerente em MAIÚSCULO; o
+gênesis (REBASE-03, `705792271`) re-materializou as tabelas seguindo `07_NOMENCLATURA_CANONICA`
+(minúsculo para status/lifecycle) e o caller nunca foi avisado.
+
+**O que muda no método:** o conserto raramente é *"descobrir o valor certo"* — é **mapear um
+desenho conhecido para outro conhecido**, e os dois estão escritos (`migrations_archive` × banco
+vivo). Isso torna o trabalho muito menor do que a direção vinha dimensionando.
+⚠️ **Limite:** o mapa nem sempre é 1:1. `events` foi de 5 → 6 (`declared` é estado NOVO, decisão
+de Clayton em `event-visibility.service.ts:10`); `severity` mudou de EIXO (urgência → natureza
+técnica), então `medium` não vira `MEDIUM` nem `WARNING` por regra — vira por julgamento.
+**Conjunto igual ignorando case = renomeação segura em massa. Conjunto diferente = mudança de
+desenho, exige decisão nomeada.**
+
+**Contra-medição que sustentou parte da posição da direção:** dos 7 membros da família, só **2**
+eram case puro (`alert_status`, `services.status`). Os outros 5 exigiram vocabulário —
+`service_orders` faltavam **3 estados de dinheiro** do escrow, e uma varredura de case os teria
+deixado faltando com aparência de resolvido. **Varredura resolve 2 de 7 e faz os outros 5
+parecerem resolvidos.**
+
+Registrado em `CLAUDE.md §3.2` como armadilha de roteamento: *antes de chamar um literal de
+invenção, procure no `migrations_archive`.*
+
+---
+
 ## ✅ EXECUTADO E FECHADO — F-BANK-RECONCILIATION-RELINK (2026-07-31; GO Clayton)
 
 **Religamento puro, como pedido: zero migration, zero tabela nova.** `bank_reconciliation_history`

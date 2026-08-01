@@ -148,6 +148,23 @@ SELECT enumlabel FROM pg_enum e JOIN pg_type t ON t.oid=e.enumtypid
 o tipo TS é uma *afirmação*, não uma checagem: `response.json()` não valida nada em runtime, e
 foi assim que `EventStatusBadge` ficou com **interseção ZERO** com o banco sem ninguém notar.
 
+🔴 **ARMADILHA — o valor "inventado" quase sempre é o vocabulário ANTERIOR.** Antes de chamar um
+literal de invenção do frontend, **procure no `backend/migrations_archive/`**. Em 2026-08-01 a
+direção afirmou que `ONGOING`/`SOLD_OUT`/`FINISHED` eram valores inventados no frontend;
+`migrations_archive/0790_events_lifecycle_extension.sql` tem
+`CHECK (status IN ('DRAFT','PUBLISHED','ONGOING','FINISHED','CANCELLED'))` — **idêntico, byte por
+byte, ao que `frontend/src/api/events.ts:18` declara.** O código não divergiu: ele está fiel ao
+desenho antigo e **foi deixado para trás** quando o gênesis (REBASE-03) re-materializou a tabela
+seguindo a norma. Idem `'BLOCKED'` (`migrations_archive/0213_payouts.sql`) e o enum de escrow
+(`0187`).
+**Consequência prática:** o conserto raramente é "descobrir o valor certo" — é **mapear um
+desenho conhecido para outro conhecido**, e os dois estão escritos (archive × banco vivo).
+⚠️ **Mas o mapa nem sempre é 1:1** — `events` foi de 5 para 6 valores (`declared` é estado NOVO,
+decisão de Clayton em `event-visibility.service.ts:10`), e `severity` mudou de EIXO (urgência →
+natureza técnica): `medium` não vira `MEDIUM` nem `WARNING` por regra, vira por julgamento.
+**Conjunto igual ignorando case = renomeação, seguro em massa. Conjunto diferente = houve
+mudança de desenho, exige decisão nomeada.**
+
 **Como este defeito se manifesta, por substrato:**
 · **enum nativo** → grita: `42704 invalid input value for enum` (alguém reclama)
 · **TEXT + CHECK** → **cala**: devolve `200` com lista vazia, para sempre, sem erro nem log

@@ -167,6 +167,27 @@ Sem essa resposta, cada tabela vira pesquisa. Com ela, a cauda de 26 módulos é
 
 ## 🗓️ REGISTRO DE SESSÕES — o que cada fatia mudou no placar
 
+### 🔴 EM VOO AGORA — 2026-08-01, direção prestes a compactar
+
+**Se você é a direção e acabou de chegar: isto é o que estava acontecendo.**
+
+| frente | estado | o que falta |
+|---|---|---|
+| **YALA — auditoria do arco** | mandato enviado, **aguardando parecer** | 5 afirmações, por irreversibilidade: ① severity completa (migration 550 no banco OFICIAL) · ② religamento do Bank ao SSOT de reconciliação · ③ os 17 endpoints contidos do `rides` · ④ o teto que desceu (260→259, 353→353) · ⑤ **o PLACAR e o `CLAUDE.md` descrevem a realidade?** ⚠️ **27 dos 28 commits do arco NUNCA passaram por auditoria independente** — a direção verificou de 1ª mão e commitou, que é o atalho que o rito proíbe. Clayton cobrou, com razão. |
+| **EVENTOS — vocabulário de status** | executora entregou, **na árvore, não commitado** | 5 arquivos (`api/events.ts`, `EventStatusBadge`, `EventPage`, `EventCard`, `SocialFeed2`), raiz = contrato TS fictício. Verificar de 1ª mão antes de commitar. |
+| **EVENTOS — lista + retomar rascunho** | **BLOQUEADA por decisão de Clayton** | *"meus eventos" inclui o que criei representando outro actor?* Sem isso a query não se escreve. Desenho já fechado: lista = `actor_id` todos os estados · feed = published+ de todos · retomar = reidratar por `eventId`, passo **derivado no backend** (nunca `localStorage` — seria 2ª verdade sobre os 12 rascunhos que JÁ estão no banco). |
+| **DETECTOR DE 3 LADOS** | desenhado, **não despachado** | Clayton propôs padronizar case em massa; medição mostrou que só **2 de 7** membros eram case puro — os outros 5 eram vocabulário. Mas os "valores inventados" são o **desenho anterior** (ver `CLAUDE.md §3.2`). O detector compara **código × `migrations_archive` × banco vivo** e classifica: renomeação pura (seguro em massa) · conversão conhecida · estado novo · estado morto. `GHOST-COLUMN 0/0` já reservado no ratchet; a Condição 2 do `schema-coherence` está **cega por apelido** (89,9% do SQL usa `a.`/`bt.`). |
+| **BLINDAGEM DE MIGRATION** | mandato escrito, **não despachado** | 166 de 551 migrations citam norma por caminho (30%). Teto congelado nas 385 sem blindagem; migration NOVA sem `o quê + norma por caminho + por quê` = FAIL. ⛔ Não é campanha — Lei 2 é forward-only e "cabeçalho falso é pior que ausente". |
+| **`payout.service.ts:44`** | 🔴 **achado, não consertado** | `trustProfile.riskLevel === 'BLOCKED'` — `BLOCKED` **não existe** em `trust_profiles.risk_level` (`low·medium·high·critical`) e vem de `migrations_archive/0213`. **A trava que bloqueia desembolso por risco nunca dispara.** Gate de dinheiro: fatia própria, com prova de que passa a morder. |
+| **`push` do branch** | **bloqueado pelo classificador** | `rescue-structural` **não existe no remoto** (`git ls-remote` vazio; só `main`/`master`). O arco inteiro vive num disco só, sem backup. Varredura de segredo passou limpa. Clayton roda: `git push -u origin rescue-structural` |
+
+**Decisões paradas com Clayton:** autoridade da lista de eventos · as **43 decisões de módulo**
+(*"é produto vivo?"*) que destravam as ~161 fantasmas · reescrever ou não os 2 commits que
+carregam trabalho da executora sob mensagem alheia (**decidido: NÃO reescrever** — árvore
+compartilhada, sem remoto, errata registrada).
+
+---
+
 **2026-07-30 · 6 commits, 3 DTs fechadas, nenhuma selada.**
 
 | commit | o que era | efeito no placar |
