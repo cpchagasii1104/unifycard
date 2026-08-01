@@ -1,5 +1,67 @@
 # REMEDIATION DT LOG
 
+## 🟢 DECISÕES DE CLAYTON — PF ganha dinheiro · ERP segue a chave · online sobrepõe agenda (2026-08-01)
+
+### (A) ✅ **A PESSOA FÍSICA PODE GANHAR DINHEIRO.**
+Palavras de Clayton: *"seja dirigindo (tipo Uber), fazendo entregas, prestando serviços (manicure,
+cortador de grama). A responsabilidade dele com o governo é dele com o governo — plataformas como
+Uber permitem PF dirigir."*
+
+🔴 **E a divergência das "4 fontes" era menor do que reportado — a direção mediu:**
+```
+core/actor-capabilities/actor-capabilities.service.ts   MONTADO (app.builder.ts:460-461,
+                                                         prefixo /actors, resolveForUser)
+                                                         grep "FUNDS" → 0 ocorrências
+modules/social/actor-capabilities.service.ts            ← o mapa que NEGA RECEIVE_FUNDS ao user
+                                                         nenhum importador em runtime → ÓRFÃO
+recent-counterparts.service.ts:16  "DECISION-0189 (F3): actorCapabilitiesService removido —
+                                    não é decisor (gate = authority canônica)"
+```
+**O mapa que dizia "PF não ganha" está num arquivo MORTO, e a `DECISION-0189` já havia decidido que
+capabilities NÃO é decisor.** A decisão de Clayton **confirma** o que a arquitetura já fez — não a
+contradiz. O eixo econômico segue **inerte** (`RECEIVE_FUNDS` só exigido por intent sem superfície;
+`SEND_FUNDS` por intent nenhum), então nada muda em runtime hoje.
+**Trabalho que resta:** alinhar ou aposentar o órfão — 2ª verdade sobre quem pode receber dinheiro
+é exatamente a classe que o `SSOT_EXCLUSIVE_BANK_RULE` proíbe. **Deleção = ato de Clayton.**
+
+### (B) 🟡 **O ERP MUDA COM A CHAVE, MAS MEXER DEPENDE DE PERMISSÃO.**
+Palavras de Clayton: *"as funções do ERP podem sim mudar de acordo com a chave seletora (consumir e
+operar), porém poder mexer em partes do ERP vai de acordo com a permissão."*
+
+**Isto NÃO é desenho novo — é a doutrina que já está escrita.** `actorContextConfig.ts:505-507`:
+*"Modo = PROJEÇÃO; cada ato segue revalidado server-side (intents/autoridade fail-closed) — o toggle
+não concede poder."* Clayton acabou de reafirmar a separação que o código já declara:
+> **modo = O QUE APARECE (projeção, cliente, zero autoridade) · permissão = O QUE PODE (servidor,
+> fail-closed).** São EIXOS ORTOGONAIS. Nunca derive autoridade do modo; nunca esconda por
+> permissão o que deveria sumir por modo.
+
+**Consequência prática, medida:** hoje `purchase_orders` — a empresa **COMPRANDO** — só acende no
+modo `operating` (`actor-page.service.ts:172-197`, gate `mode==='operating' && page && company_id`).
+**Comprar é consumir.** O lado de compra da empresa está trancado no modo errado. Corrigir é mover
+a superfície de lado no eixo — **não** tocar em autoridade, que continua no `businessAuthorizationService`.
+⚠️ Mesmo padrão no CRM, que já acertou: aba `cliente` = quem me paga (operar) · `fornecedor` = a
+quem eu pago (consumir). O CRM já é o eixo; o ERP ainda não.
+
+### (C) ✅ **ONLINE SOBREPÕE A AGENDA — E NOTIFICA O CONFLITO.**
+Palavras de Clayton: *"rides e outros modelos similares terão o modo online que irá se sobrepor à
+agenda, porém se o Actor que estiver online deverá receber notificações de agenda (caso ele tenha
+outros compromissos)."*
+
+Isto **responde a pergunta 6.3** da instância (rides ficou fora da agenda unificada por decisão ou
+por deriva?): **por DECISÃO.** São dois eixos com precedência declarada:
+| eixo | fonte | semântica |
+|---|---|---|
+| **presença agora** | `rides_driver_sessions.is_online` | tempo real; **PRECEDE** |
+| **compromisso futuro** | `availability` (67 linhas, 8 owner_types) | janela agendada |
+**Regra: online vence. Mas conflito com compromisso GERA NOTIFICAÇÃO — não é silencioso.**
+⚠️ **Dependência real:** a notificação exige o notificador, que é **frente futura** — o outbox
+existe, o entregador não ([[project_notificacao_unificada_plataforma]]). Enquanto ele não existir,
+**a segunda metade de (C) não é implementável**, e implementar só a primeira metade produz
+exatamente o silêncio que Clayton quer evitar. **Não abrir (C) antes do notificador.**
+
+---
+
+
 ## 🔬 GATE CONSUMIR/OPERAR — 5 achados verificados de 1ª mão pela direção (2026-08-01)
 
 Relatório da instância consumir/operar. A direção **não repassa o que não mediu**. Verificados:
