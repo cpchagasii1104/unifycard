@@ -1,6 +1,49 @@
 # REMEDIATION DT LOG
 
-## 🔴 GATE — DT-PAYOUT-RISK-GATE-NEVER-FIRES: a trava de desembolso por risco compara um valor que NUNCA existiu (2026-08-01)
+## 🟡 ERRATA + REQUALIFICAÇÃO — DT-PAYOUT-RISK-GATE-NEVER-FIRES **NÃO é buraco de segurança**: é trava LEGADA duplicada (2026-08-01)
+
+> 🔴 **ERRATA DA DIREÇÃO, 40 minutos depois de escrever a entrada abaixo.** A entrada original
+> dizia *"a trava de desembolso por risco nunca dispara"*. **É verdade e é alarmista** — parei de
+> medir cedo demais. Existe uma SEGUNDA trava, **canônica e viva**, que roda **ANTES** nos dois
+> caminhos que movem dinheiro. **O desembolso NÃO está desprotegido.**
+>
+> ```
+> createPayoutBatch  (payout.service.ts:161) → requireFinancialRiskClearance (:231) ← CANÔNICA
+>                                            → validatePayoutEligibility     (:262) ← a morta
+> executePayoutManual              (:351)    → requireFinancialRiskClearance (:366) ← CANÔNICA
+>                                            → validatePayoutEligibility     (:377) ← a morta
+> callers de validatePayoutEligibility: EXATAMENTE 2, ambos posteriores ao gate canônico
+> (grep sem truncar em src/**/*.ts — a lista completa está acima)
+> ```
+>
+> **E a raiz não é "BLOCKED não existe" — é SEGUNDA VERDADE SOBRE RISCO. São DUAS tabelas:**
+>
+> | tabela | CHECK | linhas | quem escreve |
+> |---|---|---|---|
+> | `actor_risk_profile` | `low·medium·high·`**`blocked`** | **2** | `risk-identity/actor-risk.repository.ts` + 4 E2E do caminho de dinheiro (income-withholding, wallet-debit-recovery, recovery-finalization, **payout-approve-endpoint**) |
+> | `trust_profiles` | `low·medium·high·`**`critical`** | **0** | só `trust.repository.ts` + 1 E2E chamado literalmente `risk-dashboard-schema-**ghost**` |
+>
+> **A norma decide, e a direção leu antes de afirmar:**
+> `docs/02_decisions/PROMPT_53_1_RISK_ENFORCEMENT_HARDENING.md:65` — *"Nível `blocked` continua
+> bloqueio total nas ações mapeadas"*, **em minúsculo**. `blocked` é o nível GOVERNADO, e ele vive
+> em `actor_risk_profile` — a tabela que o gate canônico já lê.
+>
+> **Requalificação:** `payout.service.ts:44` não é uma trava quebrada que precisa de decisão de
+> produto. É **duplicata legada de uma responsabilidade que já tem dono**, lendo a tabela vazia com
+> o vocabulário errado. O padrão do `CLAUDE.md §2`: *"existe em `arquivo:linha`, no lugar errado /
+> não religado"* — não *"falta X"*.
+>
+> **A pergunta para Clayton mudou, e ficou barata:** remover a checagem morta de
+> `validatePayoutEligibility` e deixar `requireFinancialRiskClearance` como trava única de risco?
+> É deleção em caminho de dinheiro, logo **ato dele** — mas é remover uma SEGUNDA VERDADE, não
+> criar um bloqueio novo. `trust_profiles` (0 linhas) fica como está até frente própria.
+>
+> 🔴 **A lição, e ela é o inverso da que a Yala tinha nomeado.** A auditoria de ontem concluiu que
+> *"o PLACAR erra onde se ELOGIA, não onde se acusa"*. **Aqui a direção errou ACUSANDO** — a
+> acusação era verdadeira na letra e falsa no tamanho, porque parei no primeiro achado em vez de
+> perguntar *"e existe outra trava?"*. **Achado grave também precisa da pergunta seguinte.**
+
+### 📌 O texto original da entrada, preservado (era o que se sabia às 03h)
 
 **Não é bug de invenção — é desenho anterior deixado para trás pelo gênesis.** Medido de 1ª mão
 pela direção durante a fatia do marketplace; **NÃO corrigido, porque exige decisão nomeada.**
