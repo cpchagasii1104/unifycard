@@ -1,5 +1,70 @@
 # REMEDIATION DT LOG
 
+## ✅ EXECUTADO · VERIFICADO PELA DIREÇÃO · ⚠️ NÃO SELADO — F-EVENT-ORGANIZER-CONTINUITY (2026-08-01, GO Clayton)
+
+`32f000f14` · 8 arquivos · painel de progresso por fase dentro de `EventOrganizerPanel.tsx`,
+**zero coluna e zero tabela novas**. Runner 235 · typecheck BE 0 · FE 0 · EOL `i/lf w/lf`.
+
+**O que resolve:** o organizador escrevia no wizard e nada voltava. "Não implementado", "bloqueado
+por porta-01" e "falta você preencher" apareciam **idênticos** (nada em tela) — e é isso que faz
+alguém procurar um botão que não existe. Agora são 5 categorias distintas, com `opcional` para não
+acusar falta de vaquinha em evento que não é vaquinha.
+
+**Honestidade da agenda (exigida no mandato):** `availability WHERE owner_type='event'` = **0
+linhas**. O rótulo diz literalmente *"declarada candidata — ainda NÃO confirmada na agenda oficial"*.
+Marcar como pronto o que não está seria pior que não mostrar nada.
+
+**Autoridade plural: construída, provada, NÃO wireada.** `listEvents` aceita array resolvido
+server-side; caminho singular **intocado**; gate `organizer_dashboard` segue fail-closed sem
+nenhum dos dois. Direção confirmou por grep que **nenhuma rota expõe** `organizerActorIds` — a
+capacidade existe e não alarga superfície hoje.
+
+### 🔴 DOIS ACHADOS DA EXECUTORA — verificados de 1ª mão pela direção, com o comando colado
+
+**① `GET /api/events/:id/dashboard` e `/organizer-metrics` devolvem 500 para QUALQUER evento,
+e é assim desde o gênesis.**
+```
+psql → SELECT starts_at FROM events LIMIT 1;
+       ERRO: coluna "starts_at" não existe                    ← event-metrics-dashboard.service.ts:73
+psql → SELECT created_by_global_user_id FROM events LIMIT 1;
+       ERRO: coluna "created_by_global_user_id" não existe    ← event-organizer-metrics.service.ts:49
+alcançável? events.module registrado em /api/events (app.builder.ts:562);
+             events.routes.ts:610 e :693; catch → reply.status(500)
+```
+`getOrganizerMetrics` chama `getEventDashboard` por dentro → herda a quebra. **Tracei do SELECT ao
+`reply`** — não é inferência de grep. É a classe que **grita** (42703), mas o `try/catch` a
+transforma em 500 genérico, e por isso ninguém rastreou até a coluna.
+
+**② A decisão (B) do preço já está sendo violada em produção de dado.**
+```
+psql → evento 948b0278 : ticket_price_cents=5000 | menor setor=8000   ← MENTE
+       evento 3201a162 : ticket_price_cents=5000 | menor setor=5000   ← ok
+       evento 951fd205 : ticket_price_cents=5000 | menor setor=5000   ← ok
+```
+O feed (`FeaturedToday.tsx`, `CulturalEventCard.tsx`) e o checkout leem **só**
+`ticket_price_cents` — **nenhum lê `event_sectors`**. Quem vê "R$50" não acha ingresso por R$50:
+o mínimo real é R$80. **1 de 3 eventos com setor já mente o preço ao comprador.** (B) exige o "a
+partir de" ≤ menor preço de setor; hoje nada valida isso. Executora **reportou e não consertou** —
+correto, era fora do escopo dela.
+
+### 📌 Resíduos nomeados (nenhum por esquecimento)
+`audience_relationship_types` não religado (mesmo padrão barato de `location_mode`) ·
+`frontend/src/api/events.ts:798,801` usa `\api\events\` com **barra invertida** ·
+`validate-pipeline-e2e-actor-page-contract.ts:94` usa coluna `is_active` inexistente em
+`company_users` desde a DECISION-0189 (outra frente, não tocada).
+
+**Rito §5 cumprido pela executora:** o próprio script dela violava o writer único (`INSERT INTO
+actors` direto, copiado de script de referência); o guard `audit-schema-coherence-ratchet` **mordeu
+de verdade** (`TETO ESTOURADO: BOUNDARY-WRITE-scripts = 329 > 327`) e ela reescreveu para
+`ensureUserActor`/`ensurePageActor`. Guard forçado vermelho 3× nesta fatia, não simulado.
+⚠️ Ela também caiu no `grep -c $'\r'` (falso positivo 48 e 197) e confirmou por 3 métodos
+independentes — **a armadilha do `CLAUDE.md §2.1` pegou outra instância hoje**.
+
+⚠️ **NÃO SELADO.** Falta auditoria independente (Yala). A direção conferiu de 1ª mão; isso não é selo.
+
+---
+
+
 ## ⛔ RETRATADA — "DT-PAYOUT-SPLIT-BRAIN" NÃO EXISTE. O achado verdadeiro é menor e tem nome: 3 READERS FORA DA CONTENÇÃO (2026-08-01)
 
 > 🔴 **RETRATAÇÃO INTEGRAL DA DIREÇÃO, 25 minutos depois de escrever a entrada abaixo.**
