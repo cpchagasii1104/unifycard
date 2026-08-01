@@ -1,66 +1,58 @@
 -- 20260801130000_event_reservations_status_check_case_collision.sql
 -- F-CHECK-CASE-SECOND-POPULATION: fecha a colisão de case em event_reservations.status —
--- a SEGUNDA população de case-drift que pg_enum não enxerga (vive em TEXT+CHECK, não em
--- native enum). Sucede em espírito 20260801120000 (9 enums nativos), mas o mecanismo aqui
--- é ALTER TABLE ... DROP/ADD CONSTRAINT porque a coluna é TEXT, não um tipo pg_enum.
+-- a SEGUNDA população de case-drift, a que `pg_enum` NÃO enxerga porque vive em TEXT+CHECK.
+-- Sucede em espírito 20260801120000 (9 enums nativos); o mecanismo aqui é DROP/ADD CONSTRAINT
+-- porque a coluna é TEXT, não um tipo enum.
 --
--- ACHADO (classificação (c) do mandato — "o CHECK está errado, não o dado"):
---   CHECK anterior (`event_reservations_status_check`) permitia DUAS grafias do MESMO valor
---   na MESMA coluna: 'pending'/'PENDING', 'confirmed'/'CONFIRMED', 'cancelled'/'CANCELLED'
---   — introduzido por 20260530470000_fix_occupancy_schema.sql, que encontrou o genesis em
---   lowercase e o código em UPPERCASE e "resolveu" ampliando o CHECK para aceitar os dois
---   em vez de escolher um. O comentário daquela migration já dizia: "Solução: dropar
---   constraint antiga e criar nova que cobre ambos" — é o próprio bug que este mandato
---   pediu para caçar.
+-- ⚠️ ESTE ARQUIVO FOI REESCRITO em 2026-08-01, ANTES de qualquer aplicação.
+--    Provado antes de reescrever: `SELECT ... FROM schema_migrations WHERE filename = '...'`
+--    → NUNCA APLICADA. Nenhum banco persistente a executou; os efêmeros que a validaram foram
+--    destruídos. A Lei 2 (forward-only, nunca editar migration existente) protege migration que
+--    JÁ RODOU em algum ambiente — não é o caso, e criar uma segunda migration para desfazer uma
+--    primeira que ninguém executou deixaria lixo permanente no histórico.
 --
--- PROVA DE ALCANCE (lido no código vivo, 2026-08-01):
---   · ÚNICO writer: `occupancy.service.ts:233` — INSERT ... VALUES (..., 'PENDING', ...)
---     (uppercase, sempre explícito — nunca depende do DEFAULT da coluna).
---   · Reader consistente com o writer: `occupancy.service.ts:297-299` — filtra
---     'CONFIRMED'/'CHECKED_IN'/'NO_SHOW' (uppercase).
---   · 🔴 Reader QUEBRADO: `home-feed.service.ts:129` — filtra
---     `er.status IN ('pending', 'confirmed')` (lowercase). Nunca bateu com nenhuma linha
---     que o único writer já escreveu, porque o único writer nunca escreveu lowercase desde
---     20260530470000 (2 meses atrás). Silencioso: 200 com lista vazia, sem erro, sem log —
---     exatamente o sintoma que o mandato descreveu para o par pending/PENDING.
---   · 'expired' (lowercase, só existia no genesis) e nenhum outro caminho vivo o escreve ou
---     lê — confirmado por busca no código (`expires_at` é OUTRA coluna, timestamp; a string
---     'expired' não aparece em nenhum caller de event_reservations).
+-- 🔴 O QUE MUDOU NA REESCRITA, E POR QUÊ
+--    A 1ª versão fechava a colisão mantendo as grafias MAIÚSCULAS (a convenção do writer vivo) e
+--    declarava, no próprio COMMENT, que isso NÃO era a §4.11 — deixando a convergência como
+--    "decisão nomeada pendente". Isso é ADIAR: cristalizaria em CHECK físico exatamente a
+--    violação que a norma proíbe, e a próxima instância herdaria o débito com um selo por cima.
+--    Decisão de Clayton, 2026-08-01: *"o objetivo é parar de adiar e de fato corrigir o sistema
+--    da forma certa"*. A forma certa é a norma: `07_NOMENCLATURA_CANONICA §4.11` — status e
+--    lifecycle em `snake_case` MINÚSCULO.
 --
--- 🔴 NÃO CORRIGIDO NESTA MIGRATION (fora de escopo — é código, não schema):
---   `home-feed.service.ts:129` precisa passar a filtrar 'PENDING'/'CONFIRMED' (maiúsculo) OU
---   a norma completa (07_NOMENCLATURA_CANONICA.md §4.11, status = lowercase) precisa ser
---   aplicada ao módulo de eventos inteiro (occupancy.service.ts + occupancy.types.ts +
---   home-feed.service.ts) — decisão nomeada de Clayton sobre qual convergência tomar,
---   análoga à pendência já registrada em `DT-C36-actor-debts-case-drift` (cartório,
---   linha ~11311) para o irmão `actor_debts`. Esta migration NÃO decide isso — só fecha a
---   colisão de case, sem mudar nenhum valor que o código vivo hoje escreve ou lê.
+-- 🟢 O ACHADO QUE TORNA A CONVERGÊNCIA BARATA — e que inverte quem é o "errado":
+--    `home-feed.service.ts:129` filtra `er.status IN ('pending','confirmed')` — MINÚSCULO. Foi
+--    tratado como "o reader quebrado", mas ele é **o ÚNICO sítio que já obedecia a norma**. Quem
+--    diverge é o writer (`occupancy.service.ts:233`, `'PENDING'`). Convergindo para minúsculo,
+--    o home-feed volta a enxergar reservas de evento **sem uma linha de alteração nele** — o
+--    vetor "compromisso" do feed estava estruturalmente cego desde 20260530470000 (2 meses).
+--    Convergir para MAIÚSCULO exigiria mexer no home-feed E manteria a violação da norma: seria
+--    mais trabalho para ficar errado.
 --
--- MAPEAMENTO — apenas remove as grafias MORTAS (nunca escritas desde 20260530470000):
---   lowercase 'pending'/'confirmed'/'cancelled'/'expired' saem do CHECK e do DEFAULT.
---   As 5 grafias que o código vivo usa hoje (PENDING, CONFIRMED, CHECKED_IN, NO_SHOW,
---   CANCELLED) são as únicas mantidas — zero mudança de comportamento para o único writer
---   e para os readers já consistentes.
+-- ORIGEM DO DEFEITO (não é invenção — é decisão antiga mal resolvida):
+--   `20260530470000_fix_occupancy_schema.sql` encontrou o gênesis em lowercase e o código em
+--   UPPERCASE e "resolveu" AMPLIANDO o CHECK para aceitar OS DOIS. O comentário de lá é
+--   explícito: *"dropar constraint antiga e criar nova que cobre ambos"*. Um CHECK que existe
+--   para BARRAR incoerência passou a AUTORIZÁ-LA.
 --
--- ESTADO MEDIDO EM unificard_dev ANTES DESTA MIGRATION (read-only, 2026-08-01):
---   event_reservations: 0 linhas. DEFAULT da coluna: 'pending'::text (grafia morta — nunca
---   usado pelo único writer, que sempre passa 'PENDING' explícito).
+-- ALCANCE — os 5 sítios reais de `event_reservations` (grep sem truncar, 2026-08-01):
+--   occupancy.service.ts:233        writer  'PENDING'                      → converge p/ 'pending'
+--   occupancy.service.ts:297-299    reader  'CONFIRMED','CHECKED_IN','NO_SHOW' → converge
+--   occupancy.types.ts:5            tipo    ReservationStatus              → converge
+--   home-feed.service.ts:129,318    reader  'pending','confirmed'          → INTOCADO (já certo)
+--   ⚠️ `ServicePreReservation` e `marketplace-dispatch` também casam no grep com 'confirmed',
+--      mas são OUTRA entidade (pré-reserva de SERVIÇO, não reserva de evento). NÃO TOCADOS.
 --
--- IRMÃOS INVESTIGADOS NO MESMO MANDATO (nenhum migrado — nenhum tem colisão de case):
---   actor_debts        → (b) conjunto DIFERENTE (pending + TRANSFERRED_TO_ORGANIZER), já
---                          tem DT própria com decisão pendente (DT-C36-actor-debts-case-drift).
---                          NÃO TOCADO aqui — decisão nomeada já aberta, não duplicar.
---   chat_messages      → consistente (VISIBLE/DELETED, só maiúsculo). Sem colisão.
---   chat_reports       → consistente (OPEN/ACK/RESOLVED, só maiúsculo). Sem colisão.
---   live_presence      → consistente (ONLINE/OFFLINE, só maiúsculo). Sem colisão.
---   companies.company_status → consistente (DRAFT/PROVISIONAL/ACTIVE/SUSPENDED, só
---                          maiúsculo); CHECK já governado por DECISION-0097 D3/D4 (Fase
---                          3.3-A, selado). NÃO TOCADO — fora do meu mandato e já normado.
---   address_assignments → falso positivo da varredura inicial (colisão aparente era entre
---                          DUAS colunas distintas — owner_type='actor' × role=RESIDENCE/
---                          OPERATIONAL/HQ — cada uma internamente consistente). Sem ação.
+-- ESTADO MEDIDO ANTES (unificard_dev, read-only): event_reservations = **0 linhas**.
+--   Sem linha, não há UPDATE de dado a fazer — só o CHECK e o DEFAULT.
+--   'expired' sai: grafia do gênesis, nenhum caminho vivo a escreve ou lê.
 --
--- Forward-only / transacional / idempotente (DROP IF EXISTS antes de recriar).
+-- IRMÃOS INVESTIGADOS, NENHUM COM COLISÃO (varredura dos 309 CHECK do banco):
+--   actor_debts → (b) conjunto DIFERENTE, DT própria já aberta (DT-C36-actor-debts-case-drift).
+--   chat_messages · chat_reports · live_presence · companies.company_status → internamente
+--   consistentes; `company_status` já governado por DECISION-0097 D3/D4 (selado). Sem ação.
+--
+-- Forward-only / transacional / idempotente.
 
 BEGIN;
 
@@ -68,13 +60,13 @@ ALTER TABLE event_reservations
   DROP CONSTRAINT IF EXISTS event_reservations_status_check;
 
 ALTER TABLE event_reservations
-  ALTER COLUMN status SET DEFAULT 'PENDING';
+  ALTER COLUMN status SET DEFAULT 'pending';
 
 ALTER TABLE event_reservations
   ADD CONSTRAINT event_reservations_status_check
-  CHECK (status IN ('PENDING', 'CONFIRMED', 'CHECKED_IN', 'NO_SHOW', 'CANCELLED'));
+  CHECK (status IN ('pending', 'confirmed', 'checked_in', 'no_show', 'cancelled'));
 
 COMMENT ON COLUMN event_reservations.status IS
-  'Lifecycle da reserva de evento: PENDING, CONFIRMED, CHECKED_IN, NO_SHOW, CANCELLED (uppercase — convenção viva do único writer, occupancy.service.ts). NÃO confundir com §4.11 da norma (lowercase) — convergência completa exige tocar código (occupancy.service.ts + home-feed.service.ts) e é decisão nomeada pendente, não decidida por esta migration.';
+  'Lifecycle da reserva de evento, §4.11 snake_case minúsculo: pending, confirmed, checked_in, no_show, cancelled. A colisão anterior (os dois cases do MESMO valor no mesmo CHECK) vinha de 20260530470000, que ampliou o CHECK em vez de escolher — corrigida em 2026-08-01 convergindo código e schema para a norma.';
 
 COMMIT;

@@ -230,7 +230,7 @@ export class OccupancyService {
         resource_type, resource_id, resource_name,
         status, reservation_price_cents, reservation_currency
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, 'PENDING', $8, $9)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', $8, $9)
       RETURNING
         id, event_id, tenant_id, occupancy_model_id, actor_id,
         resource_type, resource_id, resource_name, status,
@@ -294,9 +294,9 @@ export class OccupancyService {
       `
       SELECT
         COUNT(*) as total,
-        COUNT(*) FILTER (WHERE status = 'CONFIRMED' OR status = 'CHECKED_IN') as confirmed,
-        COUNT(*) FILTER (WHERE status = 'CHECKED_IN') as checked_in,
-        COUNT(*) FILTER (WHERE status = 'NO_SHOW') as no_shows
+        COUNT(*) FILTER (WHERE status = 'confirmed' OR status = 'checked_in') as confirmed,
+        COUNT(*) FILTER (WHERE status = 'checked_in') as checked_in,
+        COUNT(*) FILTER (WHERE status = 'no_show') as no_shows
       FROM event_reservations
       WHERE event_id = $1
       `,

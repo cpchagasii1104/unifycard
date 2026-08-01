@@ -2,7 +2,17 @@
 // Tipos para Modelo de Ocupação de Eventos
 
 export type OccupancyType = 'TABLE' | 'PERSON' | 'SLOT' | 'HYBRID';
-export type ReservationStatus = 'PENDING' | 'CONFIRMED' | 'CHECKED_IN' | 'NO_SHOW' | 'CANCELLED';
+// ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+// ║ STATUS:  CANÔNICO — convergido para minúsculo em 2026-08-01
+// ║ NORMA:   07_NOMENCLATURA_CANONICA §4.11 — status/lifecycle em snake_case MINÚSCULO
+// ║ NÃO:     voltar a MAIÚSCULO. O CHECK de `event_reservations` aceitava OS DOIS cases do
+// ║          MESMO valor (herança de 20260530470000, que ampliou em vez de escolher), e o
+// ║          `home-feed.service.ts` — que já filtrava minúsculo, ou seja, o único sítio CERTO —
+// ║          ficou cego para reservas de evento por 2 meses: 200 com lista vazia, sem erro.
+// ║ EM VEZ:  minúsculo, igual ao CHECK físico. Confira com pg_get_constraintdef antes de
+// ║          acrescentar valor — o tipo TS é afirmação, não checagem de runtime.
+// ╚════════════════════════════════════════════════════════════════
+export type ReservationStatus = 'pending' | 'confirmed' | 'checked_in' | 'no_show' | 'cancelled';
 export type ResourceType = 'TABLE' | 'PERSON' | 'SLOT';
 
 // Configuração para ocupação por MESA
