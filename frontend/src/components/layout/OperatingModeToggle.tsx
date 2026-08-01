@@ -6,7 +6,11 @@
 //    do ecossistema."
 //
 // Aparece APENAS quando o actor atual tem 2 modos (consumir + operar).
-// Para group/channel (mono-modo) o toggle não renderiza nada — silencioso.
+// Para CHANNEL (mono-modo) o toggle não renderiza nada — silencioso.
+// ⚠️ GROUP **NÃO** é mono-modo desde 2026-07-07: PROFILE_GROUP ganhou byOperatingMode com as DUAS
+// chaves (achado de Clayton — "o churrasco compra a carne"), logo profileHasTwoOperatingModes()
+// devolve true e o toggle RENDERIZA para grupo. Este comentário dizia o contrário até 2026-08-01.
+// Quem decide é sempre profileHasTwoOperatingModes(), nunca uma lista de actor_type escrita aqui.
 
 import { useActorMode } from '../../hooks/useActorMode';
 import { useOperatingMode } from '../../hooks/useOperatingMode';

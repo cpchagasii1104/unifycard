@@ -6,7 +6,9 @@
 // Princípio âncora: "prioriza, não esconde" + "modo nunca invisível".
 //
 // Aparece APENAS quando o actor tem 2 modos (consumir + operar).
-// Para group/channel (mono-modo) não renderiza nada — silencioso.
+// Para CHANNEL (mono-modo) não renderiza nada — silencioso.
+// ⚠️ GROUP **NÃO** é mono-modo desde 2026-07-07 (PROFILE_GROUP tem byOperatingMode com as duas
+// chaves): o badge RENDERIZA para grupo. Corrigido em 2026-08-01 — o texto anterior mentia.
 
 import { useActorMode } from '../../hooks/useActorMode';
 import { useOperatingMode } from '../../hooks/useOperatingMode';

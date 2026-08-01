@@ -591,8 +591,13 @@ export function getActorContextProfile(
 
 /**
  * Indica se o profile tem 2 modos operantes declarados (consumir + operar).
- * Usado pelo OperatingModeToggle para decidir se aparece (group/channel são
- * mono-modo — toggle some).
+ * Usado pelo OperatingModeToggle para decidir se aparece.
+ *
+ * ⚠️ Corrigido em 2026-08-01: esta docstring dizia "group/channel são mono-modo". **Falso desde
+ * 2026-07-07** — PROFILE_GROUP tem `byOperatingMode` com as DUAS chaves (achado de Clayton: "o
+ * churrasco compra a carne"), então esta função devolve `true` para grupo. Hoje só CHANNEL é
+ * mono-modo, e por ser scaffold (D-C2 pendente), não por decisão de produto.
+ * A resposta vem SEMPRE da forma do profile — nunca de uma lista de actor_type escrita à mão.
  */
 export function profileHasTwoOperatingModes(profile: ActorContextProfile): boolean {
   const m = profile.byOperatingMode;
