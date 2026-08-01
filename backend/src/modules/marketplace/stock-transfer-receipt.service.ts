@@ -39,7 +39,7 @@ class StockTransferReceiptService {
       throw new Error(`Transferência não encontrada: ${stockTransferId}`);
     }
 
-    if (transfer.status !== 'SHIPPED') {
+    if (transfer.status !== 'shipped') {
       throw new Error(`Transferência não está em SHIPPED. Status atual: ${transfer.status}`);
     }
 
@@ -49,7 +49,7 @@ class StockTransferReceiptService {
       stockTransferId
     );
 
-    if (existing && (existing.status === 'IN_PROGRESS' || existing.status === 'COMPLETED')) {
+    if (existing && (existing.status === 'in_progress' || existing.status === 'completed')) {
       return existing;
     }
 
@@ -61,7 +61,7 @@ class StockTransferReceiptService {
     );
 
     // 4. Conferência em curso — PENDING no enum stock_transfer_status
-    await stockTransferRepository.updateTransferStatus(tenantId, stockTransferId, 'PENDING');
+    await stockTransferRepository.updateTransferStatus(tenantId, stockTransferId, 'pending');
 
     return receipt;
   }
@@ -82,7 +82,7 @@ class StockTransferReceiptService {
       throw new Error(`Receipt não encontrado: ${receiptId}`);
     }
 
-    if (receipt.status !== 'IN_PROGRESS') {
+    if (receipt.status !== 'in_progress') {
       throw new Error(`Receipt não está em IN_PROGRESS. Status atual: ${receipt.status}`);
     }
 
@@ -136,7 +136,7 @@ class StockTransferReceiptService {
       throw new Error(`Receipt não encontrado: ${receiptId}`);
     }
 
-    if (receipt.status !== 'IN_PROGRESS') {
+    if (receipt.status !== 'in_progress') {
       throw new Error(`Receipt não está em IN_PROGRESS. Status atual: ${receipt.status}`);
     }
 
@@ -239,7 +239,7 @@ class StockTransferReceiptService {
     }
 
     const receiptDbStatus: StockTransferReceipt['status'] =
-      finalOutcome === 'REJECTED' ? 'CANCELLED' : 'COMPLETED';
+      finalOutcome === 'REJECTED' ? 'cancelled' : 'completed';
 
     // 7. Atualizar status do receipt
     const finalizedReceipt = await stockTransferReceiptRepository.updateReceiptStatus(
@@ -254,7 +254,7 @@ class StockTransferReceiptService {
       await stockTransferRepository.updateTransferStatus(
         tenantId,
         transfer.id,
-        'RECEIVED',
+        'received',
         undefined,
         new Date()
       );

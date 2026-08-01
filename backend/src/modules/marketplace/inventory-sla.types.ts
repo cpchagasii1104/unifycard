@@ -33,7 +33,7 @@ export interface TransferSla {
   stockTransferId: string;
   fromActorId: string;
   toActorId: string;
-  status: 'DRAFT' | 'PENDING' | 'SHIPPED' | 'RECEIVED' | 'CANCELLED';
+  status: 'draft' | 'pending' | 'shipped' | 'received' | 'cancelled';
   
   // Tempos (em dias)
   daysInDraft: number | null; // Tempo em DRAFT
@@ -60,7 +60,7 @@ export interface GetTransferSlaOptions {
   toActorId?: string;
   /** F-REPORTS-TRANSFERS-SLA-REPRESENTATION: escopo self (from OU to = este actor) p/ leitura sem filtro tenant-wide. */
   participantActorId?: string;
-  status?: 'DRAFT' | 'PENDING' | 'SHIPPED' | 'RECEIVED' | 'CANCELLED';
+  status?: 'draft' | 'pending' | 'shipped' | 'received' | 'cancelled';
   onlyOverdue?: boolean; // Apenas transferências atrasadas
   maxDaysShippedToReceiving?: number; // SLA SHIPPED → início conferência
   maxDaysReceivingToReceived?: number; // SLA conferência → RECEIVED

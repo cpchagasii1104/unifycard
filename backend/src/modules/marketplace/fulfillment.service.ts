@@ -38,7 +38,7 @@ class FulfillmentService {
   async createFromOrder(
     tenantId: string,
     orderId: string,
-    source: 'PDV' | 'MARKETPLACE'
+    source: 'pdv' | 'marketplace'
   ): Promise<FulfillmentOrder> {
     // 1. Verificar se já existe fulfillment para este pedido
     const existing = await fulfillmentRepository.getFulfillmentOrderByOrderId(
@@ -106,7 +106,7 @@ class FulfillmentService {
       throw new Error(`Fulfillment item não encontrado: ${input.fulfillmentItemId}`);
     }
 
-    if (item.status === 'PICKED') {
+    if (item.status === 'picked') {
       // Já está picked, retornar
       return item;
     }
@@ -115,7 +115,7 @@ class FulfillmentService {
     const updatedItem = await fulfillmentRepository.updateFulfillmentItemStatus(
       tenantId,
       input.fulfillmentItemId,
-      'PICKED',
+      'picked',
       input.inventoryLotId
     );
 
@@ -137,14 +137,14 @@ class FulfillmentService {
         fulfillmentOrder.id
       );
 
-      const allPicked = allItems.every((i) => i.status === 'PICKED');
+      const allPicked = allItems.every((i) => i.status === 'picked');
 
-      if (allPicked && fulfillmentOrder.status === 'PENDING') {
+      if (allPicked && fulfillmentOrder.status === 'pending') {
         // Todos os itens estão picked, atualizar status do fulfillment
         await fulfillmentRepository.updateFulfillmentStatus(
           tenantId,
           fulfillmentOrder.id,
-          'PICKED',
+          'picked',
           input.pickedByUserId
         );
       }
@@ -177,12 +177,12 @@ class FulfillmentService {
         throw new Error(`Fulfillment order não encontrado: ${input.fulfillmentOrderId}`);
       }
 
-      if (fulfillmentOrder.status === 'SHIPPED') {
+      if (fulfillmentOrder.status === 'shipped') {
         await client.query('COMMIT');
         return fulfillmentOrder;
       }
 
-      if (fulfillmentOrder.status === 'CANCELLED') {
+      if (fulfillmentOrder.status === 'cancelled') {
         throw new Error('Fulfillment cancelado não pode ser enviado');
       }
 
@@ -201,7 +201,7 @@ class FulfillmentService {
       }
       await assertInventoryUnitActorEligible(tenantId, order.sellerActorId);
 
-      const notPicked = items.filter((item) => item.status !== 'PICKED');
+      const notPicked = items.filter((item) => item.status !== 'picked');
       if (notPicked.length > 0) {
         throw new Error(
           `Não é possível enviar fulfillment: ${notPicked.length} item(ns) ainda não foram separados (PICKED)`
@@ -254,7 +254,7 @@ class FulfillmentService {
       const shippedFulfillment = await fulfillmentRepository.updateFulfillmentStatusWithClient(
         client,
         fulfillmentOrder.id,
-        'SHIPPED',
+        'shipped',
         undefined,
         new Date()
       );
@@ -322,11 +322,11 @@ class FulfillmentService {
       return null;
     }
 
-    if (fulfillmentOrder.status === 'SHIPPED') {
+    if (fulfillmentOrder.status === 'shipped') {
       throw new Error('Fulfillment já enviado não pode ser cancelado');
     }
 
-    if (fulfillmentOrder.status === 'CANCELLED') {
+    if (fulfillmentOrder.status === 'cancelled') {
       // Já está cancelado, retornar
       return fulfillmentOrder;
     }
@@ -346,7 +346,7 @@ class FulfillmentService {
     const cancelledFulfillment = await fulfillmentRepository.updateFulfillmentStatus(
       tenantId,
       fulfillmentOrder.id,
-      'CANCELLED'
+      'cancelled'
     );
 
     return cancelledFulfillment;

@@ -48,8 +48,8 @@ class AccountsPayableService {
     }
 
     // Validar que ordem está em RECEIVED ou COMPLETED
-    if (!['RECEIVED', 'COMPLETED'].includes(order.status)) {
-      throw new Error(`Purchase Order não está em RECEIVED ou COMPLETED (status: ${order.status})`);
+    if (!['received', 'completed'].includes(order.status)) {
+      throw new Error(`Purchase Order não está em received ou completed (status: ${order.status})`);
     }
 
     // Converter dueDate se necessário

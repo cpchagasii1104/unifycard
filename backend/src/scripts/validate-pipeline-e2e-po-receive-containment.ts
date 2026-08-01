@@ -9,7 +9,7 @@
  *   T2 service.receivePO direto → lança PURCHASE_ORDER_RECEIVE_CONTAINED (403) ANTES de qualquer leitura/mutação
  *   T2b orderId INEXISTENTE → ainda CONTAINED (não "Ordem não encontrada") ⇒ hard-stop precede getPurchaseOrderById
  *   T3 spoof actingUserId não destrava (403) · T4 spoof actorId não destrava (403)
- *   T5 PO seedada permanece SUBMITTED (status não vira RECEIVED/COMPLETED)
+ *   T5 PO seedada permanece submitted (status não vira received/completed)
  *   T6 zero inventory_movements · T7 accounts_payable não religado · T8 Bank/ledger/split intocados
  *
  * 🔒 DB EFÊMERA (run-po-receive-containment-ephemeral.ps1). NUNCA toca unificard_dev.
@@ -49,7 +49,7 @@ async function mkSupplier(tenantId: string, actorId: string): Promise<string> {
   return (await pool.query<{ id: string }>(`INSERT INTO suppliers (tenant_id, name, created_by_actor_id) VALUES ($1::uuid,'Fornecedor E2E',$2::uuid) RETURNING id::text AS id`, [tenantId, actorId])).rows[0].id;
 }
 async function mkPO(tenantId: string, supplierId: string, actorId: string): Promise<string> {
-  return (await pool.query<{ id: string }>(`INSERT INTO purchase_orders (tenant_id, supplier_id, status, order_date, created_by_actor_id, metadata) VALUES ($1::uuid,$2::uuid,'SUBMITTED',NOW()::date,$3::uuid,'{}'::jsonb) RETURNING id::text AS id`, [tenantId, supplierId, actorId])).rows[0].id;
+  return (await pool.query<{ id: string }>(`INSERT INTO purchase_orders (tenant_id, supplier_id, status, order_date, created_by_actor_id, metadata) VALUES ($1::uuid,$2::uuid,'submitted',NOW()::date,$3::uuid,'{}'::jsonb) RETURNING id::text AS id`, [tenantId, supplierId, actorId])).rows[0].id;
 }
 
 let CURRENT_AC: Record<string, unknown> = {};
@@ -106,9 +106,9 @@ async function main(): Promise<void> {
     const r4 = await receive(po);
     record('T4 spoof actionContext.actorId não destrava → 403', is403(r4), `status=${r4.statusCode}`);
 
-    // T5 — PO permanece SUBMITTED.
+    // T5 — PO permanece submitted.
     const st = (await pool.query<{ status: string }>(`SELECT status::text FROM purchase_orders WHERE id=$1`, [po])).rows[0]?.status;
-    record('T5 PO permanece SUBMITTED (não virou RECEIVED/COMPLETED)', st === 'SUBMITTED', `status=${st}`);
+    record('T5 PO permanece submitted (não virou received/completed)', st === 'submitted', `status=${st}`);
 
     // T6 — zero inventory_movements novos.
     record('T6 zero inventory_movements (sem INSERT)', (await count(`SELECT count(*)::int AS n FROM inventory_movements`)) === movBefore && movBefore === 0);

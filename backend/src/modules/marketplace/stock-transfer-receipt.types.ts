@@ -1,7 +1,8 @@
 // backend/src/modules/marketplace/stock-transfer-receipt.types.ts
-// receipt_status: IN_PROGRESS | COMPLETED | CANCELLED (migration 0130)
+// receipt_status: in_progress | completed | cancelled (criado em 0130; case convergido para
+// 07_NOMENCLATURA §4.11 em 20260801120000). Não renomear de um lado só.
 
-export type StockTransferReceiptStatus = 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+export type StockTransferReceiptStatus = 'in_progress' | 'completed' | 'cancelled';
 
 export interface StockTransferReceipt {
   id: string;

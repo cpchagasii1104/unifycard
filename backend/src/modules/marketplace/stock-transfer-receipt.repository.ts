@@ -81,7 +81,7 @@ class StockTransferReceiptRepository {
       INSERT INTO stock_transfer_receipts (
         tenant_id, stock_transfer_id, received_by_user_id, status, notes, metadata
       )
-      VALUES ($1, $2, $3, 'IN_PROGRESS', $4, $5::jsonb)
+      VALUES ($1, $2, $3, 'in_progress', $4, $5::jsonb)
       RETURNING ${this.receiptSelect}
       `,
       [

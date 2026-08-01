@@ -155,7 +155,7 @@ class PurchaseOrderRepository {
         notes, internal_notes,
         created_by_actor_id, created_by_user_id, metadata
       )
-      VALUES ($1, $2, $3, $4, 'DRAFT', $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15::jsonb)
+      VALUES ($1, $2, $3, $4, 'draft', $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15::jsonb)
       RETURNING ${this.poSelectList}
       `,
       [
@@ -389,11 +389,11 @@ class PurchaseOrderRepository {
       tenantId,
       `
       UPDATE purchase_orders
-      SET status = 'SUBMITTED',
+      SET status = 'submitted',
           submitted_at = NOW(),
           submitted_by_actor_id = $3,
           updated_at = NOW()
-      WHERE tenant_id = $1 AND id = $2 AND status = 'DRAFT'
+      WHERE tenant_id = $1 AND id = $2 AND status = 'draft'
       RETURNING ${this.poSelectList}
       `,
       [tenantId, orderId, submittedByActorId]
@@ -411,11 +411,11 @@ class PurchaseOrderRepository {
       tenantId,
       `
       UPDATE purchase_orders
-      SET status = 'RECEIVED',
+      SET status = 'received',
           received_at = COALESCE(received_at, NOW()),
           updated_at = NOW()
       WHERE tenant_id = $1 AND id = $2
-        AND status IN ('SUBMITTED', 'CONFIRMED', 'PARTIALLY_RECEIVED', 'RECEIVED')
+        AND status IN ('submitted', 'confirmed', 'partially_received', 'received')
       RETURNING ${this.poSelectList}
       `,
       [tenantId, orderId]
@@ -433,10 +433,10 @@ class PurchaseOrderRepository {
       tenantId,
       `
       UPDATE purchase_orders
-      SET status = 'COMPLETED',
+      SET status = 'completed',
           completed_at = NOW(),
           updated_at = NOW()
-      WHERE tenant_id = $1 AND id = $2 AND status = 'RECEIVED'
+      WHERE tenant_id = $1 AND id = $2 AND status = 'received'
       RETURNING ${this.poSelectList}
       `,
       [tenantId, orderId]
@@ -459,13 +459,13 @@ class PurchaseOrderRepository {
       tenantId,
       `
       UPDATE purchase_orders
-      SET status = 'CANCELLED',
+      SET status = 'cancelled',
           cancelled_at = NOW(),
           cancelled_by_actor_id = $3,
           cancellation_reason = $4,
           updated_at = NOW()
       WHERE tenant_id = $1 AND id = $2
-        AND status IN ('DRAFT', 'SUBMITTED', 'CONFIRMED')
+        AND status IN ('draft', 'submitted', 'confirmed')
       RETURNING ${this.poSelectList}
       `,
       [tenantId, orderId, cancelledByActorId, cancellationReason]

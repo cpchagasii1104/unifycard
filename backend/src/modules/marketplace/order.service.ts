@@ -137,7 +137,7 @@ class OrderService {
     tenantId: string,
     createInput: CreateOrderInput,
     lines: AddOrderItemInput[],
-    source: 'MARKETPLACE' | 'PDV' = 'MARKETPLACE',
+    source: 'marketplace' | 'pdv' = 'marketplace',
     createdByUserId?: string
   ): Promise<{ order: Order; items: OrderItem[] }> {
     if (!lines.length) {
@@ -287,7 +287,7 @@ class OrderService {
     tenantId: string,
     orderId: string,
     input: AddOrderItemInput,
-    source: 'MARKETPLACE' | 'PDV' = 'MARKETPLACE'
+    source: 'marketplace' | 'pdv' = 'marketplace'
   ): Promise<OrderItem> {
     // Verificar se pedido existe e está em DRAFT
     const order = await orderRepository.getOrderById(tenantId, orderId);

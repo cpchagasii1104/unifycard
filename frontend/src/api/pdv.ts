@@ -10,7 +10,7 @@ export interface PdvSession {
   id: string;
   tenantId: string;
   actorId: string;
-  status: 'OPEN' | 'CLOSED';
+  status: 'open' | 'closed';
   openedAt: string;
   closedAt: string | null;
   metadata?: Record<string, any> | null;

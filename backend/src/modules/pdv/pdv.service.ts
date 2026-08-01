@@ -112,7 +112,7 @@ class PdvService {
     // 1. Validar sessão
     const session = await this.getSessionById(tenantId, input.sessionId);
     
-    if (session.status !== 'OPEN') {
+    if (session.status !== 'open') {
       throw new Error('Sessão PDV não está aberta');
     }
 
@@ -140,17 +140,17 @@ class PdvService {
     // 1. Validar sessão
     const session = await this.getSessionById(tenantId, input.sessionId);
     
-    if (session.status !== 'OPEN') {
+    if (session.status !== 'open') {
       throw new Error('Sessão PDV não está aberta');
     }
 
     // 2. Adicionar item ao Order (usa service do marketplace)
-    // SPRINT 43: Passa source='PDV' para reservar estoque corretamente
+    // SPRINT 43: Passa source='pdv' para reservar estoque corretamente
     const item = await orderService.addItem(tenantId, input.orderId, {
       productVariantId: input.variantId,
       quantity: input.quantity,
       unit: input.unit || 'UN',
-    }, 'PDV');
+    }, 'pdv');
 
     return item;
   }
@@ -167,7 +167,7 @@ class PdvService {
     // 1. Validar sessão
     const session = await this.getSessionById(tenantId, input.sessionId);
     
-    if (session.status !== 'OPEN') {
+    if (session.status !== 'open') {
       throw new Error('Sessão PDV não está aberta');
     }
 
@@ -191,12 +191,12 @@ class PdvService {
     }
 
     // 3. Adicionar item ao Order com peso
-    // SPRINT 43: Passa source='PDV' para reservar estoque corretamente
+    // SPRINT 43: Passa source='pdv' para reservar estoque corretamente
     const item = await orderService.addItem(tenantId, input.orderId, {
       productVariantId: input.variantId,
       quantity: input.weight, // peso em kg
       unit: input.unit || 'KG',
-    }, 'PDV');
+    }, 'pdv');
 
     return item;
   }
@@ -230,7 +230,7 @@ class PdvService {
     // 1. Validar sessão
     const session = await this.getSessionById(tenantId, input.sessionId);
     
-    if (session.status !== 'OPEN') {
+    if (session.status !== 'open') {
       throw new Error('Sessão PDV não está aberta');
     }
 
@@ -321,7 +321,7 @@ class PdvService {
     // 1. Validar sessão
     const session = await this.getSessionById(tenantId, sessionId);
     
-    if (session.status !== 'OPEN') {
+    if (session.status !== 'open') {
       throw new Error('Sessão PDV não está aberta');
     }
 
@@ -420,7 +420,7 @@ class PdvService {
     const session = await this.getSessionById(tenantId, sessionId);
 
     // Se sessão está fechada e tem resumo no metadata, retornar
-    if (session.status === 'CLOSED' && session.metadata?.summary) {
+    if (session.status === 'closed' && session.metadata?.summary) {
       return {
         session,
         operator: {

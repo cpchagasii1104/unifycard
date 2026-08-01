@@ -291,7 +291,7 @@ export default function PdvPage() {
       {session && (
         <div className="pdv-content">
           {/* Bloqueio se sessão fechada */}
-          {session.status === 'CLOSED' && (
+          {session.status === 'closed' && (
             <div className="pdv-section" style={{ background: '#fef2f2', borderColor: '#fecaca' }}>
               <h3 style={{ color: '#991b1b' }}>Caixa Fechado</h3>
               <p style={{ color: '#7f1d1d' }}>
@@ -348,7 +348,7 @@ export default function PdvPage() {
           )}
 
           {/* Criar Pedido (só se sessão aberta) */}
-          {session.status === 'OPEN' && !currentOrder && (
+          {session.status === 'open' && !currentOrder && (
             <div className="pdv-section">
               <button onClick={handleCreateOrder} className="pdv-button-primary">
                 Criar Novo Pedido
@@ -356,7 +356,7 @@ export default function PdvPage() {
             </div>
           )}
 
-          {session.status === 'OPEN' && currentOrder && (
+          {session.status === 'open' && currentOrder && (
             <>
               {/* Busca de Produtos */}
               <div className="pdv-section">

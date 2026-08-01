@@ -2,7 +2,9 @@
 // SPRINT 42.1: PDV CORE - Venda por Peso + Caixa Simples
 // Tipos TypeScript para PDV
 
-export type PdvSessionStatus = 'OPEN' | 'CLOSED';
+// Espelha o enum físico pdv_session_status. Minúsculo por 07_NOMENCLATURA §4.11
+// (status/lifecycle é snake_case) — convergido em 20260801120000. Não renomear de um lado só.
+export type PdvSessionStatus = 'open' | 'closed';
 
 export interface PdvSession {
   id: string;

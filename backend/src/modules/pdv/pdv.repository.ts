@@ -47,7 +47,7 @@ class PdvSessionRepository {
       INSERT INTO pdv_sessions (
         tenant_id, actor_id, status, metadata
       )
-      VALUES ($1, $2, 'OPEN', $3)
+      VALUES ($1, $2, 'open', $3)
       RETURNING id, tenant_id, actor_id, status, opened_at, closed_at,
                 metadata, created_at, updated_at
       `,
@@ -98,7 +98,7 @@ class PdvSessionRepository {
       FROM pdv_sessions
       WHERE tenant_id = $1 
         AND actor_id = $2
-        AND status = 'OPEN'
+        AND status = 'open'
       ORDER BY opened_at DESC
       LIMIT 1
       `,
@@ -144,10 +144,10 @@ class PdvSessionRepository {
       tenantId,
       `
       UPDATE pdv_sessions
-      SET status = 'CLOSED',
+      SET status = 'closed',
           closed_at = NOW(),
           metadata = COALESCE(metadata, '{}'::jsonb) || $1::jsonb
-      WHERE tenant_id = $2 AND id = $3 AND status = 'OPEN'
+      WHERE tenant_id = $2 AND id = $3 AND status = 'open'
       RETURNING id, tenant_id, actor_id, status, opened_at, closed_at,
                 metadata, created_at, updated_at
       `,

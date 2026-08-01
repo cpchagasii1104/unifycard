@@ -244,7 +244,7 @@ class InventorySlaService {
       let isOverdue = false;
       let overdueReason: string | undefined;
 
-      if (row.status === 'SHIPPED' && row.shipped_at) {
+      if (row.status === 'shipped' && row.shipped_at) {
         const daysSinceShipped = (Date.now() - new Date(row.shipped_at).getTime()) / (1000 * 60 * 60 * 24);
         if (daysSinceShipped > maxDaysShippedToReceiving) {
           isOverdue = true;

@@ -4,15 +4,18 @@
 /**
  * Status da ordem de compra
  */
-/** Alinhado a purchase_order_status (migration 0131). */
+/**
+ * Alinhado a purchase_order_status (criado em 0131; case convergido para a norma em
+ * 20260801120000). Minúsculo snake_case por 07_NOMENCLATURA §4.11 — não renomear de um lado só.
+ */
 export type PurchaseOrderStatus =
-  | 'DRAFT'
-  | 'SUBMITTED'
-  | 'CONFIRMED'
-  | 'PARTIALLY_RECEIVED'
-  | 'RECEIVED'
-  | 'CANCELLED'
-  | 'COMPLETED';
+  | 'draft'
+  | 'submitted'
+  | 'confirmed'
+  | 'partially_received'
+  | 'received'
+  | 'cancelled'
+  | 'completed';
 
 /**
  * Ordem de Compra

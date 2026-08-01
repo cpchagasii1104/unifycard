@@ -54,7 +54,7 @@ class InventoryReservationRepository {
       INSERT INTO inventory_reservations (
         tenant_id, product_variant_id, quantity, order_id, source, status, expires_at
       )
-      VALUES ($1, $2, $3, $4, $5, 'ACTIVE', $6)
+      VALUES ($1, $2, $3, $4, $5, 'active', $6)
       RETURNING id, tenant_id, product_variant_id, quantity, order_id, source,
                 status, expires_at, created_at, updated_at
       `,
@@ -90,7 +90,7 @@ class InventoryReservationRepository {
       FROM inventory_reservations
       WHERE tenant_id = $1
         AND product_variant_id = $2
-        AND status = 'ACTIVE'
+        AND status = 'active'
         AND (expires_at IS NULL OR expires_at > NOW())
       ORDER BY created_at ASC
       `,
@@ -114,7 +114,7 @@ class InventoryReservationRepository {
       FROM inventory_reservations
       WHERE tenant_id = $1
         AND product_variant_id = $2
-        AND status = 'ACTIVE'
+        AND status = 'active'
         AND (expires_at IS NULL OR expires_at > NOW())
       `,
       [tenantId, productVariantId]
@@ -183,10 +183,10 @@ class InventoryReservationRepository {
       tenantId,
       `
       UPDATE inventory_reservations
-      SET status = 'RELEASED', updated_at = NOW()
+      SET status = 'released', updated_at = NOW()
       WHERE tenant_id = $1
         AND order_id = $2
-        AND status = 'ACTIVE'
+        AND status = 'active'
       RETURNING id, tenant_id, product_variant_id, quantity, order_id, source,
                 status, expires_at, created_at, updated_at
       `,
@@ -207,10 +207,10 @@ class InventoryReservationRepository {
       tenantId,
       `
       UPDATE inventory_reservations
-      SET status = 'CONSUMED', updated_at = NOW()
+      SET status = 'consumed', updated_at = NOW()
       WHERE tenant_id = $1
         AND order_id = $2
-        AND status = 'ACTIVE'
+        AND status = 'active'
       RETURNING id, tenant_id, product_variant_id, quantity, order_id, source,
                 status, expires_at, created_at, updated_at
       `,
@@ -227,10 +227,10 @@ class InventoryReservationRepository {
     const result = await client.query<InventoryReservationRow>(
       `
       UPDATE inventory_reservations
-      SET status = 'CONSUMED', updated_at = NOW()
+      SET status = 'consumed', updated_at = NOW()
       WHERE tenant_id = current_setting('app.current_tenant', true)::uuid
         AND order_id = $1
-        AND status = 'ACTIVE'
+        AND status = 'active'
       RETURNING id, tenant_id, product_variant_id, quantity, order_id, source,
                 status, expires_at, created_at, updated_at
       `,
@@ -253,7 +253,7 @@ class InventoryReservationRepository {
              status, expires_at, created_at, updated_at
       FROM inventory_reservations
       WHERE tenant_id = $1
-        AND status = 'ACTIVE'
+        AND status = 'active'
         AND expires_at IS NOT NULL
         AND expires_at <= NOW()
       ORDER BY expires_at ASC

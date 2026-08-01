@@ -66,7 +66,7 @@ class InventoryReservationService {
       FROM inventory_reservations
       WHERE tenant_id = $1
         AND product_variant_id = $2
-        AND status = 'ACTIVE'
+        AND status = 'active'
         AND (expires_at IS NULL OR expires_at > NOW())
       `,
       [tenantId, productVariantId]
@@ -95,7 +95,7 @@ class InventoryReservationService {
       INSERT INTO inventory_reservations (
         tenant_id, product_variant_id, quantity, order_id, source, status, expires_at
       )
-      VALUES ($1, $2, $3, $4, $5, 'ACTIVE', $6)
+      VALUES ($1, $2, $3, $4, $5, 'active', $6)
       RETURNING id, tenant_id, product_variant_id, quantity, order_id, source,
                 status, expires_at, created_at, updated_at
       `,
@@ -347,7 +347,7 @@ class InventoryReservationService {
       await inventoryReservationRepository.updateReservationStatus(
         tenantId,
         reservation.id,
-        'RELEASED'
+        'released'
       );
     }
 

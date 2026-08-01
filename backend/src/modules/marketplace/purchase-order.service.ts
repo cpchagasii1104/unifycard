@@ -112,7 +112,7 @@ class PurchaseOrderService {
       throw new Error(`Ordem não encontrada: ${orderId}`);
     }
 
-    if (order.status !== 'DRAFT') {
+    if (order.status !== 'draft') {
       throw new Error(`Ordem não está em DRAFT (status: ${order.status})`);
     }
 
@@ -167,7 +167,7 @@ class PurchaseOrderService {
       throw new Error(`Ordem não encontrada: ${orderId}`);
     }
 
-    if (order.status !== 'DRAFT') {
+    if (order.status !== 'draft') {
       throw new Error(`Ordem não está em DRAFT (status: ${order.status})`);
     }
 
@@ -244,7 +244,7 @@ class PurchaseOrderService {
       throw new Error(`Ordem não encontrada: ${orderId}`);
     }
 
-    if (!['SUBMITTED', 'CONFIRMED', 'PARTIALLY_RECEIVED', 'RECEIVED'].includes(order.status)) {
+    if (!['submitted', 'confirmed', 'partially_received', 'received'].includes(order.status)) {
       throw new Error(`Ordem não pode ser recebida (status: ${order.status})`);
     }
 
@@ -309,7 +309,7 @@ class PurchaseOrderService {
     let updatedOrder: PurchaseOrder;
     if (allItemsReceived) {
       // Marcar como RECEIVED primeiro (se ainda não estiver)
-      if (order.status !== 'RECEIVED') {
+      if (order.status !== 'received') {
         updatedOrder = await purchaseOrderRepository.markAsReceived(tenantId, orderId);
       } else {
         updatedOrder = order;
@@ -398,7 +398,7 @@ class PurchaseOrderService {
       throw new Error(`Ordem não encontrada: ${orderId}`);
     }
 
-    if (!['DRAFT', 'SUBMITTED', 'CONFIRMED'].includes(order.status)) {
+    if (!['draft', 'submitted', 'confirmed'].includes(order.status)) {
       throw new Error(`Ordem não pode ser cancelada (status: ${order.status})`);
     }
 

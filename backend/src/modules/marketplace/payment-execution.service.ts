@@ -548,7 +548,7 @@ class PaymentExecutionService {
       try {
         // Determinar origem baseado na origem do pedido
         const orderMetadata = order.metadata || {};
-        const source = orderMetadata.pdv_session_id ? ('PDV' as const) : ('MARKETPLACE' as const);
+        const source = orderMetadata.pdv_session_id ? ('pdv' as const) : ('marketplace' as const);
 
         await fulfillmentService.createFromOrder(tenantId, intent.orderId, source);
       } catch (fulfillmentError) {

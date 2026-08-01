@@ -84,7 +84,7 @@ class StockTransferRepository {
       INSERT INTO stock_transfers (
         tenant_id, from_actor_id, to_actor_id, status, requested_by_user_id, metadata
       )
-      VALUES ($1, $2, $3, 'DRAFT', $4, $5::jsonb)
+      VALUES ($1, $2, $3, 'draft', $4, $5::jsonb)
       RETURNING ${this.stSelect}
       `,
       [

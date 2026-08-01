@@ -83,7 +83,7 @@ class FulfillmentRepository {
       INSERT INTO fulfillment_orders (
         tenant_id, order_id, source, status, metadata
       )
-      VALUES ($1, $2, $3, 'PENDING', $4)
+      VALUES ($1, $2, $3, 'pending', $4)
       RETURNING id, tenant_id, order_id, source, status,
                 picked_by_user_id, shipped_at, metadata, created_at, updated_at
       `,
@@ -274,7 +274,7 @@ class FulfillmentRepository {
       INSERT INTO fulfillment_items (
         tenant_id, fulfillment_order_id, product_variant_id, quantity, inventory_lot_id, status
       )
-      VALUES ($1, $2, $3, $4, $5, 'PENDING')
+      VALUES ($1, $2, $3, $4, $5, 'pending')
       RETURNING id, tenant_id, fulfillment_order_id, product_variant_id, quantity,
                 inventory_lot_id, status, metadata, created_at
       `,

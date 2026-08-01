@@ -60,7 +60,7 @@ class StockTransferService {
       throw new Error(`Transferência não encontrada: ${transferId}`);
     }
 
-    if (transfer.status !== 'DRAFT') {
+    if (transfer.status !== 'draft') {
       throw new Error(`Não é possível adicionar itens a uma transferência com status ${transfer.status}`);
     }
 
@@ -95,12 +95,12 @@ class StockTransferService {
       }
 
       // Idempotente: mesmo pedido repetido após sucesso (alinhado a shipFulfillment).
-      if (transfer.status === 'SHIPPED') {
+      if (transfer.status === 'shipped') {
         await client.query('COMMIT');
         return transfer;
       }
 
-      if (transfer.status !== 'DRAFT') {
+      if (transfer.status !== 'draft') {
         throw new Error(
           `Transferência não está em DRAFT. Status atual: ${transfer.status}`
         );
@@ -155,7 +155,7 @@ class StockTransferService {
       const shippedTransfer = await stockTransferRepository.updateTransferStatusWithClient(
         client,
         transferId,
-        'SHIPPED',
+        'shipped',
         new Date()
       );
 
@@ -246,13 +246,13 @@ class StockTransferService {
       throw new Error(`Transferência não encontrada: ${transferId}`);
     }
 
-    if (transfer.status === 'SHIPPED' || transfer.status === 'RECEIVED') {
+    if (transfer.status === 'shipped' || transfer.status === 'received') {
       throw new Error(
         `Não é possível cancelar transferência com status ${transfer.status}.`
       );
     }
 
-    if (transfer.status === 'CANCELLED') {
+    if (transfer.status === 'cancelled') {
       return transfer;
     }
 
@@ -260,7 +260,7 @@ class StockTransferService {
     const cancelledTransfer = await stockTransferRepository.updateTransferStatus(
       tenantId,
       transferId,
-      'CANCELLED'
+      'cancelled'
     );
 
     return cancelledTransfer;

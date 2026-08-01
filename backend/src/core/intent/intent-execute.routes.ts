@@ -406,7 +406,7 @@ const intentExecuteRoutes: FastifyPluginAsync = async (fastify) => {
             item: line.item ?? null,
           },
         })),
-        'MARKETPLACE',
+        'marketplace',
         changedByUserId
       );
       orderId = order.id;

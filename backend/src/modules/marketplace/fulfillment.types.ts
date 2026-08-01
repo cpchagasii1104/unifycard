@@ -1,9 +1,13 @@
 // backend/src/modules/marketplace/fulfillment.types.ts
 // SPRINT 54: Tipos para fulfillment
 
-export type FulfillmentSource = 'PDV' | 'MARKETPLACE';
-export type FulfillmentStatus = 'PENDING' | 'PICKED' | 'SHIPPED' | 'CANCELLED';
-export type FulfillmentItemStatus = 'PENDING' | 'PICKED';
+// Case canônico: status/lifecycle em snake_case minúsculo (07_NOMENCLATURA §4.11); source em
+// lowercase com o vocabulário da própria norma (§4.40 lista 'pdv' e 'marketplace').
+// Espelha os enums físicos fulfillment_source/fulfillment_status/fulfillment_item_status
+// (migration 20260801120000). Não renomear de um lado só.
+export type FulfillmentSource = 'pdv' | 'marketplace';
+export type FulfillmentStatus = 'pending' | 'picked' | 'shipped' | 'cancelled';
+export type FulfillmentItemStatus = 'pending' | 'picked';
 
 export interface FulfillmentOrder {
   id: string;

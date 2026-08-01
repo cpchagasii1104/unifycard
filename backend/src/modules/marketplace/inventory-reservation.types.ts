@@ -2,8 +2,10 @@
 // SPRINT 43: ESTOQUE COM RESERVA (SOFT HOLD)
 // Tipos TypeScript para reservas de estoque
 
-export type InventoryReservationStatus = 'ACTIVE' | 'RELEASED' | 'CONSUMED';
-export type InventoryReservationSource = 'MARKETPLACE' | 'PDV';
+// Case canônico: §4.11 (status minúsculo) e §4.40 (source lowercase, vocabulário da norma).
+// Espelha inventory_reservation_status/inventory_reservation_source (migration 20260801120000).
+export type InventoryReservationStatus = 'active' | 'released' | 'consumed';
+export type InventoryReservationSource = 'marketplace' | 'pdv';
 
 export interface InventoryReservation {
   id: string;

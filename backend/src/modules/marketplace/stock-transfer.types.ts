@@ -1,7 +1,8 @@
 // backend/src/modules/marketplace/stock-transfer.types.ts
-// Alinhado a stock_transfer_status (migration 0129).
+// Alinhado a stock_transfer_status (criado em 0129; case convergido em 20260801120000).
+// Minúsculo snake_case por 07_NOMENCLATURA §4.11 — não renomear de um lado só.
 
-export type StockTransferStatus = 'DRAFT' | 'PENDING' | 'SHIPPED' | 'RECEIVED' | 'CANCELLED';
+export type StockTransferStatus = 'draft' | 'pending' | 'shipped' | 'received' | 'cancelled';
 
 export interface StockTransfer {
   id: string;
