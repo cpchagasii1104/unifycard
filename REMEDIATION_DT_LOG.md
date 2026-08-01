@@ -1,5 +1,44 @@
 # REMEDIATION DT LOG
 
+## 🗺️ MAPA — os 2 dashboards de evento em 500: o conserto é RENOMEAÇÃO, exceto por UM ponto (2026-08-01, direção)
+
+Medido para que a próxima fatia não descubra isto do zero. É a **armadilha do vocabulário anterior**
+(`CLAUDE.md §3.2`): o código está fiel ao desenho que o gênesis substituiu, não inventou nada.
+
+```
+psql → colunas REAIS de events:
+  id tenant_id actor_id actor_type event_type event_subtype title description
+  datetime_start datetime_end timezone status visibility max_attendees ticket_price_cents
+  currency metadata created_at updated_at unified_availability_id audience_relationship_types
+  discoverability event_access_type min_attendees event_format_concept_id location_mode
+  funding_deadline_at is_all_or_nothing
+```
+
+| o serviço pede | o banco tem | natureza | risco |
+|---|---|---|---|
+| `starts_at` (`event-metrics-dashboard.service.ts:73,86,115,124,125`) | `datetime_start` | renomeação **pura** | baixo |
+| `ends_at` (`:74,87,115,125,126`) | `datetime_end` | renomeação **pura** | baixo |
+| `status = 'FINISHED'` (`:126`) | `draft·declared·published·active·ended·cancelled` | mapa `FINISHED`→`ended` | baixo — mas é **julgamento**, não regra |
+| `created_by_global_user_id` (`event-organizer-metrics.service.ts:44,49`) | `actor_id` + `actor_type` | 🔴 **mudança de MODELO DE AUTORIDADE** | **alto** |
+
+🔴 **O quarto NÃO é renomeação e não deve ser tratado como tal.** `canViewMetrics` decide **quem
+pode ver métricas de um evento** — é autorização. O modelo saiu de *global_user* para **Actor**, e o
+mecanismo canônico já existe e já foi usado na fatia `F-EVENT-ORGANIZER-CONTINUITY`:
+`canRepresentActor` (`core/authorization/authorization.service.ts`), o mesmo que governa
+`availability-owner-authority` e `audience.routes`. **Compor do canônico, nunca reinventar** — e
+nunca aceitar `actorId` declarado pelo cliente.
+
+**Por isso: fatia SEPARADA do from-price.** Misturar renomeação com autorização num commit só é
+como um gate de autorização passa despercebido.
+
+⚠️ Os dois endpoints (`GET /api/events/:id/dashboard` e `/organizer-metrics`) devolvem **500 desde o
+gênesis**, e `getOrganizerMetrics` chama `getEventDashboard` por dentro — conserte o dashboard e
+metade do outro vem junto. Ninguém reclamou em meses: é sinal de que **não há usuário dessas telas**,
+o que torna a fatia segura — e também torna legítimo perguntar a Clayton se elas devem existir.
+
+---
+
+
 ## ✅ EXECUTADO · VERIFICADO PELA DIREÇÃO · ⚠️ NÃO SELADO — F-EVENT-ORGANIZER-CONTINUITY (2026-08-01, GO Clayton)
 
 `32f000f14` · 8 arquivos · painel de progresso por fase dentro de `EventOrganizerPanel.tsx`,
