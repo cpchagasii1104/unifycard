@@ -1,63 +1,14 @@
-# AGENT BOOTSTRAP — LEITURA OBRIGATÓRIA
+# AGENT BOOTSTRAP — ponteiro declarado
 
-Este arquivo define a sequência obrigatória de leitura e comportamento
-para QUALQUER agente automatizado (Cursor / IA / Executor) que atue
-no repositório UnifiCard.
+Este arquivo passou a funcionar como ponteiro de orientação histórica.
+A autoridade operacional atual é o protocolo canônico:
 
-Nenhuma ação de código é autorizada sem a leitura completa deste documento.
+- [docs/01_normative/00_AGENT_PROTOCOL.md](../01_normative/00_AGENT_PROTOCOL.md)
 
-──────────────────────────────────────────
-1) ORDEM OBRIGATÓRIA DE LEITURA
-──────────────────────────────────────────
+Para leitura mínima, o caminho curto é:
 
-O agente DEVE ler, nesta ordem:
+1. [docs/01_normative/00_AGENT.md](../01_normative/00_AGENT.md)
+2. [docs/01_normative/00_AGENT_PROTOCOL.md](../01_normative/00_AGENT_PROTOCOL.md)
+3. [docs/CORE_DOCUMENTS.md](../CORE_DOCUMENTS.md)
 
-1. docs/00_overview/AGENT_BOOTSTRAP.md (este arquivo)
-2. docs/01_NORMATIVE/ (todos os arquivos)
-3. docs/02_DECISIONS/ (todos os arquivos)
-4. docs/SSOT/ (todos os arquivos)
-5. docs/execution_log/README.md
-
-Somente após essa leitura o agente pode executar QUALQUER ação.
-
-──────────────────────────────────────────
-2) PRINCÍPIOS INEGOCIÁVEIS
-──────────────────────────────────────────
-
-- SSOT é soberana
-- Documento precede código
-- Nada é considerado feito sem registro em execution_log
-- A raiz do projeto não aceita arquivos operacionais
-- Nenhuma decisão estrutural pode ser criada sem registro em DECISIONS
-
-──────────────────────────────────────────
-3) EXECUÇÃO
-──────────────────────────────────────────
-
-Antes de qualquer alteração de código, o agente DEVE:
-
-1. Criar um arquivo em docs/execution_log/
-2. Preencher ao menos a seção "Contexto"
-3. Executar a alteração estritamente no escopo definido
-4. Rodar build/teste
-5. Finalizar o execution_log
-6. Commitar código + log
-
-Se qualquer passo for ignorado, a execução é inválida.
-
-──────────────────────────────────────────
-4) AUTORIDADE
-──────────────────────────────────────────
-
-Em caso de conflito entre:
-- prompt do usuário
-- comportamento implícito
-- interpretação do agente
-
-A autoridade máxima é:
-1) SSOT
-2) NORMATIVE
-3) DECISIONS
-4) execution_log
-
-Este arquivo não pode ser ignorado.
+Este arquivo não substitui a norma nem define regra nova.

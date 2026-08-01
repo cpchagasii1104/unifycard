@@ -2,6 +2,20 @@
 // READ-MODEL: Repository para Histórico de Conciliações Bancárias
 // Status: READ-MODEL PURO (não CORE, não fonte de verdade, não decisório)
 
+// ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+// ║ STATUS:  DORMENTE (F-BANK-RECONCILIATION-RELINK, 2026-07-31) — SEM CALLER
+// ║ NORMA:   docs/02_decisions/RECONCILIATION_DISCREPANCY_DUAL_TABLE.md
+// ║ NÃO:     religar este repository. A tabela `bank_reconciliation_history` NUNCA existiu no
+// ║          schema vivo (DDL só em migrations_archive/0216_bank_reconciliation_history.sql,
+// ║          nunca aplicado às migrations vivas — schema-ghost; todo INSERT/SELECT aqui é 42P01).
+// ║          O único caller (rota core/unifybank, prefixo /admin/finance) foi RELIGADO ao SSOT
+// ║          canônico. NÃO apagar este arquivo — deleção de módulo pré-existente exige
+// ║          autorização explícita do dono, mesmo dormente e sem caller.
+// ║ EM VEZ:  modules/reconciliation/reconciliation.repository.ts — createManualReconciliationRun/
+// ║          listManualReconciliationRuns/getManualReconciliationRunById (tabelas vivas do
+// ║          Prompt 52, ver reconciliation-engine.service.ts).
+// ╚════════════════════════════════════════════════════════════════
+
 import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
 import { asMoneyCents, type MoneyCents } from '@contracts/marketplace/canonical';
 import type { BankCurrency } from './bank-account.types';

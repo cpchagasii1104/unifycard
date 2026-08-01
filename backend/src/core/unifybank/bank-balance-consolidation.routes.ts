@@ -7,7 +7,23 @@ import { z } from 'zod';
 import { bankBalanceConsolidationService } from '@modules/bank/bank-balance-consolidation.service';
 import { bankBalanceByCpfService } from '@modules/bank/bank-balance-by-cpf.service';
 import { bankBalanceByRegionService } from '@modules/bank/bank-balance-by-region.service';
-import { bankReconciliationHistoryRepository } from '@modules/bank/bank-reconciliation-history.repository';
+import {
+  createManualReconciliationRun,
+  listManualReconciliationRuns,
+  getManualReconciliationRunById,
+} from '@modules/reconciliation/reconciliation.repository';
+
+// ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+// ║ STATUS:  CANÔNICO (F-BANK-RECONCILIATION-RELINK, 2026-07-31)
+// ║ NORMA:   docs/02_decisions/RECONCILIATION_DISCREPANCY_DUAL_TABLE.md
+// ║ NÃO:     `bankReconciliationHistoryRepository` (modules/bank/bank-reconciliation-history.
+// ║          repository.ts) — tabela bank_reconciliation_history NUNCA existiu no schema vivo
+// ║          (DDL existe em migrations_archive/0216, nunca aplicado — schema-ghost, 500 cru).
+// ║          DORMENTE agora, sem caller; NÃO apagado (autorização de deleção é ato da direção).
+// ║ EM VEZ:  createManualReconciliationRun/listManualReconciliationRuns/
+// ║          getManualReconciliationRunById (modules/reconciliation/reconciliation.repository.ts)
+// ║          — o SSOT canônico do Prompt 52 (ver reconciliation-engine.service.ts).
+// ╚════════════════════════════════════════════════════════════════
 
 // Schema de validação para query params
 const consolidatedBalanceQuerySchema = z.object({
@@ -163,8 +179,8 @@ const bankBalanceConsolidationRoutes: FastifyPluginAsync = async (fastify) => {
       const differenceCents =
         consolidatedBalance.reconciliation.internalBalanceCents - parsed.data.externalBalanceCents;
 
-      // 5. Persistir no histórico (append-only)
-      const historyEntry = await bankReconciliationHistoryRepository.create(tenantId, {
+      // 5. Persistir no SSOT canônico (reconciliation_runs + reconciliation_ledger_discrepancies)
+      const historyEntry = await createManualReconciliationRun(tenantId, {
         internalBalanceCents: consolidatedBalance.reconciliation.internalBalanceCents,
         externalBalanceCents: parsed.data.externalBalanceCents,
         differenceCents,
@@ -242,7 +258,7 @@ const bankBalanceConsolidationRoutes: FastifyPluginAsync = async (fastify) => {
     const query = req.query as any;
 
     try {
-      const history = await bankReconciliationHistoryRepository.list(tenantId, {
+      const history = await listManualReconciliationRuns(tenantId, {
         currency: query.currency as any,
         startDate: query.startDate ? new Date(query.startDate) : undefined,
         endDate: query.endDate ? new Date(query.endDate) : undefined,
@@ -297,7 +313,7 @@ const bankBalanceConsolidationRoutes: FastifyPluginAsync = async (fastify) => {
       const { reconciliationId } = req.params;
 
       try {
-        const entry = await bankReconciliationHistoryRepository.findById(tenantId, reconciliationId);
+        const entry = await getManualReconciliationRunById(tenantId, reconciliationId);
 
         if (!entry) {
           return reply.status(404).send({

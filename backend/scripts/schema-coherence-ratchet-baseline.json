@@ -1,10 +1,10 @@
 {
  "_comment": "Baseline CONGELADA do ratchet schema-coherence v2 POR CONDICAO (F-SCHEMA-COHERENCE-TRUTH, 2026-07-31, GO Clayton). Chave: arquivo::tabela::padrao::condicao::severidade::vivo|scripts -> contagem. GHOST (Cond.1) = tabela NAO existe; BOUNDARY (Cond.3/4/5) = tabela EXISTE, acesso fora do modulo autorizado (autoridade, nao schema). Regenerar apos conserto REAL: node scripts/audit-schema-coherence-ratchet.mjs --write-baseline (recusa crescer) + baixar CEILINGS no guard no MESMO commit.",
- "generatedAt": "2026-07-31",
+ "generatedAt": "2026-08-01",
  "buckets": {
-  "GHOST-WRITE-vivo": 260,
+  "GHOST-WRITE-vivo": 259,
   "GHOST-WRITE-scripts": 5,
-  "GHOST-READ-vivo": 355,
+  "GHOST-READ-vivo": 353,
   "GHOST-READ-scripts": 27,
   "BOUNDARY-WRITE-vivo": 4,
   "BOUNDARY-WRITE-scripts": 327,
@@ -152,8 +152,6 @@
   "modules/automation/scheduled-action.repository.ts::scheduled_actions::INSERT::C1-GHOST-WRITE::BLOCKER::vivo": 1,
   "modules/automation/scheduled-action.repository.ts::scheduled_actions::UPDATE::C1-GHOST-WRITE::BLOCKER::vivo": 3,
   "modules/bank-settlement/bank-settlement-repository.ts::bank_settlements::FROM::C4-BANK-READ-BOUNDARY::CORRUPTOR::vivo": 3,
-  "modules/bank/bank-reconciliation-history.repository.ts::bank_reconciliation_history::FROM::C1-GHOST-READ::CORRUPTOR::vivo": 2,
-  "modules/bank/bank-reconciliation-history.repository.ts::bank_reconciliation_history::INSERT::C1-GHOST-WRITE::BLOCKER::vivo": 1,
   "modules/business-audit/business-audit.repository.ts::business_audit_logs::FROM::C1-GHOST-READ::CORRUPTOR::vivo": 1,
   "modules/business-audit/business-audit.repository.ts::business_audit_logs::FROM::C1-GHOST-READ::DEBT::vivo": 2,
   "modules/business-audit/business-audit.repository.ts::business_audit_logs::INSERT::C1-GHOST-WRITE::BLOCKER::vivo": 1,

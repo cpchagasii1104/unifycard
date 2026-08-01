@@ -23,6 +23,16 @@
       "owner": "Clayton",
       "deadline": "2026-09-30",
       "issue_id": "C13"
+    },
+    {
+      "id": "DT-BANK-RECONCILIATION-HISTORY-DORMANT",
+      "type": "ghost_table",
+      "pattern": { "table": "bank_reconciliation_history" },
+      "files_scope": ["modules/bank/bank-reconciliation-history.repository.ts"],
+      "reason": "F-BANK-RECONCILIATION-RELINK (2026-07-31): tabela bank_reconciliation_history NUNCA existiu no schema vivo (DDL só em migrations_archive/0216_bank_reconciliation_history.sql, nunca aplicado — schema-ghost; todo INSERT/SELECT aqui era 42P01 na rota /admin/finance/consolidated-balance/reconciliation). O único caller (core/unifybank/bank-balance-consolidation.routes.ts) foi RELIGADO ao SSOT canônico (docs/02_decisions/RECONCILIATION_DISCREPANCY_DUAL_TABLE.md: reconciliation_runs + reconciliation_ledger_discrepancies, via modules/reconciliation/reconciliation.repository.ts). Este repository fica DORMENTE, sem caller, NÃO apagado (deleção de módulo pré-existente exige autorização explícita do dono). Allowlistado (não consertado por remoção) porque o arquivo continua existindo por decisão explícita — a violação textual (INSERT/FROM contra tabela fantasma) segue lá, só que morta.",
+      "owner": "Clayton",
+      "deadline": "2026-09-30",
+      "issue_id": "DT-BANK-RECONCILIATION-HISTORY-DORMANT"
     }
   ]
 }

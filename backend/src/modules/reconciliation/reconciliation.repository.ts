@@ -225,6 +225,232 @@ export async function markResolved(
   );
 }
 
+// ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+// ║ STATUS:  CANÔNICO (F-BANK-RECONCILIATION-RELINK, 2026-07-31)
+// ║ NORMA:   docs/02_decisions/RECONCILIATION_DISCREPANCY_DUAL_TABLE.md — este arquivo é o SSOT
+// ║          de diagnóstico do Prompt 52 (ver createRun/recordDiscrepancy/finishRun acima).
+// ║ NÃO:     abrir uma 3ª família de tabela para reconciliação manual (input do admin); NÃO usar
+// ║          o módulo legado 0026 (tipos gateway/bank/settlement, arquivo reconciliation-
+// ║          discrepancy na mesma pasta) — a própria decisão manda descontinuar. NÃO tratar
+// ║          "engine" como coluna nova — é ATRIBUTO em metadata (a corrida é UMA entidade; o
+// ║          gatilho — motor automático vs input manual do admin — é atributo dela, não tabela
+// ║          separada).
+// ║ EM VEZ:  reconciliação MANUAL do admin (rota core/unifybank, prefixo /admin/finance) usa
+// ║          createRun/recordDiscrepancy/finishRun (acima, já existentes) com
+// ║          metadata.engine='manual_admin_input' (distinto de 'prompt_52', o motor automático).
+// ║          discrepancy_type='account_mismatch' é o único tipo do CHECK vivo que descreve valor
+// ║          declarado × valor computado — mesma classe do uso do motor (por-conta), aqui em
+// ║          escopo agregado por tenant. reference_id (uuid, sem FK) = tenantId — não há um id de
+// ║          conta único quando o admin reconcilia o CONSOLIDADO (pode somar várias contas/moedas);
+// ║          documentado, não inventado. Decisão registrada no cartório (REMEDIATION_DT_LOG.md)
+// ║          para reversão se o dono achar errado.
+// ╚════════════════════════════════════════════════════════════════
+
+export const MANUAL_RECONCILIATION_ENGINE = 'manual_admin_input';
+
+export interface CreateManualReconciliationRunInput {
+  internalBalanceCents: number;
+  externalBalanceCents: number;
+  differenceCents: number;
+  currency: string;
+  filtersApplied?: Record<string, unknown>;
+  notes?: string;
+  performedByUserId: string;
+}
+
+export interface ManualReconciliationRunRow {
+  reconciliationId: string;
+  tenantId: string;
+  internalBalanceCents: number;
+  externalBalanceCents: number;
+  differenceCents: number;
+  currency: string;
+  filtersApplied: Record<string, unknown>;
+  notes: string | null;
+  performedByUserId: string | null;
+  createdAt: string;
+}
+
+/**
+ * Cria uma reconciliação MANUAL (input do admin) no SSOT canônico.
+ * 🔴 DECISÃO (F-BANK-RECONCILIATION-RELINK): a run é SEMPRE gravada (append-only, mesmo em
+ * diferença zero — "zero é uma afirmação: o admin conferiu e bateu", não ausência de checagem).
+ * A linha de discrepância (`reconciliation_ledger_discrepancies`) só é gravada quando
+ * differenceCents != 0 — preserva o invariante que já vale para o motor automático
+ * (discrepancies_found == contagem de linhas filhas == só problemas reais, nunca "cheque ok").
+ * Os 3 valores (internal/external/difference) ficam TAMBÉM no metadata da run — snapshot honesto
+ * que sobrevive à leitura mesmo quando não há linha de discrepância (diferença zero).
+ */
+export async function createManualReconciliationRun(
+  tenantId: string,
+  input: CreateManualReconciliationRunInput
+): Promise<ManualReconciliationRunRow> {
+  const run = await createRun(tenantId, {
+    engine: MANUAL_RECONCILIATION_ENGINE,
+    currency: input.currency,
+    internalBalanceCents: input.internalBalanceCents,
+    externalBalanceCents: input.externalBalanceCents,
+    differenceCents: input.differenceCents,
+    filtersApplied: input.filtersApplied ?? {},
+    notes: input.notes ?? null,
+    performedByUserId: input.performedByUserId,
+  });
+
+  let discrepanciesFound = 0;
+  if (input.differenceCents !== 0) {
+    discrepanciesFound = 1;
+    await recordDiscrepancy(tenantId, {
+      runId: run.id,
+      type: 'account_mismatch',
+      referenceId: tenantId,
+      expectedValueCents: input.internalBalanceCents,
+      actualValueCents: input.externalBalanceCents,
+      differenceCents: input.differenceCents,
+    });
+  }
+  await finishRun(tenantId, run.id, 'completed', discrepanciesFound);
+
+  return {
+    reconciliationId: run.id,
+    tenantId,
+    internalBalanceCents: input.internalBalanceCents,
+    externalBalanceCents: input.externalBalanceCents,
+    differenceCents: input.differenceCents,
+    currency: input.currency,
+    filtersApplied: input.filtersApplied ?? {},
+    notes: input.notes ?? null,
+    performedByUserId: input.performedByUserId,
+    createdAt: run.startedAt,
+  };
+}
+
+function toManualReconciliationRunRow(row: {
+  id: string;
+  tenant_id: string;
+  started_at: Date;
+  metadata: Record<string, any>;
+  expected_value_cents: string | null;
+  actual_value_cents: string | null;
+  difference_cents: string | null;
+}): ManualReconciliationRunRow {
+  const md = row.metadata || {};
+  // Governado (linha de discrepância) tem prioridade quando existe; metadata é o fallback honesto
+  // pro caso diferença-zero (sem linha filha).
+  const internalBalanceCents = row.expected_value_cents != null ? Number(row.expected_value_cents) : Number(md.internalBalanceCents ?? 0);
+  const externalBalanceCents = row.actual_value_cents != null ? Number(row.actual_value_cents) : Number(md.externalBalanceCents ?? 0);
+  const differenceCents = row.difference_cents != null ? Number(row.difference_cents) : Number(md.differenceCents ?? 0);
+  return {
+    reconciliationId: row.id,
+    tenantId: row.tenant_id,
+    internalBalanceCents,
+    externalBalanceCents,
+    differenceCents,
+    currency: md.currency ?? 'BRL',
+    filtersApplied: md.filtersApplied ?? {},
+    notes: md.notes ?? null,
+    performedByUserId: md.performedByUserId ?? null,
+    createdAt: row.started_at.toISOString(),
+  };
+}
+
+export interface ManualReconciliationRunFilters {
+  currency?: string;
+  startDate?: Date;
+  endDate?: Date;
+  limit?: number;
+  offset?: number;
+}
+
+/** Lista reconciliações MANUAIS (filtra por metadata.engine — o gatilho é atributo, não tabela). */
+export async function listManualReconciliationRuns(
+  tenantId: string,
+  filters: ManualReconciliationRunFilters = {}
+): Promise<ManualReconciliationRunRow[]> {
+  let query = `
+    SELECT r.id, r.tenant_id, r.started_at, r.metadata,
+           d.expected_value_cents::text AS expected_value_cents,
+           d.actual_value_cents::text AS actual_value_cents,
+           d.difference_cents::text AS difference_cents
+    FROM reconciliation_runs r
+    LEFT JOIN reconciliation_ledger_discrepancies d
+      ON d.reconciliation_run_id = r.id AND d.discrepancy_type = 'account_mismatch'
+    WHERE r.tenant_id = $1
+      AND r.metadata->>'engine' = $2
+  `;
+  const params: any[] = [tenantId, MANUAL_RECONCILIATION_ENGINE];
+  let idx = 3;
+
+  if (filters.currency) {
+    query += ` AND r.metadata->>'currency' = $${idx}`;
+    params.push(filters.currency);
+    idx++;
+  }
+  if (filters.startDate) {
+    query += ` AND r.started_at >= $${idx}`;
+    params.push(filters.startDate);
+    idx++;
+  }
+  if (filters.endDate) {
+    query += ` AND r.started_at <= $${idx}`;
+    params.push(filters.endDate);
+    idx++;
+  }
+  query += ` ORDER BY r.started_at DESC`;
+  if (filters.limit) {
+    query += ` LIMIT $${idx}`;
+    params.push(filters.limit);
+    idx++;
+  }
+  if (filters.offset) {
+    query += ` OFFSET $${idx}`;
+    params.push(filters.offset);
+    idx++;
+  }
+
+  const rows = await runQueriesWithTenant<{
+    id: string;
+    tenant_id: string;
+    started_at: Date;
+    metadata: Record<string, any>;
+    expected_value_cents: string | null;
+    actual_value_cents: string | null;
+    difference_cents: string | null;
+  }>(tenantId, query, params);
+
+  return rows.map(toManualReconciliationRunRow);
+}
+
+/** Busca UMA reconciliação MANUAL por id (mesma composição run+discrepância do list). */
+export async function getManualReconciliationRunById(
+  tenantId: string,
+  runId: string
+): Promise<ManualReconciliationRunRow | null> {
+  const row = await runQueryWithTenant<{
+    id: string;
+    tenant_id: string;
+    started_at: Date;
+    metadata: Record<string, any>;
+    expected_value_cents: string | null;
+    actual_value_cents: string | null;
+    difference_cents: string | null;
+  }>(
+    tenantId,
+    `
+    SELECT r.id, r.tenant_id, r.started_at, r.metadata,
+           d.expected_value_cents::text AS expected_value_cents,
+           d.actual_value_cents::text AS actual_value_cents,
+           d.difference_cents::text AS difference_cents
+    FROM reconciliation_runs r
+    LEFT JOIN reconciliation_ledger_discrepancies d
+      ON d.reconciliation_run_id = r.id AND d.discrepancy_type = 'account_mismatch'
+    WHERE r.tenant_id = $1 AND r.id = $2 AND r.metadata->>'engine' = $3
+    LIMIT 1
+    `,
+    [tenantId, runId, MANUAL_RECONCILIATION_ENGINE]
+  );
+  return row ? toManualReconciliationRunRow(row) : null;
+}
+
 /** Tenants para reconciliação (para worker). */
 export async function listTenantsForReconciliation(limit = 500): Promise<string[]> {
   // 🔴 DECISION-0149: discovery via tabela `tenants` (registry NÃO-RLS), NÃO varrendo bank_accounts (RLS+FORCE)

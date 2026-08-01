@@ -5,6 +5,9 @@
 STATUS:
 CANÔNICO · VIGENTE · NÃO INTERPRETÁVEL · NÃO FLEXÍVEL
 
+> **LEITURA MÍNIMA (camada A):** para onboarding, ler primeiro [00_AGENT.md](00_AGENT.md), depois este protocolo, e em seguida [docs/04_audit/PAINEL_DIVIDA_VIVA.md](../04_audit/PAINEL_DIVIDA_VIVA.md) para o estado vivo do repositório.
+> **AUTORIDADE OPERACIONAL:** este protocolo é o único entrypoint normativo; [REMEDIATION_DT_LOG.md](../../REMEDIATION_DT_LOG.md) é o cartório vivo, [docs/04_audit/INDICE_ONDE_ESTA_O_QUE_2026-07-29.md](../04_audit/INDICE_ONDE_ESTA_O_QUE_2026-07-29.md) é o mapa assunto→fonte, e [docs/CORE_DOCUMENTS.md](../CORE_DOCUMENTS.md) é a âncora humana para o núcleo.
+>
 > **ESTADO OPERACIONAL DO §GLOBAL BLOCK:** ver `REMEDIATION_DT_LOG.md` (raiz do repositório)  
 > **REGRA NORMATIVA:** o cartório de execução vigente é `REMEDIATION_DT_LOG.md` — toda dívida técnica (DT-*) e fatia (F-*) é registrada lá, com status explícito no cabeçalho da entrada.  
 > ⚠️ **Estado operacional pode variar por data.** Ver sempre `REMEDIATION_DT_LOG.md` antes de decisões de execução.
