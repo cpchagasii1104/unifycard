@@ -1,5 +1,81 @@
 # REMEDIATION DT LOG
 
+## 🔬 GATE CONSUMIR/OPERAR — 5 achados verificados de 1ª mão pela direção (2026-08-01)
+
+Relatório da instância consumir/operar. A direção **não repassa o que não mediu**. Verificados:
+
+### ① 🔴 A SEGUNDA POPULAÇÃO DE CASE — invisível ao `pg_enum`, e uma coluna aceita OS DOIS
+A campanha de case fechou os enums nativos. **Esta classe não aparece em `pg_enum`** — é `TEXT+CHECK`:
+```
+psql → pg_get_constraintdef(event_reservations)
+CHECK (status = ANY (ARRAY['pending','confirmed','cancelled','expired',
+                           'PENDING','CONFIRMED','CHECKED_IN','NO_SHOW','CANCELLED']))
+```
+**Os dois cases do MESMO valor convivem na MESMA coluna.** `WHERE status='confirmed'` perde em
+silêncio a linha gravada como `'CONFIRMED'` — 200 com lista vazia, sem erro e sem log. É a classe
+que **cala**, agora com o agravante de que o CHECK *autoriza* a incoerência em vez de barrá-la.
+Irmãos apontados (não re-verificados um a um pela direção): `actor_debts` (`pending` +
+`TRANSFERRED_TO_ORGANIZER`), `chat_messages`, `chat_reports`, `companies.company_status`,
+`live_presence`. **Todas com 0 linhas → LATENTE.** ⚠️ `companies.company_status` alcança identidade PJ.
+
+### ② 🔴 `availability` — a espinha do "operar" NÃO tem FK, e 88% aponta para o nada
+```
+psql → FK de availability: fk_availability_purpose_concept   ← a ÚNICA
+       owner_id (polimórfico, 8 owner_types) → SEM FK NENHUMA
+       59 de 67 linhas (88%) não batem em actors, users nem companies
+```
+Direção confirmou a ausência de FK. **Não** re-verificou a contagem de órfãos (a instância declarou
+o método). Causa provável: resíduo de seed pós-gênesis — **não investigada**. O fato estrutural
+independe da causa: coluna que sustenta o eixo "estou disponível" sem trava referencial.
+⚠️ `unified_availability` **não é tabela** — é o serviço sobre `availability`.
+
+### ③ 🟡 `bank_splits`: a NORMA é mais estreita que o próprio ENFORCEMENT — e o risco é o inverso
+```
+LEI_DE_COERENCIA §4.6:198 enumera: bank_ledger, bank_transactions, bank_accounts   ← SEM bank_splits
+BANK_SEMANTICS.md:144       : "A PERSISTÊNCIA continua soberana em bank_splits + bank_ledger + …"
+BANK_DOMAIN_RULES.md:10     : "Split final ligado ao fluxo canónico: bank_splits"
+scripts/validate-schema-code-coherence.mjs:636,682,736 → INCLUI 'bank_splits'
+scripts/schema-coherence-allowlist.json:20            → INCLUI 'bank_splits'
+```
+🔴 **Correção da leitura da instância:** ela concluiu *"quem ler ao pé da letra não pega SQL externo
+a `bank_splits`"*. O enforcement **já pega** — a lista do gate é mais ampla que a da norma. **Não há
+porta aberta hoje.** O risco é o oposto e é mais sutil: **a norma é a autoridade**. Quem reescrever
+o gate a partir dela perde `bank_splits`; quem contestar o gate com a norma na mão ganha.
+⛔ **Editar norma é ato de Clayton** — a direção não corrige `docs/01_normative/`.
+
+### ④ 🟡 PF NÃO GANHA DINHEIRO, segundo o backend — e quatro fontes discordam
+`actor-capabilities.service.ts:23-68` → `user` recebe **SEND_FUNDS** e **NÃO** `RECEIVE_FUNDS`;
+`page` e `group` recebem os dois; `channel` = `[]`. Mas o schema referencia **ACTOR** (não company)
+em `provider_actor_id`/`owner_actor_id`, a diretiva de Clayton (2026-05-16) diz que PF opera, e o
+Bank dá carteira a `owner_type='actor'`. **Decisão de Clayton — nenhuma instância resolve isto.**
+⚠️ O eixo está **INERTE**: `RECEIVE_FUNDS` só é exigido por um intent sem superfície; `SEND_FUNDS`
+não é exigido por intent nenhum. Hoje não morde — e por isso a divergência não apareceu.
+
+### ⑤ 🟡 `00_AGENT_PROTOCOL` — numeração deslocada em UM, com contágio para a LEI
+§2.2.5=Proibições · §2.2.6=Ambiguidade · §2.2.7=Precedência, mas o corpo remete a 2.2.5/2.2.6 como
+se fossem ambiguidade/precedência. `LEI_DE_COERENCIA §7.1` e `§14` **já herdaram** o off-by-one.
+Também: §2.2.8 manda tratar `openapi-stock-transfer-receipt.contract.yaml` como fonte —
+`find -iname "openapi*"` devolve **nenhum arquivo no repositório**.
+⛔ Norma é ato de Clayton. Registrado, não corrigido.
+
+### ✅ CORRIGIDO PELA DIREÇÃO NESTA PASSAGEM (`62e0010c9`)
+Três comentários afirmavam que **grupo é mono-modo**. `PROFILE_GROUP` tem `byOperatingMode` com as
+duas chaves desde 2026-07-07 (achado do próprio Clayton: *"o churrasco compra a carne"*), e
+`profileHasTwoOperatingModes` responde pela FORMA do profile → devolve `true` para grupo, o toggle
+**renderiza**. A docstring que mentia era a **da própria função que decide**. Channel segue
+mono-modo — e agora está escrito que é por ser scaffold (D-C2), não por decisão de produto.
+Corrigir comentário que mente é **obrigatório** (`CLAUDE.md §6`); a instância não o fez por estar
+em modo read-only, o que foi correto da parte dela.
+
+### 📌 O QUE NO RELATÓRIO JÁ ESTÁ DESATUALIZADO
+As Partes 8 e 9.1/9.3/9.4 descrevem a fatia de case como *não aplicada e não commitada*. **Foi
+aplicada e commitada horas antes** (`151f27625`, migration `20260801120000` em `unificard_dev`, 9
+enums minúsculos, 3 intactos, prova vermelha+verde). Relatório de instância é **foto do momento em
+que ela mediu** — não estado. Vale para todos.
+
+---
+
+
 ## 🗺️ MAPA — os 2 dashboards de evento em 500: o conserto é RENOMEAÇÃO, exceto por UM ponto (2026-08-01, direção)
 
 Medido para que a próxima fatia não descubra isto do zero. É a **armadilha do vocabulário anterior**
