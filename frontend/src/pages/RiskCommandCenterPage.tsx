@@ -207,27 +207,27 @@ export default function RiskCommandCenterPage() {
               <div className="overview-risk-levels">
                 <div className="risk-level-item">
                   <span className="risk-level-badge" style={{ backgroundColor: '#10b981' }}>
-                    LOW
+                    Baixo
                   </span>
-                  <span className="risk-level-count">{overview.actorsByRiskLevel.LOW}</span>
+                  <span className="risk-level-count">{overview.actorsByRiskLevel.low}</span>
                 </div>
                 <div className="risk-level-item">
                   <span className="risk-level-badge" style={{ backgroundColor: '#f59e0b' }}>
-                    MEDIUM
+                    Médio
                   </span>
-                  <span className="risk-level-count">{overview.actorsByRiskLevel.MEDIUM}</span>
+                  <span className="risk-level-count">{overview.actorsByRiskLevel.medium}</span>
                 </div>
                 <div className="risk-level-item">
                   <span className="risk-level-badge" style={{ backgroundColor: '#ef4444' }}>
-                    HIGH
+                    Alto
                   </span>
-                  <span className="risk-level-count">{overview.actorsByRiskLevel.HIGH}</span>
+                  <span className="risk-level-count">{overview.actorsByRiskLevel.high}</span>
                 </div>
                 <div className="risk-level-item">
                   <span className="risk-level-badge" style={{ backgroundColor: '#dc2626' }}>
-                    BLOCKED
+                    Crítico
                   </span>
-                  <span className="risk-level-count">{overview.actorsByRiskLevel.BLOCKED}</span>
+                  <span className="risk-level-count">{overview.actorsByRiskLevel.critical}</span>
                 </div>
               </div>
             </div>
@@ -252,17 +252,34 @@ export default function RiskCommandCenterPage() {
               <div className="overview-label">Volume Financeiro</div>
               <div className="overview-value">{formatPrice(overview.totalFinancialVolumeCents, overview.currency)}</div>
             </div>
+            {/* ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════
+                ║ STATUS:  CANÔNICO
+                ║ NORMA:   F-RISK-DASHBOARD (cartório, 2026-07-31)
+                ║ NÃO:     renderizar `undefined` cru nem trocar por 0
+                ║ EM VEZ:  dizer "indisponível" — o backend não conseguiu ler
+                ╚══════════════════════════════════════════════════════════
+                Estas 3 métricas vêm de tabelas que podem não existir. O
+                backend devolve `undefined` quando a leitura falha, em vez de
+                `0`, porque zero AFIRMA "não há" e não sabemos disso. Aqui a
+                tela precisa dizer a diferença: número vazio é tão enganoso
+                quanto o zero mentiroso que fomos consertar. */}
             <div className="overview-card">
               <div className="overview-label">Payouts Bloqueados</div>
-              <div className="overview-value warning">{overview.blockedPayouts}</div>
+              <div className="overview-value warning">
+                {overview.blockedPayouts ?? <span className="metric-unavailable">indisponível</span>}
+              </div>
             </div>
             <div className="overview-card">
               <div className="overview-label">Payouts Falhos</div>
-              <div className="overview-value error">{overview.failedPayouts}</div>
+              <div className="overview-value error">
+                {overview.failedPayouts ?? <span className="metric-unavailable">indisponível</span>}
+              </div>
             </div>
             <div className="overview-card">
               <div className="overview-label">Agreements Abandonados</div>
-              <div className="overview-value">{overview.abandonedAgreements}</div>
+              <div className="overview-value">
+                {overview.abandonedAgreements ?? <span className="metric-unavailable">indisponível</span>}
+              </div>
             </div>
           </div>
         </div>
@@ -345,7 +362,9 @@ export default function RiskCommandCenterPage() {
                 </td>
                 <td className="amount-cell">{formatPrice(profile.financialVolumeCents, profile.currency)}</td>
                 <td>
-                  {profile.blockedPayouts > 0 ? (
+                  {profile.blockedPayouts === undefined ? (
+                    <span className="metric-unavailable">?</span>
+                  ) : profile.blockedPayouts > 0 ? (
                     <span className="blocked-alert">{profile.blockedPayouts}</span>
                   ) : (
                     '-'
@@ -484,15 +503,23 @@ export default function RiskCommandCenterPage() {
                   </div>
                   <div className="detail-item">
                     <label>Payouts Bloqueados:</label>
-                    <span className={selectedProfile.blockedPayouts > 0 ? 'warning' : ''}>
-                      {selectedProfile.blockedPayouts}
-                    </span>
+                    {selectedProfile.blockedPayouts === undefined ? (
+                      <span className="metric-unavailable">indisponível</span>
+                    ) : (
+                      <span className={selectedProfile.blockedPayouts > 0 ? 'warning' : ''}>
+                        {selectedProfile.blockedPayouts}
+                      </span>
+                    )}
                   </div>
                   <div className="detail-item">
                     <label>Payouts Falhos:</label>
-                    <span className={selectedProfile.failedPayouts > 0 ? 'error' : ''}>
-                      {selectedProfile.failedPayouts}
-                    </span>
+                    {selectedProfile.failedPayouts === undefined ? (
+                      <span className="metric-unavailable">indisponível</span>
+                    ) : (
+                      <span className={selectedProfile.failedPayouts > 0 ? 'error' : ''}>
+                        {selectedProfile.failedPayouts}
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>

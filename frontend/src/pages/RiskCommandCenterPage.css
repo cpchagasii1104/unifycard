@@ -558,3 +558,13 @@
   text-align: center;
 }
 
+
+/* Métrica que o backend NÃO CONSEGUIU LER (undefined, não zero).
+   Discreta de propósito: não é alarme, é ausência de informação —
+   e precisa se distinguir tanto de um número quanto de um zero. */
+.metric-unavailable {
+  font-size: 0.8em;
+  font-weight: 400;
+  font-style: italic;
+  color: #9ca3af;
+}

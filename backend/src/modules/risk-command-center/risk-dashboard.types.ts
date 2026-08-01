@@ -17,11 +17,14 @@
  */
 export interface RiskDashboardOverview {
   totalActors: number;
+  // Vocabulário governado por `trust_profiles.risk_level` CHECK
+  // (low|medium|high|critical). NÃO usar MAIÚSCULA nem `BLOCKED`: até
+  // 2026-07-31 este tipo divergia do banco e a contagem virava NaN.
   actorsByRiskLevel: {
-    LOW: number;
-    MEDIUM: number;
-    HIGH: number;
-    BLOCKED: number;
+    low: number;
+    medium: number;
+    high: number;
+    critical: number;
   };
   totalBypassDetected: {
     last30Days: number;

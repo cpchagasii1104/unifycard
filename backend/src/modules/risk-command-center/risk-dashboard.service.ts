@@ -50,14 +50,26 @@ class RiskDashboardService {
     const profiles = await trustRepository.listProfiles(tenantId, { limit: 10000 });
 
     // 2. Contar por risk level
+    // ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+    // ║ STATUS:  CANÔNICO
+    // ║ NORMA:   trust_profiles.risk_level CHECK — low|medium|high|critical
+    // ║ NÃO:     indexar por chave MAIÚSCULA nem inventar balde `BLOCKED`
+    // ║ EM VEZ:  compor do vocabulário governado do CHECK vivo
+    // ╚════════════════════════════════════════════════════════════════
+    // Até 2026-07-31 os baldes eram { LOW, MEDIUM, HIGH, BLOCKED } e o banco
+    // grava minúsculo: `actorsByRiskLevel[profile.riskLevel]++` fazia
+    // `undefined++` → **NaN** em todos os quatro. Pior que o case: `BLOCKED`
+    // não existe no vocabulário do banco, e `critical` — que existe — não
+    // tinha balde nenhum, então ator de risco crítico não era contado.
     const actorsByRiskLevel = {
-      LOW: 0,
-      MEDIUM: 0,
-      HIGH: 0,
-      BLOCKED: 0,
+      low: 0,
+      medium: 0,
+      high: 0,
+      critical: 0,
     };
     for (const profile of profiles) {
-      actorsByRiskLevel[profile.riskLevel]++;
+      const level = profile.riskLevel as keyof typeof actorsByRiskLevel;
+      if (level in actorsByRiskLevel) actorsByRiskLevel[level] += 1;
     }
 
     // 3. Buscar bypass events (últimos 30, 90, 180 dias)

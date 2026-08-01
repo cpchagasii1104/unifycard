@@ -9,11 +9,18 @@ import { apiFetchJson } from './client';
  */
 export interface RiskDashboardOverview {
   totalActors: number;
+  // ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+  // ║ STATUS:  CANÔNICO
+  // ║ NORMA:   07_NOMENCLATURA_CANONICA §7 — frontend ESPELHA o contrato
+  // ║          da API; não cria alias, não renomeia campo
+  // ║ NÃO:     LOW|MEDIUM|HIGH|BLOCKED (divergia do banco → NaN na tela)
+  // ║ EM VEZ:  low|medium|high|critical, do CHECK de trust_profiles
+  // ╚════════════════════════════════════════════════════════════════
   actorsByRiskLevel: {
-    LOW: number;
-    MEDIUM: number;
-    HIGH: number;
-    BLOCKED: number;
+    low: number;
+    medium: number;
+    high: number;
+    critical: number;
   };
   totalBypassDetected: {
     last30Days: number;
@@ -23,9 +30,12 @@ export interface RiskDashboardOverview {
   openDisputes: number;
   averageResolutionTimeDays: number | null;
   totalFinancialVolumeCents: number;
-  blockedPayouts: number;
-  failedPayouts: number;
-  abandonedAgreements: number;
+  // `undefined` = o backend NÃO CONSEGUIU LER a fonte (tabela ausente,
+  // leitura capturada). Zero afirmaria "não há"; indefinido admite que não
+  // se sabe. A tela precisa mostrar a diferença — ver RiskCommandCenterPage.
+  blockedPayouts: number | undefined;
+  failedPayouts: number | undefined;
+  abandonedAgreements: number | undefined;
   currency: string;
 }
 
@@ -51,9 +61,12 @@ export interface ActorRiskProfile {
   financialVolumeCents: number;
   escrowHeldCents: number;
   escrowReleasedCents: number;
-  blockedPayouts: number;
-  failedPayouts: number;
-  abandonedAgreements: number;
+  // `undefined` = o backend NÃO CONSEGUIU LER a fonte (tabela ausente,
+  // leitura capturada). Zero afirmaria "não há"; indefinido admite que não
+  // se sabe. A tela precisa mostrar a diferença — ver RiskCommandCenterPage.
+  blockedPayouts: number | undefined;
+  failedPayouts: number | undefined;
+  abandonedAgreements: number | undefined;
   lastEventAt: string | null;
   lastBypassAt: string | null;
   lastDisputeAt: string | null;
