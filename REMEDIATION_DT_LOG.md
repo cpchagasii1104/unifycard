@@ -1,5 +1,53 @@
 # REMEDIATION DT LOG
 
+## 🔴 GATE — DT-PAYOUT-SPLIT-BRAIN: o desembolso está partido ao meio (2026-08-01, direção)
+
+**O padrão estrutural do sistema, na sua forma mais cara: DUAS implementações do mesmo conceito,
+o substrato canônico existe, e o lado MONTADO fala com o lado que não existe.** Não é dívida de
+case. É religamento — `CLAUDE.md §2`: *"existe em `arquivo:linha`, no lugar errado / não religado"*.
+
+| lado | arquivos | montado? | tabela | existe? | vocabulário |
+|---|---|---|---|---|---|
+| `modules/payout/` | **8** | ✅ `app.builder.ts:599` — **rota HTTP viva** | `payout_orders` | ❌ **AUSENTE** | `'BLOCKED'` `'EXECUTED'` `'FAILED'` MAIÚSCULO |
+| `modules/payouts/` | 1 | via `workers/payout-worker.ts:6` | `payout_requests` | ✅ existe (0 linhas) | `'requested'·'processing'·'completed'·'failed'` **minúsculo, idêntico ao CHECK** |
+
+```
+psql → payout_orders   = AUSENTE
+       payout_requests = payout_requests (0 linhas)
+       CHECK (status = ANY (ARRAY['requested','processing','completed','failed']))
+grep → src/modules/payout/payout.repository.ts   → payout_orders  (7 sítios)
+       src/modules/payouts/payout-repository.ts  → payout_requests
+       src/workers/payout-worker.ts:6  import { claimNextRequestedPayouts, updatePayoutStatus }
+```
+
+**Consequência em runtime:** pedir saque por HTTP tenta escrever em tabela inexistente → falha.
+O worker fica em `claimNextRequestedPayouts` sobre uma fila que **ninguém consegue alimentar**.
+O desembolso não está "quebrado por bug" — está **desconectado de si mesmo**.
+
+🔴 **O lado do worker é o CERTO e já está pronto:** `payout-repository.ts:8` declara
+`PayoutRequestStatus = 'requested'|'processing'|'completed'|'failed'` — **minúsculo, byte a byte
+igual ao CHECK do banco**. Ninguém precisa decidir vocabulário: ele já está conforme.
+
+### O padrão, com 3 instâncias PROVADAS hoje — e é o mesmo em todas
+> **Duas implementações paralelas; o substrato canônico existe e está vazio; o consumidor aponta
+> para o lado morto.** ① risco: `trust_profiles`(0, `critical`) × `actor_risk_profile`(2, `blocked`,
+> governado por `PROMPT_53_1:65`) — `payout.service.ts:44` lê o vazio · ② desembolso: esta entrada ·
+> ③ reconciliação: `reconciliation_discrepancies`(legado) × `reconciliation_runs`(15.866 linhas),
+> já registrada.
+> ⚠️ **NÃO generalizar por NOME.** A direção já errou deduzindo "pastas gêmeas" pelo nome — 3 de 5
+> pares tinham **zero** arquivo em comum. O critério que vale é medido: *duas escritas para o mesmo
+> conceito, uma em tabela ausente e outra em tabela presente.*
+
+### ⛔ NÃO EXECUTADO — exige GATE + GO
+É **caminho de dinheiro** e está **dentro do mínimo** (banco). O conserto é religar a rota HTTP ao
+substrato canônico, **não** materializar `payout_orders` — materializar é forward-only e criaria a
+segunda casa em vez de fechá-la. Contenção honesta: `payout_requests` = 0, `bank_ledger` = 0,
+`payout_orders` não existe. **Nada alcança isto hoje.** Gatilho verificável:
+`SELECT count(*) FROM payout_requests > 0`.
+
+---
+
+
 ## 🟡 ERRATA + REQUALIFICAÇÃO — DT-PAYOUT-RISK-GATE-NEVER-FIRES **NÃO é buraco de segurança**: é trava LEGADA duplicada (2026-08-01)
 
 > 🔴 **ERRATA DA DIREÇÃO, 40 minutos depois de escrever a entrada abaixo.** A entrada original
