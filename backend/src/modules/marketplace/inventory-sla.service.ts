@@ -250,7 +250,12 @@ class InventorySlaService {
           isOverdue = true;
           overdueReason = `Atrasado: ${daysSinceShipped.toFixed(1)} dias desde SHIPPED (SLA: ${maxDaysShippedToReceiving} dias)`;
         }
-      } else if (row.status === 'PENDING' && row.receiving_started_at) {
+      // ⚠️ Era 'PENDING' MAIÚSCULO — sobrevivente da convergência de 2026-08-01, achado pela
+      // auditoria independente. O enum `stock_transfer_status` é minúsculo
+      // (draft·pending·shipped·received·cancelled), então esta comparação NUNCA casava e a 2ª regra
+      // de SLA jamais disparava. Não gritava: é comparação de string em JS, não predicado SQL — o
+      // ramo simplesmente nunca era escolhido. O irmão 6 linhas acima já estava convergido.
+      } else if (row.status === 'pending' && row.receiving_started_at) {
         const daysSinceReceiving = (Date.now() - new Date(row.receiving_started_at).getTime()) / (1000 * 60 * 60 * 24);
         if (daysSinceReceiving > maxDaysReceivingToReceived) {
           isOverdue = true;
