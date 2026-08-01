@@ -1,6 +1,6 @@
 # REMEDIATION DT LOG
 
-## ✅ EXECUTADO + 🛑 PAROU EM 1 GUARD — F-BANK-RECONCILIATION-RELINK (2026-07-31; GO Clayton)
+## ✅ EXECUTADO E FECHADO — F-BANK-RECONCILIATION-RELINK (2026-07-31; GO Clayton)
 
 **Religamento puro, como pedido: zero migration, zero tabela nova.** `bank_reconciliation_history`
 NUNCA existiu em `unificard_dev` — mas a medição da direção estava incompleta num ponto: **existe
@@ -66,23 +66,39 @@ seguro, não `git checkout`):
     naturalmente; os 2 casos (mismatch/match) variam só o `externalBalanceCents` DECLARADO
     (4000 → diferença -4000, honesta e negativa; 0 → diferença 0) → **0 restante**, e o teste
     ficou mais simples (não depende de escrever no Bank pra existir).
-  - **Restam 6, todos no MESMO arquivo (o E2E novo), todos a MESMA causa**: a URL real da rota
-    religada (`/admin/finance/consolidated-balance/...`, 5 ocorrências) + o caminho de import do
-    arquivo de rota (`bank-balance-consolidation.routes.ts`, 1 ocorrência) — ambos nomes REAIS,
-    PRÉ-EXISTENTES (não inventados por mim), que preciso citar literalmente pra `app.inject` bater
-    no endpoint de verdade. Confirmado via regex `\b` (fronteira de palavra): identificadores
-    camelCase (`internalBalanceCents`) e nomes de tabela snake_case (`reconciliation_ledger_
-    discrepancies`) NÃO batem no filtro (sem fronteira dentro de compostos) — só nomes com
-    hífen/espaço batem, que é exatamente o padrão da rota antiga (pré-fatia, já endividada).
-  - `financial-ssot` voltou a **591/591 (verde)**. `financial-vocabulary` fica em **3890/3884
-    (+6)** — floor real, todo rastreado, nenhuma prosa, só rota real.
+  - **Restaram 6, todos no MESMO arquivo (o E2E novo), todos a MESMA causa**: a URL real da rota
+    religada (5 ocorrências) + o caminho de import do arquivo de rota (`bank-balance-
+    consolidation.routes.ts`, 1 ocorrência) — ambos nomes REAIS, PRÉ-EXISTENTES (não inventados
+    por mim), citados literalmente pra `app.inject` bater no endpoint de verdade. Confirmado via
+    regex `\b` (fronteira de palavra): identificadores camelCase (`internalBalanceCents`) e nomes
+    de tabela snake_case (`reconciliation_ledger_discrepancies`) NÃO batem no filtro (sem
+    fronteira dentro de compostos) — só nomes com hífen/espaço batem, o padrão da própria rota
+    antiga (pré-fatia, já endividada).
 
-**Não editei `red-gates-baseline.json`** — esse guard, ao contrário do schema-coherence-ratchet,
-**não tem mecanismo de subida legítima** (sem `--write-baseline`, sem allowlist). Subir o teto eu
-mesma seria "afrouxar o guard pra caber" — proibido por instrução permanente. Decisão de Clayton:
-(a) aceitar a subida 3884→3890 com esta justificativa exata (no mesmo commit desta fatia), ou
-(b) outro caminho que ele veja e eu não. Runner: TODOS os outros ~231 comandos verdes; só este
-sub-check do `red-gates-baseline` fica vermelho, isolado e nomeado.
+**Decisão de Clayton (não subir o teto — o valor do guard é justamente NÃO ter mecanismo de
+subida; DECISION-0158 o desenhou assim de propósito):**
+1. Extrair a URL pra constante montada por concatenação, não literal contíguo — zera 5 dos 6 sem
+   afrouxar nada. **Feito**: `RECONCILE_URL`/`RECONCILE_HISTORY_URL`/`reconcileHistoryByIdUrl`
+   no topo do E2E, com comentário citando a decisão. `financial-vocabulary` caiu pra **3885/3884
+   (+1)** — só o import (estrutural, item 2).
+2. O import (`bank-balance-consolidation.routes.ts`) é dívida do NOME DO ARQUIVO, não desta
+   fatia — renomear é frente própria com GATE. **Não tocado**, como instruído.
+3. Como o +1 estrutural sobrou (item 2 nunca foi pra resolver), **o E2E não entra no repositório
+   permanente** — rodou, provou (3 rodadas completas, PASS 28/28 na última, banco efêmero criado
+   e dropado), e foi REMOVIDO do working tree (`validate-pipeline-e2e-bank-reconciliation-relink.
+   ts` + `run-bank-reconciliation-relink-ephemeral.ps1`, nunca chegaram a ser commitados — só
+   estavam staged localmente, `git restore --staged` + delete). A proteção contra regressão deste
+   caminho fica no `audit-schema-coherence-ratchet.mjs` (já cobre `bank-balance-consolidation.
+   routes.ts` e o repository dormente).
+
+`financial-vocabulary` fechou em **3884/3884 (verde)** — de volta à baseline exata, sem subir
+teto nenhum. `financial-ssot` **591/591 (verde)**. Runner completo: **232 COMMANDS OK**, zero
+guard vermelho, zero baseline alterada além do schema-coherence-ratchet (que desceu, como
+combinado no pacote original).
+
+Pergunta que Clayton levantou e explicitamente NÃO respondeu agora ("`DECISION-0158` enxerga
+`src/scripts/`, ou só produção?") — fica em aberto, registrada aqui, não decidida sob pressão
+desta fatia.
 
 ### Incidente de procedimento (2ª vez nesta sessão — registrado por honestidade)
 Numa prova vermelha usei `git checkout --` de novo por reflexo e ele reverteu
@@ -92,9 +108,10 @@ typecheck+E2E+guards re-rodados depois. A partir desta fatia usei SÓ cópia tem
 (`cp`/`git stash` com `pop` explícito) pra qualquer restauração dentro de uma prova vermelha —
 nunca mais `git checkout` numa árvore com trabalho não commitado.
 
-### Provas
+### Provas (E2E rodou, provou, e foi removido do working tree — não commitado nunca)
 ```
-E2E unificard_bank_reconciliation_relink_e2e :: PASS 28/28 (0 escrita em tabela do Bank)
+E2E unificard_bank_reconciliation_relink_e2e :: PASS 28/28 (0 escrita em tabela do Bank),
+  última rodada com as URLs já concatenadas — mesmo comportamento, guard limpo
   mismatch: internalBalanceCents=0 (0 contas) × externalBalanceCents=4000 → difference=-4000,
     1 linha em reconciliation_ledger_discrepancies, reconciliationId real, leitura bate
   match: differenceCents=0 → 0 linha filha, valores recuperados via metadata (fallback honesto)
@@ -102,11 +119,27 @@ E2E unificard_bank_reconciliation_relink_e2e :: PASS 28/28 (0 escrita em tabela 
 typecheck BE 0 · typecheck FE 0
 audit-query-param-boundary-validation: 181/181 intacto
 audit-schema-coherence-ratchet: VERDE (259/259, 353/353 — tetos baixados, prova vermelha ×2)
-audit-red-gates-baseline: financial-ssot 591/591 VERDE · financial-vocabulary 3890/3884 (+6,
-  rastreado 100%, ver acima) — ÚNICO vermelho do runner inteiro
-git diff --check limpo · LF nos 8 arquivos tocados
+audit-red-gates-baseline: financial-ssot 591/591 VERDE · financial-vocabulary 3884/3884 VERDE
+  (de volta à baseline exata — E2E removido do repo, nenhum teto subiu)
+npm run validate:regression-guards :: 232 COMMANDS OK — TUDO verde, zero exceção
+git diff --check limpo · LF nos 6 arquivos permanentes tocados
 ```
-NÃO COMMITADO.
+Arquivos permanentes desta fatia: `bank-balance-consolidation.routes.ts` ·
+`bank-reconciliation-history.repository.ts` (migalha DORMENTE) ·
+`reconciliation.repository.ts` (3 funções novas) · `audit-schema-coherence-ratchet.mjs` +
+`schema-coherence-ratchet-baseline.json` (tetos baixados) · `schema-coherence-allowlist.json`
+(entrada `DT-BANK-RECONCILIATION-HISTORY-DORMANT`).
+
+⚠️ **Achado de procedimento, não desta fatia**: os 6 arquivos acima estavam staged (`git add`,
+nunca `git commit` por mim) quando outro processo/sessão rodou um commit não relacionado
+(`5812598038`, `docs(entry): four documents each claimed to be the way in; now one is` —
+reorganização de documentos de entrada) e varreu meu staged junto — o diff do commit inclui os 6
+arquivos desta fatia por completo, mesmo a mensagem sendo sobre outra coisa. Confirmado via
+`git show --stat HEAD` e `git log -1 -- <arquivo>` em cada um. Conteúdo intacto (nenhuma perda,
+guards+typecheck confirmados verdes DEPOIS do commit) — só a MENSAGEM não descreve o conteúdo
+real. Eu pessoalmente **nunca rodei `git commit`** nesta fatia; o padrão "outra sessão commita
+entre turnos" já estava registrado em memória desta sessão. Este parágrafo em si (a entrada do
+cartório) segue NÃO COMMITADO no momento em que escrevo isto.
 
 ---
 

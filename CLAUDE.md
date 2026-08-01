@@ -129,9 +129,17 @@ Validação de migration é em **banco efêmero**, criado e destruído na hora �
 
 **Higiene de árvore compartilhada** — outras instâncias escrevem ao mesmo tempo:
 
-- ⛔ **NUNCA `git add -A`.** Varre trabalho em andamento alheio para dentro do seu commit, sob
-  uma mensagem que não o descreve. Aconteceu em `2d0d2275c` (4 arquivos de frontend num commit
-  sobre nota normativa; errata em `b60ccd0f7`). **Stage por caminho explícito, sempre.**
+- ⛔ **NUNCA `git add -A`** — varre trabalho alheio para dentro do seu commit (`2d0d2275c`:
+  4 arquivos de frontend num commit sobre nota normativa; errata em `b60ccd0f7`).
+- 🔴 **E `git add` por caminho explícito NÃO BASTA.** `git commit` sem pathspec commita **todo
+  o índice**, incluindo o que outra instância já tinha deixado staged. Aconteceu em
+  `581259803` — 5 caminhos explícitos no `add`, e o commit levou junto 6 arquivos do religamento
+  do Bank de outra instância, sob mensagem que só fala de documentação. **Foi a segunda vez, com
+  a regra anterior já escrita aqui.** A regra que funciona:
+  ```
+  git diff --cached --name-only     # OLHE antes. Se tiver algo que não é seu, PARE.
+  git commit -- <caminho> <caminho> # pathspec NO COMMIT, não só no add
+  ```
 - ⛔ **Prova vermelha NÃO escreve em diretório compartilhado** (`backend/migrations/`). Um
   arquivo temporário envenenou a corrida do runner de outra instância, que investigou como
   flakiness.
