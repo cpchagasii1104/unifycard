@@ -1,5 +1,159 @@
 # REMEDIATION DT LOG
 
+## ⛔ RETRATAÇÃO Nº3 + ACHADOS DA YALA (MANDATO D) — a acusação do payout estava ERRADA, e um elogio meu não tinha prova (2026-08-01)
+
+Parecer completo: `docs/04_audit/PARECER_YALA_MANDATO_D_2026-08-01.md`
+**Placar: 1 DERRUBADA · 3 SOBREVIVEM · 2 COM RESSALVA.** Mandei a Yala procurar dois defeitos
+— *elogio sem prova* e *acusação sem alcance* — e **ela achou os dois. Os dois eram meus.**
+
+### 🔴 ① DERRUBADA — os readers de payout NÃO "devolviam erro cru de banco"
+O commit `36c491851` afirma que os 3 readers *"were returning raw database errors"*. **Falso — e
+não podiam.** A Yala rastreou o que eu não rastreei:
+```
+git show 36c491851^ → os 3 tinham { preHandler: requirePayoutPermission }
+  → businessAuthorizationService.requirePermission(…,'financial:execute_payout','payout')
+  → business-authorization.service.ts:47-52 → deny ESTRUTURAL por PORTA_HOLD
+  → 'financial:execute_payout' ESTÁ no array de company-policy-registry
+⇒ 403 ANTES de qualquer SQL, para TODOS — inclusive o dono. Ninguém chegava em payout_orders.
+```
+`payout_orders` de fato não existe. **Mas ninguém alcançava a tabela.** Eu vi "handler lê tabela
+ausente" e concluí "devolve 42P01" **sem seguir o preHandler** — exatamente o erro que já tinha
+cometido duas vezes hoje neste mesmo módulo. **Terceira vez. Mesmo arquivo. Mesma causa.**
+
+**O que SOBREVIVE do ato:** o 503 uniforme é melhor de FORMA que o 403 — 403 para quem tem a chave
+e 503 para quem não tem vazaria quem a detém. A Yala atacou isso e não caiu. **A mudança foi boa; a
+JUSTIFICATIVA que escrevi era falsa.** A razão verdadeira é **anti-enumeração**, não "erro cru".
+
+🔴 **E ela achou o buraco que eu abri:** os corpos dos handlers foram REMOVIDOS, então quem for
+reabrir escreve handler novo num arquivo **sem preHandler para copiar** — e
+`audit-porta01-financial-hold.mjs` (runner :238) lê **UMA rota só** (`/payouts/orders`, :53) e
+valida o 503 só nela. **As 3 rotas que contive não têm guard nenhum.** Dívida aberta, nomeada.
+
+### 🔴 ② ELOGIO SEM PROVA — um `'PENDING'` sobreviveu à convergência dos 9 enums
+`inventory-sla.service.ts:253` comparava `row.status === 'PENDING'` **seis linhas abaixo** de um
+irmão já convergido (`:247`, `'shipped'`), no MESMO if/else, sobre a MESMA tabela
+(`stock_transfers`, enum minúsculo). **A 2ª regra de SLA nunca disparava.** Não gritava: comparação
+de string em JS não é predicado SQL — o ramo só nunca era escolhido.
+✅ **CORRIGIDO** em `414d8ab56`. A Yala mediu o alcance com honestidade e **não inflou**:
+`getTransferSla ← reports.routes.ts:280 ← GET /reports/transfers/sla`, cujo `requirePermission` faz
+`RETURN FALSE` incondicional hoje → **403**. **Defeito real, alcance latente.**
+
+### 🟡 ③ RESSALVAS que ficam abertas (nomeadas, não esquecidas)
+- **from-price:** a subquery filtra só por `event_id`. `event_sectors.tenant_id` **existe e não é
+  usado**. Mitigado (`event_sectors` tem RLS=true; `event_id` é UUID PK) — **mas a irmã `events`
+  tem RLS=false**, então a proteção vem de uma camada só. Custo de fechar: um `AND s.tenant_id`.
+- **ratchets:** sobrevivem, e ela **rodou o gate** em vez de aceitar o JSON (3883/3883 · 590/590 ·
+  typecheck 0). Ganho REAL — e ao contrário do `schema-coherence-ratchet`, esta contagem **não
+  passa por allowlist**. ⚠️ Ressalva sobre a MÉTRICA: `financial_vocabulary` é sensível a PROSA —
+  dá para movê-lo escrevendo ou apagando comentário. **Ninguém deve ler uma queda futura desse teto
+  como dívida paga sem olhar o que a moveu.**
+
+### 📌 O QUE ELA DECLAROU NÃO TER AUDITADO (denominador honesto)
+Zero HTTP · **dos 63 commits auditou os 6 do mandato; ~57 seguem sem auditoria** · não rodou o
+runner completo · 🔴 **não varreu `frontend/src` atrás dos 9 vocabulários novos** — se houver
+contrato de tela em MAIÚSCULO para `purchase_order_status`/`fulfillment_status`, quebra igual ao
+`service_order_status` do arco anterior. **É onde ela iria agora.**
+> A direção varreu `backend/src` e sobrou só o `inventory-sla` (corrigido). **O frontend segue não
+> varrido para esses 9** — dívida nomeada, não fechada.
+
+### 🔴 A LIÇÃO, E ELA É SOBRE MIM
+A auditoria anterior concluiu *"o PLACAR erra onde se ELOGIA, não onde se acusa"*. **Hoje eu errei
+nos DOIS lados** — e as três retratações do dia (risco, split-brain, readers) têm **causa única**:
+**parei de traçar antes do fim.** `grep` mostra que um arquivo cita uma tabela; **não mostra se há
+um preHandler negando antes**. A regra que criei hoje — *ler o handler até o `reply` antes de
+escrever tese* — **eu mesma violei depois de escrevê-la**, no mesmo módulo em que já tinha caído
+duas vezes.
+
+---
+
+
+## ✅ EXECUTADO — F-ERP-TWO-SIDED (2026-08-01; MANDATO C, GO Clayton)
+
+Clayton: *"as funções do ERP podem sim mudar de acordo com a chave seletora, porém poder mexer
+em partes do ERP vai de acordo com a permissão."* → **MODO = o que APARECE · PERMISSÃO = o que
+PODE. Eixos ORTOGONAIS.** O ERP virou irmão do CRM.
+
+### O DEFEITO
+`actor-page.service.ts:172` gateava o bloco `erp` INTEIRO — incluindo `purchase_orders` — em
+`mode === 'operating'`. **COMPRAR É CONSUMIR**: o lado de compra da empresa estava trancado dentro
+do modo de vender. O CRM já tinha resolvido o mesmo problema (`CrmPage.tsx:2-5`: aba `cliente` =
+operar × aba `fornecedor` = consumir, a MESMA aresta `actor_relationships` filtrada por label).
+
+### O DESENHO — uma cara por modo, discriminada por `data.side`
+| modo | `side` | conteúdo |
+|---|---|---|
+| `operating` | `sales` | estoque + agenda + pedidos + financeiro — **INALTERADO** |
+| `consuming` | `supply` | pedidos de COMPRA + financeiro |
+
+Existência do bloco: `isCompanyPage && (operatesThisPage || actingAsThisPage)`.
+
+### 🔴 A AUTORIDADE — o ponto que o mandato não mencionava e que teria virado vazamento
+Mover o ERP para `consuming` sem mais nada seria **furo grave**: em `consuming` a rota NÃO chama
+`canRepresentActor` (é leitura pública) — qualquer visitante veria os pedidos de compra da empresa.
+Solução com **ZERO autoridade nova**: a face de compra exige `viewerActorId === actorId`, isto é, o
+usuário **atuando como** a empresa — e `viewerActorId` só é honrado se `canRepresentActor` JÁ provou
+na rota (DECISION-0113 D4/D9, linhas 51-58). É o MESMO mecanismo do bloco `connections`.
+Consequência boa: nem o dono vê o ERP enquanto estiver atuando como PF. **O modo escolhe a CARA;
+a permissão decide o ACESSO.** `businessAuthorizationService` (citado no mandato) existe
+(`business-authorization.service.ts:209`) mas **não é o gate deste módulo** — aqui quem decide é
+`authorizationService.canRepresentActor`. Nome corrigido para não mandar o próximo ao lugar errado.
+
+### ⛔ FORNECEDORES FICARAM DE FORA — e o motivo é um vazamento latente
+`supplierRepository.listSuppliers` filtra por **TENANT**, e **NÃO** por `owner_actor_id`
+(`SupplierFilters` = status·search·limit·offset). Compor fornecedores no bloco ERP exporia a lista
+da empresa B na página da empresa A. Só `purchaseOrderRepository.listByOwner` é escopado por dono
+em SQL. **Guard passou a proibir `listSuppliers` no actor-page.** O gap do reader fica NOMEADO aqui.
+
+### 🔴 A PROVA "SELADA" DESTE MÓDULO ESTAVA QUEBRADA ANTES DE EU CHEGAR
+`validate-pipeline-e2e-erp-composed-view.ts` semeava `company_users.is_active` — **coluna que não
+existe** (a tabela tem `member_status` e `is_primary`). Presente no HEAD (linha 67), meu diff não a
+tocava: `git show HEAD:… | grep is_active` confirma. O E2E **não conseguia nem semear** — a prova do
+bloco ERP estava vermelha/não-rodada há tempo. Reparado para o padrão vivo
+(`validate-company-lifecycle-cutover.ts:79`): `member_status ∈ {active,suspended,revoked}`.
+Reparo sinalizado no código como NÃO fazendo parte do desenho da fatia.
+
+### 🔴 O RÓTULO DO CASO A MENTIA
+`A · mode=consuming (visitante) → SEM bloco erp` — mas o chamador sempre foi `carlos.userId`, **o
+DONO**. Rótulo corrigido. O caso não foi enfraquecido: ficou MAIS forte ("dono atuando como PF não
+vê ERP") e ganhou irmãos que não existiam.
+
+### PROVAS (E2E 7 → 12 casos)
+- **A2** consuming ATUANDO COMO a empresa → `side='supply'` com os 2 pedidos REAIS ✅
+- **A3** estranho em consuming **DECLARANDO** `actionContext` da padaria → SEM erp (hint não provado
+  é IGNORADO) ✅ — a prova de que a face nova não afrouxou autoridade; **não existia antes**
+- **A4** isolamento na face de compra (açougue não vê pedido da padaria) ✅
+- **B2** NÃO-REGRESSÃO: face de venda manteve `side+count+stock+agenda+purchaseOrders+financeiro`
+  (igualdade EXATA do conjunto de chaves) ✅
+- **B3** aba do modo operar segue `key='erp' label='ERP'` ✅
+- `🎉 PASS — 12/12` em banco EFÊMERO (552 migrations, criado e destruído)
+
+### GUARD — atacado, não conferido
+Novo `audit-erp-two-sided-mode-projection.mjs` (no agregador; runner **235 → 236 COMMANDS OK**).
+**Forçado vermelho em 5 ataques construídos**, em diretório temporário (nunca na árvore
+compartilhada): (1) remover a trava `viewerActorId===actorId` · (2) apagar `side:'supply'` ·
+(3) voltar a gatear só por `operating` · (4) compor `listSuppliers` · (5) apagar a prova E2E.
+**Os 5 morderam**; restaurado, voltou verde.
+O guard PRÉ-EXISTENTE `audit-erp-composed-view.mjs` ficou vermelho — corretamente, codificava o
+desenho antigo. **Convergido, não afrouxado**: o invariante "nunca para visitante/PF" continua
+provado, agora pela representação; e a fronteira anti-dinheiro foi ESTENDIDA à face nova (4b).
+
+### O CLIENTE ESPELHA, NÃO INVENTA
+`ActorPage.tsx` renderizaria **"Estoque: Nenhum produto publicado"** na face de compra — ausência
+virando afirmação falsa (estoque ali é NÃO-APLICÁVEL, não vazio). Passou a honrar `data.side`.
+Guard item (G) congela isso.
+
+### VERIFICAÇÃO
+typecheck backend **153 = baseline exato do HEAD, zero novo** · frontend **limpo** ·
+`validate:regression-guards` **236 COMMANDS OK** · E2E **12/12** efêmero ·
+`git diff --check` limpo · `git ls-files --eol` = `i/lf w/lf` · **NÃO commitado**.
+
+### Fora de escopo, por ordem do mandato (reportado, não consertado)
+PDV chega à empresa só via `businessProfileCatalog.loja_varejo`, casado por **PALAVRA-CHAVE NO NOME**
+(`['loja','store','mercado','moda','calçad'…]`) — não por a empresa ter estoque/produto. Defeito
+próprio do PDV, intocado nesta fatia.
+
+---
+
 ## 🗺️ O MAPA DAS 7 VERTICAIS DO MÍNIMO — medido, e ele decide a ordem do resto (2026-08-01, direção)
 
 Depois de energizar eventos ponta a ponta, a direção mediu **as sete verticais que Clayton nomeou
