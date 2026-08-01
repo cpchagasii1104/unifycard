@@ -163,37 +163,78 @@ class ActorPageService {
       tabs.push({ key: 'location', label: 'Localização' });
     }
 
-    // F-ERP-COMPOSED-VIEW (Fatia 8) — vista integrada estoque+pedidos+agenda+financeiro, SÓ em
-    // mode='operating' (gated por canRepresentActor na ROTA) e SÓ pra empresa (DECISION-0133:
-    // owner empresarial = page+company_id). COMPOSIÇÃO PURA: estoque/agenda REUSAM os blocos JÁ
-    // computados acima (zero leitura nova); pedidos usa o único reader novo desta fatia
-    // (purchaseOrderRepository.listByOwner, escopado por owner_actor_id em SQL). Financeiro é
-    // SÓ deeplink — nunca valor monetário embutido no contrato (fronteira anti-dinheiro do módulo, §topo).
-    if (mode === 'operating' && actor.actor_type === 'page' && actor.company_id) {
-      const productsBlock = blocks.find((b) => b.type === 'products');
-      const agendaBlock = blocks.find((b) => b.type === 'agenda');
+    // F-ERP-COMPOSED-VIEW (Fatia 8) + F-ERP-TWO-SIDED (2026-08-01, GO Clayton) — vista integrada
+    // estoque+pedidos+agenda+financeiro, SÓ pra empresa (DECISION-0133: owner empresarial =
+    // page+company_id). COMPOSIÇÃO PURA: estoque/agenda REUSAM os blocos JÁ computados acima (zero
+    // leitura nova); pedidos usa purchaseOrderRepository.listByOwner (escopado por owner_actor_id
+    // em SQL). Financeiro é SÓ deeplink — nunca valor monetário embutido (fronteira anti-dinheiro).
+    //
+    // 🔴 O ERP TEM DUAS CARAS, como o CRM (aba `cliente` × aba `fornecedor`): COMPRAR É CONSUMIR.
+    //   · mode='operating' → face de VENDA (`side:'sales'`): estoque + agenda + pedidos + financeiro.
+    //     INALTERADA — nada que já aparecia sumiu.
+    //   · mode='consuming' → face de COMPRA (`side:'supply'`): pedidos de compra + financeiro.
+    //     O lado de compra da empresa deixou de ficar trancado dentro do modo de vender.
+    //
+    // 🔴 AUTORIDADE INALTERADA — MODO ≠ PERMISSÃO (eixos ORTOGONAIS):
+    //   · 'operating' segue provado na ROTA por canRepresentActor, fail-closed 403.
+    //   · 'consuming' NÃO afrouxa nada: a face de compra só existe quando `viewerActorId === actorId`,
+    //     isto é, quando o usuário está ATUANDO COMO esta empresa — e `viewerActorId` só é honrado se
+    //     canRepresentActor JÁ provou a representação na rota (DECISION-0113 D4/D9). Visitante — e
+    //     também o dono atuando como PF — continua sem ver ERP nenhum. Mesmo mecanismo já usado pelo
+    //     bloco 'connections' logo abaixo. O modo escolhe a CARA; a permissão decide o ACESSO.
+    //
+    // ⛔ Fornecedores NÃO entram nesta face: `supplierRepository.listSuppliers` filtra por tenant e
+    //    NÃO por `owner_actor_id` — compor ali vazaria a lista da empresa B para a empresa A. Só
+    //    `listByOwner` (pedidos) é escopado por dono em SQL. Ver nota no cartório.
+    const isCompanyPage = actor.actor_type === 'page' && !!actor.company_id;
+    const operatesThisPage = mode === 'operating';
+    const actingAsThisPage = !!viewerActorId && viewerActorId === actorId;
+
+    if (isCompanyPage && (operatesThisPage || actingAsThisPage)) {
       const purchaseOrders = await purchaseOrderRepository.listByOwner(tenantId, actorId, { limit: BLOCK_ITEMS_LIMIT });
-      blocks.push({
-        type: 'erp',
-        tab: 'erp',
-        deeplink: null,
-        data: {
-          count: purchaseOrders.length,
-          stock: { count: (productsBlock?.data.count as number) ?? 0, items: productsBlock?.data.items ?? [] },
-          agenda: { count: (agendaBlock?.data.count as number) ?? 0 },
-          purchaseOrders: {
+      const purchaseOrdersData = {
+        count: purchaseOrders.length,
+        items: purchaseOrders.map((po) => ({
+          id: po.id,
+          supplierId: po.supplierId,
+          status: po.status,
+          orderDate: po.orderDate,
+        })),
+      };
+
+      if (operatesThisPage) {
+        // Face de VENDA — byte a byte o que existia antes desta fatia, mais o discriminador `side`.
+        const productsBlock = blocks.find((b) => b.type === 'products');
+        const agendaBlock = blocks.find((b) => b.type === 'agenda');
+        blocks.push({
+          type: 'erp',
+          tab: 'erp',
+          deeplink: null,
+          data: {
+            side: 'sales',
             count: purchaseOrders.length,
-            items: purchaseOrders.map((po) => ({
-              id: po.id,
-              supplierId: po.supplierId,
-              status: po.status,
-              orderDate: po.orderDate,
-            })),
+            stock: { count: (productsBlock?.data.count as number) ?? 0, items: productsBlock?.data.items ?? [] },
+            agenda: { count: (agendaBlock?.data.count as number) ?? 0 },
+            purchaseOrders: purchaseOrdersData,
+            financeiro: { deeplink: '/wallet' },
           },
-          financeiro: { deeplink: '/wallet' },
-        },
-      });
-      tabs.push({ key: 'erp', label: 'ERP' });
+        });
+        tabs.push({ key: 'erp', label: 'ERP' });
+      } else {
+        // Face de COMPRA — o que a empresa CONSOME. Sem estoque/agenda: aqueles são o lado de venda.
+        blocks.push({
+          type: 'erp',
+          tab: 'erp',
+          deeplink: null,
+          data: {
+            side: 'supply',
+            count: purchaseOrders.length,
+            purchaseOrders: purchaseOrdersData,
+            financeiro: { deeplink: '/wallet' },
+          },
+        });
+        tabs.push({ key: 'erp', label: 'ERP · Compras' });
+      }
     }
 
     // Minhas conexões (achado Clayton 2026-07-07) — SÓ no PRÓPRIO perfil nesta fatia:

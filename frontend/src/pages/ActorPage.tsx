@@ -484,30 +484,39 @@ export default function ActorPage() {
           </section>
         );
       }
+      // F-ERP-TWO-SIDED: o ERP tem DUAS caras e o cliente ESPELHA o contrato — quem decide é
+      // `data.side` vindo do backend, nunca o frontend. 'sales' (mode=operating) traz estoque+
+      // agenda+pedidos+financeiro; 'supply' (mode=consuming atuando-como-a-empresa) traz só o lado
+      // de COMPRA. 🔴 Na face de compra NÃO se renderiza "Estoque: nenhum produto publicado" —
+      // estoque ali não está VAZIO, está NÃO-APLICÁVEL, e ausência não pode virar afirmação falsa.
       case 'erp': {
+        const side = (block.data.side as string | undefined) ?? 'sales';
+        const isSupply = side === 'supply';
         const stock = (block.data.stock ?? { count: 0, items: [] }) as { count: number; items: ActorPageProductItem[] };
         const agenda = (block.data.agenda ?? { count: 0 }) as { count: number };
         const purchaseOrders = (block.data.purchaseOrders ?? { count: 0, items: [] }) as { count: number; items: ActorPagePurchaseOrderItem[] };
         const financeiro = (block.data.financeiro ?? {}) as { deeplink?: string };
         return (
           <section key="erp" className="actor-block actor-erp-block">
-            <h2>ERP</h2>
+            <h2>{isSupply ? 'ERP · Compras' : 'ERP'}</h2>
             <div className="actor-erp-grid">
-              <div className="actor-erp-card">
-                <h3>Estoque</h3>
-                {stock.items.length === 0 ? (
-                  <p className="muted">Nenhum produto publicado.</p>
-                ) : (
-                  <ul className="actor-item-list">
-                    {stock.items.map((p) => (
-                      <li key={p.offerId} className="actor-item-card">
-                        <span>{p.name}</span>
-                        <span>{p.availableQuantity} un.</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
+              {!isSupply && (
+                <div className="actor-erp-card">
+                  <h3>Estoque</h3>
+                  {stock.items.length === 0 ? (
+                    <p className="muted">Nenhum produto publicado.</p>
+                  ) : (
+                    <ul className="actor-item-list">
+                      {stock.items.map((p) => (
+                        <li key={p.offerId} className="actor-item-card">
+                          <span>{p.name}</span>
+                          <span>{p.availableQuantity} un.</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
               <div className="actor-erp-card">
                 <h3>Pedidos de compra</h3>
                 {purchaseOrders.items.length === 0 ? (
@@ -523,10 +532,12 @@ export default function ActorPage() {
                   </ul>
                 )}
               </div>
-              <div className="actor-erp-card">
-                <h3>Agenda</h3>
-                <p>{agenda.count} horário(s) futuro(s) publicado(s).</p>
-              </div>
+              {!isSupply && (
+                <div className="actor-erp-card">
+                  <h3>Agenda</h3>
+                  <p>{agenda.count} horário(s) futuro(s) publicado(s).</p>
+                </div>
+              )}
               <div className="actor-erp-card">
                 <h3>Financeiro</h3>
                 {financeiro.deeplink && (

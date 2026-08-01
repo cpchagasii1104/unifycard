@@ -5,7 +5,12 @@
  * NUNCA unificard_dev.
  *
  * Prova o bloco 'erp' do contrato server-driven da página do actor:
- *   A · mode=consuming (visitante) numa empresa → SEM bloco/aba 'erp' (mesmo published tudo);
+ *   A · mode=consuming, DONO atuando como PF → SEM bloco/aba 'erp' (o rótulo antigo dizia
+ *       "visitante" e MENTIA: o chamador sempre foi o dono — corrigido em F-ERP-TWO-SIDED);
+ *   A2· F-ERP-TWO-SIDED: consuming ATUANDO COMO a empresa → face de COMPRA (side='supply');
+ *   A3· estranho em consuming DECLARANDO actionContext da empresa → SEM erp (hint não provado);
+ *   A4· isolamento na face de compra (açougue não vê pedido da padaria);
+ *   B2· NÃO-REGRESSÃO: face de venda manteve stock+agenda+purchaseOrders+financeiro;
  *   B · mode=operating pelo DONO de uma empresa (page+company_id) → bloco 'erp' aparece com
  *       pedidos de compra REAIS daquela empresa (via listByOwner escopado);
  *   C · mode=operating numa PÁGINA PESSOAL (actor_type='user', sem company_id) → SEM bloco 'erp'
@@ -64,7 +69,12 @@ async function mkCompanyPageActor(tenantId: string, name: string, ownerGu: strin
     `INSERT INTO actors (tenant_id, actor_type, display_name, company_id, slug, responsible_actor_id) VALUES ($1::uuid,'page',$2,$3::uuid,$4,$5::uuid) RETURNING id::text AS id`,
     [tenantId, name, companyId, `erp-page-${companyId.substring(0, 8)}-${seq}`, responsibleActorId]
   )).rows[0].id;
-  await pool.query(`INSERT INTO company_users (tenant_id, company_id, global_user_id, role, can_manage_company, is_active) VALUES ($1::uuid,$2::uuid,$3::uuid,'owner',true,true)`, [tenantId, companyId, ownerGu]);
+  // 🔴 REPARO DE PROVA QUEBRADA (F-ERP-TWO-SIDED, 2026-08-01) — NÃO faz parte do desenho desta fatia.
+  // O seed gravava `company_users.is_active`, COLUNA QUE NÃO EXISTE (a tabela tem `member_status` e
+  // `is_primary`). Presente assim desde o HEAD anterior (linha 67), logo este E2E não conseguia nem
+  // semear — a "prova selada" do bloco ERP estava vermelha/não-rodada. Convergido para o padrão vivo
+  // (validate-company-lifecycle-cutover.ts:79): member_status ∈ {active,suspended,revoked}.
+  await pool.query(`INSERT INTO company_users (tenant_id, company_id, global_user_id, role, can_manage_company, member_status) VALUES ($1::uuid,$2::uuid,$3::uuid,'owner',true,'active')`, [tenantId, companyId, ownerGu]);
   return { companyId, pageActorId };
 }
 
@@ -112,18 +122,26 @@ async function main(): Promise<void> {
   app.addHook('onRequest', async (req: any) => {
     const uid = req.headers['x-test-user-id'];
     const tid = req.headers['x-test-tenant-id'];
+    // F-ERP-TWO-SIDED: o harness passa a poder DECLARAR actionContext (atuando-como). A rota NÃO
+    // confia nisso — só honra o hint se canRepresentActor provar (DECISION-0113 D4/D9). Sem o
+    // header, comportamento idêntico ao anterior (null).
+    const acting = req.headers['x-test-acting-actor-id'];
     req.user = uid ? { userId: uid, id: uid } : null;
     req.tenant = tid ? { id: tid } : null;
-    req.actionContext = null;
+    req.actionContext = acting ? { actorId: acting } : null;
   });
   await app.register(actorPageRoutes);
   await app.ready();
 
-  const call = (actorId: string, mode: 'consuming' | 'operating', userId: string) =>
+  const call = (actorId: string, mode: 'consuming' | 'operating', userId: string, actingActorId?: string) =>
     app.inject({
       method: 'GET',
       url: `/actor-page/${actorId}?mode=${mode}`,
-      headers: { 'x-test-user-id': userId, 'x-test-tenant-id': TENANT },
+      headers: {
+        'x-test-user-id': userId,
+        'x-test-tenant-id': TENANT,
+        ...(actingActorId ? { 'x-test-acting-actor-id': actingActorId } : {}),
+      },
     });
 
   try {
@@ -133,12 +151,44 @@ async function main(): Promise<void> {
       `SELECT (SELECT COUNT(*) FROM bank_ledger) || ':' || (SELECT COUNT(*) FROM bank_transactions) AS n`
     );
 
-    // A · mode=consuming numa empresa → sem bloco/aba erp
+    // A · mode=consuming, DONO atuando como PF (sem actionContext) → sem bloco/aba erp.
+    // 🔴 O rótulo antigo dizia "(visitante)" e MENTIA: o chamador sempre foi carlos.userId, o DONO.
+    // Corrigido em F-ERP-TWO-SIDED. O caso continua valendo e ficou MAIS forte: nem o dono vê o ERP
+    // enquanto estiver atuando como pessoa física — a face de compra exige atuar-como-a-empresa.
     const rA = await call(padaria.pageActorId, 'consuming', carlos.userId);
     const dataA = (rA.json() as any)?.data;
     const hasErpA = dataA?.blocks?.some((b: any) => b.type === 'erp') || dataA?.tabs?.some((t: any) => t.key === 'erp');
-    record('A mode=consuming (visitante) → SEM bloco/aba erp', rA.statusCode === 200 && !hasErpA,
-      `status=${rA.statusCode} hasErp=${hasErpA}`);
+    record('A mode=consuming, DONO atuando como PF (sem actionContext) → SEM bloco/aba erp',
+      rA.statusCode === 200 && !hasErpA, `status=${rA.statusCode} hasErp=${hasErpA}`);
+
+    // A2 · F-ERP-TWO-SIDED: mode=consuming ATUANDO COMO a empresa → face de COMPRA (side='supply')
+    // com os 2 pedidos REAIS da padaria. É o coração da fatia: COMPRAR É CONSUMIR.
+    const rA2 = await call(padaria.pageActorId, 'consuming', carlos.userId, padaria.pageActorId);
+    const dataA2 = (rA2.json() as any)?.data;
+    const erpA2 = dataA2?.blocks?.find((b: any) => b.type === 'erp');
+    const poIdsA2 = (erpA2?.data?.purchaseOrders?.items ?? []).map((i: any) => i.id).sort();
+    const expectedA2 = [poPadaria1, poPadaria2].sort();
+    record('A2 mode=consuming ATUANDO COMO a empresa → bloco erp side=supply com os 2 pedidos de COMPRA',
+      rA2.statusCode === 200 && !!erpA2 && erpA2.data?.side === 'supply'
+        && JSON.stringify(poIdsA2) === JSON.stringify(expectedA2),
+      `status=${rA2.statusCode} side=${erpA2?.data?.side} poIds=${JSON.stringify(poIdsA2)} expected=${JSON.stringify(expectedA2)}`);
+
+    // A3 · a face de compra NÃO afrouxou autoridade: ESTRANHO em consuming, mesmo DECLARANDO
+    // actionContext da padaria, não vê ERP — o hint não provado por canRepresentActor é IGNORADO.
+    const rA3 = await call(padaria.pageActorId, 'consuming', stranger.userId, padaria.pageActorId);
+    const dataA3 = (rA3.json() as any)?.data;
+    const hasErpA3 = dataA3?.blocks?.some((b: any) => b.type === 'erp') || dataA3?.tabs?.some((t: any) => t.key === 'erp');
+    record('A3 ESTRANHO em consuming DECLARANDO actionContext da padaria → SEM erp (hint não provado é ignorado)',
+      rA3.statusCode === 200 && !hasErpA3, `status=${rA3.statusCode} hasErp=${hasErpA3}`);
+
+    // A4 · isolamento na face de COMPRA: o açougue atuando-como-si-mesmo não vê pedido da padaria.
+    const rA4 = await call(acougue.pageActorId, 'consuming', beto.userId, acougue.pageActorId);
+    const erpA4 = (rA4.json() as any)?.data?.blocks?.find((b: any) => b.type === 'erp');
+    const poIdsA4 = (erpA4?.data?.purchaseOrders?.items ?? []).map((i: any) => i.id);
+    record('A4 isolamento na face de COMPRA: açougue NÃO vê pedidos da padaria',
+      rA4.statusCode === 200 && erpA4?.data?.side === 'supply'
+        && !poIdsA4.includes(poPadaria1) && !poIdsA4.includes(poPadaria2) && poIdsA4.length === 1,
+      `side=${erpA4?.data?.side} poIdsA4=${JSON.stringify(poIdsA4)}`);
 
     // B · mode=operating pelo dono → bloco erp com os 2 pedidos reais da padaria
     const rB = await call(padaria.pageActorId, 'operating', carlos.userId);
@@ -149,6 +199,20 @@ async function main(): Promise<void> {
     record('B mode=operating pelo dono → bloco erp com os 2 pedidos REAIS da padaria',
       rB.statusCode === 200 && !!erpBlockB && JSON.stringify(poIdsB) === JSON.stringify(expectedB),
       `status=${rB.statusCode} poIds=${JSON.stringify(poIdsB)} expected=${JSON.stringify(expectedB)}`);
+
+    // B2 · NÃO-REGRESSÃO de F-ERP-TWO-SIDED: a face de VENDA manteve TUDO que já entregava.
+    // Se alguém "mover" estoque/agenda/pedidos para a face de compra, este caso fica vermelho.
+    const dB = erpBlockB?.data ?? {};
+    const salesKeys = Object.keys(dB).sort();
+    record('B2 face de VENDA intacta: side=sales + stock + agenda + purchaseOrders + financeiro (nada sumiu)',
+      dB.side === 'sales' && !!dB.stock && !!dB.agenda && !!dB.purchaseOrders
+        && dB.financeiro?.deeplink === '/wallet'
+        && JSON.stringify(salesKeys) === JSON.stringify(['agenda', 'count', 'financeiro', 'purchaseOrders', 'side', 'stock']),
+      `keys=${JSON.stringify(salesKeys)} side=${dB.side}`);
+
+    // B3 · a aba do modo operar continua rotulada 'ERP' (a de compra é 'ERP · Compras').
+    const tabB = dataB?.tabs?.find((t: any) => t.key === 'erp');
+    record("B3 aba do modo operar continua key='erp' label='ERP'", tabB?.label === 'ERP', `tab=${JSON.stringify(tabB)}`);
 
     // C · mode=operating numa página pessoal (sem company_id) → sem bloco erp
     const rC = await call(carlos.actorId, 'operating', carlos.userId);

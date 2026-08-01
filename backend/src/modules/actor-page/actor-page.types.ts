@@ -9,9 +9,12 @@
 //   · Comprar/Contratar RENDERIZAM mas nascem gated: enabled:false, gatedBy:'PORTA-1' (§6);
 //   · quais blocos acendem = derivado do que o actor PUBLICOU (probes no substrato vivo),
 //     nunca aba hardcoded por vertical (§2.2b);
-//   · F-ERP-COMPOSED-VIEW (Fatia 8): o bloco 'erp' (mode=operating, empresa) compõe
-//     estoque+pedidos+agenda in-page, mas o pilar FINANCEIRO é só deeplink ('/wallet') — NUNCA
-//     valor monetário embutido no contrato (mantém a fronteira anti-dinheiro literal desta linha).
+//   · F-ERP-COMPOSED-VIEW (Fatia 8) + F-ERP-TWO-SIDED: o bloco 'erp' (empresa = page+company_id)
+//     tem DUAS caras discriminadas por `data.side` — 'sales' em mode=operating (estoque+pedidos+
+//     agenda) e 'supply' em mode=consuming atuando-como-a-empresa (pedidos de compra).
+//     Em AMBAS as caras o pilar FINANCEIRO é só deeplink ('/wallet') — NUNCA valor monetário
+//     embutido no contrato (mantém a fronteira anti-dinheiro literal desta linha). Modo escolhe a
+//     cara; permissão (canRepresentActor, na rota) decide o acesso — eixos ortogonais.
 
 export type ActorPageMode = 'consuming' | 'operating';
 
