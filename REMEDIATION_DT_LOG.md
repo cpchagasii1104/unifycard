@@ -1,5 +1,42 @@
 # REMEDIATION DT LOG
 
+## ✅ DT-BANK-RECONCILIATION-HISTORY-DORMANT — FECHADA POR REMOÇÃO, não por isenção (2026-08-01)
+
+**GO explícito de Clayton para a deleção** (módulo pré-existente). Fecha o achado 【4】 da
+auditoria Yala do arco: a única descida de teto do projeto tinha sido **isenção**, não conserto.
+
+**O que foi apagado:** `backend/src/modules/bank/bank-reconciliation-history.repository.ts`,
+277 linhas, com `INSERT INTO bank_reconciliation_history` e dois `FROM` — tabela que **nunca
+existiu no schema vivo** (DDL só em `migrations_archive/0216`, nunca aplicada). Zero caller
+reconfirmado no momento da execução (`git grep`; a única ocorrência era a própria migalha que
+mandava não religar). A função já estava religada ao SSOT canônico
+(`reconciliation_runs` + `reconciliation_ledger_discrepancies`, `RECONCILIATION_DISCREPANCY_DUAL_TABLE`).
+
+**Os CINCO fios caíram no MESMO commit** — deixar qualquer um cria verdade paralela:
+| fio | se ficasse |
+|---|---|
+| o arquivo | 277 linhas de SQL fantasma vivas |
+| isenção `DT-BANK-…-DORMANT` na allowlist do gate | **isenção órfã** apontando arquivo inexistente = allowlist podre |
+| entrada `DORMANT[]` no guard anti-revival | guard mordendo "DORMENTE SUMIU", runner vermelho |
+| migalha em `bank-balance-consolidation.routes.ts:19` | **migalha citando caminho morto** — o mesmo defeito do `AGENT_BOOTSTRAP` derrubado hoje |
+| errata do PLACAR dizendo *"o SQL continua no arquivo"* | **o PLACAR voltaria a mentir, pela minha mão** |
+
+**O teto NÃO desceu: `GHOST-WRITE-vivo 259/353` antes e depois.** Prometido assim antes de
+executar, e é o ponto inteiro: aquele número **escondia** 277 linhas de código vivo; agora
+descreve a realidade. Mentira confortável trocada por verdade do mesmo tamanho.
+
+**O guard `audit-dormant-ghost-repository-antirevival.mjs` fica no runner com `DORMANT = []`**,
+de propósito — é onde a PRÓXIMA isenção-por-caminho tem de se registrar. Isentar arquivo na
+allowlist sem entrada lá recria a porta, porque a allowlist **não distingue dormente de religado**.
+
+**NÃO tocado:** `migrations_archive/0216`. É história, não verdade paralela — e é a origem que o
+`CLAUDE.md §3.2` manda consultar antes de chamar um valor de "inventado".
+
+**Provas:** typecheck backend **0** · `validate:regression-guards` **234 OK** · ratchet
+`259/259 · 353/353` · anti-revival verde **por ausência de alvo**, não por afrouxamento.
+
+---
+
 ## 🔴 AUDITORIA YALA DO ARCO (28 commits) — 2 DERRUBADAS, as duas da direção (2026-08-01)
 
 Parecer: `docs/04_audit/PARECER_YALA_ARCO_28_COMMITS_2026-08-01.md`.

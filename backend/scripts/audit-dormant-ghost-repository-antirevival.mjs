@@ -46,16 +46,17 @@ const REPO = join(__dirname, '..', '..');
 // Acrescentar aqui exige: (a) o arquivo ter SQL de tabela inexistente,
 // (b) zero caller vivo, (c) entrada correspondente na allowlist do gate.
 // ============================================================================
-const DORMANT = [
-  {
-    file: 'modules/bank/bank-reconciliation-history.repository.ts',
-    symbol: 'bankReconciliationHistoryRepository',
-    ghostTable: 'bank_reconciliation_history',
-    allowlistId: 'DT-BANK-RECONCILIATION-HISTORY-DORMANT',
-    instead:
-      'reconciliation_runs + reconciliation_ledger_discrepancies (SSOT nomeado pela DECISION RECONCILIATION_DISCREPANCY_DUAL_TABLE) — ver bank-balance-consolidation.routes.ts',
-  },
-];
+// 🔴 VAZIO DE PROPÓSITO desde 2026-08-01 — e isso é o RESULTADO, não a ausência dele.
+// O único inquilino era `modules/bank/bank-reconciliation-history.repository.ts`. A auditoria
+// Yala mostrou que a isenção dele no schema-coherence era por CAMINHO DE ARQUIVO e podia ser
+// reaberta com o gate verde; Clayton autorizou a deleção (2026-08-01) e o arquivo, a isenção e
+// esta entrada caíram no MESMO commit. O teto do ratchet NÃO mudou (259/353) — o que mudou é
+// que aquele número deixou de esconder 277 linhas de SQL para uma tabela que nunca existiu.
+//
+// O guard permanece cabeado de propósito: ele é o lugar onde a PRÓXIMA isenção-por-caminho tem
+// de se registrar. Isentar arquivo no `scripts/schema-coherence-allowlist.json` sem entrada aqui
+// recria exatamente a porta que foi fechada — a allowlist não distingue "dormente" de "religado".
+const DORMANT = [];
 
 // ============================================================================
 function walk(dir, acc = []) {

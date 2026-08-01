@@ -96,13 +96,21 @@ Não há caminho silencioso para **cima**.
 >
 > **E foi esse o caminho usado na única descida de teto do projeto.** `GHOST-WRITE-vivo`
 > 260→259 e `GHOST-READ-vivo` 355→353 vieram de `DT-BANK-RECONCILIATION-HISTORY-DORMANT` ser
-> acrescentado à allowlist do gate — a própria entrada admite *"Allowlistado (não consertado por
-> remoção)"*. **O SQL fantasma continua no arquivo** (`bank-reconciliation-history.repository.ts`
-> :101, :161, :185). O conserto do caminho VIVO é real e vale — a rota deixou de bater em
-> `42P01`. **Mas o número teria descido igual com zero linha de código alterada.**
+> acrescentado à allowlist do gate — a própria entrada admitia *"Allowlistado (não consertado por
+> remoção)"*. O conserto do caminho VIVO era real e vale — a rota deixou de bater em `42P01`.
+> **Mas o número teria descido igual com zero linha de código alterada.**
 >
-> 🔴 **Agravante:** não há guard anti-revival do repositório dormente. A isenção é por caminho de
-> arquivo — **quem reimportar aquele repository acende o SQL fantasma com o gate VERDE.**
+> ### ✅ RESOLVIDO DA FORMA CERTA — 2026-08-01, GO de Clayton
+> As 277 linhas de `bank-reconciliation-history.repository.ts` foram **APAGADAS**, e junto
+> caíram, no MESMO commit: a isenção `DT-BANK-RECONCILIATION-HISTORY-DORMANT` da allowlist do
+> gate · a entrada do guard anti-revival · a migalha que apontava para o arquivo.
+> **O teto NÃO desceu: continua `259/353`.** E é esse o ponto — aquele número escondia 277 linhas
+> de SQL para uma tabela que nunca existiu; agora descreve a realidade. **Trocou-se uma mentira
+> confortável por uma verdade do mesmo tamanho.**
+> O guard `audit-dormant-ghost-repository-antirevival.mjs` **permanece no runner com a lista
+> vazia**, de propósito: é onde a PRÓXIMA isenção-por-caminho tem de se registrar. Isentar
+> arquivo na allowlist sem entrada lá recria a porta — a allowlist não distingue *dormente* de
+> *religado*.
 >
 > ⚠️ **Os 6 tetos listados na tabela acima estão vencidos dentro deste próprio documento:** o
 > guard em HEAD usa **14 tetos por CONDIÇÃO** (`GHOST-WRITE-vivo`, `BOUNDARY-READ-scripts`…),

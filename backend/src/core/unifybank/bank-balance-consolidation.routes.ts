@@ -16,10 +16,11 @@ import {
 // ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
 // ║ STATUS:  CANÔNICO (F-BANK-RECONCILIATION-RELINK, 2026-07-31)
 // ║ NORMA:   docs/02_decisions/RECONCILIATION_DISCREPANCY_DUAL_TABLE.md
-// ║ NÃO:     `bankReconciliationHistoryRepository` (modules/bank/bank-reconciliation-history.
-// ║          repository.ts) — tabela bank_reconciliation_history NUNCA existiu no schema vivo
-// ║          (DDL existe em migrations_archive/0216, nunca aplicado — schema-ghost, 500 cru).
-// ║          DORMENTE agora, sem caller; NÃO apagado (autorização de deleção é ato da direção).
+// ║ NÃO:     gravar histórico de reconciliação em casa própria do Bank. A tabela
+// ║          `bank_reconciliation_history` NUNCA existiu no schema vivo (DDL só em
+// ║          migrations_archive/0216, nunca aplicado — todo INSERT/SELECT dava 500 cru).
+// ║          O repositório que a usava foi APAGADO em 2026-08-01 (GO Clayton) junto com sua
+// ║          isenção no schema-coherence — não procure o arquivo, ele não existe mais.
 // ║ EM VEZ:  createManualReconciliationRun/listManualReconciliationRuns/
 // ║          getManualReconciliationRunById (modules/reconciliation/reconciliation.repository.ts)
 // ║          — o SSOT canônico do Prompt 52 (ver reconciliation-engine.service.ts).
