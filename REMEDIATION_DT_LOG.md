@@ -1,5 +1,51 @@
 # REMEDIATION DT LOG
 
+## 🔴 AUDITORIA YALA DO ARCO (28 commits) — 2 DERRUBADAS, as duas da direção (2026-08-01)
+
+Parecer: `docs/04_audit/PARECER_YALA_ARCO_28_COMMITS_2026-08-01.md`.
+**27 dos 28 commits nunca tinham passado por auditoria independente** — Clayton cobrou o atalho
+e tinha razão. Placar: 2 SOBREVIVEM · 1 COM RESSALVA · **2 DERRUBADAS** · +1 achado fora das 5.
+
+### 🔴 【4】 A descida de teto foi ISENÇÃO, não conserto — verificado de 1ª mão
+`GHOST-WRITE-vivo` 260→259 e `GHOST-READ-vivo` 355→353 não vieram de remover o SQL fantasma.
+Vieram de `DT-BANK-RECONCILIATION-HISTORY-DORMANT` entrar em `scripts/schema-coherence-allowlist.json`
+— a entrada admite *"Allowlistado (não consertado por remoção)"*. Confirmei o mecanismo em
+`validate-schema-code-coherence.mjs:1001-1005`: ref allowlistado é descartado **antes** de entrar
+em `violations`, que é o `--json` que o ratchet consome. O SQL segue em
+`bank-reconciliation-history.repository.ts:101,161,185`.
+**O conserto do caminho VIVO é real** (a rota deixou de bater 42P01). **O número não desceu por
+isso** — desceria igual com zero linha alterada. E não há guard anti-revival: quem reimportar o
+repository dormente acende o SQL fantasma **com o gate verde**.
+
+### 🔴 【5】 O PLACAR afirmava algo falso, e a Yala nomeou o padrão
+O texto dizia *"pôr a chave na allowlist não salva"*. Salva — existem **duas** allowlists e só a
+do ratchet está travada; a do gate subjacente remove a violação da fonte. Corrigido no PLACAR com
+o mecanismo citado por linha.
+**Padrão nomeado pela auditoria:** *"o PLACAR erra onde se ELOGIA, não onde se acusa"* — as
+ressalvas e as acusações resistiram; as declarações de vitória caíram.
+
+### 🔎 A VIGÉSIMA — no commit de HEAD, e é minha
+`3dc7bdf5b` consertou os baldes do contador e **deixou o defeito nos dois arquivos que ele mesmo
+editou**: `risk-dashboard.types.ts:49,108` e `frontend/src/api/risk-dashboard.ts:48,110` seguem
+`'LOW'|'MEDIUM'|'HIGH'|'BLOCKED'` — 25 linhas abaixo do meu próprio comentário mandando não usar
+maiúscula nem `BLOCKED`. **O arquivo se contradiz.**
+Tentei corrigir e **REVERTI**: a raiz é `backend/src/modules/trust/trust.types.ts:10`
+(`export type RiskLevel`), e mudá-la quebra o typecheck em `payout.service.ts:44`
+(`riskLevel === 'BLOCKED'`) e `trust-engine.service.ts:197,203` — **travas de dinheiro**.
+Meia-correção de tipo num caminho de dinheiro é pior que o defeito nomeado. Vai como fatia
+própria, com prova de que a trava passa a morder.
+⚠️ Quase corrigi demais: o `severity` desses mesmos arquivos **não é espelho de coluna** — tem
+mapeador explícito em `risk-dashboard.service.ts:429` (CRITICAL→CRITICAL, ERROR→HIGH,
+WARNING→MEDIUM). Vocabulário de apresentação derivado no backend está CERTO. A Yala nomeou só
+`riskLevel`, e estava certa.
+
+### O que ela NÃO auditou — onde estaria o quinto membro
+Cruzou os 5 enums minúsculos + o CHECK de `trust_profiles`, mas **não** os ~30 demais CHECK
+textuais contra suas uniões TS. Coluna TEXT+CHECK falha em SILÊNCIO (0 linhas, sem erro).
+Não subiu backend/frontend, não rodou o runner completo, não reatacou os 3 guards novos.
+
+---
+
 ## 🔴 ERRATA DA DIREÇÃO — os valores "inventados" eram o desenho ANTERIOR (2026-08-01)
 
 **20º erro do arco, e ele reclassifica a família inteira de defeitos de vocabulário.**

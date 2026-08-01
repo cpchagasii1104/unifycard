@@ -78,7 +78,39 @@ salva):
 > "fantasmas"** até serem separados por condição. Separar é fatia própria.
 
 **Como ler:** número que sobe = alguém introduziu dívida nova e o runner fica vermelho.
-Número que desce = dívida paga de verdade. Não há caminho silencioso para cima.
+Não há caminho silencioso para **cima**.
+
+> ### 🔴 ERRATA (auditoria Yala, 2026-08-01) — HÁ caminho silencioso para BAIXO
+>
+> Este bloco afirmava: *"o teto é comparado contra a contagem do CÓDIGO — pôr a chave na
+> allowlist não salva"* e *"número que desce = dívida paga de verdade"*. **As duas frases são
+> enganosas, e a segunda é falsa.**
+>
+> Existem **DUAS** allowlists, e só uma está travada:
+> · `backend/scripts/schema-coherence-ratchet-baseline.json` — a do ratchet. Pôr chave aqui
+>   **não salva**: o teto estoura contra a contagem do código. Isto eu ataquei e é verdade.
+> · `scripts/schema-coherence-allowlist.json` — a do gate SUBJACENTE. Esta **salva**:
+>   `validate-schema-code-coherence.mjs:1001-1005` descarta o ref allowlistado **ANTES** de
+>   entrar em `violations`, que é o `--json` que o ratchet consome. A violação some da fonte, e
+>   o teto desce sozinho.
+>
+> **E foi esse o caminho usado na única descida de teto do projeto.** `GHOST-WRITE-vivo`
+> 260→259 e `GHOST-READ-vivo` 355→353 vieram de `DT-BANK-RECONCILIATION-HISTORY-DORMANT` ser
+> acrescentado à allowlist do gate — a própria entrada admite *"Allowlistado (não consertado por
+> remoção)"*. **O SQL fantasma continua no arquivo** (`bank-reconciliation-history.repository.ts`
+> :101, :161, :185). O conserto do caminho VIVO é real e vale — a rota deixou de bater em
+> `42P01`. **Mas o número teria descido igual com zero linha de código alterada.**
+>
+> 🔴 **Agravante:** não há guard anti-revival do repositório dormente. A isenção é por caminho de
+> arquivo — **quem reimportar aquele repository acende o SQL fantasma com o gate VERDE.**
+>
+> ⚠️ **Os 6 tetos listados na tabela acima estão vencidos dentro deste próprio documento:** o
+> guard em HEAD usa **14 tetos por CONDIÇÃO** (`GHOST-WRITE-vivo`, `BOUNDARY-READ-scripts`…),
+> trocados em `856c5529d`, commit deste mesmo arco.
+>
+> **O padrão que a auditoria nomeou, e que vale mais que os números:** *este PLACAR erra onde se
+> ELOGIA, não onde se acusa.* Toda afirmação de vitória aqui precisa da mesma prova que a
+> direção exige das instâncias.
 
 ⚠️ **Declarado, não escondido:** `BLOCKER-vivo` **superestima** o perigo real — parte das 260
 está atrás de contenção 501/403 provada. O gate mede REFERÊNCIA no código; a contenção mede
