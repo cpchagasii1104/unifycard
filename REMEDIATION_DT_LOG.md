@@ -1,5 +1,53 @@
 # REMEDIATION DT LOG
 
+## 🗺️ O MAPA DAS 7 VERTICAIS DO MÍNIMO — medido, e ele decide a ordem do resto (2026-08-01, direção)
+
+Depois de energizar eventos ponta a ponta, a direção mediu **as sete verticais que Clayton nomeou
+como o mínimo**. O resultado muda a estratégia: o problema não é dívida técnica espalhada — é que
+**o funil de CRIAÇÃO está partido em quase todas**.
+
+```
+psql (unificard_dev, read-only)
+serviços      → service_offerings=0 · services=0 · service_orders=0
+locação       → rentable_resources=0
+compra/venda  → products=0 · orders=0
+eventos       → events=25 · publicados=0        ← capacidade religada hoje (a68192fe3)
+rede social   → posts=10 (todos intent='personal', is_published=true, is_deleted=false)
+banco         → bank_accounts=16 · bank_ledger=0 (caminho do dinheiro zerado, por contenção)
+cartão        → (não medido nesta passagem)
+```
+
+### 🔴 A LEITURA QUE IMPORTA
+**Cinco das sete verticais têm ZERO linha.** Isso não é "ninguém usou ainda" — é a mesma assinatura
+que eventos tinha: **`/services/new` está VIVO no router (`App.tsx:407`) e
+`service-offering.service.ts` TEM o `INSERT INTO service_offerings`** — a capacidade existe e o
+resultado é zero. Em eventos, exatamente esse quadro escondia **três elos partidos**.
+**Hipótese testável, não conclusão:** o funil de criação de serviço/produto/locação está
+interrompido do mesmo jeito. Só um GATE prova.
+
+### O QUE EVENTOS ENSINOU — e vira método
+1. **Amplitude não achou.** O relatório de 9 partes da instância consumir/operar mapeou o sistema
+   inteiro e não pegou o funil partido. **Profundidade em UM caminho, até o `reply`, pegou.**
+2. **O defeito nunca é um.** Eventos tinha 3 elos independentes; cada um sozinho já zerava.
+   Consertar um e declarar vitória teria produzido zero do mesmo jeito.
+3. **A capacidade quase sempre já existe.** `updateEvent` já gravava `datetime_start`;
+   `event.routes.ts` já aceitava o campo. Não faltava construir — faltava **religar**.
+4. **O critério de sucesso é uma query, não uma tela.** *"Quantos chegam ao usuário?"* Hoje: 0.
+
+### 📌 PRÓXIMA VERTICAL: SERVIÇOS — e a razão não é técnica
+Clayton nomeou serviços **na própria resposta (A)** sobre PF ganhar dinheiro: *"prestando serviços
+(manicure, cortador de grama)"*. É a vertical onde a decisão dele encosta em produto. Somam-se:
+`/services/new` vivo · writer existente · e o `CLAUDE.md` registra que **serviços e locação têm ZERO
+débito de escrita fantasma** — substrato limpo, o oposto de `rides`.
+
+⚠️ **Aberto, e é de Clayton:** o funil de eventos está **construído e provado em efêmero (E2E 8/8
+com a query real do feed)**, mas a contagem em dado real continua **0**, porque confirmar data e
+publicar sobre os 25 eventos reais é **alteração de dado de produto** — a executora corretamente não
+o fez, e a direção também não. **Provar em dado real exige a palavra dele.**
+
+---
+
+
 ## 🔴 GATE — F-EVENT-PUBLISH-FUNNEL: 25 eventos existem e NENHUM chega ao usuário; o funil está partido em TRÊS pontos (2026-08-01, direção)
 
 **Não é tela quebrada.** `criar → declarar → publicar → aparecer no feed` tem três interrupções
