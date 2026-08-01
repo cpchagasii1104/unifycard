@@ -1,6 +1,49 @@
 # REMEDIATION DT LOG
 
-## 🔴 GATE — DT-PAYOUT-SPLIT-BRAIN: o desembolso está partido ao meio (2026-08-01, direção)
+## ⛔ RETRATADA — "DT-PAYOUT-SPLIT-BRAIN" NÃO EXISTE. O achado verdadeiro é menor e tem nome: 3 READERS FORA DA CONTENÇÃO (2026-08-01)
+
+> 🔴 **RETRATAÇÃO INTEGRAL DA DIREÇÃO, 25 minutos depois de escrever a entrada abaixo.**
+> A tese *"o desembolso está partido ao meio"* e *"pedir saque por HTTP falha na escrita"* é
+> **FALSA**. Foi construída por inferência de `grep` — vi `modules/payout/payout.repository.ts →
+> payout_orders (AUSENTE)` e concluí o resto **sem traçar a rota até o handler e sem ler a DECISION
+> que governa o arquivo**. As duas coisas estavam a um comando de distância.
+>
+> **O que o `payout.routes.ts:10-22` diz, e eu não li antes de escrever:**
+> `F-ACTOR-WALLET-PAYOUT-WIRING` / **`DECISION-0128`** — os writers de execução são **FAIL-CLOSED
+> por decisão**, e a execução real é frente FUTURA **nomeada** (`F-PAYOUT-EXECUTION-SEAL`).
+> `payout_orders`/`payout_batches` estarem ausentes é **coerente com isso**: a execução não foi
+> construída ainda, de propósito. `modules/payout/` não é órfão nem esquecido.
+>
+> | endpoint | estado REAL (lido no handler, não inferido) |
+> |---|---|
+> | `POST /payouts/batches` | **403** `PAYOUT_HTTP_EXECUTION_DISABLED` — contido por **DECISION-0128** |
+> | `GET /payouts/orders` | **503** `PORTA_01_CLOSED` — contido por **DECISION-0189B D2** |
+> | `POST /payouts/requests` | → `actorWalletPayoutService` → `actor_wallet_payout_requests` (**existe**) — **funciona** |
+> | `GET /payouts/batches` (`:88`) | 🔴 `listBatches` → `payout_batches` **AUSENTE** → 42P01 |
+> | `GET /payouts/batches/:batchId` (`:101`) | 🔴 `getBatchById` → `payout_batches` **AUSENTE** → 42P01 |
+> | `GET /payouts/orders/:orderId` (`:137`) | 🔴 `getOrderById` → `payout_orders` **AUSENTE** → 42P01 |
+>
+> ### ✅ O ACHADO QUE SOBREVIVE — e é bom, só é menor
+> A contenção do payout foi feita em **DUAS ondas com decisões diferentes** (0128 nos writers,
+> 0189B D2 no `GET /payouts/orders`) e **três readers ficaram de fora das duas**. Eles não estão
+> protegidos por nada e leem tabela ausente. É o padrão *"os irmãos que não foram contidos junto"*
+> — conserto **coerente com decisões que já existem**, não decisão de produto nova.
+> Contenção honesta: `bank_ledger`=0, `payout_requests`=0, `actor_wallet_payout_requests`=0.
+>
+> ### 🔴 A LIÇÃO, E É SOBRE MIM — segunda retratação no MESMO tema, no MESMO dia
+> A entrada `DT-PAYOUT-RISK-GATE` também precisou de errata hoje, pela mesma causa. O padrão é
+> claro e não é sobre ferramenta: **estou escrevendo no cartório antes de traçar o caminho até o
+> fim.** `grep` mostra que um arquivo cita uma tabela; **não** mostra se o handler é alcançável,
+> se há 403 antes, nem qual DECISION governa. As duas erratas de hoje nasceram do mesmo salto.
+> **Regra que passa a valer para a direção:** *nada entra no cartório como tese estrutural antes de
+> (a) ler o handler até o `reply`, e (b) abrir a norma citada no cabeçalho do arquivo.* Cartório é
+> append-only: entrada errada não some, só ganha retratação — e retratação custa mais caro que
+> esperar 10 minutos.
+> ⚠️ A generalização *"padrão com 3 instâncias provadas"* que a entrada abaixo faz **cai junto**:
+> das três, só a da reconciliação e a do risco seguem de pé, e a do risco já está requalificada
+> como duplicata legada, não como buraco.
+
+### 📌 Texto original preservado — FALSO em substância, mantido porque cartório não se apaga
 
 **O padrão estrutural do sistema, na sua forma mais cara: DUAS implementações do mesmo conceito,
 o substrato canônico existe, e o lado MONTADO fala com o lado que não existe.** Não é dívida de
