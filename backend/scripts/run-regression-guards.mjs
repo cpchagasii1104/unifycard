@@ -321,6 +321,15 @@ const CMDS = [
   // CORRUPTOR-scripts 1047 · DEBT-vivo 32 · DEBT-scripts 18). Violação nova = FAIL · baseline
   // inflada = FAIL · contagem só desce (--write-baseline recusa crescer).
   "node scripts/audit-schema-coherence-ratchet.mjs",
+  // F-DOC-ENTRY-AUTHORITY (2026-07-31, GO Clayton): QUATRO documentos disputavam ser "a entrada"
+  // do repositório e dois estavam parados desde jan/fev — um deles mandando ler 418 arquivos como
+  // "ORDEM OBRIGATÓRIA", apontando para uma pasta inexistente. Reorganizar resolveu o passado;
+  // este teto impede o próximo nascer: documento NOVO em docs/ declara 5 campos (Categoria,
+  // Status, Fonte canônica, Obrigatório, Governado por) ou o gate morde. Baseline congelada com
+  // os 1806 sem tarja de hoje (de 1811 rastreados) — exigir tarja nos 1806 nasceria vermelho e
+  // seria desligado, como aconteceu com schema-coherence. Teto COMPARADO contra o disco: alistar
+  // o documento novo na baseline para calar o gate estoura o teto do mesmo jeito. Contagem só desce.
+  "node scripts/audit-doc-tag-ratchet.mjs",
   // F-RUNNER-COVERAGE-VISIBILITY-ANTI-DRIFT (ROOT-003 R2): meta-guard que torna a cobertura efetiva
   // VISIVEL e FALHA em drift (guard novo sem wiring). Nao executa guards; deriva o alcance das fontes
   // reais (este CMDS[], os 2 agregadores, actor-writer). Deve ser a ULTIMA entrada (le o array acima).
