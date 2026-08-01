@@ -1,5 +1,96 @@
 # REMEDIATION DT LOG
 
+## ✅ EXECUTADO — F-SCHEMA-COHERENCE-TRUTH: o ratchet contava duas doenças num balde só (2026-07-31; GO Clayton)
+
+**O erro que esta entrada registra, e como caiu (achado da DIREÇÃO, `bbfc238f3` — não desta
+instância):** a direção escreveu no PLACAR que o gate `schema-coherence` mede "código
+referenciando tabela que não existe". FALSO para 64% do total: `detectViolationAndSeverity`
+(`validate-schema-code-coherence.mjs:710-775`) classifica SETE condições sob três rótulos, e
+as Condições 3/4/5 (leitura/escrita de `bank_*`/INSERT em `actors` FORA do módulo autorizado)
+disparam sobre tabelas que EXISTEM — violação de AUTORIDADE, outro remédio. O erro caiu por
+contradição direta: `bank_splits`, `bank_ledger` e `actors` apareceram numa lista de
+"ausentes" horas depois de a direção tê-las consultado no banco vivo. O fio foi puxado, a
+medição refeita, e o mandato desta fatia nasceu ANTES da priorização que ia se apoiar no
+número errado.
+
+**Conferência de 1ª mão dos números do mandato (1826 ✓ · 64% fronteira ✓), com 3 divergências
+pequenas, explicadas:** mandato 1178 fronteira / 644 fantasma / 156 tabelas / 259
+ghost-write-vivo; medição desta instância (replicando a ORDEM exata do gate + schema vivo):
+**1175 / 647 / 157 / 260**. A diferença são exatamente **3 itens de dupla natureza**:
+`bank_reconciliation_history` (`modules/bank/bank-reconciliation-history.repository.ts:86,145,169`)
+— nome `bank_*` E tabela inexistente. A checagem de fronteira PASSA (o caminho é autorizado,
+está dentro de `modules/bank`) e a de existência pega → o GATE as classifica FANTASMA; a
+contagem manual do mandato as tinha como fronteira pelo prefixo. Não há dupla CONTAGEM (cada
+violação recebe exatamente 1 condição); há dupla NATUREZA, e o gate resolve pela ordem. Não
+existe hoje nenhum fantasma `bank_*` escondido ATRÁS da fronteira (verificado: os 3 são os
+únicos `bank_*` inexistentes referenciados, e todos estão em caminho autorizado).
+
+**MEDIÇÃO 1 — tetos por CONDIÇÃO (executada):** o gate ganhou o campo ADITIVO `condition` no
+retorno de `detectViolationAndSeverity` e no export `--json` (zero mudança de severidade/
+ordem/exit — não é afrouxamento, é observabilidade). O ratchet v2 re-chaveia
+`arquivo::tabela::padrão::condição::severidade::superfície` e os tetos viram 14, POR CONDIÇÃO
+× direção × superfície (direção por OPERAÇÃO: C5/INSERT em actors é CORRUPTOR na régua mas é
+ESCRITA — entra em BOUNDARY-WRITE):
+```
+GHOST-WRITE-vivo 260 · GHOST-WRITE-scripts 5 · GHOST-READ-vivo 355 · GHOST-READ-scripts 27
+BOUNDARY-WRITE-vivo 4 · BOUNDARY-WRITE-scripts 327 · BOUNDARY-READ-vivo 37 · BOUNDARY-READ-scripts 807
+METADATA-DECISION 0/4 · SCHEMA-CATCH 0/0 · GHOST-COLUMN 0/0
+```
+Soma = 1826 = soma dos tetos antigos (260+105+364+1047+32+18) ✓. Reconciliação severidade:
+BLOCKER 365 = GHOST-WRITE 265 + C3 100 · CORRUPTOR 1411 = 332+844+231+4 · DEBT 50 ✓. O
+`BLOCKER-vivo=260` antigo era 100% GHOST-WRITE-vivo (a fronteira BLOCKER é toda scripts) — o
+balde vivo de escrita já era puro por coincidência; o balde CORRUPTOR era a mistura real
+(37 fronteira + 323 fantasma no vivo). Item sem `condition` no JSON = FAIL duro do ratchet
+(anti-regressão do próprio campo). **As 4 provas re-executadas e passando** (violação nova →
+FAIL chave+teto · violação nova+baseline inflada → FAIL teto dos 2 lados + `--write-baseline`
+RECUSADO · chave removida com código vivo → FAIL · repositório real → OK 14/14 tetos).
+**Runner: 232/232** (inalterado — mesmo comando, conteúdo novo).
+
+**MEDIÇÃO 2 — o eixo de cluster (executada, resultado HONESTO: o eixo é fraco):** das 157
+tabelas fantasmas, **137 têm `CREATE TABLE` real no `migrations_archive`** (casadas por DDL,
+não por nome de arquivo), **0 em migration viva**, **20 SEM DDL em lugar nenhum**. Os 137
+saem de **103 arquivos distintos** — distribuição: 82 arquivos cobrem 1 tabela · 13 cobrem 2
+· 5 cobrem 3 · 1 cobre 4 · 2 cobrem 6. Só **8 arquivos cobrem 3+ tabelas (31 tabelas)**:
+`0630_unifywork_core` (6) · `0920_observability_passive` (6) · `0761_memory_engine` (4) ·
+`0038_actor_scores_penalties` (3) · `0837_cultural_events` (3) · `0721_rides_security_analytics`
+(3) · `0718_rides_ride_lifecycle` (3) · `0841_votes_system` (3). **A unidade "migration" NÃO
+muda a ordem de grandeza do esforço** — 80% dos arquivos são 1:1 com a tabela. Mapa completo
+tabela→arquivo em scratchpad (`measure2-map.json`), pronto para virar anexo se a direção quiser.
+Dos 20 sem-DDL: 2 são LIXO DE PARSER do gate (`public` — resíduo de nome schema-qualificado —
+e `_er_fc`), **4ª classe de bug do parser, registrada e NÃO consertada nesta fatia** (veto
+explícito); os 18 reais batem com os já adjudicados na decomposição de 30/07
+(`reports`/`report_events`/`risk_flags` = DECISION-0195 · `accounts`/`transactions`/
+`payment_intent_splits`/`payout_transactions` = substrato substituído · 9 `rides_*` ·
+`payment_requests` · `unified_availability`). A estimativa ~21 do mandato era ~certa: 20, das
+quais 18 genuínas.
+
+**MEDIÇÃO 3 — por que a Condição 2 (coluna fantasma) NUNCA morde (causa achada, NÃO
+consertada — veto explícito do mandato):** medição empírica sobre o código vivo com a MESMA
+regex do gate: o extrator produz **6.184 refs `type:'column'`** (`alias.coluna`), mas a
+Condição 2 exige `schema.has(ref.table)` — o token à ESQUERDA do ponto tem que ser o NOME
+COMPLETO de uma tabela real. **89,9% dos tokens esquerdos são aliases de 1-3 caracteres**
+(`a.`, `bt.`, `cu.`...) — o SQL real do repositório apelida praticamente toda tabela. Só
+**56 refs (0,9%)** têm nome completo de tabela à esquerda, e nessas 56 as colunas existem →
+**zero por construção**. Cegueira dupla: (a) o gate não resolve alias→tabela (não lê o `FROM
+x AS y` da própria query); (b) escrita não-qualificada — `INSERT INTO t (col1, col2)` e
+`UPDATE t SET col=` — não gera ref de coluna NENHUMA (a regex exige ponto). Dos 2 casos
+provados da classe ③ citados no mandato: `rides_service_types.base_fare` seria pego por um
+detector com resolução de alias; `rides_drivers.level='bronze'` **NÃO seria nem com o
+detector consertado** — a coluna `level` EXISTE, o que está errado é o VALOR contra o CHECK;
+isso é uma classe diferente (vocabulário de valor), que exigiria detector próprio comparando
+literais contra CHECK constraints. Se/quando o detector de coluna acordar, pode acender
+centenas de violações de uma vez — **teto próprio (`GHOST-COLUMN` já reservado em 0/0) e
+fatia própria**, como o mandato manda.
+
+**Escopo respeitado:** nenhuma violação consertada · gate NÃO afrouxado (campo aditivo
+apenas; régua e exit intactos — o FAIL avulso dele continua 1776) · nenhuma priorização.
+Arquivos: `scripts/validate-schema-code-coherence.mjs` (campo `condition`, aditivo) ·
+`backend/scripts/audit-schema-coherence-ratchet.mjs` (v2 por condição) ·
+`backend/scripts/schema-coherence-ratchet-baseline.json` (re-chaveada, 1188 chaves) · este
+cartório. Higiene: LF nos 4; zero resíduo de prova. NÃO COMMITADO.
+
+---
+
 ## ✅ EXECUTADO — F-SCHEMA-COHERENCE-RATCHET: o gate vermelho e não-lido entra no runner com teto que só desce (2026-07-31; GO Clayton)
 
 **O fato que esta entrada registra para quem chegar depois:** o gate

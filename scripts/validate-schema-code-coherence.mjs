@@ -707,6 +707,10 @@ function isMetadataDecisionTransactional(ref) {
   return hasDecisionClause(ref.snippet || '') && Array.from(TRANSACTIONAL_TABLES).some(t => snippet.includes(t));
 }
 
+// `condition` é ADITIVO (F-SCHEMA-COHERENCE-TRUTH, 2026-07-31): nomeia qual das
+// 7 condições disparou, para o --json e o ratchet distinguirem FANTASMA (a
+// tabela não existe) de FRONTEIRA (a tabela existe; o acesso é que está fora
+// do módulo autorizado). Zero mudança de severidade, ordem ou exit code.
 function detectViolationAndSeverity(ref, schema) {
   const snippet = String(ref.snippet || '');
   const pattern = String(ref.pattern || '').toUpperCase();
@@ -714,7 +718,7 @@ function detectViolationAndSeverity(ref, schema) {
 
   // Condition 6: schema catch
   if (ref.type === 'schema_catch') {
-    return { isViolation: true, severity: 'CORRUPTOR' };
+    return { isViolation: true, severity: 'CORRUPTOR', condition: 'C6-SCHEMA-CATCH' };
   }
 
   // Condition 7: metadata-> decision on transactional table
@@ -722,7 +726,7 @@ function detectViolationAndSeverity(ref, schema) {
     const isDecision = hasDecisionClause(snippet);
     const hasTransactionalTable = Array.from(TRANSACTIONAL_TABLES).some(t => snippet.toLowerCase().includes(t));
     if (isDecision && hasTransactionalTable) {
-      return { isViolation: true, severity: 'CORRUPTOR' };
+      return { isViolation: true, severity: 'CORRUPTOR', condition: 'C7-METADATA-DECISION' };
     }
     return { isViolation: false, severity: null };
   }
@@ -735,28 +739,28 @@ function detectViolationAndSeverity(ref, schema) {
 
     // Condition 3: bank_* write outside authorized write modules
     if (isBankTable && isWrite && !isAllowedByPath(filePath, AUTHORIZED_BANK_WRITE)) {
-      return { isViolation: true, severity: 'BLOCKER' };
+      return { isViolation: true, severity: 'BLOCKER', condition: 'C3-BANK-WRITE-BOUNDARY' };
     }
 
     // Condition 4: bank_* read outside authorized read modules
     if (tableName.startsWith('bank_') && isRead && !isAllowedByPath(filePath, AUTHORIZED_BANK_READ)) {
-      return { isViolation: true, severity: 'CORRUPTOR' };
+      return { isViolation: true, severity: 'CORRUPTOR', condition: 'C4-BANK-READ-BOUNDARY' };
     }
 
     // Condition 5: INSERT INTO actors outside actor writer
     if (tableName === 'actors' && pattern === 'INSERT' && !isAllowedByPath(filePath, ['modules/identity/actor-writer.service.ts'])) {
-      return { isViolation: true, severity: 'CORRUPTOR' };
+      return { isViolation: true, severity: 'CORRUPTOR', condition: 'C5-ACTORS-INSERT-BOUNDARY' };
     }
 
     // Condition 1: ghost table
     if (!schema.has(tableName)) {
       if (isWrite) {
-        return { isViolation: true, severity: 'BLOCKER' };
+        return { isViolation: true, severity: 'BLOCKER', condition: 'C1-GHOST-WRITE' };
       }
       if (isRead) {
-        return { isViolation: true, severity: hasDecisionClause(snippet) ? 'CORRUPTOR' : 'DEBT' };
+        return { isViolation: true, severity: hasDecisionClause(snippet) ? 'CORRUPTOR' : 'DEBT', condition: 'C1-GHOST-READ' };
       }
-      return { isViolation: true, severity: 'DEBT' };
+      return { isViolation: true, severity: 'DEBT', condition: 'C1-GHOST-OTHER' };
     }
 
     return { isViolation: false, severity: null };
@@ -766,12 +770,12 @@ function detectViolationAndSeverity(ref, schema) {
     // Condition 2: ghost column (only when left-side token maps directly to a real table)
     if (schema.has(ref.table) && !schema.get(ref.table).has(ref.name)) {
       if (/\bINSERT\s+INTO\b|\bUPDATE\b.*\bSET\b|\bSET\s+[a-z_][a-z0-9_]*\s*=/i.test(snippet)) {
-        return { isViolation: true, severity: 'BLOCKER' };
+        return { isViolation: true, severity: 'BLOCKER', condition: 'C2-GHOST-COLUMN' };
       }
       if (hasDecisionClause(snippet)) {
-        return { isViolation: true, severity: 'CORRUPTOR' };
+        return { isViolation: true, severity: 'CORRUPTOR', condition: 'C2-GHOST-COLUMN' };
       }
-      return { isViolation: true, severity: 'DEBT' };
+      return { isViolation: true, severity: 'DEBT', condition: 'C2-GHOST-COLUMN' };
     }
     return { isViolation: false, severity: null };
   }
@@ -997,7 +1001,7 @@ async function main() {
     if (allowlistId) {
       allowlistedIds.add(allowlistId);
     } else {
-      violations[detected.severity].push(ref);
+      violations[detected.severity].push({ ...ref, condition: detected.condition ?? null });
     }
   }
 
@@ -1069,6 +1073,7 @@ async function main() {
           pattern: v.pattern ?? null,
           type: v.type,
           severity,
+          condition: v.condition ?? null,
           snippet: v.snippet ?? null,
           inScripts: normalizePath(v.file).includes('backend/src/scripts/'),
         });

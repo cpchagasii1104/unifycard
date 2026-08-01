@@ -18,24 +18,38 @@
 // `audit-query-param-boundary-validation.mjs` (`705711d19`), incluindo a
 // lição da v1 daquele guard: OS TETOS SÃO COMPARADOS, NÃO SÓ IMPRESSOS.
 //
-// TETOS SEPARADOS (mandato explícito — um número agregado deixaria alguém
-// "melhorar o número" mexendo em harness de e2e enquanto o BLOCKER-vivo
-// cresce). Os 6 buckets = severidade × superfície (vivo = fora de
-// backend/src/scripts/; scripts = harness/e2e/seed, não superfície de
-// runtime):
+// TETOS POR CONDIÇÃO (F-SCHEMA-COHERENCE-TRUTH, 2026-07-31): a v1 destes
+// tetos era severidade × superfície — e `BLOCKER-vivo=260` misturava DUAS
+// doenças (achado de Clayton, `bbfc238f3` corrigido): tabela FANTASMA
+// (Condição 1 — a tabela não existe) e FRONTEIRA bank_*/actors (Condições
+// 3/4/5 — a tabela EXISTE; o acesso é que está fora do módulo autorizado;
+// violação de AUTORIDADE, outro remédio). 64% do total era fronteira sendo
+// lida como fantasma. Tetos agora por CONDIÇÃO × direção × superfície; o
+// gate subjacente exporta `condition` no --json (campo aditivo).
+// Direção por OPERAÇÃO, não por severidade: C5 (INSERT em actors) é
+// CORRUPTOR na régua do gate mas é ESCRITA — entra em BOUNDARY-WRITE.
 const CEILINGS = {
-  'BLOCKER-vivo': 260,     // escrita em tabela ausente, código vivo — O que precisa cair primeiro
-  'BLOCKER-scripts': 105,  // escrita em tabela ausente, harness
-  'CORRUPTOR-vivo': 364,   // leitura decisória / fronteira de módulo, código vivo
-  'CORRUPTOR-scripts': 1047,
-  'DEBT-vivo': 32,         // não falha o gate subjacente, mas ratcheteia igual
-  'DEBT-scripts': 18,
+  'GHOST-WRITE-vivo': 260,      // Cond.1 escrita em tabela ausente, código vivo — o que cai primeiro
+  'GHOST-WRITE-scripts': 5,
+  'GHOST-READ-vivo': 355,       // Cond.1 leitura (CORRUPTOR 323 + DEBT 32)
+  'GHOST-READ-scripts': 27,     // (CORRUPTOR 9 + DEBT 18)
+  'BOUNDARY-WRITE-vivo': 4,     // Cond.3 (bank_* write, 0) + Cond.5 (actors INSERT, 4)
+  'BOUNDARY-WRITE-scripts': 327, // Cond.3 (100) + Cond.5 (227)
+  'BOUNDARY-READ-vivo': 37,     // Cond.4 bank_* read fora do módulo
+  'BOUNDARY-READ-scripts': 807,
+  'METADATA-DECISION-vivo': 0,  // Cond.7
+  'METADATA-DECISION-scripts': 4,
+  'SCHEMA-CATCH-vivo': 0,       // Cond.6 — zero hoje; qualquer um novo = FAIL
+  'SCHEMA-CATCH-scripts': 0,
+  'GHOST-COLUMN-vivo': 0,       // Cond.2 — detector CEGO hoje (medição 3 do mandato);
+  'GHOST-COLUMN-scripts': 0,    // se for acordado em fatia futura, ganha teto próprio LÁ
 };
-// ⚠️ Nota de reconciliação com a medição do mandato (376/271/105): a medição
-// de Clayton foi anterior às fatias do MESMO DIA (rides 501 `f0bddb25e` etc.).
-// No momento do congelamento a medição de 1ª mão deu 365 BLOCKER (260 vivo +
-// 105 scripts) — 11 a menos no vivo, zero de diferença nos scripts. Os tetos
-// congelam a medição REAL do momento do congelamento, não a do mandato.
+// Soma dos tetos = 1826 = soma dos tetos da v1 (260+105+364+1047+32+18).
+// Reconciliação exata com a v1: BLOCKER 365 = GHOST-WRITE 265 + C3 100 ·
+// CORRUPTOR 1411 = GHOST-READ(C) 332 + C4 844 + C5 231 + C7 4 · DEBT 50 =
+// GHOST-READ(D) 50. Dupla-natureza conhecida (3 itens): bank_reconciliation_
+// history (bank_* E inexistente) DENTRO de modules/bank — a fronteira passa
+// (caminho autorizado), a existência pega → classificada GHOST pelo gate.
 //
 // REGRAS (idênticas ao padrão query-param-boundary, corrigido):
 //   1. Chave detectada que NÃO está na baseline → FAIL (violação nova).
@@ -86,20 +100,47 @@ const items = JSON.parse(fs.readFileSync(tmpJson, 'utf-8'));
 fs.unlinkSync(tmpJson);
 
 // ============================================================================
-// 2. Agrega por chave estável: arquivo::tabela::padrão::severidade::superfície
-//    (linha NÃO entra na chave — robusto a deslocamento por edição alheia).
+// 2. Agrega por chave estável: arquivo::tabela::padrão::CONDIÇÃO::severidade::
+//    superfície (linha NÃO entra na chave — robusto a deslocamento).
+//    A condição vem do próprio gate (campo aditivo `condition` no --json);
+//    item sem condição = gate desatualizado/regressão do campo → FAIL duro.
 // ============================================================================
+function toBucket(v) {
+  const surface = v.inScripts ? 'scripts' : 'vivo';
+  switch (v.condition) {
+    case 'C1-GHOST-WRITE': return `GHOST-WRITE-${surface}`;
+    case 'C1-GHOST-READ':
+    case 'C1-GHOST-OTHER': return `GHOST-READ-${surface}`;
+    case 'C3-BANK-WRITE-BOUNDARY':
+    case 'C5-ACTORS-INSERT-BOUNDARY': return `BOUNDARY-WRITE-${surface}`;
+    case 'C4-BANK-READ-BOUNDARY': return `BOUNDARY-READ-${surface}`;
+    case 'C7-METADATA-DECISION': return `METADATA-DECISION-${surface}`;
+    case 'C6-SCHEMA-CATCH': return `SCHEMA-CATCH-${surface}`;
+    case 'C2-GHOST-COLUMN': return `GHOST-COLUMN-${surface}`;
+    default: return null;
+  }
+}
 function toKey(v) {
   const file = String(v.file).replace(/\\/g, '/').replace(/.*backend\/src\//, '');
-  return `${file}::${v.name ?? v.type}::${v.pattern ?? v.type}::${v.severity}::${v.inScripts ? 'scripts' : 'vivo'}`;
+  return `${file}::${v.name ?? v.type}::${v.pattern ?? v.type}::${v.condition}::${v.severity}::${v.inScripts ? 'scripts' : 'vivo'}`;
 }
 const detectedKeys = new Map();
-const detectedBuckets = { 'BLOCKER-vivo': 0, 'BLOCKER-scripts': 0, 'CORRUPTOR-vivo': 0, 'CORRUPTOR-scripts': 0, 'DEBT-vivo': 0, 'DEBT-scripts': 0 };
+const detectedBuckets = Object.fromEntries(Object.keys(CEILINGS).map((b) => [b, 0]));
+const unconditioned = [];
 for (const v of items) {
+  const bucket = toBucket(v);
+  if (bucket === null) {
+    unconditioned.push(`${v.file}:${v.line} (${v.condition ?? 'sem condition'})`);
+    continue;
+  }
   const key = toKey(v);
   detectedKeys.set(key, (detectedKeys.get(key) || 0) + 1);
-  const bucket = `${v.severity}-${v.inScripts ? 'scripts' : 'vivo'}`;
-  if (bucket in detectedBuckets) detectedBuckets[bucket] += 1;
+  detectedBuckets[bucket] += 1;
+}
+if (unconditioned.length > 0) {
+  console.error(`❌ RATCHET — ${unconditioned.length} violação(ões) SEM condição reconhecida no --json do gate (o campo aditivo 'condition' regrediu ou nasceu condição nova sem bucket aqui):`);
+  unconditioned.slice(0, 10).forEach((u) => console.error('  ', u));
+  process.exit(1);
 }
 
 // ============================================================================
