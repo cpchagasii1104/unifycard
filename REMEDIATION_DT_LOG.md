@@ -1,5 +1,57 @@
 # REMEDIATION DT LOG
 
+## ❌ ERRATA DA DIREÇÃO — as 16 medições erradas do arco, e onde cada uma morreu (2026-07-31)
+
+**Por que esta entrada existe:** as 12 entradas de hoje foram escritas pelas instâncias
+executoras. A direção registrava as próprias correções **só em mensagem de commit** — que
+ninguém lê ao chegar. Clayton apontou (2026-07-31): *"o cartório precisa registrar as
+correções"*. Uma entrada, não quatro; e nenhum documento novo para isso.
+
+**A assinatura é UMA SÓ, repetida 16 vezes:** ferramenta configurada de um jeito, resultado
+lido como se fosse de outro. Método que sobreviveu: **colar o comando junto do achado**.
+
+### ✅ EVITADOS — morreram antes de virar mudança no sistema (11)
+| erro | quem derrubou |
+|---|---|
+| `Select-Object -First 10` truncou grep → "nenhum caller" | Yala (havia 2 callers vivos) |
+| `-match` do PowerShell é case-insensitive → reportei bug inexistente | executora **parou e provou** |
+| generalizei 11 rotas sem abrir as 11 | Yala (3 sem contenção) |
+| `grep -c $'\r'` para CRLF → 23.284 falsos positivos | eu, conferindo com `git ls-files --eol` |
+| deduzi 5 pastas gêmeas pelo NOME | eu (3 pares tinham ZERO arquivo em comum) |
+| li relatório de 30/07 como medição de hoje | DT congelou o número real |
+| apontei `payout_requests`; o código escreve `payout_orders` (ausente) | executora **mediu em vez de obedecer** |
+| apontei `reconciliation_discrepancies` — a tabela **LEGADO** | eu, relendo a DECISION antes de despachar |
+| "NUMERIC é float" | Yala (NUMERIC é decimal exato) |
+| "payout libera com disputa aberta" (o campo é informativo) | executora, sem inflar |
+| "55 query params" — eram 65 sítios / 181 símbolos | DT reportou a divergência |
+
+### 🟠 CORRIGIDOS — a mudança foi feita e depois consertada (4)
+| erro | correção |
+|---|---|
+| separei fronteira × fantasma por prefixo `/^bank_/`; o gate aplica condições em ORDEM — `bank_reconciliation_history` é FANTASMA, não fronteira | `bbfc238f3` (errata no PLACAR) |
+| afirmei "classe ③ não tem medição"; o gate TEM detector de coluna — está **cego por alias** (89,9% do SQL usa apelido de 1-3 chars) | `bbfc238f3` |
+| `CLAUDE.md` avisava que uma Lei mandava `dropdb unificard_dev` — **a Lei já tinha sido corrigida em `4060df0a2`**, pela própria direção | `c2f285d19` |
+| PLACAR ficou um dia vencido enquanto 17 commits entravam — o defeito que ele existe para impedir | `6f918bcf9` |
+
+### 🔴 ABERTO — 1
+Mandei trocar `0` por `undefined` sem conferir o contrato do consumidor.
+`risk-dashboard.types.ts:34` já manda `number | undefined`; `frontend/src/api/risk-dashboard.ts:26`
+ainda declara `number`. **Enfileirado** no pacote da executora que o `rides` ultrapassou.
+
+### ⚫ RESÍDUO PERMANENTE — 1
+`git add -A` varreu 4 arquivos de frontend da executora para dentro de `2d0d2275c`, cujo título
+fala de uma nota normativa. **Não reescrevi** (havia trabalho não commitado de outra instância na
+árvore). Errata em `b60ccd0f7`. **Regra que ficou: stage por caminho explícito, nunca `git add -A`
+em árvore compartilhada.**
+
+### Leitura para quem chegar
+**10 de 16 morreram antes de tocar o sistema — e 7 deles foram derrubados por OUTRA instância,
+não por cuidado meu.** Os 4 que passaram foram todos em **documento**, nunca em código: código
+passa por prova vermelha, E2E e runner; documento passa só pela direção. **A camada mais fraca
+do processo é a que a direção opera sozinha.**
+
+---
+
 ## ✅ EXECUTADO — F-SCHEMA-COHERENCE-TRUTH: o ratchet contava duas doenças num balde só (2026-07-31; GO Clayton)
 
 **O erro que esta entrada registra, e como caiu (achado da DIREÇÃO, `bbfc238f3` — não desta
