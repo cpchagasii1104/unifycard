@@ -78,6 +78,83 @@ topo do `REMEDIATION_DT_LOG.md`, entrada "ERRATA DA DIREÇÃO".**
 | ⛔ **`dividatecnica.md`** | **HISTÓRICO.** Declara-se obrigatório e mentiu por 24 dias (placar de 06/07 dizendo 163 guards quando eram 227). Evidência sim, estado atual **não**. Não atualize — atualize o PLACAR |
 | **Onde estão TODOS os documentos de dívida técnica, com papel e tarja** | 🔴 `docs/00_divida_tecnica/README.md` — a PORTA: tabela dos 11 documentos (PLACAR/CARTÓRIO/PLANO/HISTÓRICO + a exceção de nomenclatura), caminho real, e se já tem tarja. **É índice, não fonte** — nada além da tabela mora ali; um 12º documento vira linha, nunca parágrafo. |
 
+## 3.2 🔬 OS INVARIANTES CONCRETOS — o que a §3 não te diz e você vai violar
+
+A tabela acima roteia por **assunto**. Esta roteia por **forma**, e existe porque a §3 não
+bastou: em 2026-07-31 a direção criou `alert_severity` em minúsculo **com o runner verde na
+mão**, porque o roteador dizia "leia `07_NOMENCLATURA_CANONICA`" e ninguém lê 6.349 linhas.
+Todas as seções abaixo foram **conferidas uma a uma** antes de serem citadas aqui.
+
+> ### 💰 OS DOIS QUE VALEM MAIS QUE A TABELA INTEIRA (Clayton, 2026-08-01)
+>
+> **① O BANK É A ÚNICA VERDADE SOBRE DINHEIRO.** Saldo, custódia, movimento e histórico vivem
+> no Bank e em mais lugar nenhum. Qualquer tabela fora dele que guarde valor, saldo ou custódia
+> é **segundo ledger** — e segundo ledger diverge em silêncio até ninguém saber qual manda.
+> Provado no mesmo dia em que isto foi escrito: `escrow_accounts` era um substrato de custódia
+> paralelo ao Bank (`amount_cents`, `held_amount_cents`, `status` próprios) enquanto a custódia
+> real já morava na conta `escrow_payments` do Bank, movida pelo ledger. E
+> `bank_reconciliation_history` — que nunca existiu em lugar nenhum — ia ser criada, quando
+> `reconciliation_runs` já estava lá com **15.866 linhas**.
+> **Antes de criar qualquer casa para dinheiro: `SSOT_EXCLUSIVE_BANK_RULE.md`. A resposta quase
+> sempre é "já existe no Bank, religue".**
+>
+> **② CENTS PARA TUDO.** Todo valor monetário é **inteiro, em centavos, `BIGINT`, sufixo
+> `_cents`** (`§4.7`). Nunca `float`, nunca `NUMERIC`, nunca "reais com vírgula". Se o nome não
+> termina em `_cents`, ou não é dinheiro, ou está errado — e as duas hipóteses se resolvem
+> olhando, não supondo.
+> Estado medido em 2026-07-31: **101/101 colunas `_cents` são `BIGINT`** — este o repositório
+> respeita. O que escapa é a coluna que **deveria** ter o sufixo e não tem.
+
+| Vai criar/tocar… | A regra, literal | Como isso mordeu de verdade |
+|---|---|---|
+| **DINHEIRO** | 💰 **`_cents`, `BIGINT`, inteiro. NUNCA float/`NUMERIC`.** Moeda explícita se multi: `_brl_cents` (`07_NOMENCLATURA §4.7`) | `bank_limit_change_requests.requested_amount` — **o código já chamava `requestedAmountCents`**; só a coluna ficou para trás |
+| **timestamp** | sufixo **`_at`** + **`TIMESTAMPTZ`** sempre (`§4.6`) | 33 colunas medidas sem `_at` (`valid_from`, `datetime_start`, `effective_until`…). A norma já escreve `starts_at`/`ends_at` como ✔ |
+| **boolean** | prefixo **`is_`/`has_`/`can_`/`should_`/`was_`/`requires_`** + default explícito (`§4.9`) | 17 colunas sem prefixo, **3 delas gate de autorização** (`invitable`, `delegable`, `protected`) |
+| **status / lifecycle** | **`snake_case` MINÚSCULO** (`§4.11`) | família de 6 membros: `service_order_status` (500 em toda opção de filtro), `alert_status`, `events.status`, `services.status` (0 linhas **em silêncio**) |
+| **severity / priority** | 🔴 **`UPPER_CASE`**, e **NÃO são sinônimos**: `severity` = impacto técnico (`CRITICAL·ERROR·WARNING·INFO·AUDIT`); `priority` = ordem de tratamento (`BLOCKING·CRITICAL·HIGH·MEDIUM·LOW·ATTENTION`) (`§4.34`) | 4 tabelas tinham o vocabulário de **priority** dentro de coluna **severity**, em minúsculo. É a exceção: quase tudo aqui é minúsculo, **isto é MAIÚSCULO** |
+| **tabela / coluna** | `snake_case`; tabela **plural**; sem abreviação obscura (`§4.2`, `§4.3`) | 0 violações medidas — este o repositório respeita |
+| **frontend** | **espelha EXATAMENTE o contrato da API. Não cria alias, não renomeia** (`§7`, linha 2788) | `EventStatusBadge` inventou `ONGOING`/`SOLD_OUT`/`FINISHED` — **interseção ZERO** com o banco, e 23 eventos renderizavam o status cru em inglês |
+| **enum vs CHECK** | tanto faz para a norma — mas **enum grita** (`42704`) e **CHECK+TEXT falha em SILÊNCIO** (0 linhas, sem erro) | o caso mudo é sempre pior: `services.status` devolveria **200 com lista vazia** |
+| **migration** | **forward-only** (Lei 2). Nunca editar migration existente. Formato canônico `YYYYMMDDHHMMSS_desc.sql` | ver `backend/migrations/README.md` (numeração, sufixo alfabético, gaps) |
+| **escrever em `bank_*`** | só o domínio Bank (`SSOT_EXCLUSIVE_BANK_RULE`; `LEI_COERENCIA §4.6/§4.7`). Substrato paralelo de custódia é **proibido** | `escrow_accounts` era um **segundo ledger** ao lado do Bank; `escrow.repository.ts` está nomeado na §4 como legado em extinção |
+| **valor que não se conseguiu ler** | **`undefined`, nunca `0`/`false`** — zero AFIRMA "não há", e não se sabe disso | painel de risco reportava zero bloqueio lendo 4 tabelas inexistentes |
+| **entrada de usuário em rota** | **nunca `req.query.X as any`** — valide contra o vocabulário GOVERNADO e devolva **400**, não 500 | 181 sítios congelados por teto (`audit-query-param-boundary-validation.mjs`) |
+
+### 🔠 A REGRA DO CASE — o defeito mais repetido do repositório
+
+**O case NÃO depende da tabela. Depende do TIPO DE CAMPO.** A mesma tabela `alerts` tem
+`status` minúsculo e `type`/`severity` MAIÚSCULOS. Errar isso produziu **seis** defeitos em dois
+dias, dois deles com tela quebrada para o usuário.
+
+| campo | case | valores REAIS, medidos em `unificard_dev` |
+|---|---|---|
+| `status` / lifecycle | 🔡 **minúsculo** | `events.status` = `draft·declared·published·active·ended·cancelled` · `service_order_status` = `draft·confirmed·in_progress·completed·seller_pending·release_approved·funds_released·cancelled` · `alert_status` = `open·ack·resolved` · `services.status` = `draft·active·paused` · `payout_requests.status` = `requested·processing·completed·failed` |
+| `risk_level` | 🔡 **minúsculo** | `trust_profiles.risk_level` = `low·medium·high·critical` ⚠️ **não existe `BLOCKED`** |
+| `severity` | 🔠 **MAIÚSCULO** | `CRITICAL·ERROR·WARNING·INFO·AUDIT` (`§4.34`) |
+| `priority` | 🔠 **MAIÚSCULO** | `BLOCKING·CRITICAL·HIGH·MEDIUM·LOW·ATTENTION` (`§4.34`) — **não é sinônimo de severity** |
+| `type` / `*_type` de alerta | 🔠 **MAIÚSCULO** | `alert_type` = `INVENTORY_LOW_STOCK·PAYMENT_FAILED·FISCAL_PENDING·RISK_SCORE_LOW·…` |
+| event type (`domain.entity.action`) | 🔡 **minúsculo com pontos** | `payment.captured` · `order.delivered` (`§4.41`) |
+| tabela · coluna | 🔡 **snake_case minúsculo** | `bank_transactions` · `amount_cents` (`§4.2`, `§4.3`) |
+
+**Antes de comparar contra um literal, RODE:**
+```sql
+SELECT pg_get_constraintdef(oid) FROM pg_constraint
+ WHERE conrelid = 'sua_tabela'::regclass AND contype = 'c';
+-- enum nativo:
+SELECT enumlabel FROM pg_enum e JOIN pg_type t ON t.oid=e.enumtypid
+ WHERE t.typname = 'seu_enum' ORDER BY enumsortorder;
+```
+⛔ **Nunca deduza o case pelo nome do campo, pela tabela vizinha, nem pelo tipo TypeScript** —
+o tipo TS é uma *afirmação*, não uma checagem: `response.json()` não valida nada em runtime, e
+foi assim que `EventStatusBadge` ficou com **interseção ZERO** com o banco sem ninguém notar.
+
+**Como este defeito se manifesta, por substrato:**
+· **enum nativo** → grita: `42704 invalid input value for enum` (alguém reclama)
+· **TEXT + CHECK** → **cala**: devolve `200` com lista vazia, para sempre, sem erro nem log
+· **comparação em JS** → cala: `undefined === 'HIGH'` é `false`, o botão some, o alerta não
+  acende, o contador vira `NaN`
+**O mudo é sempre o pior.** Se você achou um, procure os irmãos: o defeito nunca veio sozinho.
+
 ## 3.1 ☠️ ANTES DE RODAR MIGRATION — NUNCA contra `unificard_dev`
 
 `unificard_dev` é o **banco OFICIAL** desde 2026-07-29 (`DT-OFFICIAL-DATABASE-LOCK-FAIL-CLOSED`)
