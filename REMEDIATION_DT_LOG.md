@@ -1,5 +1,60 @@
 # REMEDIATION DT LOG
 
+## 🟢 DECISÃO DE PRODUTO — O MÍNIMO QUE DEMONSTRA A UNIFICAÇÃO (Clayton, 2026-08-01)
+
+**Isto destrava ~80 dos 204 sítios `GHOST-WRITE-vivo`, e destrava por ESCOPO — não por
+isenção, não por conserto pontual.** É a primeira vez no projeto que dívida cai por decisão de
+produto.
+
+### O mínimo, nas palavras de Clayton
+**rede social · banco · cartão · compra/venda · locação · ingressos/shows/eventos · serviços**
+> *"Esses são o mínimo, para mostrar o porquê unificar. É unificar."*
+
+**A tese, e por que os sete juntos:** nenhum player do mercado unifica. Mercado Livre é
+marketplace + pagamento + crédito, sem rede social nem eventos. iFood é catálogo + pagamento +
+logística, sem locação nem ingresso. Uber é mobilidade + pagamento. **Cada um é vertical +
+carteira.** A proposta é o inverso — **uma identidade e um saldo atravessando** compra, locação,
+serviço, ingresso e rede social. Com menos de sete, não se demonstra unificação: demonstra-se
+mais um vertical.
+
+### O que fica FORA do mínimo (≈104 sítios)
+`rides`(29·16tab) · `work`+`work-instant`(11) · `human-mvp`(9) · `pilot`(10) · `memory`(7) ·
+`observability`(7) · e os sem rota: `presence`(7) `loyalty`(6) `care`(3) `subscriptions`(2)
+`root-config`(2) `social-chat`(1).
+⚠️ `user-group-allocation`(2) **não é "fora do escopo" — é REVOGADO POR LEI** (`CONTRATO_GRUPOS_V2`).
+⚠️ `organization`(7) **NÃO classificado** — Clayton não respondeu se é o "estabelecimento" que
+rede social e marketplace precisam. Fica de fora da fatia até ele dizer.
+
+🔴 **`rides` é o maior débito do sistema e Clayton NÃO o listou** — citou o Uber como
+*referência de mercado*, não como módulo a ter. Mobilidade é o vertical mais caro de operar e o
+que menos prova a tese, que já está provada quando a mesma carteira paga ingresso, locação e
+serviço.
+
+### A regra que torna isso seguro — e é uma ASSIMETRIA, não cautela
+| ação | reversível? | custo de errar |
+|---|---|---|
+| **conter** (501 nomeado) | ✅ sim — o código fica intacto | horas |
+| **materializar** (migration do archive) | ❌ **não** — Lei 2, forward-only | a tabela nasce e não volta |
+
+**Por isso a ordem é conter primeiro, materializar por último.** Errar contendo custa horas;
+errar materializando custa uma migration que não volta.
+E **cada 501 carrega a porta de volta escrita dentro dele**: diz que está fora do MÍNIMO (não
+quebrado), e que reabrir é remover a contenção + materializar com GATE.
+
+### O enquadramento de Clayton, que vale como método
+> *"não estamos reinventando a roda, e sim acoplando modelos de negócios que JÁ EXISTEM"*
+> *"depois a gente vai refinando e ajustando para a cultura do UnifiCard"*
+
+É o `CLAUDE.md §2` (*"onde isso já existe?"*) **um andar acima** — aplicado a produto em vez de
+código. Impede reinventar tanto a tabela quanto o negócio. **Modelo validado primeiro, cultura
+depois:** a cultura do UnifiCard só se revela quando as sete peças estiverem no ar e se vir como
+se comportam juntas.
+
+⚠️ **Para quem chegar depois: contenção aqui NÃO é abandono.** É escopo não iniciado, dito em
+voz alta em vez de quebrar em silêncio. A ordem de reabertura está dentro de cada 501.
+
+---
+
 ## 🔍 GATE — F-EVENT-ORGANIZER-CONTINUITY: o ciclo existe no EVENTO, não nas FASES (2026-08-01)
 
 GATE read-only da instância de eventos, **verificado de 1ª mão pela direção** (cada número abaixo
