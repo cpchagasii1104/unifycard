@@ -1,5 +1,303 @@
 # REMEDIATION DT LOG
 
+## ✅ EXECUTADO · VERIFICADO PELA DIREÇÃO · ⚠️ NÃO SELADO — MIGRATION APLICADA + 2 ERRATAS DA DIREÇÃO + 2 DECISÕES DE CLAYTON (2026-08-01)
+
+**GO de Clayton: "GO para suas recomendações"** — respondeu de uma vez as três coisas que travavam.
+
+### 1. A JANELA INCOERENTE FECHOU — `20260801120000` aplicada em `unificard_dev`
+
+O código já gravava minúsculo e o enum só aceitava MAIÚSCULO. Enquanto isso durou, **o sistema
+estava pior do que antes da fatia começar** — a executora reportou isso por conta própria em vez
+de esconder, e parou. Foi a decisão certa: executora não se autoriza em substrato oficial.
+
+Verificado pela direção **antes** de aplicar, não depois:
+
+| ataque | resultado |
+|---|---|
+| migrations pendentes | **1** — só a dela (`schema_migrations` para em `20260731130000`). Nenhuma surpresa de outra instância |
+| tabelas afetadas | 8, **todas vazias** — `pdv_sessions=0 purchase_orders=0` |
+| a citação de §4.40 é real? | ✅ `07_NOMENCLATURA:1620-1627` — `'pdv'` e `'marketplace'` **literais**, em lowercase |
+| estado reversível capturado | ✅ os 9 enums salvos antes; reversão é `RENAME VALUE` inverso |
+
+Depois de aplicar: **9 enums minúsculos · 3 intactos** (`alert_severity`, `alert_type`,
+`inventory_movement_type`) · **nenhum outro enum com maiúscula sobrou no banco**.
+
+🔴 **A alegação que a direção atacou e que resistiu:** a migration afirmava que `RENAME VALUE`
+reescreve o `DEFAULT` da coluna sozinho. Conferido nas 8 colunas — `pdv_sessions.status DEFAULT
+'open'`, `purchase_orders.status DEFAULT 'draft'`, todas reescritas. Era verdade.
+
+**Prova vermelha E verde, em transação com `ROLLBACK` (nada escrito no banco oficial):**
+```
+VERDE:    SELECT 'draft'::purchase_order_status, 'open'::pdv_session_status, 'pdv'::fulfillment_source
+          → draft|open|pdv
+VERMELHA: SELECT 'DRAFT'::purchase_order_status
+          → ERRO: valor de entrada é inválido para enum purchase_order_status: "DRAFT"
+```
+O enum **grita**. É o substrato bom: TEXT+CHECK teria devolvido lista vazia em silêncio.
+
+**Resíduo que a executora declarou limpo e não estava:**
+`validate-pipeline-e2e-po-receive-containment.ts` seedava `'SUBMITTED'` e comparava contra ele.
+**Não está no runner** (o runner tem `audit-po-receive-containment.mjs`, que é outro guard), então
+nada estava vermelho — mas teria falhado contra o banco convergido. Corrigido pela direção.
+
+### 2. 🔴 ERRATA DA DIREÇÃO — DOIS erros no MESMO pacote, a MESMA assinatura
+
+Os dois são **ler o nome em vez da query**, que é a doença que este repositório mais paga.
+
+**(a) `observability` foi classificado "fora do mínimo" pelo NOME.** É inteiramente
+observabilidade **financeira**: `financial-dashboard`, `financial-health`, `financial-observability`,
+`financial-operations-panel`, `financial-simulator` — três deles leem `bank_ledger`,
+`bank_transactions`, `bank_accounts`. **O Bank está no mínimo.** Contê-lo cegaria o único caminho
+de dinheiro do sistema. Derrubado pela direção **antes** da executora chegar nele, por 30 segundos.
+
+**(b) `presence`, `loyalty` e `user-group-allocation` foram listados como "sem rota, fecha
+sozinho" e estavam MONTADOS E VIVOS** — 13 endpoints em `/marketplace/presence`, 7 em
+`/marketplace/loyalty`, 2 em `/bank/user` **e** `/admin/user`. **22 endpoints públicos devolvendo
+500 cru.** Derrubado pela executora, que mediu a tabela de rotas em vez de obedecer.
+
+**A executora acertou onde a direção erraria de novo:** recusou 501 nos 4 módulos genuinamente
+inalcançáveis — *"501 em rota inalcançável é decoração, e decoração envelhece pior que ausência"* —
+e separou `subscription.routes.ts` (morto) de `marketplace-subscriptions.routes.ts` (vivo, e
+marketplace está NO mínimo). Leu a query, não o nome.
+
+### 3. O TETO `GHOST-WRITE-vivo` NÃO DESCEU, E ESTÁ CERTO NÃO TER DESCIDO
+
+Segue **259/259**. A executora mediu o que estava em jogo — 111 WRITE + 112 READ vivem nos módulos
+contidos — e escolheu **não** forçar. A direção confirma e assume a consequência:
+
+> O gate conta referência textual a tabela fantasma. A contenção **preserva o handler de
+> propósito**, porque é isso que torna a reabertura reversível em horas. Os dois requisitos são
+> incompatíveis por construção. Apagar o SQL para o número cair seria **destruir a porta de volta
+> para melhorar um placar** — exatamente o que este projeto já fez uma vez e teve de desfazer.
+> **Quem está errado é o MEDIDOR, não o trabalho:** ele não distingue "escreve em tabela
+> inexistente e está alcançável" de "preservado atrás de um 501 nomeado". O PLACAR passa a dizer
+> isso; o número deixa de acusar falsamente.
+
+Isto é o oposto de `b9f21c07b`, onde a única descida de teto do projeto tinha sido **isenção
+disfarçada de conserto**. Aqui não há descida, e a razão está escrita.
+
+### 4. DECISÕES DE CLAYTON — as duas que travavam frentes inteiras
+
+**PREÇO DE EVENTO = (B) `ticket_price_cents` vira "a partir de".** Setores detalham; o campo do
+evento continua existindo como piso/vitrine. Escolhido porque é o modelo já validado por
+Eventim/Sympla/Ingresso.com — critério do próprio Clayton: *"não estamos reinventando a roda, e sim
+acoplando modelos de negócios que JÁ EXISTEM"*. Custo assumido: exige regra de coerência (o "a
+partir de" tem de ser ≤ menor preço de setor, senão mente para o comprador). Destrava o painel de
+progresso do organizador, que a instância de eventos provou ser construível **sem coluna nem
+tabela nova**.
+
+**`organization` = DENTRO do mínimo.** É o "estabelecimento" que rede social e marketplace exigem,
+e os dois estão no mínimo. **Não** recebe contenção. Os 7 sítios permanecem como estão.
+
+### 5. ESTADO PROVADO NO FECHAMENTO
+```
+migration 20260801120000 ...... APLICADA em unificard_dev (27ms)
+9 enums minúsculos · 3 intactos · 0 enums com maiúscula sobrando
+DEFAULTs das 8 colunas ........ reescritos
+prova vermelha+verde .......... enum GRITA em 'DRAFT'
+guard product-scope ........... MORDE (forçado vermelho: exit 1, hook removido; restaurado)
+typecheck BE 0 · FE 0
+validate:regression-guards .... 235 COMMANDS OK
+CRLF .......................... 11 arquivos normalizados pela direção (diff caiu de ~2000 → 555 linhas reais)
+```
+
+⚠️ **NÃO SELADO.** Selo é ato de Clayton, e exige auditoria independente (Yala) antes. A direção
+conferiu de 1ª mão; isso não é selo.
+
+---
+
+
+## ✅ EXECUTADO — F-STATUS-SOURCE-CASE-CANONICAL (2026-08-01; GO Clayton "corrija o maiúsculo por minúsculo")
+
+Converge **9 enums nativos** de PDV/estoque/compras para o case da norma. Espelho invertido de
+`20260731130000` (severity): lá o defeito era minúsculo onde §4.34 manda MAIÚSCULO; aqui é
+MAIÚSCULO onde §4.11/§4.40 mandam minúsculo.
+
+### 🔴 O ESCOPO PEDIDO ERA 2; O REAL É 9 — e 3 NÃO podem ser mexidos
+A direção havia sinalizado 2 enums (`pdv_session_status`, `purchase_order_status`). A varredura
+`SELECT ... FROM pg_enum ... HAVING bool_or(enumlabel ~ '[A-Z]')` devolveu **12**. Vereditos:
+
+| enum | veredito | norma lida |
+|---|---|---|
+| `alert_severity` | ✅ **correto MAIÚSCULO — não tocar** | §4.34 (`severity` é UPPER_CASE); convergido ontem |
+| `alert_type` · `inventory_movement_type` | ⏸️ **fora de escopo** | não há regra de case para `*_type` fora de §4.41 (event type). `inventory_movement_type` é o **ledger físico** (Lei 5 → INVARIANTES_OPERACIONAIS_LEDGER): exige decisão nomeada, não inferência |
+| 7 × `*_status` | 🔴 corrigidos | §4.11 "Status e Lifecycle" — `snake_case` |
+| 2 × `*_source` | 🔴 corrigidos | §4.40 lista **literalmente** `'pdv'` e `'marketplace'` minúsculos |
+
+### O MÉTODO — `RENAME VALUE`, não swap de tipo
+`20260731130000` trocou o tipo inteiro porque os valores **remapeavam** (`high`→`ERROR`). Aqui o
+conjunto é idêntico ignorando case, então `ALTER TYPE ... RENAME VALUE` (preserva OID do rótulo).
+**Provado em banco efêmero antes de escrever a migration:** `RENAME VALUE` reescreve o `DEFAULT`
+da coluna sozinho (`'OPEN'::t` vira `'open'::t`), converte linha preexistente in-place e mantém
+INSERT-por-default. Por isso a migration **não** tem `UPDATE` de dado nem `SET DEFAULT` — seriam
+ruído. Validada de novo contra o **schema real clonado** de `unificard_dev` (`pg_dump --schema-only`,
+leitura apenas) num 2º efêmero: `MIGRATION OK`, 7 defaults minúsculos, sobrando maiúsculos só os 3
+deixados de fora de propósito. Nenhum efêmero sobreviveu.
+
+### 🔴 O QUE `tsc` NÃO PEGA — e por que grep sozinho também não bastava
+O compilador apontou 6 arquivos. **Insuficiente**: não enxerga literal dentro de string SQL
+(`inventory-reservation.repository.ts` tinha 10 sítios) nem dentro de `.includes(order.status)`
+(`purchase-order.service.ts` tinha 2). E grep cego teria corrompido **vocabulários homônimos de
+outros conceitos nos mesmos arquivos** — todos preservados de propósito:
+`accounts_payable` (`OPEN`/`SCHEDULED`) · `payment_intents` (`CANCELLED`) · `FiscalDocumentStatus`
+(`DRAFT`) · `AccountsReceivableStatus` · `pdv.service.ts` `paymentStatus` (`PENDING`) ·
+`CalendarEventStatus` (`IN_PROGRESS`) · `dashboard.channel`/`loyalty.channel` (têm `ALL`/`VENUE`/
+`EVENT` — vocabulário distinto de `source`). Foi grep **+ leitura de cada sítio**, não sed cego.
+
+### VERIFICAÇÃO
+- typecheck backend **153 erros = baseline exato do HEAD** (medido com `git stash`), **zero novo**
+- typecheck frontend **limpo**
+- `npm run validate:regression-guards` devolveu **235 COMMANDS OK**
+- `git diff --check` limpo; `git ls-files --eol` = `i/lf w/lf` em todos os 26 arquivos
+- diff: **26 arquivos, +116/-103** (cirúrgico, sem reescrita de arquivo inteiro)
+- 8 tabelas afetadas **todas com 0 linhas**, então risco de dado nulo
+
+> ⚠️ **ARMADILHA CONFIRMADA (a mesma da 4D-2):** a ferramenta Edit no Windows gravou **CRLF** em 6
+> arquivos que eram `i/lf`, fazendo o arquivo INTEIRO virar diff. `sed -i` preservou LF. Detectado
+> por `git ls-files --eol` (o comando autoritativo; `git diff --check` só mostrou o sintoma como
+> "trailing whitespace"). Normalizado com `perl -pi -e 's/\r\n/\n/g'` antes de qualquer commit.
+
+### 🔴 ACHADO NÃO RESOLVIDO — uma SEGUNDA população, e duas com case DUPLO
+A varredura de `pg_enum` **não vê** status guardados como TEXT+CHECK. Varrendo `pg_constraint`:
+
+| tabela | CHECK | gravidade |
+|---|---|---|
+| `event_reservations` | `pending,confirmed,cancelled,expired,` **`PENDING,CONFIRMED,`** `CHECKED_IN,NO_SHOW,` **`CANCELLED`** | 🔴 **os DOIS cases do MESMO valor convivem** |
+| `actor_debts` | `pending` + `TRANSFERRED_TO_ORGANIZER` | 🔴 case misto na mesma coluna |
+| `chat_messages` · `chat_reports` · `companies.company_status` · `live_presence` | vocabulário MAIÚSCULO | violação de §4.11 |
+
+`event_reservations` é o pior: filtro por `status='confirmed'` **perde em silêncio** a linha
+gravada como `'CONFIRMED'` — o defeito mudo de TEXT+CHECK (200 com lista vazia, sem erro).
+**Todas medidas com 0 linhas hoje**, então latente, não ativo. Vence no primeiro uso real.
+**NÃO corrigido nesta fatia** (fora do GO, e `companies.company_status` tem alcance de identidade
+PJ). Fica nomeado aqui para não se perder.
+
+### Ponteiro normativo quebrado, de passagem
+`00_AGENT_PROTOCOL §2.2.8` manda tratar `backend/docs/openapi-stock-transfer-receipt.contract.yaml`
+como contrato de referência de stock transfer/receipt. **Não existe arquivo OpenAPI algum no repo**
+(busca repo-wide). Por isso esta fatia não teve contrato governado a atualizar antes do código.
+
+---
+
+## ✅ EXECUTADO + 🛑 2 DIVERGÊNCIAS — F-OUT-OF-SCOPE-CONTAINMENT (2026-08-01; GO Clayton)
+
+**Nada foi materializado: zero tabela, zero coluna, zero migration.** Contenção reversível por
+desenho, como pedido — e a reversibilidade é literal: **uma linha por arquivo**.
+
+### 🔴 CORREÇÃO DA MEDIÇÃO — 3 dos "já contidos/sem rota" estavam VIVOS
+O pacote classificou presence · loyalty · care · subscriptions · root-config ·
+user-group-allocation · social-chat como "já contido/sem rota (fecha sozinho, só formalizar)".
+**Falso para 3 deles**, verificado por grep de registro + censo de tabela em `unificard_dev`:
+| módulo | pacote | real | montagem | substrato |
+|---|---|---|---|---|
+| presence | 7 endpoints, sem rota | **13, MONTADO** | `marketplace.routes.ts:140` → `/marketplace/presence` | 5 tabelas AUSENTES |
+| loyalty | 6, sem rota | **7, MONTADO** | `marketplace.routes.ts:138` → `/marketplace/loyalty` | 4 tabelas AUSENTES |
+| user-group-allocation | 2, sem rota | **2, MONTADO** | `unifybank.module.ts:50` → `/bank/user` **e** `/admin/user` | 1 tabela AUSENTE |
+| care | 3 | 3 ✓ | `care.module.ts` nunca importado — inalcançável ✓ | — |
+| root-config | 2 | **6** | nunca importado ✓ | — |
+| social-chat | 1 | **3** | nunca importado ✓ | — |
+| subscriptions | 2 | **7** | nunca importado ✓ (a superfície viva de assinatura é outra: `marketplace-subscriptions.routes.ts`) | — |
+Ou seja: **22 endpoints estavam vivos devolvendo 500 cru**, não "fechados sozinhos". Foram contidos.
+
+### O MÉTODO — hook na borda, não reescrita de handler
+O padrão `automation.routes.ts` reescreve o handler, o que **apaga** a lógica. O pacote proibiu
+apagar E exigiu reversibilidade — as duas coisas juntas descartam a reescrita. Solução:
+`core/product-scope/out-of-scope-containment.ts` exporta `containModule()`, usado como
+`fastify.addHook('onRequest', containModule({...}))` — **uma linha** no topo do plugin de rotas.
+`onRequest` dispara ANTES do handler, logo antes de qualquer service/SQL; o hook é escopado ao
+plugin (encapsulamento do Fastify, não vaza). **Zero handler tocado. Religar = apagar a linha.**
+`work` levou UMA linha em `work.module.ts` que cobre os 10 sub-registros de uma vez.
+
+Duas razões DISTINTAS, deliberadamente não intercambiáveis:
+- `out_of_product_minimum` → 501 `MODULE_OUT_OF_PRODUCT_MINIMUM`, `reversible: true`, corpo lista
+  o mínimo por extenso, nomeia o substrato ausente e ensina a reabrir.
+- `revoked_by_law` → 501 `MODULE_REVOKED_BY_LAW`, `reversible: **false**`. Só
+  `user-group-allocation` (CONTRATO_GRUPOS_V2). Mais forte: não se reabre por decisão de fatia.
+  🔴 O cabeçalho do arquivo dizia **"CONTINUOUS PRODUCTION"** — mentira confirmada, corrigida.
+
+### `rides` — revisado, não refeito (como mandado)
+Os 17 endpoints já contidos mantiveram sua contenção; só a MENSAGEM ganhou a razão de ESCOPO na
+frente. Isso importa porque a razão antiga ("substrato ausente") **EXPIRA** se alguém materializar
+as tabelas — e aí a contenção cairia sozinha. A de escopo não expira. É exatamente a armadilha da
+AlertsPage que o pacote citou. Os **3 endpoints de rides que funcionam hoje seguem intocados**
+(regra explícita: contenção de módulo inteiro apaga o que presta).
+
+### 🛑 DIVERGÊNCIA 1 — o teto `GHOST-WRITE-vivo` NÃO desceu, e não pode descer por este caminho
+O pacote previu: *"O teto GHOST-WRITE-vivo vai descer de verdade — por decisão de produto, não por
+isenção. Baixe no MESMO commit"*. **Não desceu: segue 259/259 e 353/353.** A causa é estrutural,
+não descuido: o gate conta **referência textual a tabela fantasma no código**, e a contenção por
+hook **preserva os handlers** (a reversibilidade exigida). O SQL continua escrito, só inalcançável.
+Medi o que estaria em jogo (`validate-schema-code-coherence --json`, superfície viva):
+```
+rides    WRITE=43 READ=31   ·  work        WRITE=12 READ=16  ·  pilot     WRITE=13 READ=13
+presence WRITE=11 READ=14   ·  human-mvp   WRITE=9  READ=7   ·  loyalty   WRITE=7  READ=8
+subscriptions W=7 R=3 · care W=3 R=6 · ug-alloc W=3 R=5 · root-config W=2 R=2 · social-chat W=1 R=3 · work-instant R=4
+TOTAL nos módulos contidos: GHOST-WRITE-vivo=111 (43% de 259) · GHOST-READ-vivo=112 (32% de 353)
+```
+São 3 caminhos, mutuamente exclusivos, e a escolha é de Clayton:
+- **(a) Apagar o SQL dos handlers** → teto cai 111/112 de verdade. Mas viola "⛔ não apague rota"
+  e mata a reversibilidade (voltar deixa de custar horas).
+- **(b) Allowlist os 12 módulos contidos** → teto cai, handlers preservados. **Mas allowlist É o
+  mecanismo de isenção**, e o pacote separou explicitamente "decisão de produto" de "isenção".
+- **(c) Deixar como está** (o que fiz) → teto honesto: o código fantasma ainda ESTÁ lá, só não é
+  alcançável. O guard novo é que garante a inalcançabilidade.
+**Escolhi (c) e parei**, porque (a) e (b) contrariam instrução explícita do próprio pacote e
+nenhuma das duas é reversível por decisão minha.
+
+### 🛑 DIVERGÊNCIA 2 — runner vermelho por trabalho de OUTRA instância, não meu
+`validate:regression-guards` está vermelho em `red-gates-baseline` → typecheck ≠ 0. Os 20+ erros
+estão TODOS em `modules/marketplace/{fulfillment,inventory-reservation,purchase-order,
+stock-transfer,stock-transfer-receipt}.service.ts` e `modules/pdv/pdv.service.ts` — **nenhum
+arquivo meu**. Outra instância está no meio de uma conversão de vocabulário de status
+(UPPERCASE→lowercase, §4.11): os `.types.ts` já foram convertidos, os `.service.ts` ainda não, e o
+typecheck pega a janela. Confirmado por `git status` (types E services modificados, nenhum por
+mim) e por lista de erros × lista de arquivos meus (interseção vazia). **Não toquei** — corrigir
+trabalho em voo de outra instância é a receita do atropelo que este cartório já registrou 2×.
+`financial-vocabulary` eu conferi e fechei: chegou a +2 por causa da minha própria migalha (a
+palavra "split" citada 2× ao referenciar o CONTRATO_GRUPOS_V2); reescrevi sem perder o ponteiro e
+voltou a **3884/3884 exato**.
+
+### Guard novo — `audit-product-scope-containment.mjs` (runner 232→233)
+Morde em 5 vetores, todos com prova vermelha real (restauração por cópia temporária, **nunca**
+`git checkout` — lição das 2 vezes anteriores):
+1. módulo contido perde a linha de contenção → **mordeu**
+2. razão de LEI trocada por razão de escopo (afrouxamento) → **mordeu**
+3. `rides` perde o aviso de ESCOPO (razão que não expira) → **mordeu**
+4. módulo inalcançável remontado em caminho vivo (`careRoutes` no app.builder) → **mordeu**
+5. vocabulário do mínimo de produto adulterado (removi 'locação') → **mordeu**
+Restaurado nos 5 casos → verde. ⚠️ O vetor 1 falhou na 1ª tentativa e eu **verifiquei se era buraco
+no guard ou erro do meu teste**: era a minha regex de remoção que não casava. Refiz por deleção de
+linha, confirmei que o hook sumiu do arquivo, e aí sim mordeu. Guard que não morde é decoração —
+não dava pra assumir.
+
+### Fora do escopo desta fatia (não tocados, deliberadamente)
+- **`organization`(7)** — Clayton não classificou. Não chuto se é o "estabelecimento" que rede
+  social e marketplace precisam.
+- **`observability`(7)** — 🔴 **já está contido, por razão MELHOR**: os 3 controllers respondem 501
+  `INTERNAL_FINANCIAL_AUTHORITY_CONTAINED` porque liam o SSOT de dinheiro **cross-tenant sem
+  subject autenticado** (P1 de segurança). Sobrescrever com "fora do mínimo" **enfraqueceria** a
+  contenção — razão de segurança é mais forte que razão de escopo, e ela continua verdadeira.
+  Além disso "banco" ESTÁ no mínimo, então observabilidade do banco é discutivelmente interna a ele.
+
+### Provas
+```
+E2E unificard_product_scope_e2e :: PASS 34/34
+  7 módulos fora do mínimo → 501 MODULE_OUT_OF_PRODUCT_MINIMUM, cada um nomeando seu substrato,
+    dizendo "NOT broken / scope that has not been started" e ensinando a reabrir (reversible=true)
+  user-group-allocation → 501 MODULE_REVOKED_BY_LAW, reversible=FALSE, cita CONTRATO_GRUPOS_V2
+  3 endpoints vivos seguem 200: GET /rides/service-types · GET /rides/vehicles/drivers/:id/vehicles
+    · GET /rides/location/location/distance (o que presta não foi tocado)
+  rides já contido agora cita MODULE OUT OF PRODUCT MINIMUM na mensagem
+audit-product-scope-containment: VERDE · prova vermelha 5/5 vetores
+audit-query-param-boundary-validation: 181/181 intacto
+audit-schema-coherence-ratchet: VERDE 259/259 · 353/353 (NÃO desceu — ver Divergência 1)
+financial-vocabulary: 3884/3884 · financial-ssot: 591/591 (ambos VERDES, conferidos por mim)
+typecheck BE: VERMELHO por 6 arquivos de OUTRA instância (ver Divergência 2); zero erro meu
+```
+NÃO COMMITADO.
+
+---
+
 ## 🟢 DECISÃO DE PRODUTO — O MÍNIMO QUE DEMONSTRA A UNIFICAÇÃO (Clayton, 2026-08-01)
 
 **Isto destrava ~80 dos 204 sítios `GHOST-WRITE-vivo`, e destrava por ESCOPO — não por

@@ -107,6 +107,26 @@ Não há caminho silencioso para **cima**.
 > **O teto NÃO desceu: continua `259/353`.** E é esse o ponto — aquele número escondia 277 linhas
 > de SQL para uma tabela que nunca existiu; agora descreve a realidade. **Trocou-se uma mentira
 > confortável por uma verdade do mesmo tamanho.**
+> ### 🔴 2026-08-01 · O TETO NÃO DESCEU COM A CONTENÇÃO POR ESCOPO — e quem está errado é o MEDIDOR
+> A contenção de 9 módulos fora do mínimo de produto deixou `GHOST-WRITE-vivo` em **259/259**.
+> Não foi descuido: **111 WRITE + 112 READ** (43% e 32% dos tetos) vivem dentro dos módulos
+> contidos, e mesmo assim o número não se moveu. A razão é estrutural, não preguiça —
+> **o gate conta referência textual a tabela fantasma, e a contenção preserva o handler DE
+> PROPÓSITO**, porque é isso que faz a reabertura custar horas em vez de uma migration
+> forward-only. Os dois requisitos são incompatíveis por construção.
+>
+> Havia três saídas e as três têm custo: apagar o SQL **destrói a porta de volta** para melhorar
+> um placar · allowlistar é exatamente a isenção-disfarçada-de-conserto que a seção acima acabou
+> de desfazer · deixar como está mantém o número acusando algo que não é mais verdade. Escolhida
+> a terceira, **com a mentira nomeada aqui em vez de silenciada**:
+>
+> ⚠️ **O teto `GHOST-WRITE-vivo` NÃO distingue** *"escreve em tabela inexistente e está
+> alcançável por HTTP"* de *"preservado atrás de um 501 nomeado, inalcançável"*. Enquanto não
+> distinguir, **259 é um limite superior, não uma medida**. Quem ler este número sem ler este
+> parágrafo vai concluir que a contenção não fez nada — e vai estar errado.
+> **A dívida verdadeira aqui é do medidor.** Ele precisa de uma condição nova (*"o sítio está
+> atrás de contenção de escopo?"*), e essa é a próxima fatia do gate, não do produto.
+>
 > O guard `audit-dormant-ghost-repository-antirevival.mjs` **permanece no runner com a lista
 > vazia**, de propósito: é onde a PRÓXIMA isenção-por-caminho tem de se registrar. Isentar
 > arquivo na allowlist sem entrada lá recria a porta — a allowlist não distingue *dormente* de
