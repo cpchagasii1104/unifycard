@@ -34,19 +34,14 @@ export const CHECKOUT_FINANCIAL_OPEN_PRECONDITIONS: ReadonlyArray<{
   readonly what: string;
   readonly verify: string;
 }> = [
-  {
-    id: 'G0-FROM-PRICE-COHERENCE',
-    what:
-      'As telas de compra e do feed exibem events.ticket_price_cents cru, sem olhar event_sectors. ' +
-      'Decisão (B) de Clayton: esse campo é um "a partir de" — e o "a partir de" TEM de SER o menor ' +
-      'inteira_price_cents quando há setores (igualdade, não "≤": 5000 ≤ 8000 satisfaz um "≤" e mente ' +
-      'do mesmo jeito). Medido em 2026-08-01: 1 de 3 eventos com setor anuncia R$50 com mínimo real ' +
-      'de R$80. Hoje é dívida de UI porque nada é cobrado; com o flag ON, é cobrança pelo valor errado.',
-    verify:
-      "SELECT e.id, e.ticket_price_cents, MIN(s.inteira_price_cents) FROM events e " +
-      'JOIN event_sectors s ON s.event_id = e.id GROUP BY e.id, e.ticket_price_cents ' +
-      'HAVING e.ticket_price_cents <> MIN(s.inteira_price_cents);  -- tem de voltar VAZIO',
-  },
+  // 'G0-FROM-PRICE-COHERENCE' FECHADA em 2026-08-01 (F-EVENT-FROM-PRICE-COHERENCE): a camada de
+  // SERVIÇO (core/events/event.service.ts getEvent/toEvent) agora deriva ticketPriceCents por
+  // IGUALDADE contra MIN(event_sectors.inteira_price_cents) quando há setor — não teto "<=".
+  // Provado com o evento real que motivou o achado (948b0278: cru=5000 permanece intocado na
+  // coluna; SERVIDO passa a 8000) e com e2e efêmero (validate-pipeline-e2e-event-from-price-
+  // coherence.ts, 5/5: mentira→igualdade, não-regressão em coerente, sem-setor mantém cru, tipo
+  // number nos 3 casos, coluna crua não persiste). A coluna `events.ticket_price_cents` continua
+  // sem alteração de propósito (produto do Clayton) — o que fechou foi o que é EXIBIDO/COBRADO.
 ];
 
 /** true SÓ se o flag estiver explicitamente 'true'. Ausente/qualquer-outro = desligado (fail-closed). */

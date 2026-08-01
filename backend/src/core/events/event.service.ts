@@ -49,6 +49,7 @@ interface EventRow {
   funding_deadline_at: string | null;
   is_all_or_nothing: boolean | null;
   location_mode: string | null;
+  min_sector_price_cents: number | string | null;
   createdAt: string;
   updatedAt: string;
   metadata: Record<string, any> | null;
@@ -72,7 +73,16 @@ class EventService {
       datetimeEnd: row.datetime_end,
       status: row.status as EventStatus,
       visibility: row.visibility as EventVisibility,
-      ticketPriceCents: row.ticket_price_cents,
+      // F-EVENT-FROM-PRICE-COHERENCE (G0, decisão B de Clayton): este campo é a vitrine "a partir
+      // de" — COM setor, É o menor inteira_price_cents (igualdade); SEM setor, é o valor anunciado
+      // cru. NÃO grava nada — deriva a cada leitura. NÃO usar "<=": mentiria do mesmo jeito que o
+      // defeito original (ex.: R$50 anunciado com setor mínimo R$80 passaria num teste "<=").
+      ticketPriceCents:
+        row.min_sector_price_cents != null
+          ? Number(row.min_sector_price_cents)
+          : row.ticket_price_cents != null
+            ? Number(row.ticket_price_cents)
+            : null,
       maxAttendees: row.max_attendees,
       eventAccessType: (row.event_access_type ?? null) as Event['eventAccessType'],
       minAttendees: row.min_attendees,
@@ -1596,6 +1606,9 @@ class EventService {
         funding_deadline_at,
         is_all_or_nothing,
         location_mode,
+        -- F-EVENT-FROM-PRICE-COHERENCE (G0): "a partir de" É o menor inteira_price_cents quando há
+        -- setor (igualdade, não teto) — NÃO altera o dado gravado, só o que é SERVIDO.
+        (SELECT MIN(s.inteira_price_cents) FROM event_sectors s WHERE s.event_id = events.id) AS min_sector_price_cents,
         created_at AS "createdAt",
         updated_at AS "updatedAt",
         metadata
