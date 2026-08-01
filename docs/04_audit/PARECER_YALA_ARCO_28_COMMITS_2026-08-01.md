@@ -1,5 +1,11 @@
 # PARECER YALA — arco `f558561d1..3dc7bdf5b` (28 commits, 27 sem auditoria) · 2026-08-01
 
+**Categoria:** auditoria
+**Status:** referência
+**Fonte canônica:** `REMEDIATION_DT_LOG.md` — entrada "AUDITORIA YALA DO ARCO (28 commits)", que absorve este parecer e registra o que foi corrigido
+**Obrigatório:** não — é prova datada de 2026-08-01, não estado atual. Para o estado de hoje: `docs/04_audit/PAINEL_DIVIDA_VIVA.md`
+**Governado por:** YALA (auditoria adversarial independente) · absorvido pela direção · selo é ato de Clayton
+
 **Auditora:** YALA (independente, adversarial) · **Modo:** read-only absoluto.
 **Banco de TODAS as provas: `unificard_dev`** (oficial, **550** migrations, dado curado intacto).
 Só `SELECT`, catálogo do Postgres e execução de guards read-only. **Nenhuma escrita. Nenhum `dropdb`.**

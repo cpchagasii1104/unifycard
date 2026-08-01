@@ -330,6 +330,14 @@ const CMDS = [
   // seria desligado, como aconteceu com schema-coherence. Teto COMPARADO contra o disco: alistar
   // o documento novo na baseline para calar o gate estoura o teto do mesmo jeito. Contagem só desce.
   "node scripts/audit-doc-tag-ratchet.mjs",
+  // F-DORMANT-GHOST-ANTIREVIVAL (2026-08-01, GO Clayton — achado 【4】 da auditoria Yala do arco):
+  // o religamento do Bank deixou `bank-reconciliation-history.repository.ts` DORMENTE com o SQL
+  // fantasma dentro, e a isenção `DT-BANK-RECONCILIATION-HISTORY-DORMANT` no schema-coherence é
+  // POR CAMINHO DE ARQUIVO — ela não percebe religamento. A auditoria nomeou: quem reimportar o
+  // repositório acende o SQL fantasma COM O GATE VERDE. Este guard morde no import/uso (comentário
+  // NÃO conta — a migalha §7.1 cita o símbolo de propósito) e também quando o SQL fantasma SAI do
+  // arquivo, para forçar a retirada da isenção e a descida REAL do teto do ratchet.
+  "node scripts/audit-dormant-ghost-repository-antirevival.mjs",
   // F-RUNNER-COVERAGE-VISIBILITY-ANTI-DRIFT (ROOT-003 R2): meta-guard que torna a cobertura efetiva
   // VISIVEL e FALHA em drift (guard novo sem wiring). Nao executa guards; deriva o alcance das fontes
   // reais (este CMDS[], os 2 agregadores, actor-writer). Deve ser a ULTIMA entrada (le o array acima).
