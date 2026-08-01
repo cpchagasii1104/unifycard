@@ -42,6 +42,11 @@ const LOCATION_GHOST_BODY = {
     '(função) rides_calculate_zone_pressure',
   ],
   message:
+    'MODULE OUT OF PRODUCT MINIMUM (owner decision, 2026-08-01): rides is not one of the seven ' +
+    'verticals of the minimum (rede social · banco · cartão · compra/venda · locação · ingressos/shows/' +
+    'eventos · serviços). This is NOT broken and NOT technical debt — it is scope not started. The absent ' +
+    'substrate below is the secondary reason, and it does NOT expire this containment: even once the ' +
+    'substrate exists, reopening still requires the owner to bring rides into the product minimum. ' +
     'Driver location ping is disabled: its chain requires substrate that does not exist in the canonical ' +
     'schema (rides_driver_availability; functions rides_check_driving_limit, rides_calculate_realtime_earnings, ' +
     'rides_calculate_zone_pressure). Reopening requires materializing the substrate via its own governed front ' +

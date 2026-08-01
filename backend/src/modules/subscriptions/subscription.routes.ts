@@ -5,6 +5,18 @@ import type { FastifyInstance } from 'fastify';
 import { subscriptionService } from './subscription.service';
 import { resolveActiveActorFromRequest } from '@modules/social/actor.utils';
 
+// ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+// ║ STATUS:  FORA DO MÍNIMO DE PRODUTO + INALCANÇÁVEL (F-OUT-OF-SCOPE-CONTAINMENT, 2026-08-01)
+// ║ NORMA:   decisão de produto de Clayton, 2026-08-01 (cartório REMEDIATION_DT_LOG.md, topo)
+// ║ NÃO:     montar este módulo. São 7 endpoints e subscription.routes.ts NUNCA é importado (a superfície viva de assinatura é outra: marketplace-subscriptions.routes.ts) —
+// ║          logo NÃO há rota alcançável hoje. Por isso NÃO recebeu contenção 501: 501 em rota
+// ║          inalcançável é decoração, e decoração envelhece pior que ausência. NÃO apagar
+// ║          arquivo/módulo (ato de Clayton); NÃO materializar substrato.
+// ║ EM VEZ:  o guard audit-product-scope-containment.mjs MORDE se este módulo voltar a ser
+// ║          registrado sem GATE. Iniciar este escopo = decisão de Clayton + GATE, e aí sim
+// ║          materializar substrato do archive.
+// ╚════════════════════════════════════════════════════════════════
+
 /**
  * Rotas REST para Subscriptions
  */

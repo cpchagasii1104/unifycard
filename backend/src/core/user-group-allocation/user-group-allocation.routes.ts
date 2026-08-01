@@ -1,10 +1,25 @@
 // backend/src/core/user-group-allocation/user-group-allocation.routes.ts
-// CONTINUOUS PRODUCTION: Rotas para alocação de grupos do usuário
+// ⚠️ O cabeçalho "CONTINUOUS PRODUCTION" acima MENTIA — este módulo é REVOGADO POR LEI. Ver migalha.
 
 import { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { userGroupAllocationService } from './user-group-allocation.service';
 import type { SetUserGroupAllocationInput } from './user-group-allocation.service';
+import { containModule } from '@core/product-scope/out-of-scope-containment';
+
+// ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+// ║ STATUS:  CONTIDO — REVOGADO POR LEI (F-OUT-OF-SCOPE-CONTAINMENT, 2026-08-01)
+// ║ NORMA:   docs/01_normative/CONTRATO_GRUPOS_V2.md — declara este módulo "dívida a aposentar"
+// ║          e NÃO fonte do rateio comunitário. É LEI, com cláusula "implementação que
+// ║          contradiga é BUG por definição". Razão MAIS FORTE que "fora do mínimo": não se
+// ║          reabre por decisão de fatia; exige emendar a lei primeiro.
+// ║ NÃO:     reabrir estes 2 endpoints. Estavam MONTADOS e VIVOS (unifybank.module.ts:50 →
+// ║          /bank/user/group-allocation E /admin/user/group-allocation), com a tabela
+// ║          `user_group_allocations` medida AUSENTE. O comentário original dizia
+// ║          "CONTINUOUS PRODUCTION" — mentira confirmada, corrigida acima.
+// ║ EM VEZ:  o modelo correto é PULL por membership (CONTRATO_GRUPOS_V2). Nada aqui governa
+// ║          rateio econômico. NÃO apagar o arquivo — deleção é ato de Clayton.
+// ╚════════════════════════════════════════════════════════════════
 
 const setAllocationSchema = z.object({
   allocations: z.array(
@@ -16,6 +31,13 @@ const setAllocationSchema = z.object({
 });
 
 const userGroupAllocationRoutes: FastifyPluginAsync = async (fastify) => {
+  fastify.addHook('onRequest', containModule({
+    module: 'user-group-allocation',
+    reason: 'revoked_by_law',
+    revokedBy: 'docs/01_normative/CONTRATO_GRUPOS_V2.md',
+    missingSubstrate: ['user_group_allocations'],
+  }));
+
   /**
    * GET /user/group-allocation
    * Obtém alocações de grupos do usuário autenticado

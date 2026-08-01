@@ -5,8 +5,24 @@
 import { FastifyPluginAsync } from 'fastify';
 import { institutionalMemoryService } from './institutional-memory.service';
 import { isPilotMode } from './pilot-events.service';
+import { containModule } from '@core/product-scope/out-of-scope-containment';
 
+// ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+// ║ STATUS:  CONTIDO — fora do mínimo de produto (F-OUT-OF-SCOPE-CONTAINMENT, 2026-08-01)
+// ║ NORMA:   decisão de produto de Clayton, 2026-08-01 (cartório REMEDIATION_DT_LOG.md, topo)
+// ║ NÃO:     religar materializando tabela na mão. 4 endpoints, montado em /admin/pilot (app.builder.ts:683);
+// ║          substrato medido AUSENTE em unificard_dev: institutional_memory_declarations.
+// ║          NÃO é dívida técnica quebrada — é ESCOPO NÃO INICIADO. NÃO apagar arquivo/rota.
+// ║ EM VEZ:  UMA linha (o addHook abaixo) contém o módulo na borda, ANTES de qualquer
+// ║          service/SQL. Religar = apagar a linha + materializar do archive com GATE.
+// ╚════════════════════════════════════════════════════════════════
 const institutionalMemoryRoutes: FastifyPluginAsync = async (fastify) => {
+  fastify.addHook('onRequest', containModule({
+    module: 'institutional-memory',
+    reason: 'out_of_product_minimum',
+    missingSubstrate: ['institutional_memory_declarations'],
+  }));
+
   /**
    * GET /admin/pilot/institutional-memory
    * Lista declarações de aprendizado institucional

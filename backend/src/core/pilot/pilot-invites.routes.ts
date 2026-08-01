@@ -5,8 +5,24 @@ import { FastifyPluginAsync } from 'fastify';
 import { pilotInvitesService } from './pilot-invites.service';
 import type { CreatePilotInviteInput } from './pilot-invites.repository';
 import { requirePermission } from '@core/authorization/require-permission.guard';
+import { containModule } from '@core/product-scope/out-of-scope-containment';
 
+// ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+// ║ STATUS:  CONTIDO — fora do mínimo de produto (F-OUT-OF-SCOPE-CONTAINMENT, 2026-08-01)
+// ║ NORMA:   decisão de produto de Clayton, 2026-08-01 (cartório REMEDIATION_DT_LOG.md, topo)
+// ║ NÃO:     religar materializando tabela na mão. 3 endpoints, montado em /admin/pilot (app.builder.ts:677);
+// ║          substrato medido AUSENTE em unificard_dev: pilot_invites.
+// ║          NÃO é dívida técnica quebrada — é ESCOPO NÃO INICIADO. NÃO apagar arquivo/rota.
+// ║ EM VEZ:  UMA linha (o addHook abaixo) contém o módulo na borda, ANTES de qualquer
+// ║          service/SQL. Religar = apagar a linha + materializar do archive com GATE.
+// ╚════════════════════════════════════════════════════════════════
 const pilotInvitesRoutes: FastifyPluginAsync = async (fastify) => {
+  fastify.addHook('onRequest', containModule({
+    module: 'pilot-invites',
+    reason: 'out_of_product_minimum',
+    missingSubstrate: ['pilot_invites'],
+  }));
+
   /**
    * POST /admin/pilot/invites
    * Cria um novo convite

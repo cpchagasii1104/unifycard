@@ -36,6 +36,11 @@ const ghostBody = (missing: string[]) => ({
   error: 'RIDES_DEMAND_SCHEMA_GHOST_CONTAINED',
   missing_substrate: missing,
   message:
+    'MODULE OUT OF PRODUCT MINIMUM (owner decision, 2026-08-01): rides is not one of the seven ' +
+    'verticals of the minimum (rede social · banco · cartão · compra/venda · locação · ingressos/shows/' +
+    'eventos · serviços). This is NOT broken and NOT technical debt — it is scope not started. The absent ' +
+    'substrate below is the secondary reason, and it does NOT expire this containment: even once the ' +
+    'substrate exists, reopening still requires the owner to bring rides into the product minimum. ' +
     `Rides demand endpoints are disabled: required substrate does not exist in the canonical schema ` +
     `(${missing.join(', ')}). Reopening requires materializing the substrate via its own governed front ` +
     `(GATE + GO), never by creating tables/functions to fit this caller. No money is moved.`,

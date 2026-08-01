@@ -6,11 +6,30 @@ import { presenceService } from './presence.service';
 import { checkinService } from './checkin.service';
 import { promoBenefitService } from './promo-benefit.service';
 import { resolveActiveActorFromRequest } from '@modules/social/actor.utils';
+import { containModule } from '@core/product-scope/out-of-scope-containment';
+
+// ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+// ║ STATUS:  CONTIDO — fora do mínimo de produto (F-OUT-OF-SCOPE-CONTAINMENT, 2026-08-01)
+// ║ NORMA:   decisão de produto de Clayton, 2026-08-01 (cartório REMEDIATION_DT_LOG.md, topo)
+// ║ NÃO:     presumir que este módulo estava "sem rota". Estava MONTADO e VIVO em
+// ║          /marketplace/presence (marketplace.routes.ts:140) com as 5 tabelas medidas AUSENTES
+// ║          (checkins, checkin_tokens, presence_rsvps, promo_benefits,
+// ║          promo_benefit_redemptions) — 13 endpoints devolvendo 500 cru. NÃO materializar as
+// ║          tabelas na mão; NÃO apagar módulo/arquivo/rota.
+// ║ EM VEZ:  UMA linha (o addHook abaixo) contém os 13 endpoints na borda, ANTES de qualquer
+// ║          service/SQL. Religar = apagar a linha + materializar do archive com GATE.
+// ╚════════════════════════════════════════════════════════════════
 
 /**
  * Rotas REST para Presence
  */
 const presenceRoutes = async (fastify: FastifyInstance) => {
+  fastify.addHook('onRequest', containModule({
+    module: 'presence',
+    reason: 'out_of_product_minimum',
+    missingSubstrate: ['checkins', 'checkin_tokens', 'presence_rsvps', 'promo_benefits', 'promo_benefit_redemptions'],
+  }));
+
   /**
    * POST /presence/rsvp/confirm
    * Confirma presença

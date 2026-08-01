@@ -160,6 +160,7 @@ const CMDS = [
   "node scripts/audit-product-publish-pj-only.mjs",
   "node scripts/audit-rides-money-antirevival-guard.mjs",
   "node scripts/audit-rides-operational-schema-ghost-containment.mjs",
+  "node scripts/audit-product-scope-containment.mjs",
   "node scripts/audit-service-search-alias-discovery.mjs",
   "node scripts/audit-service-discovery-firm-price-no-artificial-fallback.mjs",
   "node scripts/audit-service-order-confirm-canonical-lock.mjs",

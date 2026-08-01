@@ -10,6 +10,7 @@
 // como produto vivo exige schema canônico + decisão de produto (G10) + binding de autoridade server-side.
 
 import { FastifyPluginAsync } from 'fastify';
+import { containModule } from '@core/product-scope/out-of-scope-containment';
 
 const HUMAN_MVP_GHOST_BODY = {
   ok: false,
@@ -21,7 +22,22 @@ const HUMAN_MVP_GHOST_BODY = {
     'canonical schema + a product decision (G10) + server-side authority binding. No money is moved.',
 } as const;
 
+// ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+// ║ STATUS:  CONTIDO — fora do mínimo de produto (F-OUT-OF-SCOPE-CONTAINMENT, 2026-08-01)
+// ║ NORMA:   decisão de produto de Clayton, 2026-08-01 (cartório REMEDIATION_DT_LOG.md, topo)
+// ║ NÃO:     religar materializando tabela na mão. 5 endpoints, montado em /human-mvp (app.builder.ts:572);
+// ║          substrato medido AUSENTE em unificard_dev: human_mvp_events, human_mvp_event_instances, human_mvp_opportunities, human_mvp_service_offers.
+// ║          NÃO é dívida técnica quebrada — é ESCOPO NÃO INICIADO. NÃO apagar arquivo/rota.
+// ║ EM VEZ:  UMA linha (o addHook abaixo) contém o módulo na borda, ANTES de qualquer
+// ║          service/SQL. Religar = apagar a linha + materializar do archive com GATE.
+// ╚════════════════════════════════════════════════════════════════
 const humanMvpRoutes: FastifyPluginAsync = async (fastify) => {
+  fastify.addHook('onRequest', containModule({
+    module: 'human-mvp',
+    reason: 'out_of_product_minimum',
+    missingSubstrate: ['human_mvp_events', 'human_mvp_event_instances', 'human_mvp_opportunities', 'human_mvp_service_offers'],
+  }));
+
   // Todas as superfícies do Human-MVP são schema-ghost (dead-at-db) → 501 antes de qualquer service/sink.
   fastify.post('/skills', async (_req, reply) => reply.status(501).send(HUMAN_MVP_GHOST_BODY));
   fastify.post('/service-offers', async (_req, reply) => reply.status(501).send(HUMAN_MVP_GHOST_BODY));

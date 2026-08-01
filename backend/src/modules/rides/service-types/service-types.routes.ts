@@ -29,6 +29,11 @@ const DRIVER_SERVICES_GHOST_BODY = {
   error: 'RIDES_DRIVER_SERVICES_SCHEMA_GHOST_CONTAINED',
   missing_substrate: ['rides_driver_services'],
   message:
+    'MODULE OUT OF PRODUCT MINIMUM (owner decision, 2026-08-01): rides is not one of the seven ' +
+    'verticals of the minimum (rede social · banco · cartão · compra/venda · locação · ingressos/shows/' +
+    'eventos · serviços). This is NOT broken and NOT technical debt — it is scope not started. The absent ' +
+    'substrate below is the secondary reason, and it does NOT expire this containment: even once the ' +
+    'substrate exists, reopening still requires the owner to bring rides into the product minimum. ' +
     'Driver↔service-type link endpoints are disabled: table rides_driver_services does not exist in the ' +
     'canonical schema. Reopening requires materializing the substrate via its own governed front (GATE + GO). ' +
     'No money is moved.',

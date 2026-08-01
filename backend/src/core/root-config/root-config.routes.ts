@@ -2,6 +2,18 @@
 import { FastifyPluginAsync } from 'fastify';
 import { rootConfigService } from './root-config.service';
 import {
+
+// ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+// ║ STATUS:  FORA DO MÍNIMO DE PRODUTO + INALCANÇÁVEL (F-OUT-OF-SCOPE-CONTAINMENT, 2026-08-01)
+// ║ NORMA:   decisão de produto de Clayton, 2026-08-01 (cartório REMEDIATION_DT_LOG.md, topo)
+// ║ NÃO:     montar este módulo. São 6 endpoints e root-config.module.ts existe mas NUNCA é importado por ninguém —
+// ║          logo NÃO há rota alcançável hoje. Por isso NÃO recebeu contenção 501: 501 em rota
+// ║          inalcançável é decoração, e decoração envelhece pior que ausência. NÃO apagar
+// ║          arquivo/módulo (ato de Clayton); NÃO materializar substrato.
+// ║ EM VEZ:  o guard audit-product-scope-containment.mjs MORDE se este módulo voltar a ser
+// ║          registrado sem GATE. Iniciar este escopo = decisão de Clayton + GATE, e aí sim
+// ║          materializar substrato do archive.
+// ╚════════════════════════════════════════════════════════════════
   updateRootConfigSchema,
   setRegionSchema,
   setLanguagesSchema,

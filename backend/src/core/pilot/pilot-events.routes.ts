@@ -4,8 +4,24 @@
 import { FastifyPluginAsync } from 'fastify';
 import { pilotEventsService } from './pilot-events.service';
 import type { CreatePilotEventInput } from './pilot-events.repository';
+import { containModule } from '@core/product-scope/out-of-scope-containment';
 
+// ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+// ║ STATUS:  CONTIDO — fora do mínimo de produto (F-OUT-OF-SCOPE-CONTAINMENT, 2026-08-01)
+// ║ NORMA:   decisão de produto de Clayton, 2026-08-01 (cartório REMEDIATION_DT_LOG.md, topo)
+// ║ NÃO:     religar materializando tabela na mão. 3 endpoints, montado em /admin/pilot (app.builder.ts:674);
+// ║          substrato medido AUSENTE em unificard_dev: pilot_events, pilot_checklist, pilot_hypotheses.
+// ║          NÃO é dívida técnica quebrada — é ESCOPO NÃO INICIADO. NÃO apagar arquivo/rota.
+// ║ EM VEZ:  UMA linha (o addHook abaixo) contém o módulo na borda, ANTES de qualquer
+// ║          service/SQL. Religar = apagar a linha + materializar do archive com GATE.
+// ╚════════════════════════════════════════════════════════════════
 const pilotEventsRoutes: FastifyPluginAsync = async (fastify) => {
+  fastify.addHook('onRequest', containModule({
+    module: 'pilot-events',
+    reason: 'out_of_product_minimum',
+    missingSubstrate: ['pilot_events', 'pilot_checklist', 'pilot_hypotheses'],
+  }));
+
   /**
    * POST /admin/pilot/events
    * Registra um evento de observação

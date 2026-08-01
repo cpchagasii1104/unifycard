@@ -4,11 +4,29 @@
 import type { FastifyInstance } from 'fastify';
 import { loyaltyService } from './loyalty.service';
 import { resolveActiveActorFromRequest } from '@modules/social/actor.utils';
+import { containModule } from '@core/product-scope/out-of-scope-containment';
+
+// ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+// ║ STATUS:  CONTIDO — fora do mínimo de produto (F-OUT-OF-SCOPE-CONTAINMENT, 2026-08-01)
+// ║ NORMA:   decisão de produto de Clayton, 2026-08-01 (cartório REMEDIATION_DT_LOG.md, topo)
+// ║ NÃO:     presumir que este módulo estava "sem rota". Estava MONTADO e VIVO em
+// ║          /marketplace/loyalty (marketplace.routes.ts:138) com as 4 tabelas medidas AUSENTES
+// ║          (loyalty_accounts, loyalty_ledger, loyalty_rules, loyalty_vouchers) — 7 endpoints
+// ║          devolvendo 500 cru. NÃO materializar na mão; NÃO apagar módulo/arquivo/rota.
+// ║ EM VEZ:  UMA linha (o addHook abaixo) contém os 7 endpoints na borda, ANTES de qualquer
+// ║          service/SQL. Religar = apagar a linha + materializar do archive com GATE.
+// ╚════════════════════════════════════════════════════════════════
 
 /**
  * Rotas REST para Loyalty
  */
 const loyaltyRoutes = async (fastify: FastifyInstance) => {
+  fastify.addHook('onRequest', containModule({
+    module: 'loyalty',
+    reason: 'out_of_product_minimum',
+    missingSubstrate: ['loyalty_accounts', 'loyalty_ledger', 'loyalty_rules', 'loyalty_vouchers'],
+  }));
+
   /**
    * GET /loyalty/account?contactId=...
    * Busca conta de fidelidade
