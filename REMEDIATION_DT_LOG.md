@@ -1,5 +1,54 @@
 # REMEDIATION DT LOG
 
+## 🟢 CALIBRAGEM — o "88% de órfão em `availability`" é REAL e INOFENSIVO: as 59 estão em TENANT QUE NÃO EXISTE (2026-08-01, direção)
+
+A instância de consumir/operar reportou (item 6.2) que **59 de 67 linhas de `availability` (88%)**
+apontam para `owner_id` inexistente, numa coluna polimórfica **sem FK nenhuma**, e chamou isso de
+*"a espinha do operar sustentando peso sem trava referencial"*. A direção ia abrir fatia de trigger
+de validação. **Mediu antes, e a fatia não existe.**
+
+```
+psql → availability: total=67
+       em tenant EXISTENTE   =  8
+       em tenant INEXISTENTE = 59      ← as 59 "órfãs" são ESTAS
+       das que estão em tenant existente, órfãs = 0
+```
+
+🔴 **As 59 não estão órfãs por defeito de escrita — estão num TENANT QUE NÃO EXISTE.** É resíduo de
+seed/tenant removido. **TODAS as leituras de `availability` filtram `WHERE tenant_id = $1`**
+(`unified-availability.repository.ts:189,203,217` · `actor-page.repository.ts:128`), então **nenhuma
+query viva as alcança, jamais.** RLS + filtro de tenant já as isolam. **Zero impacto observável.**
+
+### O que continua verdade, sem inflar
+1. **Não há FK em `owner_id`** — confirmado: a única FK de `availability` é
+   `fk_availability_purpose_concept`. Polimórfico com 8 `owner_type` permitidos (CHECK existe), e
+   FK simples não resolve polimorfismo. **A trava estrutural realmente não existe.**
+2. **Mas a autoridade JÁ rejeita owner inválido em runtime:**
+   `availability-owner-authority.ts:59` → `OWNER_AUTHORITY_POLICIES[USER] = actorOfType(tenant,
+   ownerId,'user')` — resolve o dono contra `actors` e devolve `null` se não existir. Quem não
+   resolve, não opera. A ausência de FK **não vira buraco de autorização**.
+3. **`unified_availability` NÃO é tabela** — é o serviço sobre `availability`. (confirmado)
+
+### 📌 O QUE FICA COMO DÍVIDA — nomeada, dimensionada, NÃO inflada
+- **Limpeza das 59:** é DADO. **Ato de Clayton.** Inofensivas hoje; o custo de deixar é que toda
+  medição de `availability` mente por 8× (67 aparenta agenda viva; o real são 8).
+  ⚠️ **Isto já enganou uma medição desta sessão:** o mapa das 7 verticais registrou
+  *"availability=67"* como sinal de vertical com dado. **O número real é 8.**
+- **Trava para o polimorfismo:** exigiria trigger de validação por `owner_type` (8 ramos) na
+  espinha temporal — **fatia própria com GATE**, não housekeeping. E de prioridade BAIXA, porque
+  a autoridade de runtime já nega o que a FK negaria.
+
+### 🔴 A LIÇÃO — e é a terceira vez hoje que ela aparece
+O relatório dizia "88% aponta para IDs que não existem" e **estava certo na letra**. O que faltava
+era **uma pergunta a mais**: *em que tenant?* Sem ela, o achado parecia dívida estrutural na espinha
+do produto; com ela, é lixo isolado por filtro que já existe em toda leitura.
+**Medir o alcance é parte do achado, não um passo opcional depois dele.** Foi assim que a direção
+errou 3× hoje acusando — e desta vez a pergunta foi feita ANTES de abrir a fatia, não depois de
+escrever a tese.
+
+---
+
+
 ## ⛔ RETRATAÇÃO Nº3 + ACHADOS DA YALA (MANDATO D) — a acusação do payout estava ERRADA, e um elogio meu não tinha prova (2026-08-01)
 
 Parecer completo: `docs/04_audit/PARECER_YALA_MANDATO_D_2026-08-01.md`
