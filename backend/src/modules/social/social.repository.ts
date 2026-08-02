@@ -63,7 +63,7 @@ export class SocialRepository {
         data.globalUserId,
         data.content,
         data.type || 'TEXT',
-        data.visibility || 'PUBLIC',
+        data.visibility || 'public',
         JSON.stringify(data.media),
         data.intent,
         data.confidence,

@@ -838,7 +838,7 @@ export class ActorRepository {
         ...companyActor,
         user_role: companyActor.role,
         can_post: permissions.canPost, // 🔴 VERIFICAÇÃO REAL - não assume true
-        company_status: companyActor.company_status as 'DRAFT' | 'PROVISIONAL' | 'VERIFIED' | 'APPROVED' | 'SUSPENDED',
+        company_status: companyActor.company_status as 'DRAFT' | 'PROVISIONAL' | 'ACTIVE' | 'SUSPENDED' // conjunto REAL do CHECK (DECISION-0097); o cast antigo listava VERIFIED/APPROVED (inexistentes) e omitia ACTIVE,
       } as ActorRow & { user_role?: string; can_post?: boolean; company_status?: string });
     }
 

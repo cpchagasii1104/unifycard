@@ -810,7 +810,7 @@ class EventsService {
       FROM posts
       WHERE tenant_id = $1
         AND event_id = $2
-        AND visibility = 'PUBLIC'
+        AND visibility = 'public'
       ORDER BY created_at DESC
       LIMIT $3
       `,

@@ -124,7 +124,7 @@ async function handleEventCreated(event: UnificardEvent): Promise<void> {
       }),
       JSON.stringify({
         type: 'event',
-        visibility: 'PUBLIC',
+        visibility: 'public',
         ...(globalUserId && { created_by_global_user_id: globalUserId }),
       }),
     ]

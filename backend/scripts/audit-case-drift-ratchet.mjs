@@ -50,7 +50,6 @@ const BASELINE = new Set([
   "src/modules/events/event.repository.ts::DRAFT::events",
   "src/modules/events/event.repository.ts::PUBLISHED::events",
   "src/modules/events/event.repository.ts::CANCELLED::events",
-  "src/modules/events/events.service.ts::PUBLIC::events",
   "src/modules/live-chat/chat-room.repository.ts::ACTIVE::chat_rooms",
   "src/modules/live-chat/chat-room.repository.ts::ARCHIVED::chat_rooms",
   "src/modules/marketplace/promotion.repository.ts::VARIANT::promotions",
@@ -61,9 +60,6 @@ const BASELINE = new Set([
   "src/modules/reports/financial-report.service.ts::PENDING::orders",
   "src/modules/reports/inventory-report.service.ts::UN::product_variants",
   "src/modules/services/service-order.service.ts::AUTHORIZED::payment_intents",
-  "src/modules/social/actor.repository.ts::APPROVED::identities",
-  "src/modules/social/event-feed.handlers.ts::PUBLIC::events",
-  "src/modules/social/social.repository.ts::PUBLIC::posts",
   "src/modules/trust/trust.repository.ts::MEDIUM::trust_profiles",
   "src/scripts/validate-pipeline-e2e-company-users-fine-grants.ts::None::identities",
   "src/scripts/validate-pipeline-e2e-event-audience-0161.ts::Amigo::events",
@@ -84,7 +80,7 @@ const BASELINE = new Set([
   "src/services/feed/FeedService.ts::PUBLISHED::events",
   "src/services/feed/FeedService.ts::PUBLIC::events",
 ]);
-const BASELINE_COUNT = 47; // 49→47 em 2026-08-02: os leitores de inventory_reservations convergidos — a reconciliação acusaria drift em TODO produto com reserva ('ACTIVE' nunca casava com o enum minúsculo de ontem).
+const BASELINE_COUNT = 43; // 47→43 em 2026-08-02: visibility de posts convergida (getEventPosts devolvia vazio p/ sempre; o default do INSERT violaria o CHECK) + cast de company_status corrigido para o conjunto REAL da DECISION-0097.
 
 // ── conexão: mesma fonte dos demais guards que leem o banco ──────────────────────────────────
 function databaseUrl() {
