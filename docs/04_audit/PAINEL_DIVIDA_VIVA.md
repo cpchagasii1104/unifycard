@@ -241,7 +241,7 @@ Sem essa resposta, cada tabela vira pesquisa. Com ela, a cauda de 26 módulos é
 | **Capabilities da PF** | ✅ decisão (A) IMPLEMENTADA (`17b22c466`) | mapa estava VIVO (grep perdeu import dinâmico — 4ª retratação); linha `user` agora concede RECEIVE_FUNDS com a decisão citada. As 4 fontes concordam |
 | **Reputação por participação** | 🗺️ mapeada, fatia própria | `getStats` morre em tabela fantasma (`event_participants`) + coluna fantasma + vocabulário sem sucessor (`LEFT_EARLY`). Morto desde o gênesis, não urgente |
 | **`trust_profiles`/payout duplicado** | aguarda GO | remover a checagem morta de `validatePayoutEligibility` (deleção em caminho de dinheiro = ato de Clayton). O gate canônico `requireFinancialRiskClearance` já protege |
-| **Escrow (2º ledger)** | contido o que mordia | 2 INSERTs convergidos; **aposentadoria segue frente nomeada** com GO próprio. Frontend escrow = desenho anterior (conjunto diferente), pertence à mesma frente |
+| **Escrow (2º ledger)** | 🔒 **ILHADO** (f1+f2 ✅, GOs de Clayton) | torneira fechada (`44cacd50b`: único write vivo contido, 8ª superfície do guard anti-reabertura) · **ZERO leitores fora do módulo** (`ee18ff630`: reporting lê o SALDO da conta canônica do Bank; payout fail-closed; informacionais = undefined honesto) · f3 (UI converge) aguarda GO · f4 (aposentadoria) depois |
 | **Eventos ponta a ponta** | ✅ construído+provado em efêmero | contagem real segue 0 — publicar evento REAL é dado de produto (ato de Clayton, de preferência pela tela) |
 
 **Paradas com Clayton:** push · publicar 1 evento · 59 órfãs de `availability` (dado; medição
