@@ -37,7 +37,7 @@ export default function BypassAlert({ actorId, onDismiss }: BypassAlertProps) {
   }
 
   // Mostrar alerta apenas para HIGH ou BLOCKED (indicam atividade suspeita)
-  if (profile.riskLevel !== 'HIGH' && profile.riskLevel !== 'BLOCKED') {
+  if (profile.riskLevel !== 'high' && profile.riskLevel !== 'critical') {
     return null;
   }
 
@@ -49,7 +49,7 @@ export default function BypassAlert({ actorId, onDismiss }: BypassAlertProps) {
   }
 
   const getAlertMessage = (riskLevel: RiskLevel) => {
-    if (riskLevel === 'BLOCKED') {
+    if (riskLevel === 'critical') {
       return {
         title: '⚠️ Atividade Suspeita Detectada',
         message:

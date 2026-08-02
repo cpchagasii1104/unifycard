@@ -47,7 +47,7 @@ export interface MyOrderItem {
   invoiceId: string | null;
   hasOpenDispute: boolean;
   trustScore: number | null;
-  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'BLOCKED' | null;
+  riskLevel: 'low' | 'medium' | 'high' | 'critical' | null;
   metadata: Record<string, any>;
 }
 

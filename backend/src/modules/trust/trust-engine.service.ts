@@ -80,11 +80,11 @@ class TrustEngineService {
   /**
    * Calcula risk level baseado no score
    */
-  private calculateRiskLevel(score: number): 'LOW' | 'MEDIUM' | 'HIGH' | 'BLOCKED' {
-    if (score >= 75) return 'LOW';
-    if (score >= 50) return 'MEDIUM';
-    if (score >= 30) return 'HIGH';
-    return 'BLOCKED';
+  private calculateRiskLevel(score: number): 'low' | 'medium' | 'high' | 'critical' {
+    if (score >= 75) return 'low';
+    if (score >= 50) return 'medium';
+    if (score >= 30) return 'high';
+    return 'critical'; // era 'BLOCKED' — valor que o CHECK nunca teve; 'critical' é o topo da escala real
   }
 
   /**
@@ -194,13 +194,13 @@ class TrustEngineService {
     let reason: string | undefined;
 
     // BLOCKED: retorna informação, mas NÃO bloqueia
-    if (profile.riskLevel === 'BLOCKED') {
+    if (profile.riskLevel === 'critical') {
       canProceed = true; // Não bloqueia, apenas informa
       reason = '⚠️ AVISO: Actor com trust score muito baixo. Recomenda-se revisão manual.';
     }
 
     // HIGH: retorna informação, mas NÃO bloqueia
-    if (profile.riskLevel === 'HIGH' && this.isCriticalAction(input.action)) {
+    if (profile.riskLevel === 'high' && this.isCriticalAction(input.action)) {
       canProceed = true; // Não bloqueia, apenas informa
       reason = '⚠️ AVISO: Trust score baixo para ação crítica. Recomenda-se revisão manual.';
     }

@@ -437,7 +437,7 @@ após conclusão formal registrada em REMEDIATION_DECISIONS_LOG como "conclusao_
 > ⚠️ **EXECUÇÃO DE PLANOS DESABILITADA (POLÍTICA DE PROTECÇÃO)**  
 > Planos com nome `UNIFICARD_PLANO_*` (histórico, não existe mais na raiz — ver nota de migração acima) podem ser **placeholders** ou **histórico**. **Não** executar pipelines, scripts ou migrações **porque** um plano os menciona. Toda decisão de alteração estrutural segue `docs/01_normative/SSOT_REGISTRY_UNIFICARD.md`, `docs/01_normative/CONTRACTS.md` (quando aplicável) e `REMEDIATION_DT_LOG.md`. Leitura do ficheiro **v7** abaixo (se ainda existir) é **contexto**, não ordem de execução.
 
-Após cumprir o **bootstrap (2.2.1)**, a **prova (2.2.2)**, o **carregamento modular** exigido pelo domínio (2.2.3, **incluindo leitura completa** de cada linha aplicável), e **2.2.5–2.2.6** quando aplicável — e, quando a tarefa for de **execução** ou cruzar o plano — o agente **DEVE** ler (somente como documento de contexto, sem executar os passos nele descritos salvo ordem humana explícita):
+Após cumprir o **bootstrap (2.2.1)**, a **prova (2.2.2)**, o **carregamento modular** exigido pelo domínio (2.2.3, **incluindo leitura completa** de cada linha aplicável), e **2.2.6–2.2.7** quando aplicável — e, quando a tarefa for de **execução** ou cruzar o plano — o agente **DEVE** ler (somente como documento de contexto, sem executar os passos nele descritos salvo ordem humana explícita):
 
 UNIFICARD_PLANO_DEFINITIVO_v7.md
 

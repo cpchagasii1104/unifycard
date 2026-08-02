@@ -57,7 +57,6 @@ const BASELINE = new Set([
   "src/modules/reports/financial-report.service.ts::PENDING::orders",
   "src/modules/reports/inventory-report.service.ts::UN::product_variants",
   "src/modules/services/service-order.service.ts::AUTHORIZED::payment_intents",
-  "src/modules/trust/trust.repository.ts::MEDIUM::trust_profiles",
   "src/scripts/validate-pipeline-e2e-company-users-fine-grants.ts::None::identities",
   "src/scripts/validate-pipeline-e2e-event-audience-0161.ts::Amigo::events",
   "src/scripts/validate-pipeline-e2e-event-sectors.ts::REJECTED::identities",
@@ -75,7 +74,7 @@ const BASELINE = new Set([
   "src/services/feed/FeedService.ts::PUBLISHED::events",
   "src/services/feed/FeedService.ts::PUBLIC::events",
 ]);
-const BASELINE_COUNT = 38; // 40→38 em 2026-08-02: getStats/getPenalties reescritos — os sítios fantasma do trust sumiram junto com as queries mortas.
+const BASELINE_COUNT = 37; // 38→37 em 2026-08-02: a RAIZ do crash de trust consertada (auditoria F, 'a quinta') — getOrCreateProfile insere 'medium' e a união RiskLevel espelha o CHECK real (BLOCKED→critical, 12 sítios via compilador).
 
 // ── conexão: mesma fonte dos demais guards que leem o banco ──────────────────────────────────
 function databaseUrl() {

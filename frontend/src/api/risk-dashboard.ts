@@ -45,7 +45,7 @@ export interface RiskDashboardOverview {
 export interface ActorRiskProfile {
   actorId: string;
   currentTrustScore: number;
-  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'BLOCKED';
+  riskLevel: 'low' | 'medium' | 'high' | 'critical';
   totalEvents: number;
   positiveEvents: number;
   negativeEvents: number;
@@ -107,7 +107,7 @@ export interface RiskTimelineEvent {
  * Filtros para busca de actors
  */
 export interface ActorRiskFilters {
-  riskLevel?: 'LOW' | 'MEDIUM' | 'HIGH' | 'BLOCKED';
+  riskLevel?: 'low' | 'medium' | 'high' | 'critical';
   minTrustScore?: number;
   maxTrustScore?: number;
   hasOpenDisputes?: boolean;

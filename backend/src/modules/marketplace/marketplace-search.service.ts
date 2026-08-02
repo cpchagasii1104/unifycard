@@ -239,7 +239,7 @@ class MarketplaceSearchService {
   private async getTrustInfo(
     tenantId: string,
     actorId: string
-  ): Promise<{ trustScore: number | null; riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'BLOCKED' | null }> {
+  ): Promise<{ trustScore: number | null; riskLevel: 'low' | 'medium' | 'high' | 'critical' | null }> {
     try {
       const { trustRepository } = await import('../trust/trust.repository');
       const profile = await trustRepository.findByActor(tenantId, actorId);
@@ -439,7 +439,7 @@ class MarketplaceSearchService {
     if (filters.trustLevel) {
       filtered = filtered.filter((r) => {
         if (!r.riskLevel) return false;
-        const levelOrder = { LOW: 0, MEDIUM: 1, HIGH: 2, BLOCKED: 3 };
+        const levelOrder = { low: 0, medium: 1, high: 2, critical: 3 };
         const filterOrder = levelOrder[filters.trustLevel!];
         const resultOrder = levelOrder[r.riskLevel];
         return resultOrder <= filterOrder;

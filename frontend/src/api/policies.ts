@@ -29,7 +29,7 @@ export type PolicyAction =
  * Condições para ativação da política
  */
 export interface PolicyCondition {
-  minRiskLevel?: 'LOW' | 'MEDIUM' | 'HIGH' | 'BLOCKED';
+  minRiskLevel?: 'low' | 'medium' | 'high' | 'critical';
   maxTrustScore?: number;
   minTrustScore?: number;
   hasOpenDisputes?: boolean;

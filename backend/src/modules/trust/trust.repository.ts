@@ -131,7 +131,7 @@ class TrustRepository {
           ) VALUES ($1, $2, $3, $4, $5)
           RETURNING ${TRUST_PROFILE_COLS}
         `,
-        values: [profileId, tenantId, actorId, 70, 'MEDIUM'],
+        values: [profileId, tenantId, actorId, 70, 'medium'],
       }
     );
 

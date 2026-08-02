@@ -7,7 +7,7 @@ import { apiFetch, apiFetchJson } from './client';
 /**
  * Nível de risco
  */
-export type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'BLOCKED';
+export type RiskLevel = 'low' | 'medium' | 'high' | 'critical'; // espelha o CHECK real (convergido 2026-08-02; BLOCKED nunca existiu no banco)
 
 /**
  * Trust Profile

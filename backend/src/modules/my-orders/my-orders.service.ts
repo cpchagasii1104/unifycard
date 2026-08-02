@@ -108,7 +108,7 @@ class MyOrdersService {
 
       // Buscar Trust Profile
       let trustScore: number | null = null;
-      let riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'BLOCKED' | null = null;
+      let riskLevel: 'low' | 'medium' | 'high' | 'critical' | null = null;
       try {
         const { trustRepository } = await import('../trust/trust.repository');
         const trustProfile = await trustRepository.findByActor(tenantId, booking.requesterActorId);
@@ -268,7 +268,7 @@ class MyOrdersService {
 
       // Buscar Trust Profile
       let trustScore: number | null = null;
-      let riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'BLOCKED' | null = null;
+      let riskLevel: 'low' | 'medium' | 'high' | 'critical' | null = null;
       try {
         const { trustRepository } = await import('../trust/trust.repository');
         const trustProfile = await trustRepository.findByActor(tenantId, so.customerActorId);

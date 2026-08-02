@@ -334,7 +334,7 @@ export default function MyOrdersPage() {
                         ⚠️ Disputa aberta
                       </div>
                     )}
-                    {order.riskLevel && order.riskLevel !== 'LOW' && (
+                    {order.riskLevel && order.riskLevel !== 'low' && (
                       <div
                         className="alert risk-alert"
                         style={{ backgroundColor: getRiskLevelColor(order.riskLevel) }}

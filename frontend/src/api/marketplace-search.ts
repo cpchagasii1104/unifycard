@@ -28,7 +28,7 @@ export interface MarketplaceSearchResult {
   availabilityStatus: AvailabilityStatus;
   compatibilityStatus: CompatibilityStatus;
   trustScore: number | null;
-  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'BLOCKED' | null;
+  riskLevel: 'low' | 'medium' | 'high' | 'critical' | null;
   capacityRange: {
     min: number | null;
     max: number | null;
@@ -72,7 +72,7 @@ export interface MarketplaceSearchFilters {
     currency?: string;
   };
   availability?: AvailabilityStatus[];
-  trustLevel?: 'LOW' | 'MEDIUM' | 'HIGH' | 'BLOCKED';
+  trustLevel?: 'low' | 'medium' | 'high' | 'critical';
   actorType?: 'user' | 'company' | 'group';
   limit?: number;
   offset?: number;

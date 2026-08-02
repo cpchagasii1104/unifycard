@@ -63,7 +63,7 @@ export interface PlatformCommission {
 export interface TrustOverview {
   actorId: string;
   currentScore: number;
-  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'BLOCKED';
+  riskLevel: 'low' | 'medium' | 'high' | 'critical';
   totalEvents: number;
   positiveEvents: number;
   negativeEvents: number;

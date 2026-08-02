@@ -61,12 +61,12 @@ export default function TrustAlert({
   }
 
   // Mostrar alerta apenas para HIGH ou BLOCKED
-  if (profile.riskLevel !== 'HIGH' && profile.riskLevel !== 'BLOCKED') {
+  if (profile.riskLevel !== 'high' && profile.riskLevel !== 'critical') {
     return null;
   }
 
   const getAlertInfo = (riskLevel: RiskLevel, canProceed: boolean | null) => {
-    if (riskLevel === 'BLOCKED') {
+    if (riskLevel === 'critical') {
       return {
         title: '⚠️ Actor Bloqueado',
         message: 'Este actor foi bloqueado devido a baixo trust score. Entre em contato com o suporte.',
@@ -74,7 +74,7 @@ export default function TrustAlert({
       };
     }
 
-    if (riskLevel === 'HIGH' && canProceed === false) {
+    if (riskLevel === 'high' && canProceed === false) {
       return {
         title: '⚠️ Ação Bloqueada',
         message: 'Esta ação foi bloqueada devido a baixo trust score. Entre em contato com o suporte.',
@@ -82,7 +82,7 @@ export default function TrustAlert({
       };
     }
 
-    if (riskLevel === 'HIGH') {
+    if (riskLevel === 'high') {
       return {
         title: '⚠️ Trust Score Baixo',
         message: 'Este actor possui trust score baixo. Proceda com cautela.',

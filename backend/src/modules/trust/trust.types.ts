@@ -7,7 +7,17 @@
 /**
  * Nível de risco
  */
-export type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'BLOCKED';
+// ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+// ║ STATUS:  CANÔNICO — convergido em 2026-08-02 (raiz do crash apontada pela auditoria F)
+// ║ NORMA:   CHECK físico de trust_profiles.risk_level: low · medium · high · critical.
+// ║          A união antiga ('LOW'|'MEDIUM'|'HIGH'|'BLOCKED') era o desenho pré-gênesis
+// ║          (migrations_archive/0067, byte a byte) — e o INSERT default 'MEDIUM' fazia
+// ║          getOrCreateProfile ESTOURAR (23514) para todo actor sem perfil.
+// ║ NÃO:     'BLOCKED' não vira 'blocked' — o valor NÃO EXISTE neste CHECK. O nível que trava
+// ║          desembolso é 'blocked' em actor_risk_profile (PROMPT_53_1:65), lido pelo gate
+// ║          canônico requireFinancialRiskClearance — OUTRA tabela, OUTRO conceito.
+// ╚════════════════════════════════════════════════════════════════
+export type RiskLevel = 'low' | 'medium' | 'high' | 'critical';
 
 /**
  * Severidade do evento de trust

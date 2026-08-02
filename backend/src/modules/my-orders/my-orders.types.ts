@@ -63,7 +63,7 @@ export interface MyOrderItem {
   // ╚════════════════════════════════════════════════════════════════
   hasOpenDispute: boolean | undefined;
   trustScore: number | null;
-  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'BLOCKED' | null;
+  riskLevel: 'low' | 'medium' | 'high' | 'critical' | null;
   
   // Metadados
   metadata: Record<string, any>;

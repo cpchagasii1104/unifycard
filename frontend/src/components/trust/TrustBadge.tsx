@@ -44,25 +44,25 @@ export default function TrustBadge({
 
   const getRiskLevelInfo = (riskLevel: RiskLevel) => {
     switch (riskLevel) {
-      case 'LOW':
+      case 'low':
         return {
           label: 'Alta Confiança',
           color: 'trust-low',
           icon: '✓',
         };
-      case 'MEDIUM':
+      case 'medium':
         return {
           label: 'Confiança Média',
           color: 'trust-medium',
           icon: '⚠',
         };
-      case 'HIGH':
+      case 'high':
         return {
           label: 'Baixa Confiança',
           color: 'trust-high',
           icon: '⚠',
         };
-      case 'BLOCKED':
+      case 'critical':
         return {
           label: 'Bloqueado',
           color: 'trust-blocked',
