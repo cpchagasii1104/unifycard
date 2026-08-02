@@ -210,7 +210,7 @@ class EscrowRepository {
             $1, $2, $3, $4, $5, $6
           ) RETURNING *
         `,
-        values: [milestoneId, escrowId, milestone, amountCents, percentage, 'PENDING'],
+        values: [milestoneId, escrowId, milestone, amountCents, percentage, 'pending'],
       }
     );
 
@@ -439,7 +439,7 @@ class EscrowRepository {
       typeof bankTransactionIdOrOpts === 'string'
         ? bankTransactionIdOrOpts
         : normalizedOpts?.bankTransactionId ?? null;
-    const status = normalizedOpts?.initialStatus ?? 'PENDING';
+    const status = normalizedOpts?.initialStatus ?? 'pending';
 
     const row = await runQueryWithTenant<EscrowTransactionRow>(
       tenantId,

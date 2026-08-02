@@ -44,7 +44,6 @@ const BASELINE = new Set([
   "src/core/reputation/trust.service.ts::ACTIVE::events",
   "src/core/unifybank/donation.service.ts::DONATION::bank_transactions",
   "src/modules/actor-page/actor-page.repository.ts::CANCELLED::events",
-  "src/modules/escrow/escrow.repository.ts::PENDING::payment_milestones",
   "src/modules/events/checkout-consumption.service.ts::ACTIVE::events",
   "src/modules/events/checkout-ticket.service.ts::ACTIVE::events",
   "src/modules/events/event.repository.ts::DRAFT::events",
@@ -80,7 +79,7 @@ const BASELINE = new Set([
   "src/services/feed/FeedService.ts::PUBLISHED::events",
   "src/services/feed/FeedService.ts::PUBLIC::events",
 ]);
-const BASELINE_COUNT = 43; // 47→43 em 2026-08-02: visibility de posts convergida (getEventPosts devolvia vazio p/ sempre; o default do INSERT violaria o CHECK) + cast de company_status corrigido para o conjunto REAL da DECISION-0097.
+const BASELINE_COUNT = 42; // 43→42 em 2026-08-02: os 2 INSERTs do escrow legado convergidos — violariam o CHECK minúsculo com barulho na primeira milestone. Aposentar o escrow (2º ledger) segue sendo frente nomeada.
 
 // ── conexão: mesma fonte dos demais guards que leem o banco ──────────────────────────────────
 function databaseUrl() {
