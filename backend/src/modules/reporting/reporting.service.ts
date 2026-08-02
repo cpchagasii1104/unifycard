@@ -32,7 +32,6 @@ class ReportingService {
     assertFinancialProjectionAllowed();
     const { payoutService } = await import('../payout/payout.service');
     const { invoiceService } = await import('../invoicing/invoice.service');
-    const { escrowService } = await import('../escrow/escrow.service');
 
     const startDate = filters.startDate || new Date(Date.now() - 365 * 24 * 60 * 60 * 1000); // Último ano
     const endDate = filters.endDate || new Date();
@@ -43,19 +42,19 @@ class ReportingService {
     // 2. Receita de fee da plataforma (split_type = 'fee')
     const platformRevenueCents = await bankReportingRepository.sumPlatformFeeFromBankSplitsCents(tenantId, startDate, endDate);
 
-    // 3. Valor em Escrow (soma de escrows não RELEASED)
+    // 3. Valor em custódia — F-ESCROW-RETIREMENT fatia 2 (2026-08-02, GO Clayton): a fonte é o
+    // POSIÇÃO da conta canônica de custódia do Bank (padrão R-8, o mesmo do fundo regional). A versão
+    // anterior somava o 2º registro (escrow_accounts, 0 linhas, torneira fechada na fatia 1) e
+    // ainda filtrava status 'FUNDS_HELD' — vocabulário do desenho ANTERIOR, que o CHECK nunca teve:
+    // a soma era zero-mentiroso duas vezes.
     let escrowHeldCents = 0;
     try {
-      // Buscar escrows ativos
-      const escrows = await escrowService.listEscrowAccounts(tenantId, {
-        status: 'FUNDS_HELD' as any,
-        limit: 1000,
-      });
-      // Calcular valor total (simplificado - em produção, buscar do ledger)
-      escrowHeldCents = escrows.reduce((sum, e) => {
-        const held = e.totalAmountCents - (e.releasedAmountCents || 0) - (e.refundedAmountCents || 0);
-        return sum + Math.max(0, held);
-      }, 0);
+      const { bankAccountService } = await import('@modules/bank/bank-account.service');
+      const custody = await bankAccountService.getPlatformLifecycleAccount(tenantId, 'escrow_payments');
+      if (custody) {
+        const bal = await bankAccountService.getBalance(tenantId, custody.accountId);
+        escrowHeldCents = Math.max(0, bal.balanceCents);
+      }
     } catch (err) {
       // Ignorar erro
     }

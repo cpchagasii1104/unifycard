@@ -196,7 +196,6 @@ class RiskDashboardService {
     // 2. Para cada profile, consolidar dados
     const { evidenceService } = await import('../evidence/evidence.service');
     const { bankReportingRepository } = await import('../bank/bank-reporting.repository');
-    const { escrowRepository } = await import('../escrow/escrow.repository');
     const { payoutService } = await import('../payout/payout.service');
     const { agreementRepository } = await import('../agreements/agreement.repository');
 
@@ -279,19 +278,9 @@ class RiskDashboardService {
       // Buscar escrow
       let escrowHeldCents: number | undefined;
       let escrowReleasedCents: number | undefined;
-      try {
-        const escrows = await escrowRepository.list(tenantId, { limit: 1000 });
-        // Filtrar escrows relacionados ao actor (via agreements - simplificado)
-        const actorEscrows = escrows; // TODO: Filtrar por agreement.requesterActorId ou providerActorId
-        escrowHeldCents = actorEscrows
-          .filter((e: { status: string }) => e.status === 'funds_held')
-          .reduce((sum: number, e: { heldAmountCents: number }) => sum + e.heldAmountCents, 0);
-        escrowReleasedCents = actorEscrows
-          .filter((e: { status: string }) => e.status === 'released')
-          .reduce((sum: number, e: { releasedAmountCents: number }) => sum + e.releasedAmountCents, 0);
-      } catch (err) {
-        logReadFailure('escrow_accounts', tenantId, err, { actorId: profile.actorId });
-      }
+      // F-ESCROW-RETIREMENT f2: o 2º registro não é mais lido (torneira fechada; 0 linhas para
+      // sempre). held/released por actor ficam UNDEFINED — a decomposição de custódia POR ACTOR só
+      // nasce com a PORTA-01 no Bank; um zero aqui afirmaria "nada retido" sem fonte.
 
       // Buscar payouts (payout_orders — schema-ghost, ver migalha no topo do arquivo)
       let blockedPayouts: number | undefined;
@@ -513,15 +502,9 @@ class RiskDashboardService {
       logReadFailure('evidence_packs', tenantId, err, { actorId });
     }
 
-    // 4. Escrow Events (simplificado — leitura não usada hoje, `escrows` nunca é referenciado
-    // depois do fetch; capturado mesmo assim pra não derrubar o resto da timeline)
-    try {
-      const { escrowRepository } = await import('../escrow/escrow.repository');
-      await escrowRepository.list(tenantId, { limit: 1000 });
-      // TODO: Filtrar escrows relacionados ao actor
-    } catch (err) {
-      logReadFailure('escrow_accounts', tenantId, err, { actorId });
-    }
+    // 4. Escrow Events — REMOVIDO (F-ESCROW-RETIREMENT f2, 2026-08-02): o fetch nem era usado
+    // (o próprio comentário anterior admitia: `escrows` nunca referenciado depois). Última aresta
+    // de leitura do 2º registro fora do módulo; eventos de custódia reais nascem com a PORTA-01.
 
     // 5. Payout Events (payout_orders — schema-ghost, ver migalha no topo do arquivo)
     try {

@@ -48,25 +48,14 @@ class PayoutService {
     // ║          agreement, ledger) — segunda verdade sobre risco é o que a remoção eliminou.
     // ╚════════════════════════════════════════════════════════════════
 
-    // 2. Validar Escrow (se aplicável)
+    // 2. Custódia — F-ESCROW-RETIREMENT fatia 2 (2026-08-02, GO Clayton): esta função NÃO lê mais
+    // o 2º registro (escrow.service). Com a torneira fechada (fatia 1) nenhuma conta lá pode
+    // nascer nem ser 'released'; a liberação REAL de custódia é da abertura da PORTA-01, lida do
+    // Bank. Até lá: escrowId presente = NÃO elegível, fail-closed — igual ao efeito prático
+    // anterior ('Escrow não encontrado'), agora com a razão verdadeira e sem a aresta.
     if (escrowId) {
-      const { escrowService } = await import('../escrow/escrow.service');
-      const escrow = await escrowService.getEscrowAccount(tenantId, escrowId);
-
-      if (!escrow) {
-        eligible = false;
-        reasons.push('Escrow não encontrado');
-      } else {
-        if (escrow.status !== 'released') {
-          eligible = false;
-          reasons.push(`Escrow não está released (status: ${escrow.status})`);
-        }
-
-        if (escrow.disputeStatus === 'open') {
-          eligible = false;
-          reasons.push('Disputa aberta bloqueia payout');
-        }
-      }
+      eligible = false;
+      reasons.push('Custódia legada contida (F-ESCROW-RETIREMENT); liberação real de custódia é da PORTA-01, lida do Bank');
     }
 
     // 3. Validar Agreement (se aplicável)
@@ -116,20 +105,10 @@ class PayoutService {
     let escrowStatus: string | undefined;
     let agreementStatus: string | undefined;
 
-    if (escrowId) {
-      try {
-        const { escrowService } = await import('../escrow/escrow.service');
-        const escrow = await escrowService.getEscrowAccount(tenantId, escrowId);
-        if (escrow) {
-          hasOpenDispute = escrow.disputeStatus === 'open';
-          escrowStatus = escrow.status;
-        }
-      } catch (err) {
-        console.warn('[PayoutService] Falha ao ler escrow para hasOpenDispute/escrowStatus — campo fica UNKNOWN (undefined), nunca false', {
-          tenantId, escrowId, error: err instanceof Error ? err.message : String(err),
-        });
-      }
-    }
+    // F-ESCROW-RETIREMENT f2: a leitura informacional do 2º registro saiu. Com a torneira
+    // fechada, nada existe lá para ler — hasOpenDispute/escrowStatus ficam UNDEFINED (desconhecido
+    // é a verdade; um false aqui afirmaria "sem disputa" sem fonte). A fonte real nasce com a
+    // PORTA-01, no Bank.
 
     if (agreementId) {
       try {
