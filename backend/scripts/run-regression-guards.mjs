@@ -236,6 +236,7 @@ const CMDS = [
   "node scripts/audit-actor-capabilities-not-decisor.mjs",
   "node scripts/audit-event-feed-exact-permission.mjs",
   "node scripts/audit-porta01-financial-hold.mjs",
+  "node scripts/audit-contained-route-antireopen.mjs",
   "node scripts/audit-exclusivity-isolation-guard.mjs",
   "node scripts/audit-generic-reactions-containment.mjs",
   "node scripts/audit-reporting-risk-financial-hold.mjs",
