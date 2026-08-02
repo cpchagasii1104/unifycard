@@ -1,5 +1,63 @@
 # REMEDIATION DT LOG
 
+## ✅ MANDATO E EXECUTADO — o pior achado era o PAR da migration da manhã, e DUAS afirmações da direção caíram (2026-08-01)
+
+Parecer: `docs/04_audit/PARECER_YALA_MANDATO_E_2026-08-01.md` · **1 derrubada · 2 sobrevivem ·
+3 com ressalva** · consertos em `e44d8f355` (PDV) e `3ca56a690` (guard + roteador).
+
+### 🔴 ① FORA DOS 6 ITENS — o caixa do PDV fecharia com R$ 0,00 (CORRIGIDO)
+A direção varreu os **escritores** de `payment_transactions.status` de manhã. **A Yala varreu os
+LEITORES** — e achou o par: `pdv.service.ts:365/:371/:374` (e o clone em `:472+`) fazia cast para
+união MAIÚSCULA e filtrava `'SUCCESS'`/`'FAILED'`, enquanto o runtime — sob o CHECK aplicado HOJE —
+entrega `success`/`failed`. **Cast de TS não converte nada.** `closeSessionWithSummary` persistiria
+fechamento de caixa com `totalOrders` certo e **`totalPaid=0`/`totalFailed=0`**, legível por
+qualquer autenticado do tenant. O frontend errava JUNTO (`api/pdv.ts:75`, rótulo "(Pendente)" que
+nunca renderizava) — por isso nada parecia quebrado. **Pré-existente; a migration da manhã tornou a
+divergência PERMANENTE ao selar o vocabulário em CHECK físico.** Convergido nos dois lados, tipo
+primeiro, compilador enumerou. ⚠️ **Método a reter: varrer escritor SEM varrer leitor é meia
+varredura — foi exatamente assim que este par escapou de manhã.**
+
+### ✅ ② LEI 2 — a direção se acusou por uma lei que não cobre o ato; o ROTEADOR é que estava errado
+A Yala leu a Lei na fonte: o que ela protege de edição é o **GENESIS (0001-0005)** e migration **já
+aplicada**. `20260801130000` não é Genesis e nunca rodou (`schema_migrations` prova) — **não há
+violação, por ESCOPO do texto, não por exceção conveniente**. O que existia era o `CLAUDE.md:73/:118`
+dizendo *"nunca editar migration existente"* — **roteador mais estrito que a norma**, fabricando
+violação que a Lei não contém. **Corrigido no roteador** (`3ca56a690`), com o episódio registrado
+nele: roteador não endurece norma.
+
+### ✅ ③ AS 6 ROTAS CONTIDAS SEM GUARD — "padrão do arco, não incidente" (FECHADO)
+Confirmado: as 3 de payout E as 3 de métricas perderam autorização junto com o corpo
+(`requirePayoutPermission` / `canViewEvent por eventId`), e **nenhuma tinha guard**. A direção
+repetiu no 59bd18a19 o defeito que a Yala tinha acabado de nomear no 36c491851 — com o atenuante de
+que a justificativa era verdadeira e escrita. **`audit-contained-route-antireopen.mjs`** agora vigia
+as 6: morde se um código de contenção sumir, se a contagem cair, ou se símbolo de service reaparecer
+sem o gate original. Forçado vermelho antes do verde. **Runner 236 → 237.**
+
+### 🔴 ④ availability — a MINHA calibragem também caiu, pela metade
+Eu escrevi: *"TODA leitura filtra por tenant"*. **FALSO** — a Yala achou QUATRO leituras com `JOIN
+availability` **sem** `a.tenant_id` (`impact-overview.routes:119` ·
+`pending-responsibilities:178,:265` · `commitments.routes:177`), e `relrowsecurity=f`: **RLS de
+`availability` está DESLIGADA — não há segunda camada**. O que contém hoje é outra coisa:
+**`bookings` = 0 linhas**, e o cruzamento órfã×tenant real = 0. Cancelar a fatia segue defensável,
+**mas pelo motivo certo**: ela não morreu — **adormeceu**, com gatilho verificável:
+`SELECT count(*) FROM bookings > 0`. A minha entrada anterior (`f7feca1cd`) fica retificada por esta.
+
+### ✅ ⑤ O que sobreviveu por ATAQUE (não por ausência de achado)
+ERP duas faces: visitante declarando actionContext **não** obtém a face de compra
+(`actor-page.routes:50-61`, hint só honrado após `canRepresentActor`); `listByOwner` escopado por
+tenant **e** dono. · home-feed: git prova que o writer era `'PENDING'` antes — a culpa não foi
+invertida. · CHECK de `payment_transactions` **morde** (`convalidated=t` + predicado), a falha da
+manhã era do harness, não da trava. · Varredura do frontend: confirmada limpa. · Tetos: nenhum se
+moveu no arco (diff vazio nos 4 arquivos de baseline).
+
+### 📌 Denominador declarado pela Yala
+Zero HTTP · PDV provado por código, não executado (0 sessões) · §5 amostrado, não exaustivo ·
+guards por grep, runner não rodado por ela · **~57 commits antigos seguem sem auditoria** · não há
+como provar negativamente que nenhum efêmero rodou a migration reescrita.
+
+---
+
+
 ## 🟢 CALIBRAGEM — o "88% de órfão em `availability`" é REAL e INOFENSIVO: as 59 estão em TENANT QUE NÃO EXISTE (2026-08-01, direção)
 
 A instância de consumir/operar reportou (item 6.2) que **59 de 67 linhas de `availability` (88%)**
