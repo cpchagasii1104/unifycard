@@ -8,7 +8,6 @@ import AgreementSummary from './AgreementSummary';
 import AgreementEditModal from './AgreementEditModal';
 import AgreementReviewModal from './AgreementReviewModal';
 import AgreementHistory from './AgreementHistory';
-import EscrowPanel from '../escrow/EscrowPanel';
 import { useActiveActor } from '../../contexts/ActiveActorContext';
 import { showToast } from '../../utils/toast';
 import './AgreementPanel.css';
