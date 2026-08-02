@@ -63,6 +63,13 @@ const CONTAINED = [
     requiredGate: 'ESCROW_SECOND_LEDGER_WRITE_CONTAINED',
     minContainmentHits: 3,
   },
+  {
+    file: 'src/modules/escrow/escrow.routes.ts',
+    containmentCodes: ["'SECOND_LEDGER_RETIRED'"],
+    reopenSymbols: ['escrowService.'],
+    requiredGate: 'SECOND_LEDGER_RETIRED',
+    minContainmentHits: 2,
+  },
 ];
 
 for (const c of CONTAINED) {

@@ -87,7 +87,7 @@ const ALLOWLIST = new Set([
   "modules/dashboard/dashboard.routes.ts::channel::4", "modules/dashboard/dashboard.routes.ts::consolidated::1",
   "modules/dashboard/dashboard.routes.ts::endDate::1", "modules/dashboard/dashboard.routes.ts::organizationUnitId::1",
   "modules/dashboard/dashboard.routes.ts::startDate::1", "modules/dashboard/dashboard.routes.ts::variantId::1",
-  "modules/escrow/escrow.routes.ts::disputeStatus::1", "modules/escrow/escrow.routes.ts::status::1",
+
   "modules/evidence/evidence.routes.ts::contextType::1", "modules/evidence/evidence.routes.ts::disputeStatus::1",
   "modules/invoicing/invoice.routes.ts::invoiceType::1", "modules/invoicing/invoice.routes.ts::status::1",
   "modules/ledger/ledger.routes.ts::contextType::1", "modules/ledger/ledger.routes.ts::entryType::1",
@@ -160,7 +160,7 @@ const ALLOWLIST = new Set([
 // RATCHET DOWN 181→180 (2026-08-01, F-PAYOUT-READER-CONTAINMENT): a contenção dos readers de
 // payout em 503 removeu `req.query.status as any` de payout.routes.ts. Não foi conserto planejado
 // deste teto — foi ganho de carona, e o guard exigiu que a allowlist encolhesse no MESMO commit.
-const BASELINE_COUNT = 177;
+const BASELINE_COUNT = 175; // 177→175 em 2026-08-02: aposentadoria do escrow (f4) removeu os 2 casts das rotas aposentadas.
 
 // ============================================================================
 // VARREDURA — mesma lógica de detecção usada para gerar a allowlist acima.

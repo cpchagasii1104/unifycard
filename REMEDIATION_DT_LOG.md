@@ -1,5 +1,27 @@
 # REMEDIATION DT LOG
 
+## 🏁 F-ESCROW-RETIREMENT ENCERRADA — o 2º ledger está aposentado, com herança e guarda (2026-08-02, 4 GOs de Clayton)
+
+A frente que o roteador pedia desde o primeiro dia (*"a resposta quase sempre é: já existe no
+Bank, religue"*) fechou em 4 fatias, cada uma com GO próprio, em ~24h:
+
+| fatia | ato | commit |
+|---|---|---|
+| f1 | torneira: único write vivo contido (os 2 blocos JUNTOS — conter só a criação quebraria a conclusão de ordem) | `44cacd50b` |
+| f2 | leitores: reporting → saldo da conta canônica do Bank (R-8) · payout fail-closed com razão verdadeira · informacionais/decomposição = `undefined` honesto · 1 leitor que o GATE nem tinha visto | `ee18ff630` |
+| f3 | UI: dissolvida — a "cadeia viva" era IMPORT morto (6ª correção da direção); ilha órfã de 5 arquivos apagada COM a intenção de desenho registrada como herança | `fc5026d1e` |
+| f4 | aposentadoria: 11 rotas em 501 `SECOND_LEDGER_RETIRED` (paths preservados — explicação, não 404 mudo) · 9ª superfície do guard anti-reabertura, vermelho provado (3 mordidas) · service/repository dormentes cercados | (este) |
+
+**Colheita de carona nos tetos (só descem):** vocabulário 3884→**3881** · query-param 181→**175** ·
+e a única aresta restante do módulo é interna e cercada.
+
+**O que fica para a PORTA-01:** a conta `escrow_payments` do Bank é a verdade; a UX de custódia
+por marcos (percentuais · authorize/release separados · disputa bloqueia · READY_TO_RELEASE
+derivado) está na entrada de herança — construir de lá, nunca dos bytes apagados.
+
+---
+
+
 ## 🏛️ OS 3 DA ILHA CAEM — COM A INTENÇÃO DE DESENHO REGISTRADA COMO HERANÇA (2026-08-02, palavra de Clayton: "apague os 3 com o registro")
 
 Apagados (5 arquivos com os CSS; bytes recuperáveis para sempre no commit desta entrada):

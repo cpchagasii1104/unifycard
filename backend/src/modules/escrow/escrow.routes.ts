@@ -1,261 +1,60 @@
 // backend/src/modules/escrow/escrow.routes.ts
-// Rotas para Pagamentos com Escrow e Marcos de Execução
-// 🔴 BLINDAGEM: Nenhum pagamento sem Agreement FINALIZED
+//
+// ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+// ║ STATUS:  APOSENTADO — F-ESCROW-RETIREMENT fatia 4, a última (2026-08-02, GO Clayton)
+// ║ NORMA:   SSOT_EXCLUSIVE_BANK_RULE + CLAUDE.md §3.2 ① — o Bank é a ÚNICA verdade sobre
+// ║          custódia. A frente inteira: f1 torneira fechada (service-order, 8ª superfície do
+// ║          guard) · f2 zero leitores fora do módulo (reporting lê a conta canônica do Bank) ·
+// ║          f3 a ilha de UI caiu com a INTENÇÃO registrada como herança (cartório) · f4 esta.
+// ║ NÃO:     religar estas rotas ao service. As 11 superfícies respondem 501 nomeado; o guard
+// ║          contained-route-antireopen (9ª entrada) morde se um símbolo de service reaparecer
+// ║          sem a contenção. NÃO materializar nada para "fazer funcionar".
+// ║ EM VEZ:  a tela e a API de custódia REAIS nascem com a PORTA-01, sobre a conta canônica do
+// ║          Bank — começando pela entrada de HERANÇA no cartório (marcos com percentuais ·
+// ║          authorize/release separados · disputa bloqueia · READY_TO_RELEASE é DERIVADO,
+// ║          nunca persistido).
+// ╚════════════════════════════════════════════════════════════════
+//
+// Os paths originais são preservados de propósito: quem os chamar recebe a explicação, não um
+// 404 mudo. service/repository do módulo seguem no disco como dormentes cercados.
 
 import type { FastifyInstance } from 'fastify';
-import type {
-  CreateEscrowInput,
-  AuthorizeMilestoneInput,
-  ReleasePaymentInput,
-  RefundInput,
-} from './escrow.types';
-import { escrowService } from './escrow.service';
+
+const RETIRED_BODY = {
+  ok: false,
+  code: 'SECOND_LEDGER_RETIRED',
+  error: 'SECOND_LEDGER_RETIRED',
+  message:
+    'The escrow surface is retired. Custody truth lives in the Bank (escrow_payments account); ' +
+    'the milestone-based custody UX arrives with PORTA-01, inheriting the recorded design intent. ' +
+    'No money is moved. See REMEDIATION_DT_LOG.md (F-ESCROW-RETIREMENT).',
+  money_moved: false,
+} as const;
+
+const RETIRED_PATHS_GET = [
+  '/escrow',
+  '/escrow/:escrowId',
+  '/escrow/:escrowId/financial-position',
+  '/escrow/agreement/:agreementId',
+  '/escrow/:escrowId/milestones',
+  '/escrow/:escrowId/transactions',
+] as const;
+
+const RETIRED_PATHS_POST = [
+  '/escrow',
+  '/escrow/:escrowId/authorize-milestone',
+  '/escrow/:escrowId/release-payment',
+  '/escrow/:escrowId/refund',
+  '/escrow/:escrowId/sync-dispute-status',
+] as const;
 
 const escrowRoutes = async (fastify: FastifyInstance) => {
-  /**
-   * POST /escrow
-   * Cria escrow account a partir de Agreement FINALIZED
-   */
-  fastify.post<{ Body: CreateEscrowInput }>('/escrow', async (req, reply) => {
-    if (!req.tenant) {
-      return reply.status(400).send({ error: 'tenant required' });
-    }
-    const tenantId = req.tenant.id;
-    const userId = req.user?.id || null;
-
-    // Buscar evidence pack do agreement (se existir)
-    const { evidenceService } = await import('../evidence/evidence.service');
-    let evidencePackId: string | null = null;
-    try {
-      const pack = await evidenceService.getPackByContext(
-        tenantId,
-        'agreement',
-        req.body.agreementId
-      );
-      evidencePackId = pack?.packId || null;
-    } catch (err) {
-      // Se não existir, continuar sem evidence pack
-      console.warn('Erro ao buscar evidence pack:', err);
-    }
-
-    const escrow = await escrowService.createEscrowFromAgreement(
-      tenantId,
-      req.body,
-      evidencePackId
-    );
-
-    return reply.status(201).send({ escrow });
-  });
-
-  /**
-   * GET /escrow/:escrowId
-   * Busca escrow account por ID
-   */
-  fastify.get<{ Params: { escrowId: string } }>('/escrow/:escrowId', async (req, reply) => {
-    if (!req.tenant) {
-      return reply.status(400).send({ error: 'tenant required' });
-    }
-    const tenantId = req.tenant.id;
-    const escrow = await escrowService.getEscrowAccount(tenantId, req.params.escrowId);
-
-    return reply.send({ escrow });
-  });
-
-  /**
-   * GET /escrow/:escrowId/financial-position
-   * Fase 2: posição financeira canônica via bank (custody + divergência vs legacy)
-   */
-  fastify.get<{ Params: { escrowId: string } }>(
-    '/escrow/:escrowId/financial-position',
-    async (req, reply) => {
-      if (!req.tenant) {
-        return reply.status(400).send({ error: 'tenant required' });
-      }
-      // TODO(DT-07): reativar quando getEscrowFinancialPosition existir no escrowService.
-      return reply.status(501).send({ error: 'financial-position endpoint pending service implementation' });
-    }
-  );
-
-  /**
-   * GET /escrow/agreement/:agreementId
-   * Busca escrow account por agreement
-   */
-  fastify.get<{ Params: { agreementId: string } }>(
-    '/escrow/agreement/:agreementId',
-    async (req, reply) => {
-      if (!req.tenant) {
-        return reply.status(400).send({ error: 'tenant required' });
-      }
-      const tenantId = req.tenant.id;
-      const escrow = await escrowService.getEscrowByAgreement(tenantId, req.params.agreementId);
-
-      if (!escrow) {
-        return reply.status(404).send({ error: 'Escrow account não encontrado' });
-      }
-
-      return reply.send({ escrow });
-    }
-  );
-
-  /**
-   * GET /escrow
-   * Lista escrow accounts com filtros
-   */
-  fastify.get<{
-    Querystring: {
-      agreementId?: string;
-      serviceOrderId?: string;
-      bundleId?: string;
-      status?: string;
-      disputeStatus?: string;
-      limit?: number;
-      offset?: number;
-    };
-  }>('/escrow', async (req, reply) => {
-    if (!req.tenant) {
-      return reply.status(400).send({ error: 'tenant required' });
-    }
-    const tenantId = req.tenant.id;
-    const filters = {
-      agreementId: req.query.agreementId,
-      serviceOrderId: req.query.serviceOrderId,
-      bundleId: req.query.bundleId,
-      status: req.query.status as any,
-      disputeStatus: req.query.disputeStatus as any,
-      limit: req.query.limit,
-      offset: req.query.offset,
-    };
-
-    const escrows = await escrowService.listEscrowAccounts(tenantId, filters);
-
-    return reply.send({ escrows, totalCents: escrows.length });
-  });
-
-  /**
-   * GET /escrow/:escrowId/milestones
-   * Lista milestones de um escrow
-   */
-  fastify.get<{ Params: { escrowId: string } }>(
-    '/escrow/:escrowId/milestones',
-    async (req, reply) => {
-      if (!req.tenant) {
-        return reply.status(400).send({ error: 'tenant required' });
-      }
-      const tenantId = req.tenant.id;
-      const milestones = await escrowService.listMilestones(tenantId, req.params.escrowId);
-
-      return reply.send({ milestones });
-    }
-  );
-
-  /**
-   * GET /escrow/:escrowId/transactions
-   * Lista transações de um escrow
-   */
-  fastify.get<{ Params: { escrowId: string } }>(
-    '/escrow/:escrowId/transactions',
-    async (req, reply) => {
-      if (!req.tenant) {
-        return reply.status(400).send({ error: 'tenant required' });
-      }
-      const tenantId = req.tenant.id;
-      const transactions = await escrowService.listTransactions(tenantId, req.params.escrowId);
-
-      return reply.send({ transactions });
-    }
-  );
-
-  /**
-   * POST /escrow/:escrowId/authorize-milestone
-   * Autoriza milestone (muda status para AUTHORIZED)
-   */
-  fastify.post<{ Params: { escrowId: string }; Body: AuthorizeMilestoneInput }>(
-    '/escrow/:escrowId/authorize-milestone',
-    async (req, reply) => {
-      if (!req.tenant) {
-        return reply.status(400).send({ error: 'tenant required' });
-      }
-      const tenantId = req.tenant.id;
-      const userId = req.user?.id || null;
-
-      const milestone = await escrowService.authorizeMilestone(tenantId, req.params.escrowId, {
-        ...req.body,
-        authorizedByUserId: userId,
-      });
-
-      return reply.send({ milestone });
-    }
-  );
-
-  /**
-   * POST /escrow/:escrowId/release-payment
-   * Libera pagamento de um milestone
-   */
-  fastify.post<{ Params: { escrowId: string }; Body: ReleasePaymentInput }>(
-    '/escrow/:escrowId/release-payment',
-    async (req, reply) => {
-      if (!req.tenant) {
-        return reply.status(400).send({ error: 'tenant required' });
-      }
-      const tenantId = req.tenant.id;
-      const userId = req.user?.id || null;
-
-      const result = await escrowService.releasePayment(tenantId, req.params.escrowId, {
-        ...req.body,
-        releasedByUserId: userId,
-      });
-
-      return reply.send(result);
-    }
-  );
-
-  /**
-   * POST /escrow/:escrowId/refund
-   * Reembolsa fundos
-   */
-  fastify.post<{ Params: { escrowId: string }; Body: RefundInput }>(
-    '/escrow/:escrowId/refund',
-    async (req, reply) => {
-      if (!req.tenant) {
-        return reply.status(400).send({ error: 'tenant required' });
-      }
-      const tenantId = req.tenant.id;
-      const userId = req.user?.id || null;
-
-      const result = await escrowService.refundFunds(tenantId, req.params.escrowId, {
-        ...req.body,
-        refundedByUserId: userId,
-      });
-
-      return reply.send(result);
-    }
-  );
-
-  /**
-   * POST /escrow/:escrowId/sync-dispute-status
-   * Sincroniza status de disputa com EvidencePack
-   */
-  fastify.post<{
-    Params: { escrowId: string };
-    Body: { disputeStatus: 'NONE' | 'OPEN' | 'RESOLVED' };
-  }>('/escrow/:escrowId/sync-dispute-status', async (req, reply) => {
-    if (!req.tenant) {
-      return reply.status(400).send({ error: 'tenant required' });
-    }
-    const tenantId = req.tenant.id;
-    const escrow = await escrowService.syncDisputeStatus(
-      tenantId,
-      req.params.escrowId,
-      req.body.disputeStatus
-    );
-
-    return reply.send({ escrow });
-  });
+  for (const path of RETIRED_PATHS_GET) {
+    fastify.get(path, async (_req, reply) => reply.status(501).send(RETIRED_BODY));
+  }
+  for (const path of RETIRED_PATHS_POST) {
+    fastify.post(path, async (_req, reply) => reply.status(501).send(RETIRED_BODY));
+  }
 };
 
 export default escrowRoutes;
-
-
-
-
-
