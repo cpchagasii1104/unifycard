@@ -1,5 +1,48 @@
 # REMEDIATION DT LOG
 
+## 🗺️ MAPA — reputação de participação em eventos: coluna fantasma + tabela fantasma + vocabulário de OUTRO desenho (2026-08-02, direção)
+
+Achado ao drenar a fila do detector (item `trust.service::NO_SHOW::event_attendees`). **NÃO é
+case-drift — é três defeitos empilhados**, e por isso NÃO foi corrigido nesta passagem (conjunto
+diferente = decisão nomeada, regra do CLAUDE.md §3.2):
+
+```
+trust.service.ts:290-313 · getStats() → alimenta getDashboard() (:123) e :231
+  SELECT ... attendance_status ... FROM event_participants  ← TABELA AUSENTE (to_regclass NULL)
+  UNION ALL ... attendance_status FROM event_attendees      ← coluna é `status`, NÃO attendance_status
+  compara: 'PRESENT' · 'NO_SHOW' · 'LEFT_EARLY'
+  vocabulário REAL de event_attendees.status: registered · cancelled · attended · no_show
+```
+
+1. **`event_participants` não existe** → a query inteira explode (42P01) na primeira chamada.
+2. **`attendance_status` não existe** em `event_attendees` (a coluna é `status`).
+3. **Vocabulário de outro desenho:** `PRESENT`→`attended`? `LEFT_EARLY`→ **não tem destino** (o
+   valor sumiu do desenho novo). Mapa NÃO-1:1 → julgamento, não sed.
+
+**Consequência:** o cálculo de reputação por participação em eventos está MORTO desde o gênesis —
+`getStats` lança, e o que o consome herda. Alcance completo dos consumidores de `getDashboard` não
+foi traçado nesta passagem (denominador honesto).
+
+**Conserto correto (fatia própria):** reescrever a query sobre `event_attendees.status` real,
+decidir o destino de `LEFT_EARLY` (provavelmente morre — nada o grava), e provar com E2E que o
+dashboard de reputação responde. Não urgente: `event_attendees` linhas = não medido nesta passagem,
+subsistema já conhecido como inerte.
+
+### ✅ CLASSIFICADOS NA MESMA PASSAGEM (ficam na baseline como legítimos, com o porquê)
+- `event.repository` `'DRAFT'`/`'PUBLISHED'`/`'CANCELLED'`: **mapeador deliberado** do contrato
+  sprint76 (compara minúsculo CERTO, devolve MAIÚSCULO como contrato de API). Não é comparação que
+  nunca casa.
+- `donation.service:199` `'DONATION'`: rótulo de **metadata** de insight, não `purpose` do Bank.
+- `checkout-ticket/consumption` `'ACTIVE'`/`'USED'`: **paradigma legado `event_tickets`** (TEXT sem
+  CHECK, 0 linhas), CONTIDO atrás de `CHECKOUT_FINANCIAL_RUNTIME_ENABLED` OFF e do guard de
+  contenção. Superfície contida não se edita para arrumar grafia.
+- `inventory-report` `'UN'`: fallback de unidade de medida para exibição, não status.
+- `actor-page.repository:160` `NOT IN ('cancelled','CANCELLED')`: defensivo dos dois cases — nunca
+  erra (NOT IN com membro extra é inócuo). Redundância, não bug.
+
+---
+
+
 ## 🏛️ SELO — CLAYTON SELA OS ITENS AUDITADOS DOS MANDATOS D E E (2026-08-01)
 
 **GO literal de Clayton:** *"Go para o 2 · O selo (o rito está parado em você)"* — em resposta à
