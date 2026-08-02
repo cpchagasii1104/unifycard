@@ -25,8 +25,12 @@ export class EventStateService {
     const startTime = typeof event.startTime === 'string' ? new Date(event.startTime) : event.startTime;
     const endTime = typeof event.endTime === 'string' ? new Date(event.endTime) : event.endTime;
 
-    // Se evento foi cancelado ou não está publicado, considerar como POST
-    if (event.status === 'CANCELLED' || event.status === 'FINISHED') {
+    // Se evento foi cancelado ou encerrado, considerar como POST.
+    // ⚠️ Era 'CANCELLED' || 'FINISHED' — vocabulário do desenho ANTERIOR ao gênesis
+    // (migrations_archive/0790 tinha CHECK com 'FINISHED'). O enum vivo é minúsculo e o valor é
+    // 'ended', não 'FINISHED' (regra do case por TIPO DE CAMPO + mapa não-1:1, CLAUDE.md §3.2).
+    // Comparação em JS cala: nunca casava, e evento cancelado seguia ganhando estado temporal.
+    if (event.status === 'cancelled' || event.status === 'ended') {
       return {
         state: 'POST',
         timeSinceEnd: Math.max(0, Math.floor((now.getTime() - endTime.getTime()) / (1000 * 60))),

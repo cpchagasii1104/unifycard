@@ -344,8 +344,28 @@ const eventsRoutes: FastifyPluginAsync = async (fastify) => {
           return reply.status(404).send({ error: 'Evento não encontrado' });
         }
 
-        // Adicionar informação de estado
-        const stateInfo = eventStateService.getEventState(event);
+        // Adicionar informação de estado.
+        // ⚠️ CORRIGIDO 2026-08-01: este call-site passava `event` cru, mas o service espera
+        // `startTime`/`endTime` e a linha vinda de `events` tem `datetime_start`/`datetime_end` —
+        // os campos chegavam UNDEFINED, toda comparação de data dava false, e TODO evento caía em
+        // POST com `timeSinceEnd = NaN` ("evento encerrado" para eventos que nem começaram).
+        // Sem data confirmada NÃO há estado temporal a calcular: omitimos `stateInfo` — o
+        // frontend já trata ausência (`event.stateInfo && (...)`). Zero seria afirmação;
+        // desconhecido é a verdade.
+        const rawEvent = event as { datetime_start?: string | Date | null; datetime_end?: string | Date | null; status?: string };
+        const stateInfo = rawEvent.datetime_start
+          ? eventStateService.getEventState({
+              startTime: rawEvent.datetime_start,
+              // Evento com início e sem fim é válido (colunas NULLABLE): usa o início como
+              // limite — vira POST assim que começa a ficar no passado, sem inventar duração.
+              endTime: rawEvent.datetime_end ?? rawEvent.datetime_start,
+              status: rawEvent.status,
+            })
+          : null;
+
+        if (!stateInfo) {
+          return event;
+        }
 
         return {
           ...event,
