@@ -2,6 +2,22 @@
 // SPRINT 68: SERVICE ORDERS + AGENDA CANÔNICA
 
 import { createHash } from 'crypto';
+
+// ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+// ║ STATUS:  CONTIDO — F-ESCROW-RETIREMENT fatia 1 "fechar a torneira" (2026-08-02, GO Clayton)
+// ║ NORMA:   SSOT_EXCLUSIVE_BANK_RULE + CLAUDE.md §3.2 ① — o Bank é a ÚNICA verdade sobre
+// ║          dinheiro/custódia. `escrow_accounts` é o 2º registro que o roteador manda aposentar;
+// ║          a casa canônica (conta `escrow_payments` do Bank) JÁ EXISTE. Este arquivo era o
+// ║          ÚNICO caminho de ESCRITA vivo do 2º registro (GATE de 2026-08-02, cartório).
+// ║ NÃO:     virar esta constante para false sem a frente de aposentadoria (fatias 2-4: leitores
+// ║          migram às portas do Bank → UI converge → superfície aposenta). O guard
+// ║          contained-route-antireopen VIGIA: os símbolos de escrita só podem reaparecer
+// ║          desprotegidos se esta constante sumir — e aí ele morde.
+// ║ EM VEZ:  os DOIS blocos contidos (criação em confirmOrder; exigência+autorização de
+// ║          milestone em completeOrder) estão PRESERVADOS sob o flag — sumiu a aresta, não o
+// ║          código. Ordem confirma e completa normalmente; o 2º registro só não GANHA LINHAS.
+// ╚════════════════════════════════════════════════════════════════
+const ESCROW_SECOND_LEDGER_WRITE_CONTAINED = true;
 import type { PoolClient } from 'pg';
 import { serviceOrderRepository } from './service-order.repository';
 // 🔴 CORREÇÃO FASE 1B: Toda lógica temporal agora usa unifiedAvailabilityService
@@ -472,7 +488,11 @@ class ServiceOrderService {
           );
           const finalizedAgreement = agreements.find((a) => a.status === 'finalized');
 
-          if (finalizedAgreement) {
+          if (finalizedAgreement && ESCROW_SECOND_LEDGER_WRITE_CONTAINED) {
+            // Torneira fechada (fatia 1): com a CRIAÇÃO contida, exigir escrow aqui quebraria a
+            // conclusão de toda ordem com agreement — os dois blocos contêm JUNTOS.
+            console.log('[service-order] custodia-paralela CONTIDA — conclusão segue sem exigir/autorizar milestone (F-ESCROW-RETIREMENT f1)');
+          } else if (finalizedAgreement) {
             // Verificar se existe escrow
             const { escrowRepository } = await import('../escrow/escrow.repository');
             const escrow = await escrowRepository.findByAgreement(tenantId, finalizedAgreement.agreementId);
@@ -1603,7 +1623,8 @@ class ServiceOrderService {
     );
 
     // 11.5. 🔴 BLINDAGEM: Criar escrow account se houver agreement FINALIZED
-    if (booking.metadata?.eventId) {
+    // ⛔ CONTIDO (F-ESCROW-RETIREMENT f1): este era o único write vivo do 2º registro.
+    if (booking.metadata?.eventId && !ESCROW_SECOND_LEDGER_WRITE_CONTAINED) {
       try {
         const { agreementRepository } = await import('../agreements/agreement.repository');
         const agreements = await agreementRepository.findByContext(

@@ -56,6 +56,13 @@ const CONTAINED = [
     requiredGate: 'resolveReportActorId',
     minContainmentHits: 1,
   },
+  {
+    file: 'src/modules/services/service-order.service.ts',
+    containmentCodes: ['ESCROW_SECOND_LEDGER_WRITE_CONTAINED'],
+    reopenSymbols: ['escrowRepository.createEscrowAccount', 'escrowRepository.updateMilestoneStatus'],
+    requiredGate: 'ESCROW_SECOND_LEDGER_WRITE_CONTAINED',
+    minContainmentHits: 3,
+  },
 ];
 
 for (const c of CONTAINED) {
