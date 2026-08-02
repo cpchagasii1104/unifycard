@@ -1,5 +1,41 @@
 # REMEDIATION DT LOG
 
+## 🏛️ OS 3 DA ILHA CAEM — COM A INTENÇÃO DE DESENHO REGISTRADA COMO HERANÇA (2026-08-02, palavra de Clayton: "apague os 3 com o registro")
+
+Apagados (5 arquivos com os CSS; bytes recuperáveis para sempre no commit desta entrada):
+`api/escrow.ts` · `EscrowPanel.tsx/.css` · `PaymentMilestoneTimeline.tsx/.css`
+Orfanato provado por 3 medições independentes: zero renders no repositório · zero consumidores do
+api fora da ilha · typecheck FE 0 sem eles. Backend ilhado (f1+f2) — sem uso E sem fonte.
+
+### 📜 A INTENÇÃO DE DESENHO — o que a ilha codificava, para a UI da PORTA-01 herdar SEM arqueologia
+Quem desenhou isto pensou uma **UX de custódia por marcos**, e ela é boa. O que existia:
+
+1. **Liberação por MARCOS com percentuais**: `CONFIRMED (30%) → STARTED (20%) → COMPLETED (50%)`
+   — o MESMO padrão que vive contido no backend (`service-order.service`, sob o flag da f1).
+   Cada marco: `authorize` (trava o direito) e `release` (efetiva) como atos SEPARADOS, com
+   `canAuthorize`/`canRelease` por marco decididos FORA do componente (a timeline é burra — recebe
+   os predicados; autoridade nunca no cliente).
+2. **Timeline visual** por marco com rótulos pt-BR e estado individual — não um saldo único: o
+   usuário vê ONDE o dinheiro está no ciclo do serviço.
+3. **Disputa BLOQUEIA na tela**: `disputeStatus NONE/OPEN/RESOLVED`, e `BLOCKED_BY_DISPUTE` como
+   estado de conta — liberação visualmente impossível durante disputa.
+4. **Estados do desenho anterior → mapa para o Bank real** (para a PORTA-01 traduzir intenção,
+   não copiar grafia):
+   `FUNDS_HELD` ≈ saldo na conta `escrow_payments` (purpose `escrow_hold`) ·
+   `RELEASED` ≈ transação `escrow_release` · `REFUNDED` ≈ `refund` ·
+   `READY_TO_RELEASE` = estado DERIVADO (todos os marcos autorizados) — não persista; derive ·
+   `BLOCKED_BY_DISPUTE` = predicado de disputa sobre a conta, não coluna.
+5. **Contratos de operação** (`CreateEscrowInput` por agreement · `AuthorizeMilestoneInput` ·
+   `ReleasePaymentInput` · `RefundInput`) — o VOCABULÁRIO DE ATOS que a PORTA-01 vai expor, seja
+   qual for a grafia nova.
+
+**Regra de herança:** quem construir a tela de custódia da PORTA-01 começa POR ESTA ENTRADA, herda
+a intenção (marcos + timeline + disputa-bloqueia + derivar-não-persistir) e implementa sobre a
+verdade do Bank — nunca ressuscitando os bytes (a grafia deles é o desenho pré-gênesis).
+
+---
+
+
 ## ✅ F-ESCROW-RETIREMENT f3 — a "UI viva" do escrow NÃO EXISTE: a 6ª correção da direção, e três cadáveres novos (2026-08-02, GO Clayton)
 
 **O GATE de ontem afirmou:** *"UI ALCANÇÁVEL: ContextualThreadView → AgreementPanel → EscrowPanel"*.
