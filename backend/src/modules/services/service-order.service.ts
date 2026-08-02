@@ -492,7 +492,7 @@ class ServiceOrderService {
               await escrowRepository.updateMilestoneStatus(
                 tenantId,
                 completedMilestone.milestoneId,
-                'AUTHORIZED',
+                'authorized',
                 input.completedByActorId,
                 undefined
               );

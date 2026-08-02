@@ -52,7 +52,7 @@ class ChatRoomRepository {
       INSERT INTO chat_rooms (
         tenant_id, context_type, context_id, room_type, status, metadata
       )
-      VALUES ($1, $2, $3, $4, 'ACTIVE', '{}'::jsonb)
+      VALUES ($1, $2, $3, $4, 'active', '{}'::jsonb)
       ON CONFLICT (tenant_id, context_type, context_id, room_type) DO UPDATE SET metadata = chat_rooms.metadata
       RETURNING id, tenant_id, context_type, context_id, room_type, status, metadata, created_at
       `,
@@ -78,7 +78,7 @@ class ChatRoomRepository {
       SELECT id, tenant_id, context_type, context_id, room_type, status, metadata, created_at
       FROM chat_rooms
       WHERE tenant_id = $1 AND context_type = $2 AND context_id = $3 AND room_type = $4
-        AND status = 'ACTIVE'
+        AND status = 'active'
       `,
       [tenantId, contextType, contextId, roomType]
     );
@@ -91,7 +91,7 @@ class ChatRoomRepository {
       tenantId,
       `
       UPDATE chat_rooms
-      SET status = 'ARCHIVED'
+      SET status = 'archived'
       WHERE tenant_id = $1 AND id = $2
       `,
       [tenantId, roomId]

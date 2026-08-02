@@ -4,27 +4,21 @@
 //
 // O QUE ELE FAZ: lê o BANCO VIVO como fonte de verdade (pg_enum + CHECK constraints = os
 // vocabulários canônicos reais), varre backend/src, e MORDE quando um literal do código bate com
-// um valor do vocabulário IGNORANDO case mas difere no case exato. É exatamente a classe de
-// defeito que produziu 8+ consertos num único dia (marketplace orders sempre-vazio, caixa do PDV
-// fechando em R$0, home-feed cego, SLA morto, todo evento "encerrado"…) — e que CALA: comparação
-// de string em JS não é predicado SQL, o ramo só nunca é escolhido.
+// um valor do vocabulário IGNORANDO case mas difere no case exato. É a classe de defeito que
+// produziu 15+ consertos no arco (marketplace sempre-vazio, caixa do PDV em R$0, home-feed cego,
+// alertas que nunca renderizavam…) — e que CALA: comparação de string em JS não é predicado SQL.
 //
-// POR QUE DETECTA E NÃO CONVERTE (a metade proibida do pedido):
-//   · o case NÃO é uniforme — status/lifecycle = minúsculo (§4.11), severity/priority/alert_type
-//     = MAIÚSCULO (§4.34). Conversor cego "para minúsculo" quebraria o que está certo.
-//   · homônimos são legítimos: 'OPEN' de accounts_payable convive no mesmo arquivo com 'open' de
-//     pdv_sessions. A regra aqui absolve o literal que bate EXATO com QUALQUER vocabulário das
-//     tabelas presentes no arquivo — só acusa o que não bate exato com nenhum.
-//   · conjunto DIFERENTE não é case: 'FINISHED'→'ended' e 'BLOCKED'→'critical' são mudança de
-//     DESENHO — decisão nomeada, nunca autoconserto. Este guard nem os vê (não batem nem
-//     ignorando case), de propósito.
+// 🔴 ABSOLVIÇÃO POR TABELA (v2, 2026-08-02 — correção exigida pelo PARECER YALA MANDATO F):
+//   a v1 absolvia por UNIÃO dos vocabulários das tabelas do arquivo — drift real seria absolvido
+//   quando OUTRA tabela tivesse o valor por coincidência (16 valores em colisão no banco;
+//   exposição medida em 0, mas "bomba de gatilho futuro"). Agora: para CADA tabela cujo
+//   vocabulário contém o lower do literal, só o match EXATO naquela MESMA tabela absolve.
+//   Custo assumido: homônimo legítimo entre tabelas colididas vira entrada CLASSIFIED.
 //
-// REGRAS DA CASA que ele honra:
-//   · banco indisponível = ERRO RUIDOSO, nunca "0 achados" (zero é afirmação; desconhecido é a
-//     verdade).
-//   · baseline congelada que SÓ DESCE — achado novo = FAIL; achado consertado = o guard manda
-//     abaixar a baseline no mesmo commit (ratchet).
-//   · lê o vocabulário do BANCO a cada corrida — nunca de snapshot que envelhece.
+// REGRAS DA CASA:
+//   · banco indisponível = ERRO RUIDOSO, nunca "0 achados" (zero é afirmação).
+//   · PENDING só encolhe (ratchet); CLASSIFIED é registro com RAZÃO — mudar exige justificar.
+//   · vocabulário lido do BANCO a cada corrida — nunca snapshot que envelhece.
 
 import { readFileSync, readdirSync, statSync, existsSync } from 'fs';
 import { join } from 'path';
@@ -33,50 +27,72 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const ROOT = process.cwd();
 
-// ── BASELINE (congelada 2026-08-01, pós-campanha de convergência do dia) ─────────────────────
-// Formato "arquivo::literal::tabela-cujo-vocabulario-ele-quase-bate". SÓ ENCOLHE.
-const BASELINE = new Set([
-  "src/core/core.service.ts::COMPLETE::identities",
-  "src/core/events/event-taxonomy.service.ts::Online::events",
-  "src/core/events/event-taxonomy.service.ts::Gratuito::events",
-  "src/core/events/event-taxonomy.service.ts::Pago::events",
-  "src/core/unifybank/donation.service.ts::DONATION::bank_transactions",
-  "src/modules/actor-page/actor-page.repository.ts::CANCELLED::events",
-  "src/modules/events/checkout-consumption.service.ts::ACTIVE::events",
-  "src/modules/events/checkout-ticket.service.ts::ACTIVE::events",
-  "src/modules/events/event.repository.ts::DRAFT::events",
-  "src/modules/events/event.repository.ts::PUBLISHED::events",
-  "src/modules/events/event.repository.ts::CANCELLED::events",
-  "src/modules/live-chat/chat-room.repository.ts::ACTIVE::chat_rooms",
-  "src/modules/live-chat/chat-room.repository.ts::ARCHIVED::chat_rooms",
-  "src/modules/marketplace/promotion.repository.ts::VARIANT::promotions",
-  "src/modules/marketplace/promotion.repository.ts::CATEGORY::promotions",
-  "src/modules/marketplace/promotion.repository.ts::PRODUCT::promotions",
-  "src/modules/reports/financial-report.service.ts::SUCCESS::payment_transactions",
-  "src/modules/reports/financial-report.service.ts::FAILED::orders",
-  "src/modules/reports/financial-report.service.ts::PENDING::orders",
-  "src/modules/reports/inventory-report.service.ts::UN::product_variants",
-  "src/modules/services/service-order.service.ts::AUTHORIZED::payment_intents",
-  "src/scripts/validate-pipeline-e2e-company-users-fine-grants.ts::None::identities",
-  "src/scripts/validate-pipeline-e2e-event-audience-0161.ts::Amigo::events",
-  "src/scripts/validate-pipeline-e2e-event-sectors.ts::REJECTED::identities",
-  "src/scripts/validate-pipeline-e2e-events-followers-scoped-f6-5-6b-4.ts::DRAFT::events",
-  "src/scripts/validate-pipeline-e2e-events-group-scoped-f6-5-6b-3.ts::DRAFT::events",
-  "src/scripts/validate-pipeline-e2e-events-organizer-dashboard-f6-5-6b-2.ts::DRAFT::events",
-  "src/scripts/validate-pipeline-e2e-events-visibility-floor-f6-5-6b-1.ts::DRAFT::events",
-  "src/scripts/validate-pipeline-e2e-pj-capability-kyb.ts::APPROVED::fiscal_identities",
-  "src/scripts/validate-pipeline-e2e-pj-economic-activity-suggestion.ts::Owner::company_users",
-  "src/scripts/validate-pipeline-e2e-pj-kyb-writer.ts::NONE::identities",
-  "src/scripts/validate-pipeline-e2e-pj-publication-schema.ts::NONE::identities",
-  "src/scripts/validate-pipeline-e2e-severity-priority-convergence.ts::critical::alerts",
-  "src/scripts/validate-pipeline-e2e-severity-priority-convergence.ts::warning::alerts",
-  "src/services/events/tests/event-checkout-hardening.test.ts::PUBLISHED::events",
-  "src/services/feed/FeedService.ts::PUBLISHED::events",
-  "src/services/feed/FeedService.ts::PUBLIC::events",
-]);
-const BASELINE_COUNT = 37; // 38→37 em 2026-08-02: a RAIZ do crash de trust consertada (auditoria F, 'a quinta') — getOrCreateProfile insere 'medium' e a união RiskLevel espelha o CHECK real (BLOCKED→critical, 12 sítios via compilador).
+// ── BASELINE ROTULADA (v2, 2026-08-02) ───────────────────────────────────────────────────────
+// PENDING: rastreio DEVIDO — cada saída exige conserto provado + descida registrada.
+const BASELINE_PENDING = new Set([]);
+const PENDING_COUNT = 0; // 37→0 em 2026-08-02: os 9 nunca-rastreados foram traçados (3 bugs vivos
+// consertados: service-order 'AUTHORIZED' em milestone · chat-room ACTIVE/ARCHIVED · seeds de
+// teste); os demais 28 + 6 reclassificados abaixo, TODOS com razão escrita.
 
-// ── conexão: mesma fonte dos demais guards que leem o banco ──────────────────────────────────
+// CLASSIFIED: verificados como LEGÍTIMOS, com a razão. NÃO são dívida — são a memória que impede
+// o próximo leitor de re-rastrear. Remover entrada daqui exige dizer por que a razão caiu.
+const BASELINE_CLASSIFIED = new Set([
+  // ── colisões desenterradas pela v2 (a união escondia; todas rastreadas ao contexto) ──
+  "src/modules/social/actor.repository.ts::ACTIVE::groups",        // é companies.company_status (0097, MAIÚSCULO governado); groups acusa por colisão
+  "src/modules/social/actor.repository.ts::SUSPENDED::company_users", // idem — cast do conjunto real de companies
+  "src/scripts/seed-dev-companies-services.ts::ACTIVE::services",  // INSERT dual 'active','ACTIVE' = status+company_status (0093), ambos corretos
+  "src/scripts/seed-minimal-social.ts::ACTIVE::company_users",     // idem
+  "src/scripts/validate-pipeline-e2e-company-users-fine-grants.ts::ACTIVE::company_users", // idem
+  "src/scripts/validate-pipeline-e2e-event-organizer-continuity-authority.ts::draft::companies", // é events.status (exato lá); companies acusa por colisão com DRAFT
+  "src/scripts/validate-pipeline-e2e-mvp-service-journey-pj-provider.ts::draft::companies",   // 'draft' é de services/policies (exato lá); companies acusa por colisão DRAFT
+  "src/scripts/validate-pipeline-e2e-operator-service-order-view-grant.ts::draft::companies", // idem
+  "src/scripts/validate-pipeline-e2e-pe5-resolver.ts::draft::companies",                      // idem (economic_policies status='draft')
+  "src/scripts/validate-pipeline-e2e-pe5-resolver.ts::ACTIVE::bank_accounts",                 // INSERT dual de companies ('active','ACTIVE'), 0093/0097
+  "src/scripts/validate-pipeline-e2e-pj-capability-kyb.ts::ACTIVE::company_users",            // company_status deliberado no cenário ('mentira' testada)
+  "src/scripts/validate-pipeline-e2e-pj-verification-display.ts::ACTIVE::company_users",      // company_status lifecycle deliberado
+  "src/scripts/validate-pipeline-e2e-r2-authorship-and-isolation.ts::ACTIVE::actor_delegations", // INSERT dual de companies
+  "src/scripts/validate-pipeline-e2e-service-category-ramo-guard.ts::draft::companies",       // colisão DRAFT de companies
+  "src/scripts/validate-pipeline-e2e-supplier-owner-authority.ts::ACTIVE::suppliers",         // T13: sonda DELIBERADA de normalização uppercase→lower
+  // ── mapeadores/normalizadores deliberados (comparam certo, traduzem contrato) ──
+  "src/modules/events/event.repository.ts::DRAFT::events",        // mapper sprint76 DB→API
+  "src/modules/events/event.repository.ts::PUBLISHED::events",    // idem
+  "src/modules/events/event.repository.ts::CANCELLED::events",    // idem
+  "src/modules/marketplace/promotion.repository.ts::VARIANT::promotions",  // normalizador upper→lower
+  "src/modules/marketplace/promotion.repository.ts::CATEGORY::promotions", // idem
+  "src/modules/marketplace/promotion.repository.ts::PRODUCT::promotions",  // idem
+  // ── rótulos de UI / metadata / sentinelas (não são a coluna) ──
+  "src/core/events/event-taxonomy.service.ts::Online::events",    // label pt-BR; chave lowercase correta
+  "src/core/events/event-taxonomy.service.ts::Gratuito::events",  // idem
+  "src/core/events/event-taxonomy.service.ts::Pago::events",      // idem
+  "src/core/unifybank/donation.service.ts::DONATION::bank_transactions", // label em metadata de insight
+  "src/modules/reports/inventory-report.service.ts::UN::product_variants", // fallback unidade de medida
+  "src/core/core.service.ts::COMPLETE::identities",               // identity_status DERIVADO (API), ≠ kyc 'complete'
+  // ── defensivo/contido/órfão ──
+  "src/modules/actor-page/actor-page.repository.ts::CANCELLED::events", // NOT IN dos dois cases — inócuo
+  "src/modules/events/checkout-consumption.service.ts::ACTIVE::events", // paradigma legado event_tickets, CONTIDO
+  "src/modules/events/checkout-ticket.service.ts::ACTIVE::events",      // idem
+  "src/modules/reports/financial-report.service.ts::SUCCESS::payment_transactions", // service atrás de rota 501
+  "src/modules/reports/financial-report.service.ts::FAILED::orders",    // idem
+  "src/modules/reports/financial-report.service.ts::PENDING::orders",   // idem
+  "src/services/feed/FeedService.ts::PUBLISHED::events",  // árvore src/services ÓRFÃ (o vivo é core/feed)
+  "src/services/feed/FeedService.ts::PUBLIC::events",     // idem
+  // ── harness/e2e legítimos ──
+  "src/scripts/validate-pipeline-e2e-company-users-fine-grants.ts::None::identities",   // nome de usuário de teste
+  "src/scripts/validate-pipeline-e2e-event-audience-0161.ts::Amigo::events",            // idem
+  "src/scripts/validate-pipeline-e2e-pj-economic-activity-suggestion.ts::Owner::company_users", // idem
+  "src/scripts/validate-pipeline-e2e-event-sectors.ts::REJECTED::identities",           // estado de Promise.allSettled
+  "src/scripts/validate-pipeline-e2e-pj-kyb-writer.ts::NONE::identities",               // sentinela de fallback
+  "src/scripts/validate-pipeline-e2e-pj-publication-schema.ts::NONE::identities",       // sentinela
+  "src/scripts/validate-pipeline-e2e-pj-capability-kyb.ts::APPROVED::fiscal_identities", // param IGNORADO (DECISION-0092)
+  "src/scripts/validate-pipeline-e2e-severity-priority-convergence.ts::critical::alerts", // prova-vermelha DELIBERADA
+  "src/scripts/validate-pipeline-e2e-severity-priority-convergence.ts::warning::alerts",  // idem
+  "src/scripts/validate-pipeline-e2e-events-followers-scoped-f6-5-6b-4.ts::DRAFT::events", // input do mapper sprint76
+  "src/scripts/validate-pipeline-e2e-events-group-scoped-f6-5-6b-3.ts::DRAFT::events",     // idem
+  "src/scripts/validate-pipeline-e2e-events-organizer-dashboard-f6-5-6b-2.ts::DRAFT::events", // idem
+  "src/scripts/validate-pipeline-e2e-events-visibility-floor-f6-5-6b-1.ts::DRAFT::events",    // idem
+]);
+
+// ── conexão ──────────────────────────────────────────────────────────────────────────────────
 function databaseUrl() {
   if (process.env.DATABASE_URL) return process.env.DATABASE_URL;
   const envPath = join(ROOT, '.env');
@@ -104,7 +120,7 @@ function walk(dir, out) {
 async function main() {
   const url = databaseUrl();
   if (!url) {
-    console.error('GATE FAIL [case-drift-ratchet]: DATABASE_URL indisponível — o vocabulário canônico vem do BANCO, e sem ele este guard NÃO PODE afirmar "zero drift". Falha ruidosa > zero mentiroso.');
+    console.error('GATE FAIL [case-drift-ratchet]: DATABASE_URL indisponível — sem o banco este guard NÃO PODE afirmar "zero drift". Falha ruidosa > zero mentiroso.');
     process.exit(1);
   }
   const { Client } = require('pg');
@@ -116,7 +132,6 @@ async function main() {
     process.exit(1);
   }
 
-  // 1) Vocabulários canônicos: enums nativos, mapeados a (tabela, coluna)…
   const vocab = new Map(); // table -> Set(values exatos)
   const enumRows = (await client.query(`
     SELECT c.relname AS table, e.enumlabel AS value
@@ -127,7 +142,6 @@ async function main() {
     JOIN pg_enum e ON e.enumtypid = t.oid
     WHERE a.attnum > 0
   `)).rows;
-  // 2) …e CHECKs de coluna única com ARRAY de literais (a população TEXT+CHECK que pg_enum não vê).
   const checkRows = (await client.query(`
     SELECT c.relname AS table, pg_get_constraintdef(con.oid) AS def
     FROM pg_constraint con
@@ -152,8 +166,6 @@ async function main() {
     process.exit(1);
   }
 
-  // 3) Varre backend/src: para cada arquivo, as tabelas que ele toca em contexto SQL, e os
-  //    literais que quase-batem num vocabulário dessas tabelas.
   const files = walk(join(ROOT, 'src'), []);
   const findings = [];
   for (const f of files) {
@@ -164,14 +176,6 @@ async function main() {
     }
     if (!tablesInFile.length) continue;
 
-    const exact = new Set();
-    const lowerToTable = new Map();
-    for (const t of tablesInFile) {
-      for (const v of vocab.get(t)) {
-        exact.add(v);
-        if (!lowerToTable.has(v.toLowerCase())) lowerToTable.set(v.toLowerCase(), t);
-      }
-    }
     const rel = f.slice(ROOT.length + 1).replace(/\\/g, '/');
     const seen = new Set();
     for (const m of src.matchAll(/'([A-Za-z][A-Za-z_]{1,40})'/g)) {
@@ -179,29 +183,39 @@ async function main() {
       if (seen.has(lit)) continue;
       seen.add(lit);
       const low = lit.toLowerCase();
-      if (!lowerToTable.has(low)) continue;   // não pertence a vocabulário nenhum daqui
-      if (exact.has(lit)) continue;           // bate exato em ALGUM vocabulário do arquivo — absolvido
-      findings.push(`${rel}::${lit}::${lowerToTable.get(low)}`);
+      // Tabela que ACUSA, acusa — exato em OUTRA tabela NÃO absolve (era esse o buraco da v1,
+      // e a 1ª tentativa da v2 o reimplementou: o break-no-exato reconstruía a união. Provado
+      // vermelho antes de confiar). Homônimo legítimo entre tabelas colididas = CLASSIFIED.
+      let accusedBy = null;
+      for (const t of tablesInFile) {
+        const vocabT = vocab.get(t);
+        if (vocabT.has(lit)) continue; // exato NESTA tabela: ela não acusa
+        let hasLower = false;
+        for (const v of vocabT) { if (v.toLowerCase() === low) { hasLower = true; break; } }
+        if (hasLower) { accusedBy = t; break; }
+      }
+      if (!accusedBy) continue;
+      findings.push(`${rel}::${lit}::${accusedBy}`);
     }
   }
 
-  // 4) Ratchet.
-  const news = findings.filter((k) => !BASELINE.has(k));
-  const fixed = [...BASELINE].filter((k) => !findings.includes(k));
+  const news = findings.filter((k) => !BASELINE_PENDING.has(k) && !BASELINE_CLASSIFIED.has(k));
+  const pendingNow = findings.filter((k) => BASELINE_PENDING.has(k));
   if (news.length > 0) {
     console.error('GATE FAIL [case-drift-ratchet] — literal do código diverge do vocabulário do BANCO só no case (a classe que CALA):');
     for (const k of news) {
       const [file, lit, table] = k.split('::');
-      console.error(`   - ${file}: '${lit}' quase-bate no vocabulário de ${table} (${[...vocab.get(table)].join(', ')}) mas o case difere. Comparação nunca casa; nenhum erro aparece.`);
+      console.error(`   - ${file}: '${lit}' quase-bate no vocabulário de ${table} (${[...vocab.get(table)].join(', ')}) mas o case difere.`);
     }
-    console.error('   Conserte o CÓDIGO (ou, se o conjunto difere de verdade, é decisão nomeada — não entra aqui). NÃO adicione à baseline para calar.');
+    console.error('   Conserte o CÓDIGO ou, se for legítimo PROVADO, entre em BASELINE_CLASSIFIED com a RAZÃO. NÃO use PENDING para calar.');
     process.exit(1);
   }
-  if (findings.length < BASELINE_COUNT) {
-    console.error(`GATE FAIL [case-drift-ratchet]: contagem caiu (${findings.length} < baseline ${BASELINE_COUNT}) — ABAIXE a baseline no mesmo commit (ratchet só desce, mas desce REGISTRANDO). Consertados: ${fixed.join(' · ') || '(ver diff)'}`);
+  if (pendingNow.length < PENDING_COUNT) {
+    console.error(`GATE FAIL [case-drift-ratchet]: PENDING caiu (${pendingNow.length} < ${PENDING_COUNT}) — ABAIXE PENDING_COUNT e remova as entradas consertadas no MESMO commit.`);
     process.exit(1);
   }
-  console.log(`GATE OK [case-drift-ratchet] — ${vocab.size} vocabulários lidos do banco vivo; ${files.length} arquivos varridos; ${findings.length}/${BASELINE_COUNT} drifts conhecidos (baseline só desce). Literal novo divergindo só no case = FAIL na hora.`);
+  // CLASSIFIED que sumiu do código não falha — arquivo apagado/refatorado leva a razão junto.
+  console.log(`GATE OK [case-drift-ratchet] — ${vocab.size} vocabulários do banco vivo; ${files.length} arquivos; absolvição POR TABELA (v2, parecer F); PENDING ${pendingNow.length}/${PENDING_COUNT} (só desce) · CLASSIFIED ${BASELINE_CLASSIFIED.size} com razão escrita. Drift novo = FAIL na hora.`);
 }
 
 main().catch((e) => {

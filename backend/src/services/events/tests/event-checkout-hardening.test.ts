@@ -153,7 +153,7 @@ describe.skip('Event Checkout Hardening', () => {
           $1, 'Test Event', 'Event for checkout tests',
           NOW() + INTERVAL '1 day', NOW() + INTERVAL '2 days',
           $2, $3,
-          'SHOW', 'PUBLISHED', 100.00, true, 'America/Sao_Paulo'
+          'SHOW', 'published', 100.00, true, 'America/Sao_Paulo'
         )
         RETURNING id
       `,
@@ -260,7 +260,7 @@ describe.skip('Event Checkout Hardening', () => {
             $1, 'User Event', 'Event organized by user',
             NOW() + INTERVAL '1 day', NOW() + INTERVAL '2 days',
             $2, $3,
-            'SHOW', 'PUBLISHED', 50.00, 'America/Sao_Paulo'
+            'SHOW', 'published', 50.00, 'America/Sao_Paulo'
           )
           RETURNING id
         `,
@@ -529,7 +529,7 @@ describe.skip('Event Checkout Hardening', () => {
             $1, 'Limited Event', 'Event with capacity 1',
             NOW() + INTERVAL '1 day', NOW() + INTERVAL '2 days',
             $2, $3,
-            'SHOW', 'PUBLISHED', 50.00, 1, 0, 'America/Sao_Paulo'
+            'SHOW', 'published', 50.00, 1, 0, 'America/Sao_Paulo'
           )
           RETURNING id
         `,
