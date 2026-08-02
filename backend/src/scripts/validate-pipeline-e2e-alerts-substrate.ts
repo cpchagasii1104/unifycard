@@ -65,7 +65,7 @@ async function main(): Promise<void> {
     let code = '';
     try {
       await automationService.processEvent(tenantId, {
-        eventType: 'PAYMENT_FAILED',
+        eventType: 'payment_failed',
         tenantId,
         entityType: 'payment',
         entityId: randomUUID(),
@@ -84,7 +84,7 @@ async function main(): Promise<void> {
     const entityId = randomUUID();
     const eventId = randomUUID();
     await automationService.processEvent(tenantId, {
-      eventType: 'PAYMENT_FAILED',
+      eventType: 'payment_failed',
       tenantId,
       entityType: 'payment',
       entityId,
@@ -102,15 +102,15 @@ async function main(): Promise<void> {
 
     console.log('\n— GREEN 2: os 9 valores de alert_type, um alerta cada, incluindo RISK_SCORE_LOW (DECISÃO D-E) —');
     const NINE: Array<{ type: string; severity: string; entityType: string }> = [
-      { type: 'INVENTORY_LOW_STOCK', severity: 'WARNING', entityType: 'variant' },
-      { type: 'INVENTORY_OUT_OF_STOCK', severity: 'ERROR', entityType: 'variant' },
-      { type: 'PAYMENT_FAILED', severity: 'ERROR', entityType: 'payment' },
-      { type: 'PAYOUT_FAILED', severity: 'ERROR', entityType: 'disbursement' },
-      { type: 'FISCAL_PENDING', severity: 'WARNING', entityType: 'fiscal_document' },
-      { type: 'ORDER_EXPIRED', severity: 'INFO', entityType: 'order' },
-      { type: 'RESERVATION_EXPIRED', severity: 'INFO', entityType: 'reservation' },
-      { type: 'OTHER', severity: 'WARNING', entityType: 'unknown' },
-      { type: 'RISK_SCORE_LOW', severity: 'WARNING', entityType: 'user' },
+      { type: 'inventory_low_stock', severity: 'WARNING', entityType: 'variant' },
+      { type: 'inventory_out_of_stock', severity: 'ERROR', entityType: 'variant' },
+      { type: 'payment_failed', severity: 'ERROR', entityType: 'payment' },
+      { type: 'payout_failed', severity: 'ERROR', entityType: 'disbursement' },
+      { type: 'fiscal_pending', severity: 'WARNING', entityType: 'fiscal_document' },
+      { type: 'order_expired', severity: 'INFO', entityType: 'order' },
+      { type: 'reservation_expired', severity: 'INFO', entityType: 'reservation' },
+      { type: 'other', severity: 'WARNING', entityType: 'unknown' },
+      { type: 'risk_score_low', severity: 'WARNING', entityType: 'user' },
     ];
     const marker = `nine-proof-${Date.now()}`;
     for (const spec of NINE) {
@@ -140,7 +140,7 @@ async function main(): Promise<void> {
     for (const r of nineRows.rows) console.log(`    type=${r.type} severity=${r.severity} entity_type=${r.entity_type}`);
     const distinctTypes = new Set(nineRows.rows.map((r) => r.type));
     record('F os 9 tipos são todos distintos (nenhum duplicado/rejeitado)', distinctTypes.size === 9, `distintos=${distinctTypes.size}`);
-    record('G RISK_SCORE_LOW está entre as linhas gravadas (DECISÃO D-E materializada)', distinctTypes.has('RISK_SCORE_LOW'));
+    record('G RISK_SCORE_LOW está entre as linhas gravadas (DECISÃO D-E materializada)', distinctTypes.has('risk_score_low'));
   }
 
   console.log('\n════════════════════════════════════════════');

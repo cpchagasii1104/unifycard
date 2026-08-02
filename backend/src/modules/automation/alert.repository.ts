@@ -229,7 +229,7 @@ class AlertRepository {
     let query = `
       SELECT COUNT(*) as count
       FROM alerts
-      WHERE tenant_id = $1 AND status IN ('OPEN', 'ACK')
+      WHERE tenant_id = $1 AND status IN ('open', 'ack')
     `;
     const params: any[] = [tenantId];
 

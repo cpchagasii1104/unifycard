@@ -440,7 +440,7 @@ class SubscriptionService {
     if (paused) {
       const { alertService } = await import('../automation/alert.service');
       await alertService.createAlert(tenantId, {
-        type: 'PAYMENT_FAILED',
+        type: 'payment_failed',
         severity: 'ERROR',
         message: `Assinatura ${subscriptionId} foi pausada após ${subscription.maxFailures} falhas`,
         entityType: 'subscription',

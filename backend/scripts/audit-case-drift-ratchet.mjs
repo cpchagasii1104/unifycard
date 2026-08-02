@@ -45,8 +45,6 @@ const BASELINE = new Set([
   "src/core/reputation/trust.service.ts::ACTIVE::events",
   "src/core/unifybank/donation.service.ts::DONATION::bank_transactions",
   "src/modules/actor-page/actor-page.repository.ts::CANCELLED::events",
-  "src/modules/automation/alert.repository.ts::OPEN::alerts",
-  "src/modules/automation/alert.repository.ts::ACK::alerts",
   "src/modules/escrow/escrow.repository.ts::PENDING::payment_milestones",
   "src/modules/events/checkout-consumption.service.ts::ACTIVE::events",
   "src/modules/events/checkout-ticket.service.ts::ACTIVE::events",
@@ -88,7 +86,7 @@ const BASELINE = new Set([
   "src/services/feed/FeedService.ts::PUBLISHED::events",
   "src/services/feed/FeedService.ts::PUBLIC::events",
 ]);
-const BASELINE_COUNT = 51; // 53→51 em 2026-08-02: actor_debts convergido POR NORMA (§4.11) — inclusive o caso INVERTIDO (código minúsculo × banco maiúsculo), que virou correto quando o CHECK desceu.
+const BASELINE_COUNT = 49; // 51→49 em 2026-08-02: countOpenAlerts consertado — filtrava status IN ('OPEN','ACK') contra alert_status minúsculo e contava ZERO para sempre (fatia F-ALERT-TYPE-LOWERCASE).
 
 // ── conexão: mesma fonte dos demais guards que leem o banco ──────────────────────────────────
 function databaseUrl() {

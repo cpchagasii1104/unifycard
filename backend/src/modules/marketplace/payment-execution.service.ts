@@ -855,7 +855,7 @@ class PaymentExecutionService {
       try {
         const { automationService } = await import('../automation/automation.service');
         await automationService.processEvent(tenantId, {
-          eventType: 'PAYMENT_FAILED',
+          eventType: 'payment_failed',
           tenantId,
           entityType: 'payment',
           entityId: paymentTransaction.id,

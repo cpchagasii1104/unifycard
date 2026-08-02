@@ -59,7 +59,7 @@ describe('Soft-Block (SPRINT 66)', () => {
 
     // Verificar se alerta foi criado
     const alerts = await alertService.listAlerts(testTenantId, {
-      type: 'RISK_SCORE_LOW',
+      type: 'risk_score_low',
       entityId: testActorId,
     });
     expect(alerts.length).toBeGreaterThan(0);

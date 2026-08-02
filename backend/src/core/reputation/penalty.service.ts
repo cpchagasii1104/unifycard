@@ -394,7 +394,7 @@ class PenaltyService {
       try {
         const { alertService } = await import('@modules/automation/alert.service');
         await alertService.createAlert(tenantId, {
-          type: 'RISK_SCORE_LOW',
+          type: 'risk_score_low',
           severity: strictMode ? 'ERROR' : 'WARNING',
           message: `Score baixo detectado para ação ${action}: ${reason}`,
           entityType: actorType,

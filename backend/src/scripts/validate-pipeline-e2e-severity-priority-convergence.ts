@@ -135,7 +135,7 @@ async function main(): Promise<void> {
       def
     );
     await rejectOld('alerts rejeita severity=medium (enum antigo não existe mais)', () =>
-      pool.query(`INSERT INTO alerts (tenant_id, type, severity, message) VALUES ($1::uuid,'OTHER','medium','x')`, [tenantId])
+      pool.query(`INSERT INTO alerts (tenant_id, type, severity, message) VALUES ($1::uuid,'other','medium','x')`, [tenantId])
     );
 
     console.log('\n— POST 3: CHECK/ENUM ACEITAM vocabulário novo — verde —');
@@ -149,7 +149,7 @@ async function main(): Promise<void> {
     console.log('\n— POST 4: alerts.severity — 5 valores do vocabulário §4.34 —');
     for (const sev of ['CRITICAL', 'ERROR', 'WARNING', 'INFO', 'AUDIT']) {
       await pool.query(
-        `INSERT INTO alerts (tenant_id, type, severity, message, metadata) VALUES ($1::uuid,'OTHER',$2,'x',$3::jsonb)`,
+        `INSERT INTO alerts (tenant_id, type, severity, message, metadata) VALUES ($1::uuid,'other',$2,'x',$3::jsonb)`,
         [tenantId, sev, JSON.stringify({ marker: MARKER })]
       );
     }
@@ -164,7 +164,7 @@ async function main(): Promise<void> {
     const { alertService } = await import('../modules/automation/alert.service');
     const idWith = randomUUID();
     await alertService.createAlert(tenantId, {
-      type: 'OTHER',
+      type: 'other',
       severity: 'ERROR',
       message: 'e2e com severity explícita',
       entityId: idWith,
@@ -175,7 +175,7 @@ async function main(): Promise<void> {
 
     const idDefault = randomUUID();
     await alertService.createAlert(tenantId, {
-      type: 'OTHER',
+      type: 'other',
       message: 'e2e SEM severity (default do repository)',
       entityId: idDefault,
       metadata: { marker: MARKER },

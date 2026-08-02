@@ -29,32 +29,32 @@ class AutomationService {
     event: AutomationEvent
   ): Promise<void> {
     // 1. Estoque crítico
-    if (event.eventType === 'INVENTORY_LOW_STOCK' || event.eventType === 'INVENTORY_OUT_OF_STOCK') {
+    if (event.eventType === 'inventory_low_stock' || event.eventType === 'inventory_out_of_stock') {
       await this.handleInventoryAlert(tenantId, event);
     }
 
     // 2. Pagamento falho
-    if (event.eventType === 'PAYMENT_FAILED') {
+    if (event.eventType === 'payment_failed') {
       await this.handlePaymentFailed(tenantId, event);
     }
 
     // 3. Payout falho
-    if (event.eventType === 'PAYOUT_FAILED') {
+    if (event.eventType === 'payout_failed') {
       await this.handlePayoutFailed(tenantId, event);
     }
 
     // 4. Fiscal pendente
-    if (event.eventType === 'FISCAL_PENDING') {
+    if (event.eventType === 'fiscal_pending') {
       await this.handleFiscalPending(tenantId, event);
     }
 
     // 5. Pedido expirado
-    if (event.eventType === 'ORDER_EXPIRED') {
+    if (event.eventType === 'order_expired') {
       await this.handleOrderExpired(tenantId, event);
     }
 
     // 6. Reserva expirada
-    if (event.eventType === 'RESERVATION_EXPIRED') {
+    if (event.eventType === 'reservation_expired') {
       await this.handleReservationExpired(tenantId, event);
     }
   }
@@ -66,14 +66,14 @@ class AutomationService {
     tenantId: string,
     event: AutomationEvent
   ): Promise<void> {
-    const isOutOfStock = event.eventType === 'INVENTORY_OUT_OF_STOCK';
+    const isOutOfStock = event.eventType === 'inventory_out_of_stock';
     const severity = isOutOfStock ? 'ERROR' : 'WARNING';
     const message = isOutOfStock
       ? `Estoque zerado para variante ${event.entityId}`
       : `Estoque baixo para variante ${event.entityId} (${event.context.availableQuantity || 'N/A'} disponível)`;
 
     await alertService.createAlert(tenantId, {
-      type: isOutOfStock ? 'INVENTORY_OUT_OF_STOCK' : 'INVENTORY_LOW_STOCK',
+      type: isOutOfStock ? 'inventory_out_of_stock' : 'inventory_low_stock',
       severity,
       message,
       entityType: 'variant',
@@ -94,7 +94,7 @@ class AutomationService {
       actor_type: 'user',
       source: 'automation',
       context: {
-        alert_type: isOutOfStock ? 'INVENTORY_OUT_OF_STOCK' : 'INVENTORY_LOW_STOCK',
+        alert_type: isOutOfStock ? 'inventory_out_of_stock' : 'inventory_low_stock',
         entity_type: 'variant',
         entity_id: event.entityId,
       },
@@ -111,7 +111,7 @@ class AutomationService {
     const message = `Pagamento falhou para pedido ${event.context.orderId || event.entityId}. Erro: ${event.context.errorCode || 'Desconhecido'}`;
 
     await alertService.createAlert(tenantId, {
-      type: 'PAYMENT_FAILED',
+      type: 'payment_failed',
       severity: 'ERROR',
       message,
       entityType: 'payment',
@@ -133,7 +133,7 @@ class AutomationService {
       actor_type: 'user',
       source: 'automation',
       context: {
-        alert_type: 'PAYMENT_FAILED',
+        alert_type: 'payment_failed',
         entity_type: 'payment',
         entity_id: event.entityId,
         order_id: event.context.orderId,
@@ -151,7 +151,7 @@ class AutomationService {
     const message = `Payout falhou para split ${event.entityId}. Erro: ${event.context.errorCode || 'Desconhecido'}`;
 
     await alertService.createAlert(tenantId, {
-      type: 'PAYOUT_FAILED',
+      type: 'payout_failed',
       severity: 'ERROR',
       message,
       entityType: 'payout',
@@ -174,7 +174,7 @@ class AutomationService {
       actor_type: 'user',
       source: 'automation',
       context: {
-        alert_type: 'PAYOUT_FAILED',
+        alert_type: 'payout_failed',
         entity_type: 'payout',
         entity_id: event.entityId,
       },
@@ -191,7 +191,7 @@ class AutomationService {
     const message = `Documento fiscal pendente para pedido ${event.context.orderId || event.entityId}`;
 
     await alertService.createAlert(tenantId, {
-      type: 'FISCAL_PENDING',
+      type: 'fiscal_pending',
       severity: 'WARNING',
       message,
       entityType: 'fiscal_document',
@@ -212,7 +212,7 @@ class AutomationService {
       actor_type: 'user',
       source: 'automation',
       context: {
-        alert_type: 'FISCAL_PENDING',
+        alert_type: 'fiscal_pending',
         entity_type: 'fiscal_document',
         entity_id: event.entityId,
       },
@@ -229,7 +229,7 @@ class AutomationService {
     const message = `Pedido ${event.entityId} expirado`;
 
     await alertService.createAlert(tenantId, {
-      type: 'ORDER_EXPIRED',
+      type: 'order_expired',
       severity: 'INFO',
       message,
       entityType: 'order',
@@ -248,7 +248,7 @@ class AutomationService {
       actor_type: 'user',
       source: 'automation',
       context: {
-        alert_type: 'ORDER_EXPIRED',
+        alert_type: 'order_expired',
         entity_type: 'order',
         entity_id: event.entityId,
       },
@@ -265,7 +265,7 @@ class AutomationService {
     const message = `Reserva de estoque expirada para pedido ${event.context.orderId || event.entityId}`;
 
     await alertService.createAlert(tenantId, {
-      type: 'RESERVATION_EXPIRED',
+      type: 'reservation_expired',
       severity: 'INFO',
       message,
       entityType: 'reservation',
@@ -285,7 +285,7 @@ class AutomationService {
       actor_type: 'user',
       source: 'automation',
       context: {
-        alert_type: 'RESERVATION_EXPIRED',
+        alert_type: 'reservation_expired',
         entity_type: 'reservation',
         entity_id: event.entityId,
       },

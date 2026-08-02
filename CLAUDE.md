@@ -132,7 +132,7 @@ dias, dois deles com tela quebrada para o usuário.
 | `risk_level` | 🔡 **minúsculo** | `trust_profiles.risk_level` = `low·medium·high·critical` ⚠️ **não existe `BLOCKED`** |
 | `severity` | 🔠 **MAIÚSCULO** | `CRITICAL·ERROR·WARNING·INFO·AUDIT` (`§4.34`) |
 | `priority` | 🔠 **MAIÚSCULO** | `BLOCKING·CRITICAL·HIGH·MEDIUM·LOW·ATTENTION` (`§4.34`) — **não é sinônimo de severity** |
-| `type` / `*_type` de alerta | 🔠 **MAIÚSCULO** | `alert_type` = `INVENTORY_LOW_STOCK·PAYMENT_FAILED·FISCAL_PENDING·RISK_SCORE_LOW·…` |
+| `type` / `*_type` (inclui alerta) | 🔡 **minúsculo** | `alert_type` = `inventory_low_stock·payment_failed·fiscal_pending·risk_score_low·…` — era MAIÚSCULO até 2026-08-02; convergido pela emenda §4.77/§4.78 (ratificada). ⚠️ NÃO confundir com `severity`/`priority` (linhas acima), que seguem MAIÚSCULOS por §4.34 — na MESMA tabela `alerts` |
 | event type (`domain.entity.action`) | 🔡 **minúsculo com pontos** | `payment.captured` · `order.delivered` (`§4.41`) |
 | tabela · coluna | 🔡 **snake_case minúsculo** | `bank_transactions` · `amount_cents` (`§4.2`, `§4.3`) |
 

@@ -73,7 +73,16 @@ if (migSql === null) {
   if (!enumMatch) {
     failures.push(`${ALERTS_MIGRATION}: não achou "CREATE TYPE alert_type AS ENUM (...)" — guard não extrai o vocabulário.`);
   } else {
-    const validTypes = new Set([...enumMatch[1].matchAll(/'([A-Z_]+)'/g)].map((m) => m[1]));
+    let extracted = [...enumMatch[1].matchAll(/'([A-Za-z_]+)'/g)].map((m) => m[1]);
+    // F-ALERT-TYPE-LOWERCASE (2026-08-02, §4.77): a migration 20260802120000 renomeou os valores
+    // para minúsculo via RENAME VALUE. A fonte única segue sendo MIGRATIONS: aplica os renames
+    // por cima do CREATE (que é forward-only e não pode ser editado).
+    const renameSql = existsSync(join(ROOT, 'migrations/20260802120000_alert_type_lowercase.sql'))
+      ? readFileSync(join(ROOT, 'migrations/20260802120000_alert_type_lowercase.sql'), 'utf8') : '';
+    for (const rm of renameSql.matchAll(/ALTER TYPE alert_type RENAME VALUE '([A-Za-z_]+)'[ ]+TO '([A-Za-z_]+)';/g)) {
+      extracted = extracted.map((v) => (v === rm[1] ? rm[2] : v));
+    }
+    const validTypes = new Set(extracted);
     if (validTypes.size === 0) failures.push(`${ALERTS_MIGRATION}: extraiu 0 valores de alert_type.`);
 
     const ALERT_CALLERS = [
@@ -90,7 +99,7 @@ if (migSql === null) {
       while ((m = callRe.exec(content)) !== null) {
         sitesFound++;
         const segment = m[1].trim();
-        const literals = [...segment.matchAll(/'([A-Z_]+)'/g)].map((x) => x[1]);
+        const literals = [...segment.matchAll(/'([A-Za-z_]+)'/g)].map((x) => x[1]);
         if (literals.length === 0) {
           failures.push(`${rel}: createAlert() com \`type:\` não-literal ("${segment}") — guard não consegue verificar estruturalmente, use literal do enum.`);
           continue;
