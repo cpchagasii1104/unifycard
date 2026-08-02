@@ -474,9 +474,9 @@ export default function PdvPage() {
                       <div style={{ fontWeight: 'bold', color: '#065f46' }}>✓ Pagamento realizado com sucesso</div>
                       <div style={{ fontSize: '0.875rem', color: '#047857', marginTop: '0.25rem' }}>
                         Transação: {paymentResult.transaction.id.substring(0, 8)}
-                        {paymentResult.transaction.status === 'SUCCESS' && ' (Sucesso)'}
-                        {paymentResult.transaction.status === 'PENDING' && ' (Pendente)'}
-                        {paymentResult.transaction.status === 'FAILED' && ' (Falhou)'}
+                        {paymentResult.transaction.status === 'success' && ' (Sucesso)'}
+                        {paymentResult.transaction.status === 'pending' && ' (Pendente)'}
+                        {paymentResult.transaction.status === 'failed' && ' (Falhou)'}
                       </div>
                     </div>
                   )}

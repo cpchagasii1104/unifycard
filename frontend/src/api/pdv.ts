@@ -72,7 +72,7 @@ export interface PdvSessionSummary {
     id: string;
     status: string;
     amount: number | null;
-    paymentStatus: 'SUCCESS' | 'FAILED' | 'PENDING' | 'NONE';
+    paymentStatus: 'success' | 'failed' | 'pending' | 'none';
     createdAt: string;
   }>;
 }

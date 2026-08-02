@@ -362,16 +362,16 @@ class PdvService {
       id: row.id,
       status: row.status,
       amountCents: row.payment_amount ? integerCentsFromDbWire(row.payment_amount, 'pdv.payment_amount') : null,
-      paymentStatus: (row.payment_status || 'NONE') as 'SUCCESS' | 'FAILED' | 'PENDING' | 'NONE',
+      paymentStatus: (row.payment_status || 'none') as 'success' | 'failed' | 'pending' | 'none',
       createdAt: row.created_at.toISOString(),
     }));
 
     const totalOrders = orders.length;
     const totalPaid = orders
-      .filter((o) => o.paymentStatus === 'SUCCESS')
+      .filter((o) => o.paymentStatus === 'success')
       .reduce((sum, o) => sum + (o.amountCents ?? 0), 0);
     const totalFailed = orders
-      .filter((o) => o.paymentStatus === 'FAILED')
+      .filter((o) => o.paymentStatus === 'failed')
       .reduce((sum, o) => sum + (o.amountCents ?? 0), 0);
 
     // 4. Fechar sessão e salvar resumo no metadata
@@ -469,16 +469,16 @@ class PdvService {
       id: row.id,
       status: row.status,
       amountCents: row.payment_amount ? integerCentsFromDbWire(row.payment_amount, 'pdv.payment_amount') : null,
-      paymentStatus: (row.payment_status || 'NONE') as 'SUCCESS' | 'FAILED' | 'PENDING' | 'NONE',
+      paymentStatus: (row.payment_status || 'none') as 'success' | 'failed' | 'pending' | 'none',
       createdAt: row.created_at.toISOString(),
     }));
 
     const totalOrders = orders.length;
     const totalPaid = orders
-      .filter((o) => o.paymentStatus === 'SUCCESS')
+      .filter((o) => o.paymentStatus === 'success')
       .reduce((sum, o) => sum + (o.amountCents ?? 0), 0);
     const totalFailed = orders
-      .filter((o) => o.paymentStatus === 'FAILED')
+      .filter((o) => o.paymentStatus === 'failed')
       .reduce((sum, o) => sum + (o.amountCents ?? 0), 0);
 
     return {
