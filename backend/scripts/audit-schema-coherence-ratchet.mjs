@@ -35,7 +35,7 @@ const CEILINGS = {
   // desde que os tetos existem: WRITE 260→259 (1 INSERT), READ 355→353 (2 FROM).
   'GHOST-WRITE-vivo': 259,      // Cond.1 escrita em tabela ausente, código vivo — o que cai primeiro
   'GHOST-WRITE-scripts': 5,
-  'GHOST-READ-vivo': 353,       // Cond.1 leitura (CORRUPTOR 323 + DEBT 32)
+  'GHOST-READ-vivo': 349,  // 353→349 em 2026-08-02: getStats+getPenalties reescritos sobre tabelas REAIS (event_participants e actor_penalties eram fantasmas) — 1ª descida do teto grande por CONSERTO       // Cond.1 leitura (CORRUPTOR 323 + DEBT 32)
   'GHOST-READ-scripts': 27,     // (CORRUPTOR 9 + DEBT 18)
   'BOUNDARY-WRITE-vivo': 4,     // Cond.3 (bank_* write, 0) + Cond.5 (actors INSERT, 4)
   'BOUNDARY-WRITE-scripts': 327, // Cond.3 (100) + Cond.5 (227)

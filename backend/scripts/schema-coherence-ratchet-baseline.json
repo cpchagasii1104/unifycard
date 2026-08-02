@@ -1,10 +1,10 @@
 {
  "_comment": "Baseline CONGELADA do ratchet schema-coherence v2 POR CONDICAO (F-SCHEMA-COHERENCE-TRUTH, 2026-07-31, GO Clayton). Chave: arquivo::tabela::padrao::condicao::severidade::vivo|scripts -> contagem. GHOST (Cond.1) = tabela NAO existe; BOUNDARY (Cond.3/4/5) = tabela EXISTE, acesso fora do modulo autorizado (autoridade, nao schema). Regenerar apos conserto REAL: node scripts/audit-schema-coherence-ratchet.mjs --write-baseline (recusa crescer) + baixar CEILINGS no guard no MESMO commit.",
- "generatedAt": "2026-08-01",
+ "generatedAt": "2026-08-02",
  "buckets": {
   "GHOST-WRITE-vivo": 259,
   "GHOST-WRITE-scripts": 5,
-  "GHOST-READ-vivo": 353,
+  "GHOST-READ-vivo": 349,
   "GHOST-READ-scripts": 27,
   "BOUNDARY-WRITE-vivo": 4,
   "BOUNDARY-WRITE-scripts": 327,
@@ -126,9 +126,7 @@
   "core/reputation/penalty.service.ts::actor_scores::UPDATE::C1-GHOST-WRITE::BLOCKER::vivo": 1,
   "core/reputation/reputation.service.ts::reputation_scores::FROM::C1-GHOST-READ::CORRUPTOR::vivo": 3,
   "core/reputation/reputation.service.ts::reputation_scores::INSERT::C1-GHOST-WRITE::BLOCKER::vivo": 1,
-  "core/reputation/trust.service.ts::actor_penalties::FROM::C1-GHOST-READ::CORRUPTOR::vivo": 2,
   "core/reputation/trust.service.ts::actor_score_history::FROM::C1-GHOST-READ::CORRUPTOR::vivo": 1,
-  "core/reputation/trust.service.ts::event_participants::FROM::C1-GHOST-READ::CORRUPTOR::vivo": 2,
   "core/residence/residence.service.ts::global_user_residence::FROM::C1-GHOST-READ::CORRUPTOR::vivo": 1,
   "core/reviews/review.service.ts::reviews::FROM::C1-GHOST-READ::CORRUPTOR::vivo": 3,
   "core/reviews/review.service.ts::reviews::INSERT::C1-GHOST-WRITE::BLOCKER::vivo": 1,

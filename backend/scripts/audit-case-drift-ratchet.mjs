@@ -40,8 +40,6 @@ const BASELINE = new Set([
   "src/core/events/event-taxonomy.service.ts::Online::events",
   "src/core/events/event-taxonomy.service.ts::Gratuito::events",
   "src/core/events/event-taxonomy.service.ts::Pago::events",
-  "src/core/reputation/trust.service.ts::NO_SHOW::event_attendees",
-  "src/core/reputation/trust.service.ts::ACTIVE::events",
   "src/core/unifybank/donation.service.ts::DONATION::bank_transactions",
   "src/modules/actor-page/actor-page.repository.ts::CANCELLED::events",
   "src/modules/events/checkout-consumption.service.ts::ACTIVE::events",
@@ -77,7 +75,7 @@ const BASELINE = new Set([
   "src/services/feed/FeedService.ts::PUBLISHED::events",
   "src/services/feed/FeedService.ts::PUBLIC::events",
 ]);
-const BASELINE_COUNT = 40; // 42→40 em 2026-08-02: seeds de harness convergidos (quebrariam com barulho contra os enums renomeados na primeira corrida).
+const BASELINE_COUNT = 38; // 40→38 em 2026-08-02: getStats/getPenalties reescritos — os sítios fantasma do trust sumiram junto com as queries mortas.
 
 // ── conexão: mesma fonte dos demais guards que leem o banco ──────────────────────────────────
 function databaseUrl() {

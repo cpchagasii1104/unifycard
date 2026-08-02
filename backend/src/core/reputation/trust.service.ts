@@ -286,34 +286,34 @@ class TrustService {
       };
     }
 
-    // Estatísticas de participante (CONTRATO v1.4: usa attendance_status)
+    // ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+    // ║ STATUS:  REESCRITO em 2026-08-02 (GO de Clayton) — a versão anterior estava MORTA desde
+    // ║          o gênesis: UNION com `event_participants` (tabela AUSENTE) lendo
+    // ║          `attendance_status` (coluna que `event_attendees` NÃO tem; a real é `status`)
+    // ║          e comparando 'PRESENT'/'NO_SHOW'/'LEFT_EARLY' (vocabulário do desenho anterior).
+    // ║ NORMA:   vocabulário REAL de event_attendees.status (CHECK físico):
+    // ║          registered · cancelled · attended · no_show.
+    // ║ NÃO:     reintroduzir LEFT_EARLY — decisão de Clayton (2026-08-02): o estado MORREU no
+    // ║          desenho novo; nada o grava e nenhum sucessor existe.
+    // ╚════════════════════════════════════════════════════════════════
     const participantStats = await runQueryWithTenant<{
       events_participated: number;
       check_ins: number;
       no_shows: number;
-      left_early: number;
     }>(
       tenantId,
       `
-      SELECT 
+      SELECT
         COUNT(DISTINCT event_id) as events_participated,
-        COUNT(CASE WHEN attendance_status = 'PRESENT' THEN 1 END) as check_ins,
-        COUNT(CASE WHEN attendance_status = 'NO_SHOW' THEN 1 END) as no_shows,
-        COUNT(CASE WHEN attendance_status = 'LEFT_EARLY' THEN 1 END) as left_early
-      FROM (
-        SELECT event_id, attendance_status
-        FROM event_participants
-        WHERE tenant_id = $1 AND actor_id = $2 AND actor_type = $3
-        UNION ALL
-        SELECT event_id, attendance_status
-        FROM event_attendees
-        WHERE tenant_id = $1 AND actor_id = $2
-      ) combined
+        COUNT(CASE WHEN status = 'attended' THEN 1 END) as check_ins,
+        COUNT(CASE WHEN status = 'no_show' THEN 1 END) as no_shows
+      FROM event_attendees
+      WHERE tenant_id = $1 AND actor_id = $2
       `,
-      [tenantId, actorId, actorType]
+      [tenantId, actorId]
     );
 
-    const aggregated = participantStats || { events_participated: 0, check_ins: 0, no_shows: 0, left_early: 0 };
+    const aggregated = participantStats || { events_participated: 0, check_ins: 0, no_shows: 0 };
 
     const checkInRate =
       aggregated.events_participated > 0
@@ -338,20 +338,20 @@ class TrustService {
       [tenantId, actorId]
     );
 
-    // Estatísticas de prestador
+    // Estatísticas de prestador — REESCRITO 2026-08-02: a fonte anterior era a MESMA tabela
+    // fantasma. O substrato VIVO de entrega de serviço é `service_orders` (worker_actor_id +
+    // status minúsculo do enum service_order_status). "Entrega parcial" morreu junto com
+    // LEFT_EARLY (decisão de Clayton): nenhum substrato a distingue — 0 aqui é PROVÁVEL
+    // (nada a grava), não desconhecido.
     const providerStats = await runQueryWithTenant<{
       services_completed: number;
-      full_deliveries: number;
-      partial_deliveries: number;
     }>(
       tenantId,
       `
-      SELECT 
-        COUNT(*) as services_completed,
-        COUNT(CASE WHEN attendance_status = 'PRESENT' THEN 1 END) as full_deliveries,
-        COUNT(CASE WHEN attendance_status = 'LEFT_EARLY' THEN 1 END) as partial_deliveries
-      FROM event_participants
-      WHERE tenant_id = $1 AND actor_id = $2
+      SELECT COUNT(*) as services_completed
+      FROM service_orders
+      WHERE tenant_id = $1 AND worker_actor_id = $2
+        AND status IN ('completed', 'funds_released')
       `,
       [tenantId, actorId]
     );
@@ -372,8 +372,8 @@ class TrustService {
       },
       asProvider: {
         servicesCompleted: providerStats?.services_completed || 0,
-        fullDeliveries: (providerStats?.full_deliveries || 0) + aggregated.check_ins, // PRESENT conta como full delivery
-        partialDeliveries: (providerStats?.partial_deliveries || 0) + aggregated.left_early, // LEFT_EARLY conta como partial
+        fullDeliveries: providerStats?.services_completed || 0, // a conflacao antiga (check-in de EVENTO contado como entrega de SERVICO) morreu com a fonte fantasma
+        partialDeliveries: 0, // conceito morreu com LEFT_EARLY (Clayton, 2026-08-02); nenhum substrato o grava — 0 provável, não desconhecido
         averageRating: 0, // TODO: Implementar sistema de avaliações
       },
     };
@@ -512,60 +512,20 @@ class TrustService {
     actorId: string,
     actorType: 'user' | 'page' | 'group'
   ): Promise<TrustDashboard['penalties']> {
-    const active = await runQueriesWithTenant<{
-      id: string;
-      penalty_type: string;
-      reason: string;
-      severity: string;
-      ends_at: Date | null;
-    }>(
-      tenantId,
-      `
-      SELECT id, penalty_type, reason, severity, ends_at
-      FROM actor_penalties
-      WHERE tenant_id = $1 AND actor_id = $2 AND actor_type = $3
-        AND status = 'active'
-        AND (ends_at IS NULL OR ends_at > now())
-      ORDER BY created_at DESC
-      `,
-      [tenantId, actorId, actorType]
-    );
+    // ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+    // ║ STATUS:  ESVAZIADO em 2026-08-02 (mesma fatia do getStats, GO de Clayton)
+    // ║ NORMA:   `actor_penalties` NÃO EXISTE no schema canônico (to_regclass → NULL) — as duas
+    // ║          queries anteriores morriam em 42P01 e derrubavam o dashboard inteiro.
+    // ║ NÃO:     materializar a tabela para reviver isto (forward-only, cria casa nova sem GATE),
+    // ║          nem devolver erro: penalidade AUSENTE DE SUBSTRATO = provadamente zero
+    // ║          penalidades — 0 aqui é FATO (nada pode gravá-las), não zero-mentiroso.
+    // ║ EM VEZ:  quando o substrato de penalidades nascer (frente própria, com GATE), religar
+    // ║          aqui. O tipo de retorno é preservado.
+    // ╚════════════════════════════════════════════════════════════════
+    const active: TrustDashboard['penalties']['active'] = [];
+    const history: TrustDashboard['penalties']['history'] = [];
 
-    const history = await runQueriesWithTenant<{
-      id: string;
-      penalty_type: string;
-      reason: string;
-      created_at: Date;
-      resolved_at: Date | null;
-    }>(
-      tenantId,
-      `
-      SELECT id, penalty_type, reason, created_at, resolved_at
-      FROM actor_penalties
-      WHERE tenant_id = $1 AND actor_id = $2 AND actor_type = $3
-        AND status != 'ACTIVE'
-      ORDER BY created_at DESC
-      LIMIT 20
-      `,
-      [tenantId, actorId, actorType]
-    );
-
-    return {
-      active: (active || []).map((p) => ({
-        id: p.id,
-        type: p.penalty_type,
-        reason: p.reason,
-        severity: p.severity,
-        endsAt: p.ends_at,
-      })),
-      history: (history || []).map((p) => ({
-        id: p.id,
-        type: p.penalty_type,
-        reason: p.reason,
-        createdAt: p.created_at,
-        resolvedAt: p.resolved_at,
-      })),
-    };
+    return { active, history };
   }
 
   /**
