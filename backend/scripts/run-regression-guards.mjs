@@ -324,6 +324,7 @@ const CMDS = [
   // CORRUPTOR-scripts 1047 · DEBT-vivo 32 · DEBT-scripts 18). Violação nova = FAIL · baseline
   // inflada = FAIL · contagem só desce (--write-baseline recusa crescer).
   "node scripts/audit-schema-coherence-ratchet.mjs",
+  "node scripts/audit-case-drift-ratchet.mjs",
   // F-DOC-ENTRY-AUTHORITY (2026-07-31, GO Clayton): QUATRO documentos disputavam ser "a entrada"
   // do repositório e dois estavam parados desde jan/fev — um deles mandando ler 418 arquivos como
   // "ORDEM OBRIGATÓRIA", apontando para uma pasta inexistente. Reorganizar resolveu o passado;
