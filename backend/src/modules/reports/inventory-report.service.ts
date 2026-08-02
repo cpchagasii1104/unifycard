@@ -67,7 +67,7 @@ class InventoryReportService {
         ), 0) as current_quantity,
         COALESCE(SUM(
           CASE
-            WHEN ir.status = 'ACTIVE'
+            WHEN ir.status = 'active'
               AND (ir.expires_at IS NULL OR ir.expires_at > now())
             THEN ir.quantity
             ELSE 0

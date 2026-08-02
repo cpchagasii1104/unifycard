@@ -182,12 +182,12 @@ class ReconciliationService {
         tenant_id,
         product_variant_id,
         (
-          SUM(quantity) - SUM(CASE WHEN status = 'ACTIVE' THEN quantity ELSE 0 END)
+          SUM(quantity) - SUM(CASE WHEN status = 'active' THEN quantity ELSE 0 END)
         )::text AS drift
       FROM inventory_reservations
       WHERE ($1::uuid IS NULL OR tenant_id = $1::uuid)
       GROUP BY tenant_id, product_variant_id
-      HAVING SUM(quantity) <> SUM(CASE WHEN status = 'ACTIVE' THEN quantity ELSE 0 END)
+      HAVING SUM(quantity) <> SUM(CASE WHEN status = 'active' THEN quantity ELSE 0 END)
       ORDER BY tenant_id, product_variant_id
       `,
       [tenantId ?? null]

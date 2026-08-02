@@ -40,7 +40,6 @@ const BASELINE = new Set([
   "src/core/events/event-taxonomy.service.ts::Online::events",
   "src/core/events/event-taxonomy.service.ts::Gratuito::events",
   "src/core/events/event-taxonomy.service.ts::Pago::events",
-  "src/core/reconciliation/reconciliation.service.ts::ACTIVE::bank_accounts",
   "src/core/reputation/trust.service.ts::NO_SHOW::event_attendees",
   "src/core/reputation/trust.service.ts::ACTIVE::events",
   "src/core/unifybank/donation.service.ts::DONATION::bank_transactions",
@@ -60,7 +59,6 @@ const BASELINE = new Set([
   "src/modules/reports/financial-report.service.ts::SUCCESS::payment_transactions",
   "src/modules/reports/financial-report.service.ts::FAILED::orders",
   "src/modules/reports/financial-report.service.ts::PENDING::orders",
-  "src/modules/reports/inventory-report.service.ts::ACTIVE::inventory_reservations",
   "src/modules/reports/inventory-report.service.ts::UN::product_variants",
   "src/modules/services/service-order.service.ts::AUTHORIZED::payment_intents",
   "src/modules/social/actor.repository.ts::APPROVED::identities",
@@ -86,7 +84,7 @@ const BASELINE = new Set([
   "src/services/feed/FeedService.ts::PUBLISHED::events",
   "src/services/feed/FeedService.ts::PUBLIC::events",
 ]);
-const BASELINE_COUNT = 49; // 51→49 em 2026-08-02: countOpenAlerts consertado — filtrava status IN ('OPEN','ACK') contra alert_status minúsculo e contava ZERO para sempre (fatia F-ALERT-TYPE-LOWERCASE).
+const BASELINE_COUNT = 47; // 49→47 em 2026-08-02: os leitores de inventory_reservations convergidos — a reconciliação acusaria drift em TODO produto com reserva ('ACTIVE' nunca casava com o enum minúsculo de ontem).
 
 // ── conexão: mesma fonte dos demais guards que leem o banco ──────────────────────────────────
 function databaseUrl() {
