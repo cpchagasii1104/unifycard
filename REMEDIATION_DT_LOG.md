@@ -1,5 +1,30 @@
 # REMEDIATION DT LOG
 
+## 🏛️ CONFIRMAÇÃO ISOLADA DE CLAYTON — `bank_splits` na §4.6 FICA (2026-08-02)
+
+O Parecer Yala F classificou a inclusão de `bank_splits` na lista de SQL proibido da
+`LEI_DE_COERENCIA §4.6` como **mudança de norma restritiva**, não conserto de ponteiro — e exigiu
+confirmação isolada do dono, porque a ratificação verbal anterior cobria "ponteiros quebrados".
+
+**Palavras de Clayton, ao receber o quadro completo (Lei 5 nomeando o split como invariante ·
+`BANK_SEMANTICS.md:144` declarando a persistência soberana em `bank_splits` · enforcement já
+cobrindo em `validate-schema-code-coherence.mjs:636`):**
+
+> *"com certeza o sistema já decidiu"*
+
+É a aplicação da sua própria lei de trabalho (*"não perguntar o que a norma já decidiu"*) ao caso:
+a emenda não criou regra — fez a **letra** da §4.6 alcançar o que a Lei 5, os documentos-irmãos e o
+próprio gate já praticavam. A linha permanece, com esta confirmação como fecho.
+
+**Com isto, TODOS os itens abertos do Parecer F com dono definido estão resolvidos:** a quinta
+(raiz consertada, `b0bbc7209`) · a décima remissão (`:440`) · o buraco da absolvição
+(v2 por-tabela, `d6ada4ae9`) · a baseline rotulada (PENDING 0 · CLASSIFIED 48) · e esta
+confirmação. Restam da cauda do parecer: `left_early` fora do contrato do dashboard (menor) e o
+par amarelo do inventário (grita 400, classificado).
+
+---
+
+
 ## ✅ MANDATO F PROCESSADO — "a quinta" caiu NA RAIZ, e o vocabulário de risco cruzou a ponte inteiro (2026-08-02)
 
 Parecer: `docs/04_audit/PARECER_YALA_MANDATO_F_2026-08-02.md` · **0 derrubadas · 3 sobrevivem ·
