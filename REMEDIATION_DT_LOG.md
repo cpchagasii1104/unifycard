@@ -1,5 +1,37 @@
 # REMEDIATION DT LOG
 
+## ✅ RESSALVA DO MANDATO D FECHADA POR VERIFICAÇÃO — `reference_id` CONTA×TENANT é desenho deliberado, documentado e DESAMBIGUADO (2026-08-02, direção)
+
+A primeira auditoria Yala deixou uma ressalva *"não tratada"*: `reference_id` das discrepâncias de
+reconciliação guarda **CONTA/TRANSAÇÃO no motor** e **TENANT no manual**. Tratada agora, e o
+veredito é **fechar sem mudar código** — com a cadeia colada:
+
+```
+motor  → reconciliation-engine.service.ts:87-148  referenceId = tx.id / ol.id / account.id
+manual → reconciliation.repository.ts:304         referenceId = tenantId ('account_mismatch')
+```
+
+**Por que NÃO é defeito, verificado em 3 camadas:**
+1. **Foi decisão deliberada e JÁ documentada** — migalha em `reconciliation.repository.ts:236-248`:
+   *"reference_id = tenantId — não há um id de conta único quando o admin reconcilia o CONSOLIDADO;
+   documentado, não inventado; decisão registrada para reversão se o dono achar errado."*
+2. **A desambiguação é ESTRUTURAL, não convenção:** a linha de discrepância aponta `runId`, e o run
+   carrega `engine` (`manual_admin_input` × motor) — qualquer leitor distingue por JOIN.
+3. **O único leitor que RESOLVE `reference_id` contra outra tabela já se protege:**
+   `reconciliation-dispute.service.ts:38-41` — `REVERSAL_REFERENCE_TYPES = ['ledger_mismatch',
+   'orphan_transaction']`; `:275` recusa (`DISPUTE_REVERSAL_NOT_APPLICABLE_FOR_TYPE`) qualquer
+   outro tipo ANTES de chamar `getBankTransactionAmountCents`. **`account_mismatch` — o tipo do
+   manual — nunca chega ao resolver de transação.** O tenantId-como-referência é ilegível como
+   transação por construção.
+
+Linhas hoje: **0**. Fica em pé a observação menor: o rótulo `account_mismatch` no uso manual
+descreve mismatch de **consolidado por tenant** — semanticamente frouxo, mas trocá-lo exigiria
+valor novo no CHECK (permissão, não conserto) e a migalha já explica. **Se o dono quiser o rótulo
+próprio (`tenant_balance_mismatch`), é ampliação de vocabulário — decisão dele.**
+
+---
+
+
 ## 🗺️ MAPA — reputação de participação em eventos: coluna fantasma + tabela fantasma + vocabulário de OUTRO desenho (2026-08-02, direção)
 
 Achado ao drenar a fila do detector (item `trust.service::NO_SHOW::event_attendees`). **NÃO é
