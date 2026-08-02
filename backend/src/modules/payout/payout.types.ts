@@ -112,8 +112,10 @@ export interface FailPayoutInput {
 export interface PayoutEligibilityResult {
   eligible: boolean;
   reasons: string[];
-  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'BLOCKED';
-  trustScore: number;
+  // riskLevel/trustScore REMOVIDOS em 2026-08-02: esta função deixou de ler risco (o gate
+  // canônico requireFinancialRiskClearance roda ANTES). Nenhum consumidor lia os campos; a união
+  // antiga ('LOW'|'MEDIUM'|'HIGH'|'BLOCKED') era o desenho pré-gênesis. Afirmar risco não medido
+  // seria exatamente o "zero é afirmação" que a casa proíbe.
   hasOpenDispute: boolean | undefined;
   escrowStatus?: string;
   agreementStatus?: string;

@@ -17,11 +17,6 @@ import type {
 import { NotFoundError, BadRequestError, ConflictError } from '@core/errors';
 import { recordBusinessAuditSafely } from '../business-audit/business-audit.helpers';
 
-/**
- * Threshold mínimo de trust score para payout
- */
-const MIN_TRUST_SCORE_FOR_PAYOUT = 30;
-
 class PayoutService {
   /**
    * Valida elegibilidade para payout
@@ -37,17 +32,21 @@ class PayoutService {
     const reasons: string[] = [];
     let eligible = true;
 
-    // 1. Validar Trust Score
-    const { trustEngineService } = await import('../trust/trust-engine.service');
-    const trustProfile = await trustEngineService.getTrustProfile(tenantId, actorId);
-
-    if (trustProfile.riskLevel === 'BLOCKED') {
-      eligible = false;
-      reasons.push('Actor bloqueado devido a baixo trust score');
-    } else if (trustProfile.currentScore < MIN_TRUST_SCORE_FOR_PAYOUT) {
-      eligible = false;
-      reasons.push(`Trust score abaixo do mínimo (${trustProfile.currentScore} < ${MIN_TRUST_SCORE_FOR_PAYOUT})`);
-    }
+    // ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+    // ║ STATUS:  REMOVIDO — o passo "1. Validar Trust Score" saiu em 2026-08-02, GO de Clayton
+    // ║ NORMA:   PROMPT_53_1_RISK_ENFORCEMENT_HARDENING:65 — o nível que trava desembolso é
+    // ║          `blocked` (minúsculo) em `actor_risk_profile`, e quem o lê é o gate CANÔNICO
+    // ║          `requireFinancialRiskClearance` (risk-financial-gate), que RODA ANTES desta
+    // ║          função nos DOIS caminhos (createPayoutBatch :231 · executePayoutManual :366).
+    // ║ NÃO:     reintroduzir leitura de risco AQUI. O bloco removido comparava
+    // ║          `riskLevel === 'BLOCKED'` — valor que NÃO EXISTE desde o gênesis
+    // ║          (trust_profiles usa `critical`; o TS vinha de migrations_archive/0067) — e por
+    // ║          baixo, `getTrustProfile` → `getOrCreateProfile` INSERE `'MEDIUM'` contra CHECK
+    // ║          minúsculo → EXCEÇÃO para qualquer actor sem perfil (a tabela tem 0 linhas).
+    // ║          Não era uma trava morta: era uma trava morta EM CIMA de um crash.
+    // ║ EM VEZ:  risco = gate canônico, único, ANTES. Esta função valida NEGÓCIO (escrow,
+    // ║          agreement, ledger) — segunda verdade sobre risco é o que a remoção eliminou.
+    // ╚════════════════════════════════════════════════════════════════
 
     // 2. Validar Escrow (se aplicável)
     if (escrowId) {
@@ -147,8 +146,6 @@ class PayoutService {
     return {
       eligible,
       reasons,
-      riskLevel: trustProfile.riskLevel,
-      trustScore: trustProfile.currentScore,
       hasOpenDispute,
       escrowStatus,
       agreementStatus,
