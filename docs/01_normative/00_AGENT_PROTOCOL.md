@@ -106,7 +106,7 @@ Em vez disso:
    * contexto (CONTEXT / policy)
    * graph (relações entre conceitos)
 
-3. **Carregamento modular** — com base no domínio declarado, ler **apenas** os ficheiros listados em **2.2.3** para esse eixo (em **conjunto completo** por linha, ver anti half-read no mesmo 2.2.3), **mais** qualquer ficheiro adicional cuja relevância seja inevitável após o bootstrap (ex.: cruzamento de pilares); dúvida entre **domínios** → **2.2.5** (não escolher sozinho); dúvida de escopo dentro do domínio → alargar a leitura ou **ABORTAR** (não adivinhar).
+3. **Carregamento modular** — com base no domínio declarado, ler **apenas** os ficheiros listados em **2.2.3** para esse eixo (em **conjunto completo** por linha, ver anti half-read no mesmo 2.2.3), **mais** qualquer ficheiro adicional cuja relevância seja inevitável após o bootstrap (ex.: cruzamento de pilares); dúvida entre **domínios** → **2.2.6** (não escolher sozinho); dúvida de escopo dentro do domínio → alargar a leitura ou **ABORTAR** (não adivinhar).
 
 ### 2.2.2 PROVA DE RASTREABILIDADE NORMATIVA (OBRIGATÓRIA)
 
@@ -119,7 +119,7 @@ Antes de executar qualquer ação (código, schema, documentação operacional),
 
 Se **não** conseguir cumprir as quatro linhas acima com precisão → **ABORTAR** → solicitar decisão humana ou alargar a leitura conforme 2.2.1 / 2.2.3.
 
-Ambiguidade de domínio **não** tratada conforme **2.2.5** (ou **união cautelosa** ali prevista) **invalida** a afirmação de que o conjunto lido é **suficiente**. Conflito aparente entre documentos lidos → aplicar **2.2.6** e declarar qual norma prevaleceu na prova.
+Ambiguidade de domínio **não** tratada conforme **2.2.6** (ou **união cautelosa** ali prevista) **invalida** a afirmação de que o conjunto lido é **suficiente**. Conflito aparente entre documentos lidos → aplicar **2.2.7** e declarar qual norma prevaleceu na prova.
 
 ### Requisitos de precisão da prova (obrigatório)
 
@@ -133,7 +133,7 @@ A prova de rastreabilidade **NÃO** pode ser genérica.
    * **temporal** → **Agenda** / **Unified Availability** (conforme Constituição e `CORE_IMUTAVEL.md`)
 
 2. **Referência explícita** à precedência normativa aplicada à decisão:
-   * **Constituição > Leis > SSOT Registry > Ontologia** (alinhado ao detalhe de **2.2.6** quando houver conflito entre ficheiros)
+   * **Constituição > Leis > SSOT Registry > Ontologia** (alinhado ao detalhe de **2.2.7** quando houver conflito entre ficheiros)
 
 3. Quando aplicável, **explicitar** qual estrutura **NÃO** é SSOT (exemplos indicativos: **N2** como camada de navegação/governo, **`category` / `category_id`** como árvore de navegação e não identidade semântica, **slug** sem validade normativa de domínio, **GRAPH** como relação entre CONCEPTs já identificados e não fonte de “o que é”).
 
@@ -186,7 +186,7 @@ Os ficheiros abaixo são **estruturas indexais obrigatórias de navegação** pa
 
 2. **NÃO podem ser usados como substituto de leitura completa** do ficheiro normativo aplicável. Mapeiam para leitura, não eliminam a obrigação de ler integralmente (anti half-read, conforme anti half-read em 2.2.3).
 
-3. **Ambiguidade ou conflito entre INDEX/SUMÁRIO e documentos canónicos** → prevalece conteúdo canónico **sempre** (aplicar precedência 2.2.6).
+3. **Ambiguidade ou conflito entre INDEX/SUMÁRIO e documentos canónicos** → prevalece conteúdo canónico **sempre** (aplicar precedência 2.2.7).
 
 4. **Quando usar:**
    - Tarefa de **descoberta** (ex.: "com que domínio estou lidando?") → consultar 00_SUMÁRIO.md
@@ -215,6 +215,14 @@ Se a tarefa puder razoavelmente enquadrar-se em **mais de um** domínio da tabel
 
 ### 2.2.7 PRECEDÊNCIA ENTRE DOCUMENTOS (CONFLITO NORMATIVO)
 
+> **Emenda 2026-08-02 (ratificada por Clayton):** nove remissões internas deste protocolo citavam
+> **2.2.5**/**2.2.6** querendo dizer **2.2.6 (Ambiguidade)**/**2.2.7 (Precedência)** — off-by-one
+> de renumeração antiga, verificado título a título e citação a citação antes da correção. O
+> contágio em `LEI_DE_COERENCIA §7.1/§14` foi corrigido na mesma emenda. **Regra que fica:** ao
+> renumerar secção, varra TODAS as remissões no mesmo commit — remissão deslocada manda o leitor
+> obedecer à secção errada com cara de certa.
+
+
 Quando dois ou mais documentos de `docs/01_normative/` **parecerem** divergir sobre o **mesmo** ponto, a ordem de **precedência** é (vence o de **menor** número; os seguintes cedem):
 
 1. **CONSTITUICAO_UNIFICARD.md**
@@ -239,7 +247,7 @@ Quando a tarefa envolver **criar ou alterar rotas HTTP**, **alinhamento OpenAPI/
 
 Se o escopo incluir **stock transfer / receipt** (endpoints, payloads ou enums desse fluxo), o agente **DEVE** tratar como referência de comportamento o ficheiro:
 
-| Contrato de referência (OpenAPI 3) | `backend/docs/openapi-stock-transfer-receipt.contract.yaml` |
+| Contrato de referência (OpenAPI 3) | ⚠️ **AUSENTE DO REPOSITÓRIO** (emenda 2026-08-02, ratificada): `backend/docs/openapi-stock-transfer-receipt.contract.yaml` é citado desde antes do gênesis e **nunca foi materializado** (`find -iname "openapi*"` → zero ficheiros). Até materialização em frente própria, a fonte é `backend/docs/API_CONTRACT_GOVERNANCE.md` (existe) + o contrato vivo do código — e **obrigação sobre ficheiro inexistente não obriga ninguém**, só ensina o leitor a ignorar a norma |
 
 **Regra:** qualquer mudança de comportamento de API **começa** pelo contrato (YAML ou documento de contrato equivalente), **depois** código; **proibido** inverter (Swagger ou código gerado **não** substituem o contrato como fonte da verdade). Detalhes e checklist em `backend/docs/API_CONTRACT_GOVERNANCE.md`.
 
@@ -255,7 +263,7 @@ Leitura normativa obrigatória:
 
 ### 2.3.1 ORDEM OBRIGATÓRIA PARA QUALQUER IA (SEQUÊNCIA DECISÓRIA)
 
-Além do **universo normativo** e da **leitura contextual** (Secções 2.2, 2.2.1, 2.2.3 e, quando aplicável, **2.2.5** / **2.2.6**), qualquer agente **DEVE** internalizar a ordem abaixo **antes** de propor ou executar alteração estrutural. **Ordem ≠ obrigação de bufferizar todo o diretório**; **ordem = precedência decisória** após carregar o aplicável. Conflitos entre documentos já carregados → **2.2.6** antes de decidir.
+Além do **universo normativo** e da **leitura contextual** (Secções 2.2, 2.2.1, 2.2.3 e, quando aplicável, **2.2.6** / **2.2.7**), qualquer agente **DEVE** internalizar a ordem abaixo **antes** de propor ou executar alteração estrutural. **Ordem ≠ obrigação de bufferizar todo o diretório**; **ordem = precedência decisória** após carregar o aplicável. Conflitos entre documentos já carregados → **2.2.7** antes de decidir.
 
 1. **CONSTITUICAO_UNIFICARD.md** — limites institucionais imutáveis deste documento
 2. **LEIS_OPERACIONAIS_UNIFICARD.md** — leis de execução (inclui Lei 7 — governança semântica)
@@ -280,7 +288,7 @@ Antes de criar/editar migrations, tabelas, SSOT, serviços de domínio semântic
 | Estrutura existente | Verificar se já há tabela/contrato normativo; **não** duplicar |
 | Risco de duplicação de verdade | Proibir segunda fonte primária para o mesmo fato |
 | Precedência causal | Respeitar cadeia operacional **Mutation → Estado → Dinheiro → Evento** quando o escopo tocar execução de domínio/financeiro/temporal; **proibido** tratar evento como causa primária, alterar estado canónico sem mutation explícita ou movimentar dinheiro fora da ordem normativa; em semântica, manter **CONCEPT antes de inferência de mercado** / GRAPH |
-| Fronteira financeira (código) | Se o diff **fora** de `backend/src/modules/bank/` acede em SQL a `bank_ledger`, `bank_transactions` ou `bank_accounts`, ou define locking / ordem de `FOR UPDATE` sobre essas tabelas → **ABORTAR** (encapsular no Bank; ver `LEI_DE_COERENCIA_SISTEMICA_UNIFICARD.md` §**4.6**–§**4.7**) |
+| Fronteira financeira (código) | Se o diff **fora** de `backend/src/modules/bank/` acede em SQL a `bank_ledger`, `bank_transactions`, `bank_accounts` ou `bank_splits` (emenda 2026-08-02: o split é a 2ª invariante da Lei 5 e o enforcement já o cobria — norma mais estreita que o próprio gate perde a discussão errada), ou define locking / ordem de `FOR UPDATE` sobre essas tabelas → **ABORTAR** (encapsular no Bank; ver `LEI_DE_COERENCIA_SISTEMICA_UNIFICARD.md` §**4.6**–§**4.7**) |
 | Fronteira financeira (derivação) | **ABORTAR** se o código (fora do domínio Bank) **inferir** saldo/posição canónica, **reconstruir** estado financeiro fora do SSOT, ou **derivar** decisão de dinheiro real principalmente a partir de eventos / logs / *snapshots* comerciais não canónicos — ver `LEI_DE_COERENCIA_SISTEMICA_UNIFICARD.md` §**4.6** |
 
 Se **qualquer** resposta for **incerta** → **ABORTAR** execução → **solicitar decisão formal** (RFC / owner humano). **Proibido** “implementar e depois alinhar”.
@@ -338,7 +346,7 @@ Se **qualquer** condição falhar → **DERIVAÇÃO PROIBIDA** → usar **`conce
 
 Fluxo obrigatório antes de agir:
 
-1. Cumprir leitura contextual (2.2.1–2.2.3, com leitura completa por domínio), **ambiguidade (2.2.5)** e **precedência (2.2.6)** quando aplicável, e **prova de rastreabilidade** (2.2.2); internalizar ordem decisória 2.3.1 quando relevante
+1. Cumprir leitura contextual (2.2.1–2.2.3, com leitura completa por domínio), **ambiguidade (2.2.6)** e **precedência (2.2.7)** quando aplicável, e **prova de rastreabilidade** (2.2.2); internalizar ordem decisória 2.3.1 quando relevante
 2. Identificar **pilar** e **SSOT** afetados
 3. Validar existência de **estrutura** e **contrato**
 4. Verificar **impacto cruzado** (financeiro vs semântico vs temporal) e **precedência causal** conforme a linha homónima do GATE (2.3.2), em especial **Mutation → Estado → Dinheiro → Evento** quando aplicável
@@ -357,7 +365,7 @@ Uso opcional no **início** de uma conversa com agente ou no corpo de PR/review.
 
 ```text
 Antes de qualquer alteração de código, schema ou contrato:
-1) Abrir e seguir docs/01_normative/00_AGENT_PROTOCOL.md — secções 2.2, 2.2.1–2.2.6 e 2.3.1 a 2.3.7 (2.3.7 = textos copiáveis; o trilho normativo principal após bootstrap é 2.3.1–2.3.6).
+1) Abrir e seguir docs/01_normative/00_AGENT_PROTOCOL.md — secções 2.2, 2.2.1–2.2.7 e 2.3.1 a 2.3.7 (2.3.7 = textos copiáveis; o trilho normativo principal após bootstrap é 2.3.1–2.3.6).
 2) Declarar em 3–5 linhas: (a) pilar afetado, (b) SSOT envolvido, (c) se há estrutura existente, (d) risco de duplicação de verdade, (e) validação da precedência causal (incl. Mutation → Estado → Dinheiro → Evento quando aplicável).
 3) Se qualquer item for incerto → parar e pedir decisão humana formal.
 Só depois propor ou executar mudanças.

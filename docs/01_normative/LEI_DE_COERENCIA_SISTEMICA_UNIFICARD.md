@@ -195,7 +195,7 @@ Função:
 
 Módulos **fora** do domínio **Bank** (código sob `modules/bank` / contratos por ele expostos) **não** podem:
 
-* executar SQL direto sobre as tabelas SSOT financeiras de runtime: `bank_ledger`, `bank_transactions`, `bank_accounts`;
+* executar SQL direto sobre as tabelas SSOT financeiras de runtime: `bank_ledger`, `bank_transactions`, `bank_accounts`, `bank_splits` (emenda 2026-08-02, ratificada: o split é invariante da Lei 5, `BANK_SEMANTICS.md` já o declarava soberano e o enforcement — `validate-schema-code-coherence.mjs:636` — já o cobria; a lei estava mais estreita que o próprio gate);
 * usar essas tabelas em strings de *query* embutidas em serviços de outros domínios;
 * calcular saldo canónico ou movimentar dinheiro real sem passar pelas APIs do Bank;
 * **inferir** saldo ou posição financeira (incluindo heurísticas ou agregações que substituam o ledger);
@@ -517,7 +517,7 @@ Mutation → Estado → Dinheiro → Evento
 
 * O protocolo é um **subconjunto** da ordem sistémica de §7 — **não** a substitui.
 * A cadeia do protocolo **nunca** pode **violar** a ordem de §7 (causas primárias, precedência de semântica / identidade / autoridade / tempo onde aplicável ao escopo).
-* Conflito aparente entre as duas formulações → aplicar precedência normativa institucional (Constituição, Leis, este documento e protocolo conforme hierarquia em `00_AGENT_PROTOCOL.md` §**2.2.6**) e, se persistir ambiguidade operacional, **decisão humana** — **proibido** “escolher” unilateralmente uma ordem que enfraqueça §7.
+* Conflito aparente entre as duas formulações → aplicar precedência normativa institucional (Constituição, Leis, este documento e protocolo conforme hierarquia em `00_AGENT_PROTOCOL.md` §**2.2.7**) e, se persistir ambiguidade operacional, **decisão humana** — **proibido** “escolher” unilateralmente uma ordem que enfraqueça §7.
 
 ---
 
@@ -602,7 +602,7 @@ Esta lei prevalece sobre:
 * atalhos técnicos
 * convenções locais
 
-**Sem prejuízo** da **subordinação** declarada no cabeçalho deste documento e da **precedência** em `00_AGENT_PROTOCOL.md` **2.2.6** (Constituição > Leis > SSOT Registry > Ontologia > demais).
+**Sem prejuízo** da **subordinação** declarada no cabeçalho deste documento e da **precedência** em `00_AGENT_PROTOCOL.md` **2.2.7** (Constituição > Leis > SSOT Registry > Ontologia > demais).
 
 ---
 
@@ -610,9 +610,13 @@ Esta lei prevalece sobre:
 
 A aplicação obrigatória desta lei pelos agentes está formalizada em `00_AGENT_PROTOCOL.md`:
 
-* **2.2.8** — Validação de coerência sistémica
-* **2.2.2** — Prova de rastreabilidade (itens 5 e 6 dos requisitos de precisão)
-* **2.3.2** — GATE (linha **Coerência sistémica**; precedência causal alinhada a §**7.1** desta lei)
+* **2.3.2** — GATE obrigatório (linha **Precedência causal**, alinhada a §**7.1** desta lei, e linha **Fronteira financeira**, alinhada a §4.6–§4.7)
+* **2.2.2** — Prova de rastreabilidade (bullets **SSOT governante** e **pilar afetado**)
+
+> **Emenda 2026-08-02 (ratificada por Clayton):** as três remissões anteriores apontavam para o que
+> **não existe** — "2.2.8 Validação de coerência sistémica" (a 2.2.8 real é Contratos de API HTTP),
+> "itens 5 e 6" numa secção de 4 bullets, e uma linha "Coerência sistémica" que o GATE nunca teve.
+> Verificado na fonte antes de corrigir. Remissão para o inexistente ensina o leitor a não conferir.
 
 **Remissão lexical:** `LEI_COERENCIA_SISTEMICA_UNIFICARD.md` remete ao presente ficheiro.
 
