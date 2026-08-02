@@ -1,5 +1,49 @@
 # REMEDIATION DT LOG
 
+## ✅ AS CINCO PALAVRAS DE CLAYTON, EXECUTADAS — "4 GO · 5 sim todos · 6 sim · 7 ratifico · 9 GO, LEFT_EARLY morre" (2026-08-02)
+
+Aprovação em mensagem única, do celular; execução em 5 commits (`066c1f131` · `5a29fad2f` ·
+`3fd9e61f7` · `a94c4c4ef` + o DELETE do item 6, que é dado e não gera commit). Cada item com sua
+prova; os destaques que mudam o estado:
+
+**⑥ 59 órfãs de `availability` apagadas** — `67 → 8`, zero órfãs em qualquer dimensão. A medição
+de agenda parou de mentir 8×. (A fatia dormante do trigger `bookings>0` fica SEM OBJETO para as
+órfãs — as 4 leituras sem filtro de tenant seguem anotadas no parecer E.)
+
+**⑤ 3 cadáveres de frontend apagados** (+3 CSS, 1.431 linhas) — orfanato RE-PROVADO imediatamente
+antes (estático + dinâmico + JSX), porque este arco já teve um "órfão" vivo por import dinâmico.
+O hit de grep era `EventCheckoutModal` — arquivo DIFERENTE e vivo, preservado.
+
+**④ payout: a checagem morta saiu — e era PIOR que morta.** Traçar antes de cortar revelou:
+`getTrustProfile` → `getOrCreateProfile` **INSERE `'MEDIUM'` contra CHECK minúsculo** → exceção
+para qualquer actor sem perfil (todos; a tabela tem 0 linhas). O passo não "passava em silêncio" —
+**quebrava DEPOIS do gate canônico ter aprovado**. Risco agora tem UM gate
+(`requireFinancialRiskClearance`). O contrato perdeu `riskLevel`/`trustScore` que ninguém lia —
+devolvê-los afirmaria risco não medido.
+
+**⑨ reputação por participação VIVA de novo — e a 1ª descida do teto grande POR CONSERTO:**
+```
+GHOST-READ-vivo: 353 → 349
+```
+Não por isenção, não por deleção: por reescrever leituras mortas sobre tabelas vivas
+(`event_attendees.status` real; prestador sobre `service_orders`; a conflação check-in-de-evento
+= entrega-de-serviço morreu com a fonte). `LEFT_EARLY` morto por decisão de Clayton.
+`getPenalties` esvaziado honesto: sem substrato que grave penalidade, zero é FATO, não
+zero-mentiroso. Fila de case-drift: 40 → 38.
+
+**⑦ normas emendadas na fonte, cada alvo re-verificado antes** — 9 remissões off-by-one no
+protocolo (o RELATÓRIO listava 4; a varredura achou 9) + 2 contágios na Lei · as 3 remissões da
+§15 para o inexistente retargetadas ao real · `bank_splits` entrou nas DUAS fronteiras executáveis
+(§4.6 da Lei E a linha ABORTAR do GATE 2.3.2) · o contrato OpenAPI inexistente declarado ausente
+com honestidade — *"obrigação sobre ficheiro inexistente não obriga ninguém, só ensina o leitor a
+ignorar a norma"*.
+
+**Estado: runner 238 · typecheck 0/0 · ~97 commits · TODOS num disco só (push aguarda a janela de
+login do GitHub — não há credencial na máquina; diagnóstico no PLACAR).**
+
+---
+
+
 ## ✅ RESSALVA DO MANDATO D FECHADA POR VERIFICAÇÃO — `reference_id` CONTA×TENANT é desenho deliberado, documentado e DESAMBIGUADO (2026-08-02, direção)
 
 A primeira auditoria Yala deixou uma ressalva *"não tratada"*: `reference_id` das discrepâncias de
