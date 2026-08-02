@@ -460,7 +460,7 @@ class TrustService {
       SELECT 
         COUNT(*) as times,
         COALESCE(SUM(amount_cents), 0) as total_guaranteed,
-        COALESCE(SUM(CASE WHEN status = 'TRANSFERRED_TO_ORGANIZER' THEN amount_cents ELSE 0 END), 0) as total_paid
+        COALESCE(SUM(CASE WHEN status = 'transferred_to_organizer' THEN amount_cents ELSE 0 END), 0) as total_paid
       FROM actor_debts
       WHERE tenant_id = $1 AND guarantor_actor_id = $2 AND guarantor_actor_type = $3
       `,
@@ -478,11 +478,11 @@ class TrustService {
         COALESCE(SUM(amount_cents), 0) as total_received
       FROM actor_debts
       WHERE tenant_id = $1 AND creditor_actor_id = $2 AND creditor_actor_type = $3
-        -- CHECK chk_actor_debts_status atual aceita 'pending' + 'TRANSFERRED_TO_ORGANIZER'.
-        -- 'paid' não existe na enum; 'transferred_to_organizer' lowercase tampouco.
+        -- CHECK chk_actor_debts_status: 'pending' + 'transferred_to_organizer' (§4.11, convergido 2026-08-02).
+        -- 'paid' não existe no CHECK — nada o escreve; adicioná-lo seria permissão.
         -- Convergência defensiva ao vocabulário vigente do CHECK até DECISION sobre
         -- vocabulário canônico final (DT-C36-actor-debts-case-drift).
-        AND status = 'TRANSFERRED_TO_ORGANIZER'
+        AND status = 'transferred_to_organizer'
       `,
       [tenantId, actorId, actorType]
     );

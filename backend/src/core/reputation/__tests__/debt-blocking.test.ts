@@ -167,7 +167,7 @@ describe('Debt Blocking (CONTRATO v1.4)', () => {
         creditor_actor_id, creditor_actor_type, amount_cents, reason, status,
         guarantor_actor_id, guarantor_actor_type, dueAt
       )
-      VALUES ($1, $2, $3, 'user', $3, 'user', 3000, 'CANCELLATION', 'PENDING', $3, 'user', now() + INTERVAL '7 days')`,
+      VALUES ($1, $2, $3, 'user', $3, 'user', 3000, 'CANCELLATION', 'pending', $3, 'user', now() + INTERVAL '7 days')`,
       [testTenantId, testEventId, newActorId]
     );
 
