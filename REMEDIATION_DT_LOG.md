@@ -1,5 +1,35 @@
 # REMEDIATION DT LOG
 
+## ✅ F-ESCROW-RETIREMENT f3 — a "UI viva" do escrow NÃO EXISTE: a 6ª correção da direção, e três cadáveres novos (2026-08-02, GO Clayton)
+
+**O GATE de ontem afirmou:** *"UI ALCANÇÁVEL: ContextualThreadView → AgreementPanel → EscrowPanel"*.
+**FALSO — e o erro é o da classe conhecida, invertido:** tracei o **IMPORT** (`AgreementPanel:11`)
+e não o **RENDER**. Medido agora, repositório inteiro:
+```
+grep '<EscrowPanel' / '<PaymentMilestoneTimeline'  → ZERO renders fora do próprio EscrowPanel
+consumidores de api/escrow.ts fora da ilha          → ZERO
+única aresta                                        → import MORTO em AgreementPanel (removido)
+```
+A fatia 3 ("UI converge") **se dissolve**: não há UI viva falando o desenho anterior — há uma
+**ilha órfã completa**: `EscrowPanel.tsx` + `PaymentMilestoneTimeline.tsx` + `api/escrow.ts` (com
+os estados fantasma `FUNDS_HELD`/`READY_TO_RELEASE`/`BLOCKED_BY_DISPUTE`), alimentando ninguém.
+
+**Executado sob o GO-f3:** import morto removido (`AgreementPanel`); typecheck FE 0.
+**⛔ NÃO executado:** apagar os 3 arquivos — deleção de módulo pré-existente é ato de Clayton, e o
+"5 sim todos" anterior nomeava OUTROS três arquivos. **Aguarda uma palavra.**
+
+**Estado da frente:** f1 ✅ torneira · f2 ✅ leitores · f3 ✅ (por dissolução: a UI a convergir
+não existia; ilha identificada) · **f4 (aposentadoria: rotas 501 + repositório dormente) pronta
+para GO — e os 3 cadáveres podem cair nela ou antes, com a palavra.**
+
+🔴 Contagem honesta das correções da direção neste arco: **seis** — payout×2, availability,
+capabilities-órfão, o quase-refazer-a-união no detector, e esta. **Cinco das seis são a MESMA
+lição:** import ≠ render ≠ alcance; grep estático ≠ prova. A diferença é que as três últimas foram
+pegas ANTES de virarem tese commitada — o custo está caindo.
+
+---
+
+
 ## 🔍 GATE — F-ESCROW-RETIREMENT: o mapa do 2º ledger, pronto para o GO (2026-08-02, direção, read-only)
 
 A aposentadoria do escrow é a frente que o roteador já condena (*"o Bank é a única verdade sobre
