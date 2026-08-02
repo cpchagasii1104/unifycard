@@ -24,7 +24,7 @@
 > burocracia: é o que impede que a próxima instância meça o sistema por um número de 24 dias
 > atrás.
 
-## 📊 PLACAR — última medição **2026-07-30**, toda ela de 1ª mão pela direção
+## 📊 PLACAR — última medição **2026-07-30** (números dos tetos re-medidos em 2026-08-02: ver EM VOO), toda ela de 1ª mão pela direção
 
 | métrica | valor | como foi medido |
 |---|---|---|
@@ -227,24 +227,42 @@ Sem essa resposta, cada tabela vira pesquisa. Com ela, a cauda de 26 módulos é
 
 ## 🗓️ REGISTRO DE SESSÕES — o que cada fatia mudou no placar
 
-### 🔴 EM VOO AGORA — atualizado 2026-08-01, fim da sessão
+### 🔴 EM VOO AGORA — atualizado 2026-08-02
 
-**Se você é a direção e acabou de chegar: isto é o que está aberto. Árvore LIMPA.**
+**Se você é a direção e acabou de chegar: árvore LIMPA · ~89 commits no arco · runner 238 ·
+12 itens SELADOS por Clayton (fronteira no cartório) · 4 retratações da direção registradas.**
 
 | frente | estado | o que falta |
 |---|---|---|
-| **YALA — auditoria do arco** | ✅ **ENTREGUE E ABSORVIDA** (`f9cef79c7`) | 2 SOBREVIVEM (severity · 17 contenções `rides`) · 1 COM RESSALVA (reconciliação: `reference_id` guarda CONTA no motor e TENANT no manual — **não tratado**) · **2 DERRUBADAS**, as duas da direção. Achado 【4】 **fechado por remoção** em `b9f21c07b`. 🔴 **NADA FOI SELADO** — selo é ato de Clayton; o que sobreviveu ao ataque está pronto. |
-| **EVENTOS — vocabulário de status** | ✅ **COMMITADO** (`c00732439`) | verificado de 1ª mão: 6 valores contra o banco, zero resíduo maiúsculo nos 5 arquivos, typecheck BE+FE 0, runner 234. ⚠️ `SocialFeed2:630` intocado de propósito — é `cultural_events`, tabela que **não existe** no schema vivo. |
-| **EVENTOS — lista + retomar rascunho** | **BLOQUEADA por decisão de Clayton** | *"meus eventos" inclui o que criei representando outro actor?* Sem isso a query não se escreve. Desenho já fechado: lista = `actor_id` todos os estados · feed = published+ de todos · retomar = reidratar por `eventId`, passo **derivado no backend** (nunca `localStorage` — seria 2ª verdade sobre os 12 rascunhos que JÁ estão no banco). |
-| **DETECTOR DE 3 LADOS** | desenhado, **não despachado** | Clayton propôs padronizar case em massa; medição mostrou que só **2 de 7** membros eram case puro — os outros 5 eram vocabulário. Mas os "valores inventados" são o **desenho anterior** (ver `CLAUDE.md §3.2`). O detector compara **código × `migrations_archive` × banco vivo** e classifica: renomeação pura (seguro em massa) · conversão conhecida · estado novo · estado morto. `GHOST-COLUMN 0/0` já reservado no ratchet; a Condição 2 do `schema-coherence` está **cega por apelido** (89,9% do SQL usa `a.`/`bt.`). |
-| **BLINDAGEM DE MIGRATION** | mandato escrito, **não despachado** | 166 de 551 migrations citam norma por caminho (30%). Teto congelado nas 385 sem blindagem; migration NOVA sem `o quê + norma por caminho + por quê` = FAIL. ⛔ Não é campanha — Lei 2 é forward-only e "cabeçalho falso é pior que ausente". |
-| **`payout.service.ts:44`** | 🔴 **achado, não consertado** | `trustProfile.riskLevel === 'BLOCKED'` — `BLOCKED` **não existe** em `trust_profiles.risk_level` (`low·medium·high·critical`) e vem de `migrations_archive/0213`. **A trava que bloqueia desembolso por risco nunca dispara.** Gate de dinheiro: fatia própria, com prova de que passa a morder. |
-| **`push` do branch** | **bloqueado pelo classificador** | `rescue-structural` **não existe no remoto** (`git ls-remote` vazio; só `main`/`master`). O arco inteiro vive num disco só, sem backup. Varredura de segredo passou limpa. Clayton roda: `git push -u origin rescue-structural` |
+| **🔴 `push` do branch** | **ÚNICO RISCO ALTO** | ~89 commits (3 migrations aplicadas, 2 emendas de norma, 1 selo) num disco só. Clayton digita no prompt: `! git push -u origin rescue-structural` (sem ponto final — a 1ª tentativa veio com ponto e não executou) |
+| **SELO (Mandatos D+E)** | ✅ **FEITO** (`df526b427`) | 12 itens selados COM fronteira escrita; 4 ressalvas abertas nomeadas. ~57 commits do arco seguem SEM auditoria — próximo mandato Yala |
+| **DETECTOR DE CASE-DRIFT** | ✅ **VIVO no runner** (`f079be6fe`) | lê o banco a cada corrida (195 vocabulários); baseline **55 → 40** com cada descida nomeada; drift NOVO = FAIL na hora. Cauda restante = maioria classificados; pendentes reais poucos (`financial-report` service atrás de rota contida) |
+| **Ratificação de Clayton (case)** | ✅ **100% EXECUTADA** | §4.77+§4.78 promulgadas · 3 migrations aplicadas (`actor_debts` · `movement_type` · `alert_type`) · `countOpenAlerts` e reconciliação de reservas deixaram de mentir |
+| **Capabilities da PF** | ✅ decisão (A) IMPLEMENTADA (`17b22c466`) | mapa estava VIVO (grep perdeu import dinâmico — 4ª retratação); linha `user` agora concede RECEIVE_FUNDS com a decisão citada. As 4 fontes concordam |
+| **Reputação por participação** | 🗺️ mapeada, fatia própria | `getStats` morre em tabela fantasma (`event_participants`) + coluna fantasma + vocabulário sem sucessor (`LEFT_EARLY`). Morto desde o gênesis, não urgente |
+| **`trust_profiles`/payout duplicado** | aguarda GO | remover a checagem morta de `validatePayoutEligibility` (deleção em caminho de dinheiro = ato de Clayton). O gate canônico `requireFinancialRiskClearance` já protege |
+| **Escrow (2º ledger)** | contido o que mordia | 2 INSERTs convergidos; **aposentadoria segue frente nomeada** com GO próprio. Frontend escrow = desenho anterior (conjunto diferente), pertence à mesma frente |
+| **Eventos ponta a ponta** | ✅ construído+provado em efêmero | contagem real segue 0 — publicar evento REAL é dado de produto (ato de Clayton, de preferência pela tela) |
 
-**Decisões paradas com Clayton:** autoridade da lista de eventos · as **43 decisões de módulo**
-(*"é produto vivo?"*) que destravam as ~161 fantasmas · reescrever ou não os 2 commits que
-carregam trabalho da executora sob mensagem alheia (**decidido: NÃO reescrever** — árvore
-compartilhada, sem remoto, errata registrada).
+**Paradas com Clayton:** push · publicar 1 evento · 59 órfãs de `availability` (dado; medição
+mente 8×) · cadáveres de FRONTEND (2 componentes de métricas + `EventCheckout.tsx` — órfãos por
+RENDER, confirmados; deleção = ato dele) · emendas dos ponteiros quebrados das normas (§1 do
+relatório da instância; direção pode redigir, ele ratifica).
+
+---
+
+**2026-08-01→02 · ~30 commits, o maior arco da recuperação. Detalhe no cartório (topo).**
+
+| tema | efeito no placar |
+|---|---|
+| funil de publicação de eventos religado (3 elos + `new Date(null)`) | vertical eventos DEMONSTRÁVEL |
+| 5 fatias de contenção (9 módulos · 3 payout readers · 3 métricas · financial-report) | 7 rotas sob guard anti-reabertura |
+| case: 9+3 enums + `event_reservations` + `payment_transactions` + `orders` FE | 5 migrations aplicadas em `unificard_dev` |
+| bugs silenciosos mortos: caixa PDV R$0 · posts de evento invisíveis · `countOpenAlerts` · reconciliação gritando · SLA morto · home-feed cego | classe inteira sob detector vivo |
+| tetos: vocabulário 3884→3883 · query-param 181→**177** · case-drift 55→**40** · runner 232→**238** | só desceram |
+| 4 retratações da direção (payout ×2 · availability · capabilities órfão) | todas com errata no cartório |
+
+---
 
 ---
 
