@@ -358,7 +358,7 @@ class SubscriptionService {
         return { paymentIntentId: authorizedIntent.id, status: 'PENDING' };
       } else {
         // UNIFYCARD: verificar se SUCCESS imediato
-        if (transaction.status === 'SUCCESS') {
+        if (transaction.status === 'success') {
           await this.advanceCycleSuccess(tenantId, subscriptionId);
           return { paymentIntentId: authorizedIntent.id, status: 'SUCCESS' };
         } else {

@@ -149,7 +149,7 @@ class PaymentExecutionService {
     });
 
     const priorTx = await paymentTransactionRepository.findByIntentId(tenantId, paymentIntentId);
-    if (priorTx?.status === 'SUCCESS') {
+    if (priorTx?.status === 'success') {
       logger.info('Payment execution idempotent (intent already SUCCESS)', {
         tenantId,
         paymentIntentId,
@@ -157,7 +157,7 @@ class PaymentExecutionService {
       });
       return priorTx;
     }
-    if (priorTx?.status === 'FAILED') {
+    if (priorTx?.status === 'failed') {
       throw new Error('PAYMENT_TRANSACTION_PREVIOUSLY_FAILED');
     }
 

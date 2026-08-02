@@ -62,7 +62,12 @@ export interface UpdatePaymentIntentInput {
 /**
  * Status da transação de pagamento
  */
-export type PaymentTransactionStatus = 'PENDING' | 'SUCCESS' | 'FAILED';
+// Convergido para minúsculo em 2026-08-01 (§4.11) junto com o CHECK físico que passou a existir
+// em `payment_transactions.status` — a coluna era TEXT SEM CHECK, aceitando qualquer string,
+// enquanto a irmã `payment_intents` já era minúscula e travada. Este tipo foi achado pelo
+// COMPILADOR, não pelo grep: corrigir o repositório primeiro fez o tsc apontar os 3 sítios que
+// ainda comparavam contra a união antiga.
+export type PaymentTransactionStatus = 'pending' | 'success' | 'failed';
 
 /**
  * Transação de pagamento

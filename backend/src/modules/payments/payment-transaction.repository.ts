@@ -106,7 +106,7 @@ class PaymentTransactionRepository {
       if (existing.amountCents !== amountCents) {
         throw new Error('PAYMENT_TRANSACTION_AMOUNT_CONFLICT');
       }
-      if (existing.status === 'FAILED') {
+      if (existing.status === 'failed') {
         throw new Error('PAYMENT_TRANSACTION_PREVIOUSLY_FAILED');
       }
       return existing;
@@ -123,7 +123,7 @@ class PaymentTransactionRepository {
       INSERT INTO payment_transactions (
         tenant_id, payment_intent_id, trace_id, amount_cents, currency, status, metadata
       )
-      VALUES ($1, $2, $3, $4, $5, 'PENDING', $6::jsonb)
+      VALUES ($1, $2, $3, $4, $5, 'pending', $6::jsonb)
       RETURNING id, tenant_id, payment_intent_id, trace_id, amount_cents, currency, status,
                 provider, provider_reference, bank_transaction_id, metadata, created_at, updated_at
       `,
@@ -193,10 +193,10 @@ class PaymentTransactionRepository {
       tenantId,
       `
       UPDATE payment_transactions
-      SET status = 'SUCCESS',
+      SET status = 'success',
           bank_transaction_id = $3,
           updated_at = now()
-      WHERE tenant_id = $1 AND id = $2 AND status = 'PENDING'
+      WHERE tenant_id = $1 AND id = $2 AND status = 'pending'
       RETURNING id, tenant_id, payment_intent_id, trace_id, amount_cents, currency, status,
                 provider, provider_reference, bank_transaction_id, metadata, created_at, updated_at
       `,
@@ -206,7 +206,7 @@ class PaymentTransactionRepository {
       return toPaymentTransaction(row);
     }
     const existing = await this.getTransactionById(tenantId, transactionId);
-    if (existing?.status === 'SUCCESS') {
+    if (existing?.status === 'success') {
       return existing;
     }
     throw new Error('payment_transaction não encontrado ou não está PENDING para markAsSuccess');
@@ -217,10 +217,10 @@ class PaymentTransactionRepository {
       tenantId,
       `
       UPDATE payment_transactions
-      SET status = 'FAILED',
+      SET status = 'failed',
           metadata = COALESCE(metadata, '{}'::jsonb) || $3::jsonb,
           updated_at = now()
-      WHERE tenant_id = $1 AND id = $2 AND status = 'PENDING'
+      WHERE tenant_id = $1 AND id = $2 AND status = 'pending'
       RETURNING id, tenant_id, payment_intent_id, trace_id, amount_cents, currency, status,
                 provider, provider_reference, bank_transaction_id, metadata, created_at, updated_at
       `,
@@ -230,7 +230,7 @@ class PaymentTransactionRepository {
       return toPaymentTransaction(row);
     }
     const existing = await this.getTransactionById(tenantId, transactionId);
-    if (existing?.status === 'FAILED') {
+    if (existing?.status === 'failed') {
       return existing;
     }
     throw new Error('payment_transaction não encontrado ou não está PENDING para markAsFailed');

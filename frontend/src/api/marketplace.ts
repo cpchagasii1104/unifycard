@@ -949,13 +949,23 @@ export interface PaymentIntent {
   createdAt: string;
 }
 
+// ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+// ║ STATUS:  CANÔNICO — convergido para minúsculo em 2026-08-01
+// ║ NORMA:   07_NOMENCLATURA_CANONICA §4.11 (lifecycle = minúsculo) + §7 (o frontend espelha o
+// ║          contrato, não cria alias)
+// ║ NÃO:     voltar a MAIÚSCULO. `payment_transactions.status` era TEXT **SEM CHECK NENHUM** —
+// ║          aceitava qualquer string — e o código todo usava MAIÚSCULO, enquanto a tabela irmã
+// ║          `payment_intents` já era minúscula e travada desde 20260530503000.
+// ║ EM VEZ:  minúsculo, igual ao CHECK que passou a existir. Antes de acrescentar valor, leia o
+// ║          CHECK com pg_get_constraintdef — o tipo TS é afirmação, não checagem de runtime.
+// ╚════════════════════════════════════════════════════════════════
 export interface PaymentTransaction {
   id: string;
   paymentIntentId: string;
   bankTransactionId?: string | null;
   amount: number;
   currency: string;
-  status: 'PENDING' | 'SUCCESS' | 'FAILED';
+  status: 'pending' | 'success' | 'failed';
   errorCode?: string | null;
   createdAt: string;
 }
