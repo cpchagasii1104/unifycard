@@ -280,7 +280,7 @@ async function main(): Promise<void> {
     ] as Array<[string, string]>) {
       await pool.query(
         `INSERT INTO inventory_movements (tenant_id, product_variant_id, movement_type, quantity, unit, actor_id)
-         VALUES ($1::uuid, $2::uuid, 'IN', 8, 'un', $3::uuid)`,
+         VALUES ($1::uuid, $2::uuid, 'in', 8, 'un', $3::uuid)`,
         [TENANT_ID, tv, actor]
       );
     }

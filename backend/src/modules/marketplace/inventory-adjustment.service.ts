@@ -89,7 +89,7 @@ class InventoryAdjustmentService {
     await inventoryService.addMovement(tenantId, {
       actorId: input.actorId,
       productVariantId: input.productVariantId,
-      movementType: 'ADJUSTMENT',
+      movementType: 'adjustment',
       quantity: input.quantity, // Signed: negativo para LOSS/DAMAGE, positivo para SURPLUS
       unit,
       reason: `AJUSTE_${input.adjustmentType}: ${input.reason}`,

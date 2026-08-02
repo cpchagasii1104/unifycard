@@ -16,9 +16,9 @@ import type {
 } from '../inventory.types';
 
 const ALLOWED_MOVEMENT_TYPES: ReadonlySet<InventoryMovementType> = new Set([
-  'IN',
-  'OUT',
-  'ADJUSTMENT',
+  'in',
+  'out',
+  'adjustment',
 ]);
 
 export async function registerMarketplaceInventoryRoutes(

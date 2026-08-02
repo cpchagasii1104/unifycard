@@ -213,7 +213,7 @@ class StockTransferReceiptService {
         await inventoryService.addMovement(tenantId, {
           actorId: transfer.toActorId,
           productVariantId: transferItem.productVariantId,
-          movementType: 'IN',
+          movementType: 'in',
           quantity: receiptItem.receivedQuantity, // Apenas quantidade recebida
           unit,
           reason: 'STOCK_TRANSFER_RECEIVED',

@@ -137,7 +137,7 @@ async function createFixtures(): Promise<Fixture> {
   await pool.query(`INSERT INTO product_variants (id, tenant_id, product_id, sku) VALUES ($1,$2,$3,$4)`, [variantId, TENANT_ID, productId, `${MARKER}-SKU-${cpfBase}`]);
   // Movimentos: EA1=10, EA2=7, FB1=100, H=55.
   for (const [actorId, qty] of [[actors.EA1, 10], [actors.EA2, 7], [actors.FB1, 100], [actors.H, 55]] as const) {
-    await pool.query(`INSERT INTO inventory_movements (id, tenant_id, actor_id, product_variant_id, movement_type, quantity, unit, reason, metadata) VALUES ($1,$2,$3,$4,'IN',$5,'un',$6,'{}')`, [randomUUID(), TENANT_ID, actorId, variantId, qty, MARKER]);
+    await pool.query(`INSERT INTO inventory_movements (id, tenant_id, actor_id, product_variant_id, movement_type, quantity, unit, reason, metadata) VALUES ($1,$2,$3,$4,'in',$5,'un',$6,'{}')`, [randomUUID(), TENANT_ID, actorId, variantId, qty, MARKER]);
   }
   return { companyE, companyF, users, actors, variantId, productId };
 }

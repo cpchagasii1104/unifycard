@@ -135,7 +135,7 @@ class StockTransferService {
         await inventoryMovementRepository.createMovementWithClient(client, {
           actorId: transfer.fromActorId,
           productVariantId: item.productVariantId,
-          movementType: 'OUT',
+          movementType: 'out',
           quantity: item.quantity,
           unit,
           reason: 'STOCK_TRANSFER_SHIPPED',

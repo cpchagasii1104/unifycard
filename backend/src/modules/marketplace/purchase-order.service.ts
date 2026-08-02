@@ -280,7 +280,7 @@ class PurchaseOrderService {
         const movement = await inventoryService.addMovement(tenantId, {
           actorId: order.createdByActorId,
           productVariantId: item.productVariantId,
-          movementType: 'IN',
+          movementType: 'in',
           quantity: receiveItem.quantityReceived,
           unit: item.unit,
           reason: `Recebimento de ordem de compra ${order.orderNumber || orderId}`,

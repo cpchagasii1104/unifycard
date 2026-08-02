@@ -5,7 +5,7 @@ export const createInventoryMovementBodySchema = z
   .object({
     actorId: z.string().uuid(),
     productVariantId: z.string().uuid(),
-    movementType: z.enum(['IN', 'OUT', 'ADJUSTMENT']),
+    movementType: z.enum(['in', 'out', 'adjustment']),
     quantity: z.number(),
     unit: z.string().min(1).max(50).optional(),
     reason: z.string().max(255).optional(),

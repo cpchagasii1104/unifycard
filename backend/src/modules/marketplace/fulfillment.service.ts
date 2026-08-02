@@ -232,7 +232,7 @@ class FulfillmentService {
         await inventoryMovementRepository.createMovementWithClient(client, {
           actorId: order.sellerActorId,
           productVariantId: item.productVariantId,
-          movementType: 'OUT',
+          movementType: 'out',
           quantity: item.quantity,
           reason: 'FULFILLMENT_SHIPPED',
           referenceType: 'fulfillment_order',

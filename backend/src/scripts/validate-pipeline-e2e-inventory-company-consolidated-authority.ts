@@ -199,7 +199,7 @@ async function createFixtures(): Promise<Fixture> {
     const id = randomUUID();
     await pool.query(
       `INSERT INTO inventory_movements (id, tenant_id, actor_id, product_variant_id, movement_type, quantity, unit, reason, metadata)
-       VALUES ($1, $2, $3, $4, 'IN', $5, 'un', $6, '{}')`,
+       VALUES ($1, $2, $3, $4, 'in', $5, 'un', $6, '{}')`,
       [id, TENANT_ID, actorId, variantId, qty, MARKER]
     );
     movementIds.push(id);

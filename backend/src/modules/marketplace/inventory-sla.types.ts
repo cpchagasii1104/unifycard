@@ -11,7 +11,7 @@ export interface StockAging {
   unit: string;
   daysInStock: number; // Dias desde último movimento IN
   lastMovementAt: Date | null;
-  lastMovementType: 'IN' | 'OUT' | 'ADJUSTMENT' | null;
+  lastMovementType: 'in' | 'out' | 'adjustment' | null;
 }
 
 /**

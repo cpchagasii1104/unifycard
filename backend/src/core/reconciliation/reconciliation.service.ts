@@ -109,8 +109,8 @@ class ReconciliationService {
           ib.current_quantity
           - SUM(
             CASE im.movement_type
-              WHEN 'IN' THEN im.quantity
-              WHEN 'OUT' THEN -im.quantity
+              WHEN 'in' THEN im.quantity
+              WHEN 'out' THEN -im.quantity
               ELSE im.quantity
             END
           )
@@ -125,8 +125,8 @@ class ReconciliationService {
         ib.current_quantity
         - SUM(
           CASE im.movement_type
-            WHEN 'IN' THEN im.quantity
-            WHEN 'OUT' THEN -im.quantity
+            WHEN 'in' THEN im.quantity
+            WHEN 'out' THEN -im.quantity
             ELSE im.quantity
           END
         )

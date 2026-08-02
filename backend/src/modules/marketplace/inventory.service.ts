@@ -74,7 +74,7 @@ class InventoryService {
     }
 
     // Validações básicas de quantidade
-    if (input.movementType === 'IN' || input.movementType === 'OUT') {
+    if (input.movementType === 'in' || input.movementType === 'out') {
       if (input.quantity <= 0) {
         throw new Error(
           `Movimentação ${input.movementType} deve ter quantidade positiva`

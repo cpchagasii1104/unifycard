@@ -35,9 +35,9 @@ class InventoryReservationService {
         COALESCE(
           SUM(
             CASE
-              WHEN movement_type = 'IN' THEN quantity
-              WHEN movement_type = 'OUT' THEN -quantity
-              WHEN movement_type = 'ADJUSTMENT' THEN quantity
+              WHEN movement_type = 'in' THEN quantity
+              WHEN movement_type = 'out' THEN -quantity
+              WHEN movement_type = 'adjustment' THEN quantity
             END
           ),
           0

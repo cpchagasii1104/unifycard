@@ -266,12 +266,12 @@ async function main(): Promise<void> {
     // O6 — estoque actor-scoped na projeção pública (estoque de A não entra em B)
     await pool.query(
       `INSERT INTO inventory_movements (tenant_id, product_variant_id, movement_type, quantity, unit, actor_id)
-       VALUES ($1::uuid, $2::uuid, 'IN', 10, 'un', $3::uuid)`,
+       VALUES ($1::uuid, $2::uuid, 'in', 10, 'un', $3::uuid)`,
       [TENANT_ID, oA.tenantVariantId, A.pageActorId]
     );
     await pool.query(
       `INSERT INTO inventory_movements (tenant_id, product_variant_id, movement_type, quantity, unit, actor_id)
-       VALUES ($1::uuid, $2::uuid, 'IN', 5, 'un', $3::uuid)`,
+       VALUES ($1::uuid, $2::uuid, 'in', 5, 'un', $3::uuid)`,
       [TENANT_ID, oB.tenantVariantId, B.pageActorId]
     );
     const { listVisibleProducts } = await import('../modules/marketplace/product-visibility.service');
@@ -284,7 +284,7 @@ async function main(): Promise<void> {
     // O7 — unidade incompatível NÃO soma (kg fora da soma em un)
     await pool.query(
       `INSERT INTO inventory_movements (tenant_id, product_variant_id, movement_type, quantity, unit, actor_id)
-       VALUES ($1::uuid, $2::uuid, 'IN', 99, 'kg', $3::uuid)`,
+       VALUES ($1::uuid, $2::uuid, 'in', 99, 'kg', $3::uuid)`,
       [TENANT_ID, oA.tenantVariantId, A.pageActorId]
     );
     const vis2 = await listVisibleProducts(TENANT_ID);
@@ -294,7 +294,7 @@ async function main(): Promise<void> {
     // O8 — estoque zero: oferta PERMANECE, sai da lista pública
     await pool.query(
       `INSERT INTO inventory_movements (tenant_id, product_variant_id, movement_type, quantity, unit, actor_id)
-       VALUES ($1::uuid, $2::uuid, 'OUT', 10, 'un', $3::uuid)`,
+       VALUES ($1::uuid, $2::uuid, 'out', 10, 'un', $3::uuid)`,
       [TENANT_ID, oA.tenantVariantId, A.pageActorId]
     );
     const vis3 = await listVisibleProducts(TENANT_ID);
@@ -311,7 +311,7 @@ async function main(): Promise<void> {
     const oC = offerC.json()?.data;
     await pool.query(
       `INSERT INTO inventory_movements (tenant_id, product_variant_id, movement_type, quantity, unit, actor_id)
-       VALUES ($1::uuid, $2::uuid, 'IN', 50, 'un', $3::uuid)`,
+       VALUES ($1::uuid, $2::uuid, 'in', 50, 'un', $3::uuid)`,
       [TENANT_ID, oC.tenantVariantId, C.pageActorId]
     );
     const vis4 = await listVisibleProducts(TENANT_ID);

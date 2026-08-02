@@ -5,7 +5,7 @@
 /**
  * Tipo de movimentação de estoque
  */
-export type InventoryMovementType = 'IN' | 'OUT' | 'ADJUSTMENT';
+export type InventoryMovementType = 'in' | 'out' | 'adjustment'; // §4.78 (2026-08-02): movimento físico em lowercase, espelho da regra do financeiro
 
 /**
  * Movimentação de estoque

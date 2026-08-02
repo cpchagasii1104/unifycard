@@ -59,9 +59,9 @@ class InventoryReportService {
         pv.sku as variant_name,
         COALESCE(SUM(
           CASE 
-            WHEN im.movement_type = 'IN' THEN im.quantity
-            WHEN im.movement_type = 'OUT' THEN -im.quantity
-            WHEN im.movement_type = 'ADJUSTMENT' THEN im.quantity
+            WHEN im.movement_type = 'in' THEN im.quantity
+            WHEN im.movement_type = 'out' THEN -im.quantity
+            WHEN im.movement_type = 'adjustment' THEN im.quantity
             ELSE 0
           END
         ), 0) as current_quantity,
@@ -136,12 +136,12 @@ class InventoryReportService {
         DATE(im.created_at) as period,
         im.product_variant_id as variant_id,
         pv.sku as variant_name,
-        SUM(CASE WHEN im.movement_type = 'OUT' THEN im.quantity ELSE 0 END) as consumed_quantity,
+        SUM(CASE WHEN im.movement_type = 'out' THEN im.quantity ELSE 0 END) as consumed_quantity,
         im.unit
       FROM inventory_movements im
       INNER JOIN product_variants pv ON im.product_variant_id = pv.id
       WHERE im.tenant_id = $1
-        AND im.movement_type = 'OUT'
+        AND im.movement_type = 'out'
         AND im.created_at >= $2
         AND im.created_at <= $3
     `;

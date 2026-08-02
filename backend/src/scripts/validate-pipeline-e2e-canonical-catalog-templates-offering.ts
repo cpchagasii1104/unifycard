@@ -332,7 +332,7 @@ async function main(): Promise<void> {
     for (const [tv, actor, qty] of [[oA.tenantVariantId, A.pageActorId, 12], [oB.tenantVariantId, B.pageActorId, 30]] as Array<[string, string, number]>) {
       await pool.query(
         `INSERT INTO inventory_movements (tenant_id, product_variant_id, movement_type, quantity, unit, actor_id)
-         VALUES ($1::uuid, $2::uuid, 'IN', $3, 'un', $4::uuid)`, [TENANT_ID, tv, qty, actor]);
+         VALUES ($1::uuid, $2::uuid, 'in', $3, 'un', $4::uuid)`, [TENANT_ID, tv, qty, actor]);
     }
     const cpCount = await pool.query<{ n: string }>(`SELECT count(*)::text n FROM canonical_products WHERE LOWER(name) LIKE 'coca-cola original%'`);
     record('I5 A e B referenciam a MESMA variante; nenhum canônico novo nasceu das ofertas',

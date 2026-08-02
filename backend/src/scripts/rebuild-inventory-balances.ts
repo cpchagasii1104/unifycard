@@ -75,8 +75,8 @@ async function rebuildTenant(client: PoolClient, tenantId: string): Promise<void
                im.product_variant_id,
                COALESCE(SUM(
                  CASE im.movement_type
-                   WHEN 'IN' THEN im.quantity
-                   WHEN 'OUT' THEN -im.quantity
+                   WHEN 'in' THEN im.quantity
+                   WHEN 'out' THEN -im.quantity
                    ELSE im.quantity
                  END
                ), 0)::numeric(20,4) AS q
@@ -129,15 +129,15 @@ async function driftRowsForTenant(client: PoolClient, tenantId: string): Promise
       ib.current_quantity::text AS balance,
       SUM(
         CASE im.movement_type
-          WHEN 'IN' THEN im.quantity
-          WHEN 'OUT' THEN -im.quantity
+          WHEN 'in' THEN im.quantity
+          WHEN 'out' THEN -im.quantity
           ELSE im.quantity
         END
       )::text AS movements_sum,
       ABS(ib.current_quantity - SUM(
         CASE im.movement_type
-          WHEN 'IN' THEN im.quantity
-          WHEN 'OUT' THEN -im.quantity
+          WHEN 'in' THEN im.quantity
+          WHEN 'out' THEN -im.quantity
           ELSE im.quantity
         END
       ))::text AS drift
@@ -149,8 +149,8 @@ async function driftRowsForTenant(client: PoolClient, tenantId: string): Promise
     GROUP BY ib.tenant_id, ib.product_variant_id, ib.current_quantity
     HAVING ABS(ib.current_quantity - SUM(
       CASE im.movement_type
-        WHEN 'IN' THEN im.quantity
-        WHEN 'OUT' THEN -im.quantity
+        WHEN 'in' THEN im.quantity
+        WHEN 'out' THEN -im.quantity
         ELSE im.quantity
       END
     )) > 0

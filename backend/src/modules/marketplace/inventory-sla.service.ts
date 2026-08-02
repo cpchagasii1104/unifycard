@@ -67,9 +67,9 @@ class InventorySlaService {
           im.product_variant_id,
           SUM(
             CASE 
-              WHEN im.movement_type = 'IN' THEN im.quantity
-              WHEN im.movement_type = 'OUT' THEN -im.quantity
-              WHEN im.movement_type = 'ADJUSTMENT' THEN im.quantity
+              WHEN im.movement_type = 'in' THEN im.quantity
+              WHEN im.movement_type = 'out' THEN -im.quantity
+              WHEN im.movement_type = 'adjustment' THEN im.quantity
               ELSE 0
             END
           ) AS current_quantity,
@@ -80,9 +80,9 @@ class InventorySlaService {
         GROUP BY im.product_variant_id
         HAVING SUM(
           CASE 
-            WHEN im.movement_type = 'IN' THEN im.quantity
-            WHEN im.movement_type = 'OUT' THEN -im.quantity
-            WHEN im.movement_type = 'ADJUSTMENT' THEN im.quantity
+            WHEN im.movement_type = 'in' THEN im.quantity
+            WHEN im.movement_type = 'out' THEN -im.quantity
+            WHEN im.movement_type = 'adjustment' THEN im.quantity
             ELSE 0
           END
         ) > 0
@@ -93,7 +93,7 @@ class InventorySlaService {
           im.created_at AS last_inAt
         FROM inventory_movements im
         WHERE im.tenant_id = $1
-          AND im.movement_type = 'IN'
+          AND im.movement_type = 'in'
           ${options.productVariantId ? `AND im.product_variant_id = $${paramIndex - 1}` : ''}
         ORDER BY im.product_variant_id, im.created_at DESC
       )
@@ -106,7 +106,7 @@ class InventorySlaService {
           0
         )::integer AS days_in_stock,
         lim.last_inAt AS last_movementAt,
-        'IN' AS last_movement_type
+        'in' AS last_movement_type
       FROM current_balances cb
       LEFT JOIN last_in_movements lim ON cb.product_variant_id = lim.product_variant_id
       WHERE cb.current_quantity > 0
@@ -142,7 +142,7 @@ class InventorySlaService {
       unit: row.unit || 'un',
       daysInStock: parseInt(row.days_in_stock) || 0,
       lastMovementAt: row.last_movementAt ? new Date(row.last_movementAt) : null,
-      lastMovementType: row.last_movement_type as 'IN' | 'OUT' | 'ADJUSTMENT' | null,
+      lastMovementType: row.last_movement_type as 'in' | 'out' | 'adjustment' | null,
     }));
   }
 

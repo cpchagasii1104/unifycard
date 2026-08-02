@@ -42,9 +42,7 @@ const BASELINE = new Set([
   "src/core/events/event-taxonomy.service.ts::Pago::events",
   "src/core/reconciliation/reconciliation.service.ts::ACTIVE::bank_accounts",
   "src/core/reputation/trust.service.ts::NO_SHOW::event_attendees",
-  "src/core/reputation/trust.service.ts::transferred_to_organizer::actor_debts",
   "src/core/reputation/trust.service.ts::ACTIVE::events",
-  "src/core/reputation/__tests__/debt-blocking.test.ts::PENDING::actor_debts",
   "src/core/unifybank/donation.service.ts::DONATION::bank_transactions",
   "src/modules/actor-page/actor-page.repository.ts::CANCELLED::events",
   "src/modules/automation/alert.repository.ts::OPEN::alerts",
@@ -90,7 +88,7 @@ const BASELINE = new Set([
   "src/services/feed/FeedService.ts::PUBLISHED::events",
   "src/services/feed/FeedService.ts::PUBLIC::events",
 ]);
-const BASELINE_COUNT = 53; // 55→53 em 2026-08-01: sales-report convergido (SUCCESS/FAILED → minúsculo), fatia F-REPORTS-CASE-AND-CONTAINMENT
+const BASELINE_COUNT = 51; // 53→51 em 2026-08-02: actor_debts convergido POR NORMA (§4.11) — inclusive o caso INVERTIDO (código minúsculo × banco maiúsculo), que virou correto quando o CHECK desceu.
 
 // ── conexão: mesma fonte dos demais guards que leem o banco ──────────────────────────────────
 function databaseUrl() {

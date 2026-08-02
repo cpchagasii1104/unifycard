@@ -126,9 +126,9 @@ export async function listVisibleProducts(
       -- (movimentos em unidade divergente NÃO somam — fail-closed por exclusão).
       SELECT SUM(
         CASE im.movement_type
-          WHEN 'IN'         THEN  im.quantity
-          WHEN 'OUT'        THEN -im.quantity
-          WHEN 'ADJUSTMENT' THEN  im.quantity
+          WHEN 'in'         THEN  im.quantity
+          WHEN 'out'        THEN -im.quantity
+          WHEN 'adjustment' THEN  im.quantity
           ELSE 0
         END
       ) AS stock_qty

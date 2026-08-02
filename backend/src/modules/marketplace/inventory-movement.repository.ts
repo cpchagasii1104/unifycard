@@ -225,9 +225,9 @@ class InventoryMovementRepository {
         COALESCE(
           SUM(
             CASE 
-              WHEN movement_type = 'IN' THEN quantity
-              WHEN movement_type = 'OUT' THEN -quantity
-              WHEN movement_type = 'ADJUSTMENT' THEN quantity
+              WHEN movement_type = 'in' THEN quantity
+              WHEN movement_type = 'out' THEN -quantity
+              WHEN movement_type = 'adjustment' THEN quantity
             END
           ),
           0
@@ -269,9 +269,9 @@ class InventoryMovementRepository {
         COALESCE(
           SUM(
             CASE
-              WHEN movement_type = 'IN' THEN quantity
-              WHEN movement_type = 'OUT' THEN -quantity
-              WHEN movement_type = 'ADJUSTMENT' THEN quantity
+              WHEN movement_type = 'in' THEN quantity
+              WHEN movement_type = 'out' THEN -quantity
+              WHEN movement_type = 'adjustment' THEN quantity
             END
           ),
           0
@@ -320,9 +320,9 @@ class InventoryMovementRepository {
         COALESCE(
           SUM(
             CASE
-              WHEN im.movement_type = 'IN' THEN im.quantity
-              WHEN im.movement_type = 'OUT' THEN -im.quantity
-              WHEN im.movement_type = 'ADJUSTMENT' THEN im.quantity
+              WHEN im.movement_type = 'in' THEN im.quantity
+              WHEN im.movement_type = 'out' THEN -im.quantity
+              WHEN im.movement_type = 'adjustment' THEN im.quantity
             END
           ),
           0
@@ -357,9 +357,9 @@ class InventoryMovementRepository {
         COALESCE(
           SUM(
             CASE 
-              WHEN movement_type = 'IN' THEN quantity
-              WHEN movement_type = 'OUT' THEN -quantity
-              WHEN movement_type = 'ADJUSTMENT' THEN quantity
+              WHEN movement_type = 'in' THEN quantity
+              WHEN movement_type = 'out' THEN -quantity
+              WHEN movement_type = 'adjustment' THEN quantity
             END
           ),
           0
