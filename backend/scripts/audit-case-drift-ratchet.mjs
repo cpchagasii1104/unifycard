@@ -67,19 +67,17 @@ const BASELINE = new Set([
   "src/scripts/validate-pipeline-e2e-events-group-scoped-f6-5-6b-3.ts::DRAFT::events",
   "src/scripts/validate-pipeline-e2e-events-organizer-dashboard-f6-5-6b-2.ts::DRAFT::events",
   "src/scripts/validate-pipeline-e2e-events-visibility-floor-f6-5-6b-1.ts::DRAFT::events",
-  "src/scripts/validate-pipeline-e2e-pdv-payment-authority.ts::OPEN::pdv_sessions",
   "src/scripts/validate-pipeline-e2e-pj-capability-kyb.ts::APPROVED::fiscal_identities",
   "src/scripts/validate-pipeline-e2e-pj-economic-activity-suggestion.ts::Owner::company_users",
   "src/scripts/validate-pipeline-e2e-pj-kyb-writer.ts::NONE::identities",
   "src/scripts/validate-pipeline-e2e-pj-publication-schema.ts::NONE::identities",
-  "src/scripts/validate-pipeline-e2e-reports-transfers-sla-representation.ts::SHIPPED::stock_transfers",
   "src/scripts/validate-pipeline-e2e-severity-priority-convergence.ts::critical::alerts",
   "src/scripts/validate-pipeline-e2e-severity-priority-convergence.ts::warning::alerts",
   "src/services/events/tests/event-checkout-hardening.test.ts::PUBLISHED::events",
   "src/services/feed/FeedService.ts::PUBLISHED::events",
   "src/services/feed/FeedService.ts::PUBLIC::events",
 ]);
-const BASELINE_COUNT = 42; // 43→42 em 2026-08-02: os 2 INSERTs do escrow legado convergidos — violariam o CHECK minúsculo com barulho na primeira milestone. Aposentar o escrow (2º ledger) segue sendo frente nomeada.
+const BASELINE_COUNT = 40; // 42→40 em 2026-08-02: seeds de harness convergidos (quebrariam com barulho contra os enums renomeados na primeira corrida).
 
 // ── conexão: mesma fonte dos demais guards que leem o banco ──────────────────────────────────
 function databaseUrl() {

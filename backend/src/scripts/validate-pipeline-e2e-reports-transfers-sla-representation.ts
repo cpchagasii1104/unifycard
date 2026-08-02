@@ -91,7 +91,7 @@ async function main(): Promise<void> {
 
   const mkTransfer = async (from: string, to: string): Promise<string> =>
     (await pool.query<{ id: string }>(
-      `INSERT INTO stock_transfers (tenant_id, from_actor_id, to_actor_id, status, shipped_at) VALUES ($1::uuid,$2::uuid,$3::uuid,'SHIPPED',NOW()) RETURNING id::text AS id`,
+      `INSERT INTO stock_transfers (tenant_id, from_actor_id, to_actor_id, status, shipped_at) VALUES ($1::uuid,$2::uuid,$3::uuid,'shipped',NOW()) RETURNING id::text AS id`,
       [tenantId, from, to]
     )).rows[0].id;
   const T_AB = await mkTransfer(A.actorId, B.actorId); // self é origem

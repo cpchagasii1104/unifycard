@@ -59,7 +59,7 @@ async function mkOrder(tenantId: string, sellerActorId: string, buyerActorId: st
 
 async function mkSession(tenantId: string, actorId: string): Promise<string> {
   return (await pool.query<{ id: string }>(
-    `INSERT INTO pdv_sessions (tenant_id, actor_id, status, metadata) VALUES ($1::uuid,$2::uuid,'OPEN','{}'::jsonb) RETURNING id::text AS id`,
+    `INSERT INTO pdv_sessions (tenant_id, actor_id, status, metadata) VALUES ($1::uuid,$2::uuid,'open','{}'::jsonb) RETURNING id::text AS id`,
     [tenantId, actorId]
   )).rows[0].id;
 }

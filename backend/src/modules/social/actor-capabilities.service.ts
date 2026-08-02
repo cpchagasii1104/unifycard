@@ -28,6 +28,14 @@ const ACTOR_CAPABILITIES_MAP: ActorCapabilitiesMap = {
     ActorCapability.VOTE,
     ActorCapability.APPLY_JOB,
     ActorCapability.SEND_FUNDS,
+    // ⚠️ DECISÃO DE CLAYTON (2026-08-01, cartório): "a pessoa física PODE ganhar dinheiro — seja
+    // dirigindo, fazendo entregas, prestando serviços. Plataformas como Uber permitem PF dirigir."
+    // Este mapa negava RECEIVE_FUNDS à PF — divergindo do schema (provider_actor_id/owner_actor_id
+    // referenciam ACTOR, não company), da diretiva de 2026-05-16 e do contrato do Bank (§4.8.1,
+    // carteira por actor). A DECISION-0189 já decidiu que capabilities NÃO é decisor de autoridade
+    // (gate = authority canônica); este mapa é INPUT/métrica — e agora diz a mesma coisa que as
+    // outras três fontes.
+    ActorCapability.RECEIVE_FUNDS,
     ActorCapability.CREATE_EVENT,
     ActorCapability.CREATE_PROJECT, // PF pode criar projetos pessoais
     ActorCapability.CREATE_CTA,
