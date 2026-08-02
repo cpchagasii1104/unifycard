@@ -1,5 +1,48 @@
 # REMEDIATION DT LOG
 
+## 🟢 F-CASE-DRIFT-SELF-DETECTION — "o sistema cria a sua cura": a metade SEGURA está viva (2026-08-01, decisão de Clayton)
+
+Clayton perguntou: *"não tem como criar um sistema que varre e faz essa alteração, deixando como a
+nomenclatura canônica manda — o sistema criando a sua cura?"* — e a resposta tem duas metades.
+
+### ⛔ A metade PROIBIDA — conversão automática — e por que ela corromperia
+1. **O case não é uniforme:** `status` = minúsculo (§4.11), `severity`/`priority`/`alert_type` =
+   MAIÚSCULO (§4.34). "Converter tudo para minúsculo" quebraria o que está CERTO.
+2. **Homônimos legítimos convivem no mesmo arquivo:** `'OPEN'` de `accounts_payable` ao lado de
+   `'open'` de `pdv_sessions`. Conversor cego corrompe um para consertar o outro.
+3. **Conjunto diferente NÃO é case:** `FINISHED→ended` e `BLOCKED→critical` são mudança de DESENHO
+   — julgamento, decisão nomeada. Nenhum autômato decide isso.
+
+### ✅ A metade CONSTRUÍDA — `audit-case-drift-ratchet.mjs` (`f079be6fe`, runner 237→238)
+- **Lê o BANCO VIVO a cada corrida** (195 vocabulários: `pg_enum` + CHECKs) — nunca snapshot que
+  envelhece. Banco indisponível = **falha ruidosa**, nunca "0 achados".
+- Varre os 2.324 arquivos de `backend/src`; num arquivo que toca a tabela em contexto SQL, acusa
+  literal que bate no vocabulário **ignorando case** mas difere no exato. Bater exato em QUALQUER
+  vocabulário do arquivo absolve — é o que cala os homônimos.
+- **Ratchet dos dois lados, ambos provados vermelhos:** drift novo = FAIL na hora (plantado
+  `'ArChIvEd'`, pegou nomeando arquivo e tabela) · conserto sem abaixar baseline = FAIL também
+  (consertados 2, o gate exigiu o registro).
+🔴 **A cura que importa: a doença PAROU DE SE ESPALHAR.** Drift novo quebra o build no momento em
+que é escrito. O estoque antigo drena por fatia, com verificação — nunca por sed.
+
+### 📋 BASELINE CONGELADA: 55 — é FILA DE RASTREIO, não fila de sed
+Cada item exige traçar até o handler antes de mexer (lição tripla do dia). Já visíveis na fila:
+- 🔴 **quase-certos vivos, irmãos do caixa do PDV:** `financial-report.service` e
+  `sales-report.service` lendo `'SUCCESS'` de `payment_transactions` — o MESMO leitor MAIÚSCULO
+  contra o CHECK minúsculo selado hoje.
+- `event.repository` comparando `'DRAFT'`/`'PUBLISHED'`/`'CANCELLED'` · `alert.repository` com
+  `'OPEN'`/`'ACK'` contra `alert_status` minúsculo · `trust.repository` `'MEDIUM'` (o INSERT que
+  nunca funcionou) · **invertido**: `trust.service` compara `'transferred_to_organizer'` minúsculo
+  contra vocabulário MAIÚSCULO de `actor_debts`.
+- prováveis falsos-positivos a classificar: `event-taxonomy` (`'Online'`/`'Gratuito'`/`'Pago'`
+  parecem rótulos de UI) · `'UN'` de `product_variants` · seeds de E2E antigos.
+
+⚠️ Higiene: a prova vermelha sujou o stat-cache de `chat-room.repository.ts` (M com blob idêntico
+ao HEAD — caso do `CLAUDE.md §5`); confirmado por `git hash-object` antes de restaurar. Zero perda.
+
+---
+
+
 ## ✅ MANDATO E EXECUTADO — o pior achado era o PAR da migration da manhã, e DUAS afirmações da direção caíram (2026-08-01)
 
 Parecer: `docs/04_audit/PARECER_YALA_MANDATO_E_2026-08-01.md` · **1 derrubada · 2 sobrevivem ·
