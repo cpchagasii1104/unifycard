@@ -66,8 +66,6 @@ const BASELINE = new Set([
   "src/modules/reports/financial-report.service.ts::PENDING::orders",
   "src/modules/reports/inventory-report.service.ts::ACTIVE::inventory_reservations",
   "src/modules/reports/inventory-report.service.ts::UN::product_variants",
-  "src/modules/reports/sales-report.service.ts::SUCCESS::payment_transactions",
-  "src/modules/reports/sales-report.service.ts::FAILED::orders",
   "src/modules/services/service-order.service.ts::AUTHORIZED::payment_intents",
   "src/modules/social/actor.repository.ts::APPROVED::identities",
   "src/modules/social/event-feed.handlers.ts::PUBLIC::events",
@@ -92,7 +90,7 @@ const BASELINE = new Set([
   "src/services/feed/FeedService.ts::PUBLISHED::events",
   "src/services/feed/FeedService.ts::PUBLIC::events",
 ]);
-const BASELINE_COUNT = 55;
+const BASELINE_COUNT = 53; // 55→53 em 2026-08-01: sales-report convergido (SUCCESS/FAILED → minúsculo), fatia F-REPORTS-CASE-AND-CONTAINMENT
 
 // ── conexão: mesma fonte dos demais guards que leem o banco ──────────────────────────────────
 function databaseUrl() {

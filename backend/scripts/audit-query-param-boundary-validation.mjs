@@ -112,11 +112,11 @@ const ALLOWLIST = new Set([
   "modules/reports/reports.routes.ts::actorId::2", "modules/reports/reports.routes.ts::actorId::3",
   "modules/reports/reports.routes.ts::actorId::4", "modules/reports/reports.routes.ts::actorId::5",
   "modules/reports/reports.routes.ts::actorId::6", "modules/reports/reports.routes.ts::actorId::7",
-  "modules/reports/reports.routes.ts::actorId::8", "modules/reports/reports.routes.ts::channel::1",
+   "modules/reports/reports.routes.ts::channel::1",
   "modules/reports/reports.routes.ts::channel::2", "modules/reports/reports.routes.ts::channel::3",
   "modules/reports/reports.routes.ts::channel::4", "modules/reports/reports.routes.ts::consolidated::1",
   "modules/reports/reports.routes.ts::dailyHoldingRate::1", "modules/reports/reports.routes.ts::endDate::1",
-  "modules/reports/reports.routes.ts::endDate::2", "modules/reports/reports.routes.ts::endDate::3",
+  "modules/reports/reports.routes.ts::endDate::2",
   "modules/reports/reports.routes.ts::excessStockMultiplier::1", "modules/reports/reports.routes.ts::fromActorId::1",
   "modules/reports/reports.routes.ts::highAgingThreshold::1", "modules/reports/reports.routes.ts::highCostThreshold::1",
   "modules/reports/reports.routes.ts::holdingCostDailyRate::1", "modules/reports/reports.routes.ts::holdingCostDailyRate::2",
@@ -144,7 +144,7 @@ const ALLOWLIST = new Set([
   "modules/reports/reports.routes.ts::productVariantId::5", "modules/reports/reports.routes.ts::simulationPeriodDays::1",
   "modules/reports/reports.routes.ts::slaMaxDaysReceivingToReceived::1", "modules/reports/reports.routes.ts::slaMaxDaysShippedToReceiving::1",
   "modules/reports/reports.routes.ts::staleStockThreshold::1", "modules/reports/reports.routes.ts::startDate::1",
-  "modules/reports/reports.routes.ts::startDate::2", "modules/reports/reports.routes.ts::startDate::3",
+  "modules/reports/reports.routes.ts::startDate::2",
   "modules/reports/reports.routes.ts::status::1", "modules/reports/reports.routes.ts::stockoutRiskThreshold::1",
   "modules/reports/reports.routes.ts::suggestionType::1", "modules/reports/reports.routes.ts::toActorId::1",
   "modules/reports/reports.routes.ts::variantId::1", "modules/rides/zones/zones.routes.ts::cityId::1",
@@ -160,7 +160,7 @@ const ALLOWLIST = new Set([
 // RATCHET DOWN 181→180 (2026-08-01, F-PAYOUT-READER-CONTAINMENT): a contenção dos readers de
 // payout em 503 removeu `req.query.status as any` de payout.routes.ts. Não foi conserto planejado
 // deste teto — foi ganho de carona, e o guard exigiu que a allowlist encolhesse no MESMO commit.
-const BASELINE_COUNT = 180;
+const BASELINE_COUNT = 177;
 
 // ============================================================================
 // VARREDURA — mesma lógica de detecção usada para gerar a allowlist acima.

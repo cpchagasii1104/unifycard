@@ -3,8 +3,9 @@
 
 import type { FastifyInstance } from 'fastify';
 import { salesReportService } from './sales-report.service';
+// financial-report.service NÃO é mais importado: GET /financial está contido em 501
+// (F-FINANCIAL-REPORT-CONTAINMENT). O service segue intacto — sumiu a aresta, não o código.
 import { inventoryReportService } from './inventory-report.service';
-import { financialReportService } from './financial-report.service';
 import { inventorySlaService } from '../marketplace/inventory-sla.service';
 import { inventorySuggestionService } from '../marketplace/inventory-suggestion.service';
 import { inventoryHoldingCostService } from '../marketplace/inventory-holding-cost.service';
@@ -13,7 +14,6 @@ import { decisionSimulationService } from '../marketplace/decision-simulation.se
 import { pricingStrategyService } from '../marketplace/pricing-strategy.service';
 import type { SalesReportFilters } from './sales-report.types';
 import type { InventoryReportFilters } from './inventory-report.types';
-import type { FinancialReportFilters } from './financial-report.types';
 import type { GetStockAgingOptions, GetTransferSlaOptions, SlaConfig } from '../marketplace/inventory-sla.types';
 import type { GetInventorySuggestionsOptions, SuggestionConfig } from '../marketplace/inventory-suggestion.types';
 import type { GetHoldingCostsOptions, HoldingCostConfig } from '../marketplace/inventory-holding-cost.types';
@@ -145,29 +145,34 @@ const reportsRoutes = async (fastify: FastifyInstance) => {
   });
 
   // GET /reports/financial
+  // ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+  // ║ STATUS:  CONTIDO — F-FINANCIAL-REPORT-CONTAINMENT (2026-08-01)
+  // ║ NORMA:   mesmo veredito das rotas de métricas de evento: religar sem consumidor é
+  // ║          trabalho morto que envelhece
+  // ║ NÃO:     "consertar" o service para reviver isto. getSummary/getFinancialBySplit fazem
+  // ║          JOIN em `payout_transactions` e `payment_intent_splits` — AMBAS AUSENTES do
+  // ║          schema canônico (to_regclass → NULL) → 42P01 → 500 para QUALQUER chamada, desde
+  // ║          o gênesis. E as partes cujas tabelas EXISTEM comparavam 'SUCCESS' contra o
+  // ║          vocabulário minúsculo selado por CHECK — somariam ZERO em silêncio.
+  // ║          🔴 NENHUMA tela consome /reports/financial (grep frontend/src → vazio).
+  // ║ EM VEZ:  501 honesto, preHandler PRESERVADO (a lição das 6 rotas do parecer Yala: contenção
+  // ║          não remove a proteção). Reabrir = decisão de produto + substrato de repasse real
+  // ║          (PORTA-01) — os números de repasse que este relatório promete não podem existir
+  // ║          antes da porta abrir. O service segue intacto: sumiu a aresta, não o código.
+  // ╚════════════════════════════════════════════════════════════════
   fastify.get('/financial', {
     preHandler: [fastify.requirePermission(['reports:view_operational'])],
-  }, async (req, reply) => {
-    const tenantId = req.tenant!.id;
-    const query = req.query as any;
-
-    const filters: FinancialReportFilters = {};
-
-    if (query.startDate) {
-      filters.startDate = new Date(query.startDate);
-    }
-
-    if (query.endDate) {
-      filters.endDate = new Date(query.endDate);
-    }
-
-    // 🔴 DECISION-0113: query.actorId é HINT → representável OU self via actionContext. Nunca cru/tenant-wide.
-    const authorizedActorId = await resolveReportActorId(req, reply);
-    if (authorizedActorId === null) return;
-    filters.actorId = authorizedActorId;
-
-    const report = await financialReportService.generateReport(tenantId, filters);
-    return reply.status(200).send(report);
+  }, async (_req, reply) => {
+    return reply.status(501).send({
+      ok: false,
+      code: 'FINANCIAL_REPORT_NOT_WIRED',
+      error: 'FINANCIAL_REPORT_NOT_WIRED',
+      message:
+        'Financial report is not wired. It joins transfer tables that do not exist in the canonical ' +
+        'schema, so it answered 500 for every call since the genesis, and no screen consumes it. ' +
+        'The transfer figures it promises cannot exist before PORTA-01 opens. No money is moved.',
+      money_moved: false,
+    });
   });
 
   // SPRINT 58: GET /reports/inventory/aging

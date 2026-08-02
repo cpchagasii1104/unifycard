@@ -49,6 +49,13 @@ const CONTAINED = [
     requiredGate: 'canViewEvent',
     minContainmentHits: 3,
   },
+  {
+    file: 'src/modules/reports/reports.routes.ts',
+    containmentCodes: ["'FINANCIAL_REPORT_NOT_WIRED'"],
+    reopenSymbols: ['financialReportService.generateReport'],
+    requiredGate: 'resolveReportActorId',
+    minContainmentHits: 1,
+  },
 ];
 
 for (const c of CONTAINED) {
