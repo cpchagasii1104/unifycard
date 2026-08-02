@@ -2571,6 +2571,57 @@ Qualquer alteração na fórmula do `fingerprint_v1` exige:
 
 # PARTE II — BACKEND E API
 
+### 4.77 Alert Types (Tipos de Alerta)
+
+**Status:** CANÔNICO · VIGENTE · OBRIGATÓRIO — emenda ratificada por Clayton em 2026-08-02.
+
+Valores em `lowercase`
+Tipo: `ENUM` nativo (`alert_type`)
+Coluna: `alert_type` (tabela `alerts`)
+
+```sql
+'inventory_low_stock'    -- Estoque baixo
+'inventory_out_of_stock' -- Estoque esgotado
+'payment_failed'         -- Pagamento falhou
+'payout_failed'          -- Repasse falhou
+'fiscal_pending'         -- Pendência fiscal
+'order_expired'          -- Pedido expirado
+'reservation_expired'    -- Reserva expirada
+'risk_score_low'         -- Score de risco baixo
+'other'                  -- Outro
+```
+
+❌ PROIBIDO: INVENTORY_LOW_STOCK, PAYMENT_FAILED (maiúsculas)
+
+> **Por que esta emenda existe:** `alert_type` nasceu MAIÚSCULO sem regra que o cobrisse. A norma
+> não o nomeava, e TODAS as demais seções de tipo (`§4.38`, `§4.41`, `§4.53`–`§4.58`) são
+> `lowercase` — a única exceção MAIÚSCULA de toda a norma é a `§4.34` (**severity** e **priority**,
+> e SÓ elas). Tipo de alerta é TIPO, não severity: segue o padrão geral. Sem esta seção, cada
+> instância nova redecidia o case olhando o banco — e o banco carregava o drift.
+
+### 4.78 Inventory Movement Types (Tipos de Movimento de Estoque)
+
+**Status:** CANÔNICO · VIGENTE · OBRIGATÓRIO — emenda ratificada por Clayton em 2026-08-02.
+
+Valores em `lowercase`
+Tipo: `ENUM` nativo (`inventory_movement_type`)
+Coluna: `movement_type` (tabela `inventory_movements`)
+
+```sql
+'in'          -- Entrada de estoque
+'out'         -- Saída de estoque
+'adjustment'  -- Ajuste manual
+```
+
+❌ PROIBIDO: IN, OUT, ADJUSTMENT (maiúsculas)
+
+> **Por que esta emenda existe:** `in`/`out` é o crédito/débito do **ledger físico** (Lei 5), e a
+> `§4.53` já proíbe literalmente `CREDIT`/`DEBIT` maiúsculos no ledger financeiro — o análogo
+> exato. ⚠️ Por governar o ledger físico, a migration de convergência deste enum exige o cuidado
+> da Lei 5: validação em efêmero contra o schema real, e prova de que os invariantes operacionais
+> do ledger (`INVARIANTES_OPERACIONAIS_LEDGER`) permanecem.
+
+
 ## 5. BACKEND
 
 ### 5.1 Classes, Entidades e Tipos
