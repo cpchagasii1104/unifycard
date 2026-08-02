@@ -1,5 +1,56 @@
 # REMEDIATION DT LOG
 
+## ✅ MANDATO F PROCESSADO — "a quinta" caiu NA RAIZ, e o vocabulário de risco cruzou a ponte inteiro (2026-08-02)
+
+Parecer: `docs/04_audit/PARECER_YALA_MANDATO_F_2026-08-02.md` · **0 derrubadas · 3 sobrevivem ·
+3 com ressalva · NENHUM item selado violado.** Consertos em `b0bbc7209` (+ protocolo `:440`).
+
+### 🔴 A QUINTA — a auditoria achou o que a remoção do payout deixou para trás: A CAUSA
+Removi o caller e deixei `getOrCreateProfile` inserindo `'MEDIUM'` contra CHECK minúsculo — **crash
+vivo ESTACIONADO na baseline do meu próprio detector**, com 6 call sites ainda alcançando
+(agreements, evidence, bypass-detection — onde a Yala disse que moraria "a sexta").
+**Consertado na raiz**: INSERT `'medium'` (provado por INSERT+ROLLBACK no banco oficial) e a união
+`RiskLevel` espelhando o CHECK real (`low·medium·high·critical`). **`BLOCKED` NÃO virou `blocked`**
+— o valor nunca existiu NESTA tabela; o nível que trava desembolso é de OUTRA (`actor_risk_profile`,
+PROMPT_53_1), lido pelo gate canônico. A migalha no tipo explica.
+
+**O compilador enumerou o que nenhum grep devolveu:** 12 sítios de backend (search, orders,
+reporting, risk-dashboard, policy-engine, trust-engine) — incluindo a condição `minRiskLevel` da
+policy cujo lookup de chaves MAIÚSCULAS caía no `|| 0` **em silêncio e nunca discriminou nada**, e
+a calculadora devolvendo valor que nenhum CHECK aceita — e depois **a ponte**: 5 contratos de API
+do frontend e 4 componentes cujos **alertas de risco comparavam `'HIGH'`/`'BLOCKED'` e nunca
+renderizaram**. Ramos mortos do lado do usuário. Fila do detector: 38 → **37** (o crash saiu da
+baseline, como a auditoria exigiu: *"baseline não é lugar de defeito que levanta exceção"*).
+
+### ✅ O que o parecer confirmou (por ataque)
+Migrations rótulo a rótulo · Lei 5 intacta (ledger 0 linhas) · DELETE das 59 sem sobra por outro
+critério · as 9 off-by-one TODAS corretas (nenhuma estava certa no original) + a décima achada por
+ela (`:440`, corrigida) · payout (b) reproduzido, (c) com a lição do import dinâmico · a descida
+353→349 é REAL (allowlist intocada — o ataque do Mandato D aplicado e vencido) · o guard
+anti-reabertura fecha na CAUSA o padrão que ela nomeou 2×.
+
+### 🟡 ABERTOS pelo parecer — nomeados
+1. **§4.6 (+`bank_splits`) é MUDANÇA DE NORMA, não conserto de ponteiro** — restritiva, declarada
+   no texto, mas a ratificação verbal era para "ponteiros". **Pergunta isolada a Clayton no
+   relatório.** (As demais emendas ela confirmou como conserto legítimo, inclusive a obrigação
+   declarada ausente — testou a hipótese alternativa e ficou com a leitura da direção.)
+2. **Detector: buraco da absolvição-por-união** — real, exposição ZERO hoje (ela REIMPLEMENTOU a
+   lógica contra o banco vivo: 16 valores em colisão, 0 arquivos expostos). "Bomba de gatilho
+   futuro." Correção: absolver POR TABELA. **Fatia própria, pendente.**
+3. Par do frontend do item 1 (`MarketplaceInventory.tsx` IN/OUT maiúsculos): **AMARELO, não
+   silencioso** — sem rota POST, e o GET valida com 400. Fica na fila com classificação dela.
+4. `left_early` fora do contrato do dashboard · baseline heterogênea sem rótulos (a separação
+   classificado/pendente entra na fatia do detector).
+
+⚠️ **Custo autoinfligido registrado:** o perl indiscriminado da direção normalizou
+`marketplace-search.service.ts` — arquivo **nativamente CRLF no índice** (o caso literal do
+`CLAUDE.md §5`) — gerando churn de 533/533 num commit cuja mudança real eram 2 linhas. Conteúdo
+correto, runner verde; o custo é histórico de diff poluído. **A regra existia, escrita, e a direção
+a violou por automatismo.**
+
+---
+
+
 ## ✅ AS CINCO PALAVRAS DE CLAYTON, EXECUTADAS — "4 GO · 5 sim todos · 6 sim · 7 ratifico · 9 GO, LEFT_EARLY morre" (2026-08-02)
 
 Aprovação em mensagem única, do celular; execução em 5 commits (`066c1f131` · `5a29fad2f` ·
