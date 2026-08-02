@@ -1,5 +1,49 @@
 # REMEDIATION DT LOG
 
+## 🏛️ SELO — CLAYTON SELA OS ITENS AUDITADOS DOS MANDATOS D E E (2026-08-01)
+
+**GO literal de Clayton:** *"Go para o 2 · O selo (o rito está parado em você)"* — em resposta à
+proposta da direção: *"selo os itens que sobreviveram aos Mandatos D e E, com as ressalvas abertas
+nomeadas"*. Rito §5 cumprido na ordem: executoras → verificação da direção → **duas auditorias
+independentes** (`PARECER_YALA_MANDATO_D_2026-08-01.md` · `PARECER_YALA_MANDATO_E_2026-08-01.md`)
+→ este selo docs-only.
+
+### ⚖️ FRONTEIRA DO SELO — leia antes de citar
+Este selo cobre **exclusivamente os 12 itens examinados pelos dois pareceres, com as correções que
+eles exigiram** (todas commitadas e verificadas: `414d8ab56` · `e44d8f355` · `3ca56a690` ·
+`f079be6fe` · `b9433f964` · `bccdc630f`). **NÃO cobre:** os **~57 commits do arco que a Yala
+declarou não ter auditado** · o trabalho posterior ao Mandato E (detector de case-drift
+`f079be6fe`, fatia de reports `af810a3b6`, event-state `2c4b8ffcd`) · a fila de 53 drifts.
+**Citar este selo para item fora desta lista é o erro que os "selos falsos" de julho ensinaram.**
+
+### ✅ SELADOS (item · veredito da auditoria · correção quando exigida)
+| # | item | commits | veredito |
+|---|---|---|---|
+| D1 | 9 enums de status/source convergidos + migration `20260801120000` aplicada | `151f27625` | sobreviveu; ressalva (`'PENDING'` sobrevivente no inventory-sla) **fechada** em `414d8ab56` |
+| D2 | contenção dos 9 módulos fora do mínimo (hook não vaza, fp=0 nos 10) | `515975743` | sobreviveu por ataque |
+| D3 | from-price por IGUALDADE | `a596f4427` | sobreviveu; **ressalva ABERTA** (ver abaixo) |
+| D4 | funil de publicação + fix `new Date(null)` | `a68192fe3` | sobreviveu ("ficou EXATA, não permissiva") |
+| D5 | readers de payout em 503 uniforme | `36c491851` | **ato selado; justificativa foi DERRUBADA** — errata em `b9433f964`, razão verdadeira (anti-enumeração) registrada; buraco de guard fechado em `3ca56a690` |
+| D6 | ratchets vocabulário 3884→3883 · query-param 181→180 | `36c491851` | sobreviveram — "ganho real", gate rodado pela auditora |
+| E1 | migrations `20260801130000` + `20260801140000` aplicadas em `unificard_dev` | `f609f9d06` · `b9ca5d5ea` | sobreviveram; ressalva (par leitor no PDV) **fechada** em `e44d8f355` |
+| E2 | reescrita de migration nunca-aplicada | `f609f9d06` | **sem violação da Lei 2, por escopo do texto**; roteador corrigido em `3ca56a690` |
+| E3 | ERP com duas faces + trava de representação | `071e6a44a` | sobreviveu pelos 2 vetores de ataque |
+| E4 | contenção das 3 rotas de métricas | `59bd18a19` | **ato selado; padrão repetido foi DERRUBADO** — guard anti-reabertura das (agora 7) rotas em `3ca56a690`/`af810a3b6` |
+| E5 | calibragem de `availability` (59 órfãs em tenant inexistente) | `f7feca1cd` | selada **como RECALIBRADA** em `bccdc630f`: fatia DORMENTE, gatilho `count(*) FROM bookings > 0` |
+| E6 | varredura do frontend pelos 9 vocabulários | — | confirmada limpa pela auditora |
+
+### 🟡 RESSALVAS QUE O SELO **NÃO** APAGA — ficam abertas, nomeadas
+1. **from-price (D3):** subquery filtra só `event_id`; `event_sectors.tenant_id` existe e não é
+   usado; `events` tem RLS=false → proteção de UMA camada. Custo de fechar: um `AND s.tenant_id`.
+2. **`payment_transactions` (E1):** CHECK provado por catálogo, **não** por INSERT rejeitado (NOT
+   NULLs do pai barraram o harness).
+3. **Métrica `financial_vocabulary` é sensível a PROSA** — queda futura não é dívida paga sem
+   olhar o que a moveu.
+4. **~57 commits do arco sem auditoria** — o selo não os alcança.
+
+---
+
+
 ## 🟢 F-CASE-DRIFT-SELF-DETECTION — "o sistema cria a sua cura": a metade SEGURA está viva (2026-08-01, decisão de Clayton)
 
 Clayton perguntou: *"não tem como criar um sistema que varre e faz essa alteração, deixando como a
