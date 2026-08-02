@@ -1,5 +1,45 @@
 # REMEDIATION DT LOG
 
+## 🔍 GATE — F-ESCROW-RETIREMENT: o mapa do 2º ledger, pronto para o GO (2026-08-02, direção, read-only)
+
+A aposentadoria do escrow é a frente que o roteador já condena (*"o Bank é a única verdade sobre
+dinheiro"*; `escrow.repository.ts` nomeado *"legado em extinção"* na LEI §4). Este GATE mapeia o
+que EXISTE para a decisão material. **Nada foi alterado.**
+
+### O ORGANISMO VIVO — maior do que o assumido
+```
+HTTP     11 rotas montadas (escrow.module → app.builder:588)
+UI       ALCANÇÁVEL: ContextualThreadView:205 → AgreementPanel:11 → EscrowPanel
+         (a suposição anterior "EscrowPanel nunca renderiza" valia só para render DIRETO)
+WRITE    🔴 service-order.service.ts:1631 CRIA escrow_accounts ao completar ordem de booking
+         com agreement finalizado — SEM firewall na frente (não há flag/assert no caminho).
+         Não move dinheiro (é linha de registro), mas é O 2º LEDGER GANHANDO LINHAS.
+READ     payout.service:54,:122 (elegibilidade lê status do escrow) · reporting.service:50 (lista)
+DADOS    escrow_accounts=0 · escrow_transactions=0 · payment_milestones=0 (nada gravado ainda)
+BANK     a casa canônica JÁ EXISTE: conta `escrow_payments` no Bank (1 linha em bank_accounts)
+FRONT    api/escrow.ts declara o DESENHO ANTERIOR (FUNDS_HELD·READY_TO_RELEASE·BLOCKED_BY_DISPUTE
+         — conjunto que o banco nunca teve)
+```
+
+### O DESENHO DA FRENTE (proposta, para GO — fatias na ordem de risco)
+1. **Fecho da torneira** (pequena): o write de `service-order:1631` ganha contenção nomeada
+   (mesmo padrão das 7 rotas: preserva o corpo, guard anti-reabertura) — o 2º ledger para de
+   poder crescer ANTES de qualquer migração.
+2. **Leitores migram para o Bank**: payout/reporting passam a ler a custódia da conta
+   `escrow_payments` via portas do Bank (o padrão R-8 já aplicado no fundo regional).
+3. **UI converge**: EscrowPanel/PaymentMilestoneTimeline leem o contrato novo; o vocabulário
+   fantasma do desenho anterior morre com a fonte.
+4. **Aposentadoria material**: rotas em 501 nomeado · tabelas ficam (0 linhas, Lei 2 não exige
+   drop) · `escrow.repository` vira dormente cercado.
+⚠️ Riscos nomeados: o milestone de `service-order` (agora minúsculo, consertado ontem) é usado
+como gatilho de autorização — a semântica precisa de dono na migração; e `payout` já teve 3
+retratações — toda fatia ali com prova vermelha E verde.
+
+**Aguarda: GO de Clayton para a fatia 1 (a torneira).** As demais têm GO próprio, uma a uma.
+
+---
+
+
 ## 🏛️ CONFIRMAÇÃO ISOLADA DE CLAYTON — `bank_splits` na §4.6 FICA (2026-08-02)
 
 O Parecer Yala F classificou a inclusão de `bank_splits` na lista de SQL proibido da
