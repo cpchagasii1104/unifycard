@@ -29,6 +29,7 @@
 
 import { useState } from 'react';
 import type { GuidedFlowData } from '../EventCreationGuidedFlow';
+import SectorBuilder from './SectorBuilder';
 import './Step2Description.css';
 
 interface Step2DescriptionProps {
@@ -127,14 +128,13 @@ export default function Step2Description({ data, onUpdate, onComplete }: Step2De
             áreas. Anunciar um valor único junto criaria as duas verdades que o sistema já pagou
             para descobrir (evento 948b0278: anunciou R$50, cobrou R$80). */}
         {data.eventAccessType === 'pago' && priceShape === 'por_area' && (
-          <div className="form-group">
+          <>
             <p className="step-hint">
-              Nenhum valor é anunciado agora. Você cria as áreas — nome, quantidade e preço de cada
-              uma — no painel do evento, e o preço mostrado passa a ser o <strong>menor</strong> deles
-              ("a partir de"). A meia-entrada é sempre exatamente a metade da inteira, com no mínimo
-              40% das vagas (Lei 12.933/2013) — regra aplicada pelo servidor.
+              Nenhum valor único é anunciado. O preço exibido passa a ser o <strong>menor</strong> das
+              áreas ("a partir de").
             </p>
-          </div>
+            <SectorBuilder eventId={data.event_id} maxAttendees={data.maxAttendees} />
+          </>
         )}
       </div>
 

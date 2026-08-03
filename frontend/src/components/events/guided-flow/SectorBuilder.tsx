@@ -1,0 +1,152 @@
+// src/components/events/guided-flow/SectorBuilder.tsx
+//
+// ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+// ║ STATUS:  CANÔNICO — criação de áreas (setores) DENTRO do wizard (decisão de Clayton, 2026-08-03)
+// ║ NORMA:   "o frontend só guia o usuário, a verdade sempre fica no backend" (Clayton).
+// ║          As LEIS são do servidor, em event-sector.service/repository:
+// ║            · SUM(capacity) <= events.max_attendees, sob pg_advisory_xact_lock (SECTOR_CAPACITY_EXCEEDS_EVENT)
+// ║            · meia_price_cents = EXATAMENTE metade da inteira (SECTOR_MEIA_PRICE_NOT_HALF)
+// ║            · cota de meia >= 4000 bps — piso legal Lei 12.933/2013 (SECTOR_MEIA_QUOTA_BELOW_LEGAL_FLOOR)
+// ║ NÃO:     NÃO revalidar essas regras aqui como se fossem verdade do cliente, e NÃO bloquear o
+// ║          envio por conta própria. O "restam N" abaixo é ORIENTAÇÃO visual, não autorização.
+// ║ EM VEZ:  enviar e EXIBIR o erro nomeado que o servidor devolver. Quem recusa é ele.
+// ╚════════════════════════════════════════════════════════════════
+//
+// Por que aqui e não só no painel: "elas irão determinar a lógica e sequência de inserção de dados
+// no backend" (Clayton). Sem isto o evento sai do wizard com preço não resolvido — foi assim que o
+// evento 948b0278 anunciou R$50 e cobrou R$80.
+
+import { useState, useEffect, useCallback } from 'react';
+import { createEventSector, listEventSectors, type EventSector } from '../../../api/events';
+
+interface SectorBuilderProps {
+  eventId: string | null;
+  /** Teto declarado no passo. Vazio/0 = sem teto: o servidor não terá contra o que reconciliar. */
+  maxAttendees: string;
+}
+
+/** Converte "80,00" / "80.00" / "80" em cents. null se não for número. */
+function reaisToCents(input: string): number | null {
+  const clean = input.trim().replace(/\./g, '').replace(',', '.');
+  if (!clean) return null;
+  const n = Number.parseFloat(clean);
+  if (!Number.isFinite(n) || n < 0) return null;
+  return Math.round(n * 100);
+}
+
+function centsToReais(cents: number): string {
+  return (cents / 100).toFixed(2).replace('.', ',');
+}
+
+export default function SectorBuilder({ eventId, maxAttendees }: SectorBuilderProps) {
+  const [sectors, setSectors] = useState<EventSector[]>([]);
+  const [name, setName] = useState('');
+  const [capacity, setCapacity] = useState('');
+  const [inteira, setInteira] = useState('');
+  const [quotaPct, setQuotaPct] = useState('40');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    if (!eventId) return;
+    try {
+      setSectors(await listEventSectors(eventId));
+    } catch {
+      // Falha ao LER não é "não há setores" — não zeramos a lista para não afirmar o que não sabemos.
+      setError('Não foi possível carregar as áreas já criadas.');
+    }
+  }, [eventId]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const total = maxAttendees.trim() ? Number.parseInt(maxAttendees, 10) : null;
+  const used = sectors.reduce((acc, s) => acc + s.capacity, 0);
+  const remaining = total != null && Number.isFinite(total) ? total - used : null;
+
+  // A meia é DERIVADA, nunca digitada: metade exata, divisão inteira arredondando para baixo em
+  // favor do consumidor (mesma conta do servidor, que recusa qualquer outro valor).
+  const inteiraCents = reaisToCents(inteira);
+  const meiaCents = inteiraCents != null ? Math.floor(inteiraCents / 2) : null;
+
+  const handleCreate = async () => {
+    if (!eventId) return;
+    setError(null);
+    const cap = capacity.trim() ? Number.parseInt(capacity, 10) : NaN;
+    if (!name.trim()) { setError('Dê um nome à área (ex.: Pista, Camarote).'); return; }
+    if (!Number.isInteger(cap) || cap < 1) { setError('Informe quantas pessoas cabem nesta área.'); return; }
+    if (inteiraCents == null || meiaCents == null) { setError('Informe o preço da inteira.'); return; }
+
+    setSaving(true);
+    try {
+      await createEventSector(eventId, {
+        sectorNumber: sectors.length + 1,
+        name: name.trim(),
+        capacity: cap,
+        meiaQuotaBps: Math.round((Number.parseFloat(quotaPct.replace(',', '.')) || 40) * 100),
+        inteiraPriceCents: inteiraCents,
+        meiaPriceCents: meiaCents,
+      });
+      setName(''); setCapacity(''); setInteira(''); setQuotaPct('40');
+      await load();
+    } catch (err) {
+      // O servidor é quem recusa; mostramos a razão dele, não uma inventada aqui.
+      setError(err instanceof Error ? err.message : 'Não foi possível criar a área.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!eventId) {
+    return <p className="step-hint">O rascunho ainda está sendo criado — volte a este passo em instantes.</p>;
+  }
+
+  return (
+    <div className="form-group">
+      <label className="form-label">Áreas do local</label>
+
+      {sectors.length > 0 && (
+        <ul className="sector-list">
+          {sectors.map((s) => (
+            <li key={s.id}>
+              <strong>{s.name}</strong> · {s.capacity} lugares · inteira R$ {centsToReais(s.inteiraPriceCents)} ·
+              meia R$ {centsToReais(s.meiaPriceCents)}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <p className="step-hint">
+        {total != null && remaining != null
+          ? `${used} de ${total} lugares distribuídos · restam ${remaining}`
+          : `${used} lugares distribuídos · você não declarou um total, então nada limita as áreas`}
+      </p>
+
+      <div className="option-grid">
+        <input className="form-textarea" placeholder="Nome (ex.: Pista)" value={name}
+          onChange={(e) => setName(e.target.value)} />
+        <input className="form-textarea" type="number" min={1} placeholder="Quantas pessoas"
+          value={capacity} onChange={(e) => setCapacity(e.target.value)} />
+      </div>
+
+      <div className="option-grid">
+        <input className="form-textarea" inputMode="decimal" placeholder="Preço inteira (R$)"
+          value={inteira} onChange={(e) => setInteira(e.target.value)} />
+        <input className="form-textarea" type="number" min={40} max={100} placeholder="Cota de meia (%)"
+          value={quotaPct} onChange={(e) => setQuotaPct(e.target.value)} />
+      </div>
+
+      <p className="step-hint">
+        Meia-entrada: {meiaCents != null ? `R$ ${centsToReais(meiaCents)}` : 'informe a inteira'} — sempre
+        exatamente a metade, calculada automaticamente. A cota mínima é 40% das vagas (Lei 12.933/2013).
+      </p>
+
+      {error && <p className="flow-error-message">{error}</p>}
+
+      <button type="button" className="step-button" disabled={saving} onClick={handleCreate}>
+        {saving ? 'Criando…' : 'Adicionar área'}
+      </button>
+    </div>
+  );
+}

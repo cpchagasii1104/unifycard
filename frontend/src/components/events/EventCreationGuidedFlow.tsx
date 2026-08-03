@@ -276,7 +276,8 @@ export default function EventCreationGuidedFlow({ initialAudienceKeys, groupId }
     }
   };
 
-  // ETAPA 2 → ETAPA 3: Avançar para time windows
+  // PASSO ⑤ (Capacidade e Acesso) → ⑥ Operação. Na ordem nova este é o penúltimo passo de
+  // declaração: já se sabe ONDE e QUANDO, então capacidade e preço são respondíveis.
   const handleStep2Complete = async () => {
     // Persiste descrição + acesso/custo (anúncio) + capacidade via PATCH /events/:id (updateEvent).
     // Δbank=0: ticket_price_cents é só o valor ANUNCIADO — pagamento/estorno real = etapa futura (Bank).
@@ -304,10 +305,10 @@ export default function EventCreationGuidedFlow({ initialAudienceKeys, groupId }
       }
     }
     setError(null);
-    setCurrentStep(3);
+    setCurrentStep(5); // → ⑥ Operação (era 3/Quando, que agora vem ANTES deste passo)
   };
 
-  // ETAPA 3 → ETAPA 4: Definir time windows
+  // PASSO ④ (Quando) → ⑤ Capacidade e Acesso
   const handleStep3Complete = async () => {
     if (!data.event_id) {
       setError('Evento não encontrado');
@@ -340,7 +341,8 @@ export default function EventCreationGuidedFlow({ initialAudienceKeys, groupId }
     }
   };
 
-  // ETAPA 4 → ETAPA 5: Avançar para papéis operacionais
+  // PASSO ③ (Onde) → ④ Quando. Este passo SUBIU: o território é o que define espaço, fornecedores
+  // e a existência de setores — perguntá-lo depois da capacidade/preço invertia a dependência.
   const handleStep4Complete = async () => {
     if (!data.event_id) { setError('Evento não encontrado'); return; }
     if (!data.locationMode) { setError('Informe se você já tem o local'); return; }
@@ -364,7 +366,7 @@ export default function EventCreationGuidedFlow({ initialAudienceKeys, groupId }
         } : {}),
         ...(Object.keys(meta).length > 0 ? { metadata: meta } : {}),
       });
-      setCurrentStep(5);
+      setCurrentStep(3); // → ④ Quando (era 5/Operação, quando este passo era o último de declaração)
     } catch {
       setError('Não foi possível salvar o local. Tente novamente.');
     } finally {
@@ -462,12 +464,22 @@ export default function EventCreationGuidedFlow({ initialAudienceKeys, groupId }
     );
   }
 
+  // ORDEM CANÔNICA DO FLUXO (decisão de Clayton, 2026-08-03) — cada passo só pergunta o que a
+  // resposta anterior tornou respondível:
+  //   ① o QUE é → ② nome → ③ ONDE (o território define espaço, fornecedores e o que cabe)
+  //   → ④ QUANDO → ⑤ QUANTOS/QUANTO → ⑥ quem faz → ⑦ preview → ⑧ resumo
+  // ONDE subiu de 5º para 3º: "o território é onde vai acontecer, sem entender isto antes não tem
+  // como planejar a sequência". Setor é característica do LOCAL (pista/camarote), então a pergunta
+  // sobre áreas de preço depende deste passo — e ela vive no passo econômico, logo abaixo.
+  // ⚠️ Os NOMES dos componentes (Step2Description, Step4SpaceRequirements…) são HISTÓRICOS e não
+  // correspondem mais à posição. A ordem canônica é ESTA lista + o encadeamento dos handlers;
+  // renomear 8 arquivos só para alinhar número seria churn sem ganho.
   const stepTitles = [
     'Tipo de Evento',
     'Declaração Inicial',
-    'Descrição e Intenção',
+    'Onde vai acontecer',
     'Quando (Janelas de Tempo)',
-    'Onde (Requisitos de Espaço)',
+    'Capacidade e Acesso',
     'Operação (Papéis)',
     'Preview Econômico (TEST)',
     'Resumo Final',
@@ -577,14 +589,16 @@ export default function EventCreationGuidedFlow({ initialAudienceKeys, groupId }
           />
         )}
 
+        {/* ③ ONDE — subiu de 5º para 3º. Nome do componente é histórico (ver stepTitles). */}
         {currentStep === 2 && (
-          <Step2Description
+          <Step4SpaceRequirements
             data={data}
             onUpdate={updateData}
-            onComplete={handleStep2Complete}
+            onComplete={handleStep4Complete}
           />
         )}
 
+        {/* ④ QUANDO */}
         {currentStep === 3 && (
           <Step3TimeWindows
             data={data}
@@ -594,11 +608,13 @@ export default function EventCreationGuidedFlow({ initialAudienceKeys, groupId }
           />
         )}
 
+        {/* ⑤ QUANTOS/QUANTO — desceu de 3º para 5º: capacidade e preço só fazem sentido depois de
+            saber ONDE (o local é que tem setores) e QUANDO. */}
         {currentStep === 4 && (
-          <Step4SpaceRequirements
+          <Step2Description
             data={data}
             onUpdate={updateData}
-            onComplete={handleStep4Complete}
+            onComplete={handleStep2Complete}
           />
         )}
 

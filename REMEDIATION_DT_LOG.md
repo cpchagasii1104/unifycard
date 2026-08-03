@@ -1,5 +1,73 @@
 # REMEDIATION DT LOG
 
+## 🧭 O FLUXO DE CRIAÇÃO DE EVENTO GANHA ORDEM — território sobe, áreas nascem no wizard (2026-08-03, decisões A e B de Clayton)
+
+**As duas decisões, na palavra dele:**
+· **A** — *"o território é aonde vai acontecer, então se a gente não entender isto antes, não tem
+  como planejar a sequência"*
+· **B** — *"sim, já nasce no wizard, pois elas irão determinar a lógica e sequência de inserção de
+  dados no backend"*
+
+**O argumento que ele deu sem destacar, e que é o mais forte:** *"perguntar se o LOCAL é separado
+por setores"*. Setor é característica do **espaço** (pista, camarote, arquibancada), não do evento.
+Um evento não "tem setores" — ele acontece num lugar que tem. Logo **B depende de A**: não se
+pergunta sobre áreas antes de saber onde é.
+
+### A ordem nova (`EventCreationGuidedFlow.tsx`)
+```
+①Tipo → ②Declaração → ③ONDE → ④Quando → ⑤Capacidade e Acesso → ⑥Operação → ⑦Preview → ⑧Resumo
+                       ↑ subiu de 5º        ↑ desceu de 3º
+```
+Implementação: os handlers já eram nomeados pelo **conteúdo**, não pela posição — bastou trocar a
+ordem de renderização e **dois** destinos (`handleStep4Complete` 5→3; `handleStep2Complete` 3→5).
+Cadeia verificada íntegra: `0→1→2→3→4→5→6→7`, sem buraco nem laço.
+⚠️ Os NOMES dos componentes (`Step2Description`, `Step4SpaceRequirements`…) ficaram **históricos** e
+não correspondem mais à posição — registrado no topo do arquivo. Renomear 8 arquivos só para
+alinhar número seria churn sem ganho.
+
+### As áreas nascem no wizard (`guided-flow/SectorBuilder.tsx`, novo)
+Chama **`createEventSector`, a MESMA função que o painel já usa** — nenhuma rota nova, nenhuma
+regra nova no cliente. A meia-entrada é **derivada** (`Math.floor(inteira/2)`, a mesma conta do
+servidor), nunca digitada. O contador *"X de Y · restam Z"* é **orientação visual, não
+autorização**: quem recusa é o servidor, e o erro nomeado dele é exibido cru.
+
+🔴 **As leis continuam TODAS no backend** (`event-sector.service/repository`), e é assim de
+propósito — *"o frontend só guia o usuário, a verdade sempre fica no backend"* (Clayton):
+`SUM(capacity) <= max_attendees` sob `pg_advisory_xact_lock` · meia = metade EXATA ·
+cota ≥ 4000 bps (Lei 12.933/2013).
+
+### 🔬 O QUE A ANÁLISE DERRUBOU ANTES DE VIRAR CÓDIGO
+Clayton perguntou se **B respondia C** (*"a capacidade passa a ser limitada pelo local?"*).
+**Não responde — e C não é sequer implementável hoje.** São restrições diferentes:
+```
+B (coerência INTERNA)  soma dos setores ≤ total declarado   → JÁ EXISTE, travada
+C (coerência EXTERNA)  total declarado  ≤ o que cabe no local → SEM DADO
+```
+Medido no banco: **não há cadastro de espaço com capacidade**. Tabelas com `venue`/`space`/`local`
+→ só nomes localizados de N1/N2. Colunas de capacidade → `availability` · `event_sectors` ·
+`event_sessions` · `rides_vehicles`; nenhuma é "capacidade do lugar". O local do evento é um
+**endereço**, não um espaço cadastrado. **C sai da mesa** — não é decisão adiada, é pergunta que
+ainda não pode ser feita. Só nasce se houver cadastro de espaços (outra frente, outro dono).
+
+**Divergência apontada e NÃO implementada:** Clayton disse *"a quantidade terá que bater com a
+quantidade total"*; o sistema exige **caber** (`<=`), não **bater** (`=`). Igualdade obrigatória
+durante a montagem impediria criar o primeiro setor (um setor de 20 mil num evento de 40 mil
+falharia). Recomendação registrada: manter `<=` na criação e **avisar sem bloquear na publicação**
+(*"5.000 lugares não estão em nenhuma área"*). Bloquear engessa; calar esconde. **Sem GO, não feito.**
+
+⚠️ **Custo autoinfligido, 2ª vez no mesmo dia:** o `Edit` converteu `Step2Description.css` inteiro
+para CRLF (30 linhas). Normalizado com script pontual **no arquivo só**. Diff real: 15 inserções.
+
+**Verificação:** typecheck FE 0 · `validate:regression-guards` **238 COMMANDS OK** · todos os
+arquivos `i/lf w/lf` · `git diff --check` limpo.
+
+**Aberto:** o evento continua saindo do wizard em `declared` — publicar exige data confirmada no
+painel. A fronteira wizard(intenção) × painel(compromisso) está desenhada mas **não implementada**:
+os campos repetidos ainda não mostram o que foi declarado antes.
+
+---
+
+
 ## 🔢 A ORDEM DAS PERGUNTAS DO WIZARD — quantidade ANTES de preço (2026-08-03, decisão de Clayton)
 
 **A decisão, na palavra dele:** *"nesta parte já devia perguntar antes a quantidade, aí descobrindo
