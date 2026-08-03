@@ -27,6 +27,7 @@ import { useActiveActor } from '../../contexts/ActiveActorContext';
 import { useSession } from '../../contexts/SessionProvider';
 import { createOrAdvanceDraft, declareEvent, setTimeWindows, getEventSummary } from '../../api/events-v2';
 import { showToast } from '../common/Toast';
+import { reaisToCents } from '../../utils/money';
 import { getTenantId, isAuthenticated } from '../../config/auth';
 import Step0EventType from './guided-flow/Step0EventType';
 import Step1Declaration from './guided-flow/Step1Declaration';
@@ -290,8 +291,10 @@ export default function EventCreationGuidedFlow({ initialAudienceKeys, groupId }
           setError('O mínimo de participantes não pode ser maior que o máximo.');
           return;
         }
+        // Dinheiro passa pela conversão CANÔNICA (utils/money). O parseFloat que vivia aqui lia
+        // "1.500" como 1.5 e gravava R$ 1,50 — 1000x menos. Achado por Clayton em 2026-08-03.
         const priceCents = data.eventAccessType === 'pago' && data.priceReais.trim()
-          ? Math.round(parseFloat(data.priceReais.replace(',', '.')) * 100) : null;
+          ? reaisToCents(data.priceReais) : null;
         await updateEvent(data.event_id, {
           description: data.description ?? null,
           event_access_type: data.eventAccessType,

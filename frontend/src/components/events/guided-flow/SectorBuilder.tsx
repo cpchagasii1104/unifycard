@@ -18,6 +18,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { createEventSector, listEventSectors, type EventSector } from '../../../api/events';
+import { reaisToCents, centsToReaisString as centsToReais } from '../../../utils/money';
 
 interface SectorBuilderProps {
   eventId: string | null;
@@ -25,18 +26,6 @@ interface SectorBuilderProps {
   maxAttendees: string;
 }
 
-/** Converte "80,00" / "80.00" / "80" em cents. null se não for número. */
-function reaisToCents(input: string): number | null {
-  const clean = input.trim().replace(/\./g, '').replace(',', '.');
-  if (!clean) return null;
-  const n = Number.parseFloat(clean);
-  if (!Number.isFinite(n) || n < 0) return null;
-  return Math.round(n * 100);
-}
-
-function centsToReais(cents: number): string {
-  return (cents / 100).toFixed(2).replace('.', ',');
-}
 
 /**
  * Traduz os códigos NOMEADOS que o servidor devolve (event-sector.service/repository) em orientação.
