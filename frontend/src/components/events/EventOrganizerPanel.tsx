@@ -118,6 +118,18 @@ function reaisToCents(v: string): number | null {
   return Math.round(n * 100);
 }
 
+/**
+ * Rótulo pt-BR do vocabulário GOVERNADO de acesso (events.event_access_type). Espelha o contrato da
+ * API, não cria alias: os valores são os do banco, só a APRESENTAÇÃO é traduzida.
+ * Ausente devolve texto honesto — nunca "Gratuito" por omissão, que afirmaria o que não se sabe.
+ */
+function accessTypeLabel(kind: OrganizerEventView['eventAccessType']): string {
+  if (kind === 'gratuito') return 'Gratuito';
+  if (kind === 'pago') return 'Pago';
+  if (kind === 'contribuicao_opcional') return 'Contribuição opcional';
+  return 'acesso ainda não definido';
+}
+
 function centsToReais(cents: number): string {
   return `R$ ${(cents / 100).toFixed(2).replace('.', ',')}`;
 }
@@ -600,6 +612,14 @@ export default function EventOrganizerPanel({ eventId }: EventOrganizerPanelProp
             publicado enquanto isto estiver vazio.
           </p>
         )}
+        {/* F-EVENT-DECLARED-CONTEXT: a Agenda JÁ pré-preenchia da janela candidata, mas em silêncio —
+            o organizador via uma data no campo sem saber de onde veio nem se já estava valendo. */}
+        {!event.datetimeStart && agendaStart && (
+          <p className="organizer-hint organizer-hint-muted">
+            O campo abaixo veio da janela que você declarou ao criar o evento — ainda é candidata.
+            Confirmar transforma em data oficial.
+          </p>
+        )}
         <div className="organizer-form-grid">
           <label className="organizer-field">
             <span>Início</span>
@@ -640,6 +660,19 @@ export default function EventOrganizerPanel({ eventId }: EventOrganizerPanelProp
       {/* ============ VAQUINHA ============ */}
       <section className="organizer-section">
         <h3 className="organizer-section-title">🤝 Acesso e vaquinha</h3>
+        {/* F-EVENT-DECLARED-CONTEXT: o wizard já perguntou acesso, mínimo e capacidade. Reperguntar
+            sem mostrar o que foi declarado faz o organizador não saber se está CONFIRMANDO ou
+            CONTRADIZENDO — foi a redundância que Clayton apontou.
+            ⚠️ NÃO exibimos "você declarou R$X": ticketPriceCents SERVIDO é o MENOR setor quando há
+            área (F-EVENT-FROM-PRICE-COHERENCE), não o valor cru — afirmá-lo como declaração seria
+            mentira. Só se afirma o que o payload sustenta. */}
+        <p className="organizer-hint organizer-hint-muted">
+          Você declarou ao criar o evento:{' '}
+          <strong>{accessTypeLabel(event.eventAccessType)}</strong>
+          {event.maxAttendees != null && <> · até <strong>{event.maxAttendees}</strong> pessoas</>}
+          {event.minAttendees != null && <> · mínimo <strong>{event.minAttendees}</strong></>}
+          . Os campos abrem com esses valores; salvar substitui.
+        </p>
         <div className="organizer-form-grid">
           <label className="organizer-field">
             <span>Tipo de acesso</span>
@@ -704,6 +737,15 @@ export default function EventOrganizerPanel({ eventId }: EventOrganizerPanelProp
       {/* ============ SETORES ============ */}
       <section className="organizer-section">
         <h3 className="organizer-section-title">🎟️ Setores (inteira / meia-entrada)</h3>
+
+        {/* F-EVENT-DECLARED-CONTEXT: as áreas passaram a nascer no WIZARD (decisão B de Clayton).
+            Sem dizer isso, esta seção parece um formulário vazio pedindo de novo o que já foi feito. */}
+        {sectors.length > 0 && (
+          <p className="organizer-hint organizer-hint-muted">
+            <strong>{sectors.length}</strong> área(s) já definida(s) — incluindo as que você criou ao montar
+            o evento. Criar outra SOMA a estas; para mudar uma, edite a linha correspondente.
+          </p>
+        )}
 
         {sectors.length > 0 ? (
           <div className="organizer-sectors-table-wrap">

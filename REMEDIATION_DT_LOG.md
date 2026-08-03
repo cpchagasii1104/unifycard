@@ -1,5 +1,40 @@
 # REMEDIATION DT LOG
 
+## 🔁 F-EVENT-DECLARED-CONTEXT — o painel para de reperguntar como se fosse a primeira vez (2026-08-03)
+
+**Fecha o pedido original de Clayton:** *"tem coisa redundante perguntando mais de uma vez num
+próximo passo, sendo que já foi decidido anteriormente"*. Dos 4 casos diagnosticados, o Local caiu
+com F-EVENT-VENUE-READBACK; **os outros 3 fecham aqui.**
+
+**A regra aplicada** (desenhada na análise de fluxo, agora implementada): *o wizard é DECLARAÇÃO DE
+INTENÇÃO, o painel é CONFIRMAÇÃO OPERACIONAL — e todo campo que reaparece mostra o que foi
+declarado antes.* Não proíbe mudar; impede o organizador de não saber se está **confirmando ou
+contradizendo**.
+
+| seção | antes | agora |
+|---|---|---|
+| Acesso e vaquinha | 3 campos vazios, iguais aos do passo ⑤ | *"Você declarou ao criar o evento: Pago · até 500 pessoas · mínimo 100"* |
+| Setores | *"Nenhum setor criado ainda"* mesmo tendo criado no wizard | *"2 área(s) já definida(s) — incluindo as que você criou ao montar o evento. Criar outra SOMA a estas"* |
+| Agenda | pré-preenchia da janela candidata **em silêncio** | diz que o campo veio da janela declarada e que **confirmar** a torna oficial |
+
+🔴 **O QUE NÃO FOI EXIBIDO, E POR QUÊ.** Ia escrever *"você declarou R$ X"* usando
+`ticketPriceCents` — **seria mentira**: quando há área, o backend serve o **MENOR setor** por
+igualdade ("a partir de", F-EVENT-FROM-PRICE-COHERENCE), não o valor cru. O valor declarado
+original **não é exposto** pelo GET. Então o preço declarado **não é afirmado** — só se afirma o
+que o payload sustenta. Registrado no próprio arquivo para o próximo não repetir.
+Mesma disciplina em `accessTypeLabel`: ausência devolve *"acesso ainda não definido"*, **nunca**
+"Gratuito" por omissão — omissão não é gratuidade.
+
+**Verificação:** typecheck FE 0 · `validate:regression-guards` **238 OK** · `i/lf w/lf` ·
+`git diff --check` limpo · +42 linhas, nenhuma removida (só contexto, nada de comportamento).
+
+**Aberto:** os 7 conceitos que faltam ao show · som em 1 ou 4 linhas · ligar necessidade →
+contratação (encosta em dinheiro, porta própria) · a ilha morta `WizardPageRegistry` + `pages/`
+(deleção exige palavra de Clayton) · atravessar na tela.
+
+---
+
+
 ## 🧪 A TRAVESSIA PEGOU UM BURACO QUE A DIREÇÃO TINHA ACABADO DE ABRIR (2026-08-03)
 
 **Contexto:** a direção sugeriu a Clayton *"parar de ampliar e atravessar o fluxo uma vez"*. Ele
