@@ -1,5 +1,52 @@
 # REMEDIATION DT LOG
 
+## 🎭 O CATÁLOGO DO SHOW PEDE GENTE, NÃO PEÇA (2026-08-03, correção conceitual de Clayton)
+
+**A observação dele, atravessando a tela:** *"Mesa de som / Caixa de som / Microfone… acho que pode
+ser equipamentos, porque com a empresa ele define o que vai precisar, certo? Qual o nome do
+profissional que cuida de toda a parte do som? acho que isto também falta."*
+
+**A régua que isso estabelece, e vale para o catálogo inteiro:**
+```
+SERVIÇO = gente que se contrata; o FORNECEDOR traz o equipamento dele
+LOCAÇÃO = bem que o organizador aluga direto, sem profissional embutido
+```
+Minha fatia anterior (`20260803110000`) ligou 7 locáveis ao Show e **errou em 5**: mesa/caixa/
+microfone/monitor/torre são o que a empresa de sonorização e iluminação TRAZ. O organizador declara
+que precisa de **som**, não de peça por peça. Tenda e gerador ficam — esses ele aluga direto.
+
+**SHOW: 10 → 17 necessidades** (14 serviços + 3 locáveis). Criados 9 conceitos
+(`Sonorização (técnico de som)` · `Iluminação (técnico de luz)` · `Brigadista / equipe de saúde` ·
+`Recepção / portaria` · `Estacionamento / manobrista` · `Bartender` · `Promotores / modelos` ·
+`Montagem de palco` · `Banheiro químico`), religados 3 que já existiam e nunca tinham sido usados
+(`Garçom` · `Buffet para eventos` · `Cozinheiro`), desligados 5 equipamentos.
+⚠️ **Nada foi apagado do catálogo** — os 5 seguem `rentable` e locáveis avulsos. Saiu o VÍNCULO com
+o formato, não a peça.
+
+### 🔴 O SISTEMA ME BLOQUEOU — e estava certo
+A migration falhou na primeira tentativa:
+```
+concept insert blocked: use concept governance (set app.concept_governance in authorized transaction)
+```
+Existe `enforce_concept_governance` sobre `concepts`: **não há INSERT direto de conceito**. Usei o
+mecanismo PREVISTO pela própria trava (`SET LOCAL app.concept_governance = 'true'`), que morre no
+COMMIT e nunca vaza para a sessão — documentado na migration com o aviso de que **runtime não pode
+fazer isso**; código de aplicação usa o writer canônico.
+
+### Aviso em tempo real (pedido no mesmo turno)
+*"tem como a quantidade ser avisada já no momento que preencher errado? não precisar avançar para
+descobrir o erro"*. O `SectorBuilder` passa a avisar **enquanto se digita** e desabilita o botão
+com o motivo no rótulo.
+⚠️ **Isto NÃO é o frontend criando verdade:** antecipa a recusa que o servidor JÁ daria
+(`SECTOR_CAPACITY_EXCEEDS_EVENT`, sob advisory lock). Se os dois divergirem, **vale o backend** —
+está escrito no arquivo.
+
+**Verificação:** travessia **16/16** (⑥ 17 necessidades · ⑥b nenhum equipamento no template) ·
+typecheck BE 0 · FE 0 · runner **238 OK** · catálogo conferido em `unificard_dev` pela query real.
+
+---
+
+
 ## 🛡️ O TETO ESTAVA SÓ NO NAVEGADOR — bug achado por Clayton NA TELA (2026-08-03)
 
 **Reprodução dele:** declarou **500** no total, criou **Pista = 400**, depois **Camarote = 150**

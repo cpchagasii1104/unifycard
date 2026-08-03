@@ -90,6 +90,20 @@ export default function SectorBuilder({ eventId, maxAttendees }: SectorBuilderPr
   const inteiraCents = reaisToCents(inteira);
   const meiaCents = inteiraCents != null ? Math.floor(inteiraCents / 2) : null;
 
+  // AVISO EM TEMPO REAL (pedido de Clayton: "não precisar avançar para descobrir o erro").
+  // ⚠️ Isto NÃO é o frontend criando verdade: é ANTECIPAR a recusa que o servidor já daria
+  // (SECTOR_CAPACITY_EXCEEDS_EVENT). A trava real continua sendo dele, sob advisory lock — este
+  // cálculo é conveniência, e se divergir do backend quem vale é o backend.
+  const capacityBeingTyped = capacity.trim() ? Number.parseInt(capacity, 10) : null;
+  const wouldExceed =
+    remaining != null &&
+    capacityBeingTyped != null &&
+    Number.isInteger(capacityBeingTyped) &&
+    capacityBeingTyped > remaining;
+  const overBy = wouldExceed && remaining != null && capacityBeingTyped != null
+    ? capacityBeingTyped - remaining
+    : 0;
+
   const handleCreate = async () => {
     if (!eventId) return;
     setError(null);
@@ -183,6 +197,14 @@ export default function SectorBuilder({ eventId, maxAttendees }: SectorBuilderPr
           value={quotaPct} onChange={(e) => setQuotaPct(e.target.value)} />
       </div>
 
+      {/* Avisa ENQUANTO digita, sem esperar o clique. */}
+      {wouldExceed && (
+        <p className="flow-error-message">
+          Não cabe: restam <strong>{remaining}</strong> lugares e você digitou <strong>{capacityBeingTyped}</strong>
+          {' '}— {overBy} a mais. Reduza esta área, ou volte e aumente o total do evento.
+        </p>
+      )}
+
       <p className="step-hint">
         Meia-entrada: {meiaCents != null ? `R$ ${centsToReais(meiaCents)}` : 'informe a inteira'} — sempre
         exatamente a metade, calculada automaticamente. A cota mínima é 40% das vagas (Lei 12.933/2013).
@@ -190,8 +212,8 @@ export default function SectorBuilder({ eventId, maxAttendees }: SectorBuilderPr
 
       {error && <p className="flow-error-message">{error}</p>}
 
-      <button type="button" className="step-button" disabled={saving} onClick={handleCreate}>
-        {saving ? 'Criando…' : 'Adicionar área'}
+      <button type="button" className="step-button" disabled={saving || wouldExceed} onClick={handleCreate}>
+        {saving ? 'Criando…' : wouldExceed ? 'Quantidade não cabe' : 'Adicionar área'}
       </button>
     </div>
   );

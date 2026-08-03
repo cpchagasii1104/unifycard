@@ -134,11 +134,17 @@ async function main(): Promise<void> {
   // ⑥ ORQUESTRAÇÃO — as sugestões do formato, agora com locação
   const sugg = await eventTaxonomyService.listOrchestrationSuggestions(T, eventId);
   const rentables = sugg.filter((s) => s.fulfillmentKind === 'rentable');
+  // O catálogo do SHOW pede GENTE, não peça (F-EVENT-ORCHESTRATION-ROLES): 14 serviços +
+  // 3 locáveis (gerador · tenda · banheiro químico). Mesa/caixa/microfone/monitor/torre saíram —
+  // são o que o fornecedor de sonorização/iluminação TRAZ, e seguem locáveis avulsos no catálogo.
+  const equip = sugg.filter((s) => /mesa de som|caixa de som|microfone|monitor de palco|torre/i.test(s.label));
   rec(
-    '⑥ SHOW sugere 10 necessidades, com LOCAÇÃO entre elas (era só service)',
-    sugg.length === 10 && rentables.length === 7,
+    '⑥ SHOW sugere 17 necessidades: 14 serviços + 3 locáveis',
+    sugg.length === 17 && rentables.length === 3,
     `total=${sugg.length} rentable=${rentables.length}`
   );
+  rec('⑥b nenhum EQUIPAMENTO de som/luz no template (isso é do fornecedor)', equip.length === 0,
+    `ainda presentes: ${equip.map((e) => e.label).join(', ')}`);
 
   // ⑦ confirmar data + ⑧ publicar
   const start = new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString();
