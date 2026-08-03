@@ -1,5 +1,73 @@
 # REMEDIATION DT LOG
 
+## 🎪 F-EVENT-ORCHESTRATION-RENTABLE — a orquestração passa a enxergar LOCAÇÃO (2026-08-03, GO de Clayton)
+
+**O pedido:** *"em Operação faltam funções, como a recepção, quem monitora a bilheteria, equipe de
+saúde (ambulâncias), banheiros… montagem do palco, som (incluindo a locação). O sistema precisa
+orquestrar, entende? Ir além de um eventim."*
+
+### O que o inventário achou ANTES de escrever qualquer linha
+A orquestração **já existe como arquitetura, e é DADO, não código**:
+`event_orchestration_template_items` liga `format_concept_id → need_concept_id` com
+`fulfillment_kind`, `is_required`, `sort_order`. As 3 sugestões que Clayton via na tela não estavam
+hardcoded — eram 3 linhas de catálogo.
+```
+SHOW = 3 itens (Segurança·Fotografia·Limpeza) · FESTA = 7 · CELEBRAÇÃO = 7 · PALESTRA/WORKSHOP = 2
+```
+**O motor estava pronto e o catálogo raso justo no formato mais complexo.**
+
+### 🔴 ERRATA DA DIREÇÃO — eu ia criar vocabulário que JÁ EXISTIA
+Propus a Clayton ampliar `fulfillment_kind` com **`'rental'`** e `'sales_channel'`. Ao ler a
+estrutura, apareceu a FK que eu não tinha visto:
+```
+fk_event_orch_template_need_is_offerable
+  FOREIGN KEY (need_concept_id, fulfillment_kind) → concept_offer_kinds (concept_id, offer_kind)
+```
+`fulfillment_kind` **nunca foi vocabulário livre** — é `concept_offer_kinds.offer_kind`, e o
+vocabulário governado, medido:
+```
+CHECK (offer_kind IN ('rentable','service'))   →  rentable = 59 concepts · service = 33
+```
+O canônico é **`rentable`**, com 59 conceitos já cadastrados. Criar `'rental'` teria produzido
+exatamente a segunda verdade que esta casa existe para evitar — e a proposta partiu de MIM, com o
+nome inventado por analogia com o português. **Ler a FK, não supor o vocabulário pelo nome da
+coluna.**
+
+### O diagnóstico correto: não faltava vocabulário, sobrava trava
+As duas tabelas de orquestração eram **MAIS ESTRITAS que o domínio que referenciam**:
+`CHECK (fulfillment_kind IN ('service'))` contra um vocabulário governado que já tinha `rentable`.
+Consequência prática: um evento não podia declarar necessidade que se resolve **locando** (palco,
+som, banheiro químico, gerador, tenda). Metade da orquestração de um show grande não cabia.
+
+**Migration `20260803100000`** amplia os dois CHECKs para o vocabulário governado. **Não cria
+vocabulário.** O enforcement MATERIAL nunca foi o CHECK e sim a FK composta — que segue intacta.
+
+### Prova RED+GREEN em DB efêmera (`run-orchestration-fulfillment-rentable-ephemeral.ps1`)
+```
+RED    sem a migration, 'rentable' recusado pelo CHECK ......................... 23514 ✅
+GREEN① concept locável aceito .................................................. ✅
+GREEN② concept NÃO-locável AINDA recusado pela FK composta .................... 23503 ✅
+GREEN③ valor fora do vocabulário ('sales_channel') ainda recusado ............. 23514 ✅
+GREEN④ event_operational_needs carrega o MESMO vocabulário (estrutural) ........ ✅
+```
+🔴 **GREEN② é a asserção que dá sentido ao verde.** Sem ela, um CHECK simplesmente REMOVIDO
+passaria igual. Ela prova que ampliou sem afrouxar.
+Aplicada em `unificard_dev` com `EXPECTED_DATABASE_NAME`; dado intacto (26 template_items,
+11 operational_needs); runner **238 OK**.
+
+### ⚠️ O QUE FICOU DE FORA, NOMEADO
+**Canal de venda** (lojas parceiras revendendo ingresso) **NÃO entrou, de propósito.** Não é
+`offer_kind`: um ponto de venda não *oferta o conceito*, ele **distribui o ingresso de outro**.
+Enfiar `'sales_channel'` no vocabulário de ofertabilidade seria misturar relação comercial com
+natureza de oferta. Frente própria, não decidida.
+**O catálogo do show grande** (recepção, bilheteria, saúde, banheiros, palco, som) é decisão de
+PRODUTO de Clayton — o substrato agora aceita, os itens ele dita ou aprova.
+**Conectar seleção → contratação** segue FACTUAL: marcar necessidade não dispara RFQ/cotação/
+contrato. Encosta em dinheiro ⇒ porta própria.
+
+---
+
+
 ## 🧭 O FLUXO DE CRIAÇÃO DE EVENTO GANHA ORDEM — território sobe, áreas nascem no wizard (2026-08-03, decisões A e B de Clayton)
 
 **As duas decisões, na palavra dele:**
