@@ -1,5 +1,24 @@
 // src/core/orchestrator/orchestrator.executors.ts
-// Intent Execution Engine - Executores reais para cada intent
+// Intent Execution Engine
+//
+// ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+// ║ STATUS:  CONTIDO — 10 dos 11 executores NUNCA chamaram o módulo real
+// ║ NORMA:   "sucesso relatado sem a ação real ter acontecido" é o padrão de erro nº4 do catálogo
+// ║          de legado (Clayton, 2026-08-03). Métrica/resposta que AFIRMA o que não fez é pior que
+// ║          erro: o chamador segue como se tivesse funcionado.
+// ║ NÃO:     NÃO devolver ok:true com payload inventado (era `orderId/ticketId: 'placeholder-id'`,
+// ║          `message: 'Pedido criado'`). NÃO apagar o executor — a assinatura e o mapa de intents
+// ║          são o contrato que a implementação real vai preencher.
+// ║ EM VEZ:  responder ok:false com INTENT_EXECUTOR_NOT_IMPLEMENTED, dizendo o que NÃO aconteceu.
+// ╚════════════════════════════════════════════════════════════════
+//
+// CONTEXTO: o arquivo estava DORMENTE quando isto foi escrito — orchestrator.routes.ts e
+// intent-orchestrator.routes.ts existem mas NÃO estão registrados em app.builder.ts (medido).
+// Por isso a contenção, e não o conserto: se um dia alguém registrar aquelas rotas, o sistema
+// NÃO volta a dizer "Pedido criado" sem criar pedido. Ligar cada intent ao módulo real é fatia
+// própria, uma por vez, com o writer canônico de cada domínio.
+//
+// ⚠️ `executeAskQuestion` NÃO foi contido: ele chama `aiKernel.run` de verdade — é o único real.
 
 import type { FastifyInstance } from 'fastify';
 import { categoriesService } from '../categories/categories.service';
@@ -68,15 +87,11 @@ export async function executeHireService(
     // });
 
     return {
-      ok: true,
+      ok: false,
       module: 'work',
       intent: 'hire_service',
       parameters,
-      result: {
-        message: 'Busca de profissionais iniciada',
-        payload,
-        workers: [], // Placeholder
-      },
+      error: 'INTENT_EXECUTOR_NOT_IMPLEMENTED: a intencao hire_service ainda nao esta ligada ao modulo work. Nada foi criado, reservado ou cobrado.',
     };
   } catch (error) {
     return {
@@ -134,15 +149,11 @@ export async function executeScheduleService(
     // Chamar módulo work
     // TODO: Implementar chamada real
     return {
-      ok: true,
+      ok: false,
       module: 'work',
       intent: 'schedule_service',
       parameters,
-      result: {
-        message: 'Agendamento criado',
-        payload,
-        appointmentId: 'placeholder-id',
-      },
+      error: 'INTENT_EXECUTOR_NOT_IMPLEMENTED: a intencao schedule_service ainda nao esta ligada ao modulo work. Nada foi criado, reservado ou cobrado.',
     };
   } catch (error) {
     return {
@@ -200,15 +211,11 @@ export async function executeOrderFood(
     // Chamar módulo commerce
     // TODO: Implementar chamada real
     return {
-      ok: true,
+      ok: false,
       module: 'commerce',
       intent: 'order_food',
       parameters,
-      result: {
-        message: 'Pedido criado',
-        payload,
-        orderId: 'placeholder-id',
-      },
+      error: 'INTENT_EXECUTOR_NOT_IMPLEMENTED: a intencao order_food ainda nao esta ligada ao modulo commerce. Nada foi criado, reservado ou cobrado.',
     };
   } catch (error) {
     return {
@@ -266,15 +273,11 @@ export async function executeBuyProduct(
     // Chamar módulo commerce
     // TODO: Implementar chamada real
     return {
-      ok: true,
+      ok: false,
       module: 'commerce',
       intent: 'buy_product',
       parameters,
-      result: {
-        message: 'Produto adicionado ao carrinho',
-        payload,
-        cartItemId: 'placeholder-id',
-      },
+      error: 'INTENT_EXECUTOR_NOT_IMPLEMENTED: a intencao buy_product ainda nao esta ligada ao modulo commerce. Nada foi criado, reservado ou cobrado.',
     };
   } catch (error) {
     return {
@@ -349,16 +352,11 @@ export async function executeRequestRide(
     // Chamar módulo rides
     // TODO: Implementar chamada real quando módulo rides estiver completo
     return {
-      ok: true,
+      ok: false,
       module: 'rides',
       intent: 'request_ride',
       parameters,
-      result: {
-        message: 'Corrida solicitada',
-        payload,
-        rideId: 'placeholder-id',
-        estimatedArrival: '5 minutos',
-      },
+      error: 'INTENT_EXECUTOR_NOT_IMPLEMENTED: a intencao request_ride ainda nao esta ligada ao modulo rides. Nada foi criado, reservado ou cobrado.',
     };
   } catch (error) {
     return {
@@ -405,15 +403,11 @@ export async function executeBookEvent(
     // Chamar módulo events
     // TODO: Implementar chamada real quando módulo events tiver endpoint de check-in/booking
     return {
-      ok: true,
+      ok: false,
       module: 'events',
       intent: 'book_event',
       parameters,
-      result: {
-        message: 'Check-in realizado no evento',
-        payload,
-        checkInTime: new Date().toISOString(),
-      },
+      error: 'INTENT_EXECUTOR_NOT_IMPLEMENTED: a intencao book_event ainda nao esta ligada ao modulo events. Nada foi criado, reservado ou cobrado.',
     };
   } catch (error) {
     return {
@@ -472,15 +466,11 @@ export async function executeSearchLocal(
     // Chamar módulo marketplace
     // TODO: Implementar chamada real quando módulo marketplace existir
     return {
-      ok: true,
+      ok: false,
       module: 'marketplace',
       intent: 'search_local',
       parameters,
-      result: {
-        message: 'Busca realizada',
-        payload,
-        results: [], // Placeholder
-      },
+      error: 'INTENT_EXECUTOR_NOT_IMPLEMENTED: a intencao search_local ainda nao esta ligada ao modulo marketplace. Nada foi criado, reservado ou cobrado.',
     };
   } catch (error) {
     return {
@@ -541,15 +531,11 @@ export async function executeDeliveryPickup(
     // Chamar módulo delivery
     // TODO: Implementar chamada real quando módulo delivery existir
     return {
-      ok: true,
+      ok: false,
       module: 'delivery',
       intent: 'delivery_pickup',
       parameters,
-      result: {
-        message: `${type === 'delivery' ? 'Entrega' : 'Busca'} solicitada`,
-        payload,
-        deliveryId: 'placeholder-id',
-      },
+      error: 'INTENT_EXECUTOR_NOT_IMPLEMENTED: a intencao delivery_pickup ainda nao esta ligada ao modulo delivery. Nada foi criado, reservado ou cobrado.',
     };
   } catch (error) {
     return {
@@ -605,15 +591,11 @@ export async function executePostContent(
     // Chamar módulo marketplace
     // TODO: Implementar chamada real quando módulo marketplace tiver endpoint de posts
     return {
-      ok: true,
+      ok: false,
       module: 'marketplace',
       intent: 'post_content',
       parameters,
-      result: {
-        message: 'Postagem criada',
-        payload,
-        postId: 'placeholder-id',
-      },
+      error: 'INTENT_EXECUTOR_NOT_IMPLEMENTED: a intencao post_content ainda nao esta ligada ao modulo marketplace. Nada foi criado, reservado ou cobrado.',
     };
   } catch (error) {
     return {
@@ -715,15 +697,11 @@ export async function executeSupport(
     // Chamar módulo identity
     // TODO: Implementar chamada real quando módulo identity tiver endpoint de suporte
     return {
-      ok: true,
+      ok: false,
       module: 'identity',
       intent: 'support',
       parameters,
-      result: {
-        message: 'Chamado de suporte criado',
-        payload,
-        ticketId: 'placeholder-id',
-      },
+      error: 'INTENT_EXECUTOR_NOT_IMPLEMENTED: a intencao support ainda nao esta ligada ao modulo identity. Nenhum chamado foi aberto.',
     };
   } catch (error) {
     return {

@@ -1,5 +1,60 @@
 # REMEDIATION DT LOG
 
+## 🤥 F-INTENT-EXECUTOR-HONESTY — 10 executores paravam de mentir (2026-08-03)
+
+**Origem:** Clayton trouxe o catálogo consolidado de erros do legado e pediu para ver *"se algum
+desses a gente não viu e deixou passar"*. Dos ~30 itens, **este era o único não-visto que merecia
+ação**.
+
+### O achado
+`orchestrator.executors.ts` — 10 dos 11 executores **nunca chamaram o módulo real** e devolviam
+**`ok: true` com payload inventado**:
+```
+order_food  → { message: 'Pedido criado',            orderId:  'placeholder-id' }
+support     → { message: 'Chamado de suporte criado', ticketId: 'placeholder-id' }
++ hire_service · schedule_service · buy_product · request_ride · book_event ·
+  search_local · delivery_pickup · post_content
+```
+É o padrão nº4 do próprio catálogo de Clayton: *"sucesso relatado sem a ação real ter
+acontecido"*. Pior que erro — o chamador segue como se tivesse funcionado.
+
+### 🟡 Estava DORMENTE — e por isso a resposta é CONTENÇÃO, não conserto
+```
+orchestrator.executors.ts ← orchestrator.service.ts (INTENT_EXECUTORS)
+  ← orchestrator.routes.ts · intent-orchestrator.routes.ts
+  ← app.builder.ts:  NENHUM registro   (grep vazio)
+```
+Bomba **desarmada**: ninguém alcança hoje. Mas no dia em que alguém registrar aquelas rotas, o
+sistema voltaria a dizer *"Pedido criado"* sem criar pedido. Agora responde
+`INTENT_EXECUTOR_NOT_IMPLEMENTED` dizendo **o que NÃO aconteceu** ("Nada foi criado, reservado ou
+cobrado"). **Executor não foi apagado** — assinatura e mapa de intents são o contrato que a
+implementação real vai preencher, uma fatia por domínio.
+
+🔴 **`executeAskQuestion` NÃO foi tocado** — chama `aiKernel.run` de verdade; é o único real.
+Conter o que funciona seria o erro simétrico.
+
+### 🔴 ERRATA DA DIREÇÃO — meu alvo veio do relatório, não de varredura
+Contive **9** (a lista que eu tinha) e a verificação achou o **10º**: `executeSupport`, com
+`ticketId: 'placeholder-id'`, fora da lista do documento. **Trabalhei sobre a lista de outra
+pessoa em vez de varrer o arquivo.** Prova final que fecha: `grep placeholder-id` → **ZERO**.
+
+### O balanço do catálogo (verificado, não presumido)
+🟢 **Gateway MOCK já contido** — o mais assustador da lista. `event-economy.service.ts:20` importa
+`assertCheckoutFinancialRuntimeEnabled`, flag fail-closed. O texto do catálogo descreve o estado
+ANTERIOR (usa passado: *"a única guarda **era**"*).
+🟢 Já corrigidos: `escrow_accounts` · `alert_severity` · `EventStatusBadge` · invoice 5% ·
+`risk-dashboard` sem try/catch · `GET /groups/mine` (guard `groups-mine-auth-derived` no runner).
+🟡 Conhecidos e abertos: cap TOCTOU · 2 motores de split · `payouts/` órfão · `core/dashboard` →
+`modules/` · 2 comentários que mentem · `DECISION-0192` reprovada · `DECISION-0123` HOLD.
+⚪ **NÃO verificados nesta rodada** (dito por honestidade): RLS intra-tenant `DECISION-0116` ·
+nascimento de PJ não-transacional · `company_status` 4 eixos · flag de dado civil · rides com
+núcleo comentado · check-in duplicado.
+
+**Verificação:** typecheck BE 0 · runner **238 OK** · `placeholder-id` = 0 ocorrências.
+
+---
+
+
 ## 🎭 O CATÁLOGO DO SHOW PEDE GENTE, NÃO PEÇA (2026-08-03, correção conceitual de Clayton)
 
 **A observação dele, atravessando a tela:** *"Mesa de som / Caixa de som / Microfone… acho que pode
