@@ -1,5 +1,64 @@
 # REMEDIATION DT LOG
 
+## 🧹 OS WIZARDS MORTOS DE EVENTO CAEM — 20 arquivos, com a intenção registrada como herança (2026-08-03, GO de Clayton: "vamos apagar o que está morto")
+
+**Origem:** Clayton suspeitou de *"dois caminhos de criação para o mesmo objetivo"* (`/events/new`
+e `/social`). A auditoria read-only (instância de EVENTOS, mandato F-EVENT-CREATION-PATH-INVENTORY)
+provou o contrário e a direção conferiu de 1ª mão:
+
+```
+grep -rn "<EventCreationGuidedFlow\|<EventCreationWizard\b\|<EventWizardAdaptive\|<IntentComposer" frontend/src
+→ 3 linhas no repositório INTEIRO
+```
+**As 7 portas de UI convergem para UM wizard** (`EventCreationGuidedFlow`). O `/social` não é um
+segundo caminho: `IntentComposer.tsx:798` EMBUTE o mesmo guided flow num modal, e tem 3 guardas
+comentadas *"Eventos NUNCA são criados pelo IntentComposer"*. A convergência já estava feita —
+writer único selado pela Yala (veredito A, 2026-07-22) + rota única P0-1 em
+`EventCreationPage.tsx:24`. O que ficou para trás foi só a **limpeza**, dívida já nomeada em
+`EVENT_ENGINE_COMPLETION_PLAN.md:145`.
+
+**Apagados (20 arquivos, ~2.768 linhas + CSS; bytes recuperáveis para sempre no commit desta entrada):**
+`EventCreationWizard.tsx/.css` · `EventWizardAdaptive.tsx/.css` · `wizard/EventFoundationStep.tsx/.css` ·
+`wizard/Step{1Actor,2EventType,3Context,4Economy,5Review}.tsx/.css` · `wizard/BirthdayProfileStep.tsx` ·
+`wizard/eventSubtypeMapping.ts` · `services/event-wizard-rules.ts` · `utils/event-spec-mapper.ts`
+
+**FICA, e é o motivo de não se apagar a pasta inteira:** `wizard/BirthdayWizard.tsx/.css` está
+**VIVO dentro da família boa** (`EventCreationGuidedFlow.tsx:39` importa, `:507` renderiza).
+`api/service-discovery.ts` também fica — 4 consumidores vivos.
+Ajuste mínimo obrigatório: `BirthdayWizard` importava `type WizardData` do wizard morto. O tipo
+era `Record<string, any>` — **zero informação**. Virou declaração local, com `any` preservado de
+propósito: trocar por `unknown` quebrou o typecheck em 12 pontos (o componente lê `data.project_name`
+etc.), e esta fatia remove o morto, **não muda comportamento de código vivo**.
+
+### 📜 INTENÇÃO DE DESENHO — o que morreu junto, para não virar arqueologia
+1. **`EventCreationWizard` = orquestrador GENÉRICO por registro de páginas.** Cabeçalho:
+   *"NÃO cria verdade · NÃO decide regras · NÃO conhece domínio · apenas orquestra páginas
+   dinamicamente"*. A ideia era um motor de wizard dirigido por dados (`WizardPageRegistry` +
+   `intentionMapping`), não por código por-tipo-de-evento. **A ideia é boa e o guided flow atual
+   NÃO a tem** — ele é sequência fixa Step0..Step7.
+2. **`EventWizardAdaptive` = perguntas por REGRA de contexto** (`event-wizard-rules`), com
+   sugestão de fornecedores durante o preenchimento. Blindagem declarada: *"nenhuma automação
+   silenciosa; todas as decisões explícitas"*.
+3. 🔴 **`EventFoundationStep` = "CEP DO LOCAL (PRIMEIRO PASSO — UNIFICADO PARA TODOS OS EVENTOS)"**.
+   O desenho anterior pedia o território **ANTES** de tudo, porque é dele que saem espaços e
+   fornecedores. Hoje o CEP é o **passo 5 de 8**. Isto é insumo direto para a análise de
+   redundância do fluxo pedida por Clayton no mesmo dia — não descarte sem decidir.
+4. **`event-spec-mapper`** traduzia wizard → `EventSpec` (`macro_intention`, `subflow`,
+   `QuestionnaireAnswers`), com a regra *"apenas mapear, NÃO inferir, NÃO filtrar, NÃO decidir"*.
+   `EventSpec` segue vivo (o `BirthdayWizard` chama `createEventSpec`); o que morreu foi o
+   tradutor do wizard antigo.
+
+**Ilha remanescente, medida e NÃO apagada (aguarda palavra de Clayton):**
+`wizard/WizardPageRegistry.ts` (92) · `wizard/intentionMapping.ts` (177) · `wizard/pages/` (11
+arquivos) — zero consumidor externo, e os `pages/` só se importam entre si. Import dinâmico foi
+verificado (`grep "await import"` no GuidedFlow e no BirthdayWizard): só `api/events`, nenhuma
+page. É a segunda ilha do mesmo desenho (o orquestrador genérico do item 1).
+
+**Verificação:** `npm run typecheck` (frontend) **limpo** após as remoções.
+
+---
+
+
 ## 🚀 O TRABALHO SAIU DO DISCO — 2567 commits no GitHub, e a ERRATA que custou 40 minutos (2026-08-02, GO de Clayton)
 
 **Estado:** `rescue-structural` @ `49546eb6c` — local == `origin/rescue-structural`, 0 pendentes.

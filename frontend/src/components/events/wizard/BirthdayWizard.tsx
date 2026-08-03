@@ -15,7 +15,10 @@ import { useSession } from '../../../contexts/SessionProvider';
 import { createEventSpec } from '../../../api/event-spec';
 import { getTenantId } from '../../../config/auth';
 import { showToast } from '../../common/Toast';
-import type { WizardData } from '../EventCreationWizard';
+// WizardData era `Record<string, any>` exportado por EventCreationWizard (wizard MORTO, removido
+// em 2026-08-03 — ver REMEDIATION_DT_LOG.md). O tipo não carregava informação nenhuma; fica local.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type WizardData = Record<string, any>;
 import type { EventSpec } from '../../../types/event-spec';
 import './BirthdayWizard.css';
 
