@@ -223,6 +223,35 @@ async function main(): Promise<void> {
     );
   }
 
+  // ═══ R4 · POR QUE O CONSERTO É NO FRONTEND (bug reproduzido por Clayton na tela, 2026-08-03)
+  // Ele declarou 500 no total, criou Pista=400 e Camarote=150, e o sistema AVANÇOU. Causa: o wizard
+  // só persistia max_attendees no "Continuar", e as áreas nascem ANTES disso — o servidor via NULL.
+  // Esta asserção CONGELA o comportamento do backend (sem teto = nada a reconciliar, por desenho) para
+  // que ninguém tente "consertar" aqui: com NULL não há o que conferir. Quem tem de garantir que o
+  // teto chegue antes da área é o SectorBuilder, e ele agora envia max_attendees antes de criar.
+  const semTeto = (
+    await pool.query<{ id: string }>(
+      `INSERT INTO events (tenant_id, actor_id, actor_type, event_type, event_format_concept_id, title,
+         status, visibility, timezone, currency, metadata, created_at, updated_at)
+       VALUES ($1,$2,'user','SHOW',$3,'Sem teto','draft','public','America/Sao_Paulo','BRL','{}'::jsonb,NOW(),NOW())
+       RETURNING id`,
+      [T, actorId, showFormat.concept_id]
+    )
+  ).rows[0].id;
+  await eventSectorService.createSector(T, semTeto, {
+    sectorNumber: 1, name: 'Pista', capacity: 400, inteiraPriceCents: 1000, meiaPriceCents: 500, meiaQuotaBps: 4000,
+  } as never);
+  const excedente = await expectRefusal(() =>
+    eventSectorService.createSector(T, semTeto, {
+      sectorNumber: 2, name: 'Camarote', capacity: 150, inteiraPriceCents: 2000, meiaPriceCents: 1000, meiaQuotaBps: 4000,
+    } as never)
+  );
+  rec(
+    'R4 · SEM max_attendees o backend ACEITA 400+150 (por desenho) — por isso o teto tem de ser persistido ANTES da área',
+    excedente === null,
+    `esperava aceitar e obteve: ${excedente}`
+  );
+
   const allOk = results.every((r) => r.ok);
   console.log(`\n${allOk ? '✅ TRAVESSIA COMPLETA' : '❌ FALHOU'} (${results.filter((r) => r.ok).length}/${results.length})`);
   if (!allOk) process.exit(1);

@@ -98,8 +98,25 @@ export default function SectorBuilder({ eventId, maxAttendees }: SectorBuilderPr
     if (!Number.isInteger(cap) || cap < 1) { setError('Informe quantas pessoas cabem nesta área.'); return; }
     if (inteiraCents == null || meiaCents == null) { setError('Informe o preço da inteira.'); return; }
 
+    // 🔴 AUTODEFESA (bug reproduzido por Clayton, 2026-08-03): sem capacidade total DECLARADA não há
+    // teto contra o que reconciliar — o backend aceita qualquer soma ("max_attendees NULL = sem teto",
+    // event-sector.service.ts:109). Áreas sem total é o cenário em que ninguém defende ninguém.
+    if (total == null || !Number.isInteger(total) || total < 1) {
+      setError('Informe primeiro quantas pessoas cabem no total (campo acima). Sem esse número o sistema não tem como conferir se as áreas cabem.');
+      return;
+    }
+
     setSaving(true);
     try {
+      // 🔴 O TETO PRECISA ESTAR NO BACKEND ANTES DA ÁREA EXISTIR.
+      // O bug: max_attendees só era persistido no "Continuar" (GuidedFlow handleStep2Complete), e o
+      // SectorBuilder vive ANTES disso — o servidor via NULL e aceitava 400+150 num evento de 500.
+      // O contador desta tela mostrava a conta certa, mas era conta de NAVEGADOR: a verdade tem de
+      // estar no backend. Reenviamos a cada criação (barato, idempotente) para que uma edição do
+      // total feita depois também chegue ao servidor antes de ele julgar.
+      const { updateEvent } = await import('../../../api/events');
+      await updateEvent(eventId, { max_attendees: total });
+
       await createEventSector(eventId, {
         sectorNumber: sectors.length + 1,
         name: name.trim(),

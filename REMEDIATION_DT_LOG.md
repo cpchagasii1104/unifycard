@@ -1,5 +1,44 @@
 # REMEDIATION DT LOG
 
+## 🛡️ O TETO ESTAVA SÓ NO NAVEGADOR — bug achado por Clayton NA TELA (2026-08-03)
+
+**Reprodução dele:** declarou **500** no total, criou **Pista = 400**, depois **Camarote = 150**
+(soma **550**) — e o sistema **avançou para a próxima fase**. *"Ele não pode permitir isso. Tem que
+bloquear e seguir uma lógica pra se autodefender."*
+
+### A causa — e o E2E passou verde justamente por causa dela
+```
+GuidedFlow.tsx:300   max_attendees só era persistido em handleStep2Complete → no "Continuar"
+SectorBuilder        vive DENTRO do passo, ANTES disso; lia data.maxAttendees (estado do navegador)
+backend              max_attendees NULL = "sem teto declarado, nada a reconciliar" (:109)
+```
+O servidor **não sabia que existia um limite de 500**. O contador *"restam N"* mostrava a conta
+certa — mas era **conta de navegador**. 🔴 **Eu deixei o teto só no frontend, que é exatamente o que
+Clayton tinha me alertado horas antes:** *"o frontend só guia o usuário, a verdade sempre fica no
+backend"*.
+
+🔴 **E o meu E2E não pegou porque eu escrevi o teste na ordem que me convinha:** gravei
+`max_attendees` via `updateEvent` **antes** de criar as áreas — ordem que a TELA não faz. Guard que
+testa o caminho que o autor imaginou, e não o que o usuário percorre, é decoração. **A travessia
+humana pegou o que 14 asserções verdes não pegaram.**
+
+### Conserto (SectorBuilder)
+1. **Autodefesa:** sem capacidade total declarada, **não cria área** — com mensagem dizendo por quê.
+   Áreas sem total é o cenário em que ninguém defende ninguém.
+2. **O teto vai ao backend ANTES da área existir:** `updateEvent({ max_attendees })` a cada criação
+   (barato, idempotente) — assim uma edição posterior do total também chega ao servidor antes de ele
+   julgar. A partir daí a trava real (`SUM(capacity) <= max_attendees` sob advisory lock) morde.
+
+### R4 — a asserção que impede o conserto no lugar errado
+Adicionada ao E2E: **sem `max_attendees`, o backend ACEITA 400+150** — e isso está CERTO, é desenho
+(NULL = sem teto). Congela o comportamento para que ninguém "conserte" o backend: com NULL não há o
+que conferir. **Quem tem de garantir que o teto chegue antes é o frontend.** Travessia **15/15**.
+
+**Verificação:** typecheck BE 0 · FE 0 · runner **238 OK**.
+
+---
+
+
 ## ⚖️ F-BUSINESS-AUDIT-RESTORE — a trilha de compliance parou de ser jogada fora (2026-08-03)
 
 **Origem:** Clayton trouxe um relatório de 26 erros do legado e disse o que a casa manda:
