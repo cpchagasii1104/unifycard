@@ -1,5 +1,74 @@
 # REMEDIATION DT LOG
 
+## ⚖️ F-BUSINESS-AUDIT-RESTORE — a trilha de compliance parou de ser jogada fora (2026-08-03)
+
+**Origem:** Clayton trouxe um relatório de 26 erros do legado e disse o que a casa manda:
+*"Você não pode acreditar certamente nisto aí, mas se isto for verdade, aí tem que corrigir da
+forma que ele não afete o sistema."* Verificado item a item. **Do item [18]: CONFIRMADO.**
+
+### A cadeia, provada até o INSERT (alcance, não import)
+```
+app.builder.ts:581        registra o módulo agreements
+agreements.routes.ts:27   → agreementService.createAgreement
+agreement.service.ts:43   → recordBusinessAuditSafely
+  → createLog → business-audit.repository.ts:47  INSERT INTO business_audit_logs
+business-audit.helpers.ts:26  catch { console.error } ← engole o 42P01, NÃO bloqueia
+```
+**40 call sites** — ledger, invoice, payout, evidence, `permission_denied`. A trilha de auditoria
+de negócio estava sendo **descartada a cada requisição**, com o sistema seguindo como se tivesse
+gravado.
+
+### 🔴 O ARCHIVE ERA UMA ARMADILHA — 3 eixos errados
+`migrations_archive/0922` existia e parecia a solução óbvia. **Copiá-lo criaria tabela quebrada:**
+```
+[a] FK    archive: tenants(tenant_id)     REAL: tenants(id)         → falha ao criar
+[b] RLS   archive: app.current_tenant_id  REAL: app.current_tenant  → policy nunca casaria
+[c] vocab archive: 14 actions             CÓDIGO: 53                → recusaria 39 valores
+```
+Tudo medido em `unificard_dev`/`pg_policies`. *"Archive não é SSOT vigente"* — a armadilha
+funcionou como anunciada.
+E o archive prometia **"🔴 BLINDAGEM: Logs são IMUTÁVEIS"** entregando só um **COMENTÁRIO** —
+nenhum trigger. Trilha legal que pode ser reescrita não é trilha. A migration nova tem trigger
+`BEFORE UPDATE OR DELETE` de verdade.
+
+### Case convergido AGORA, porque era de graça
+4 valores nasciam MAIÚSCULOS contra 65 minúsculos, todos de `store-onboarding.service.ts`:
+`MARKETPLACE_STORE_ONBOARDED` · `MARKETPLACE_CATEGORY_IMPORTED` ·
+`MARKETPLACE_CATEGORY_IMPORT_UPDATED` · `contextType 'ACTOR'`.
+Como a tabela **nunca existiu, nenhum valor jamais foi gravado**: zero dado a migrar, **zero
+leitor** (2 dos 3 nem caller têm). Criar o CHECK com MAIÚSCULO cristalizaria a violação de
+§4.77/§4.78 — o mesmo erro que gerou `alert_severity` minúsculo com o runner verde.
+
+### Prova RED+GREEN em efêmera (6/6)
+```
+RED    a tabela NÃO existe · o helper NÃO propaga (a trilha some em silêncio) ✅ defeito confirmado
+GREEN① grava de verdade
+GREEN② UPDATE e DELETE recusados pelo trigger append-only
+GREEN③ action fora do vocabulário recusada (23514)
+GREEN④ o CHECK cobre os 53 actions e 16 contextos do TS  ← impede a regressão silenciosa
+GREEN⑤ vocabulário 100% minúsculo
+```
+⚠️ GREEN④ é **E2E efêmero, NÃO guard contínuo** — corrigi a frase da migration que prometia
+"guard". Quem adicionar valor ao TS precisa rodar o harness.
+
+### 🔴 O RATCHET MORDEU A DIREÇÃO (e estava certo)
+Aplicada em `unificard_dev`, o runner **FALHOU**: criar a tabela derrubou GHOST-READ 349→345 e
+GHOST-WRITE 259→258, e a regra exige **baixar o teto no MESMO commit**. Baseline regenerada e
+CEILINGS baixados. **Teto que desce por conserto é o único jeito certo de descer.**
+
+**Verificação:** typecheck BE 0 · runner **238 OK** · tabela+trigger+RLS conferidos em
+`unificard_dev` (0 linhas, começa limpa).
+
+**Do relatório dos 26, ainda ABERTOS e medidos hoje:** [1] actor_type com 10 valores/3 gerações ·
+[5] membership dupla · [7] `treasury-split` (2º motor capaz de mover dinheiro) · [8] 0194 sem trava
+· [9] zero policy ativa · [10] 17 nomes duplicados core×modules · [13] payout/payouts ·
+[14] monolitos (event.routes 3.642) · [19] StructuredLogger duplicado · [22] 132 migrations
+sequenciais + 426 timestamp · [23] `server-TESTE.ts` e `test-simple.html` · [24] 4 `.md` em
+`src/pages/`. **[20] já estava resolvido** (controllers em 501). **[26] não é erro.**
+
+---
+
+
 ## 🔁 F-EVENT-DECLARED-CONTEXT — o painel para de reperguntar como se fosse a primeira vez (2026-08-03)
 
 **Fecha o pedido original de Clayton:** *"tem coisa redundante perguntando mais de uma vez num

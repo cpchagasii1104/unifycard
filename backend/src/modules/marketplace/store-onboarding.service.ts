@@ -479,10 +479,10 @@ class StoreOnboardingService {
 
     // 5. Registrar auditoria
     await recordBusinessAuditSafely(tenantId, {
-      action: 'MARKETPLACE_STORE_ONBOARDED',
+      action: 'marketplace_store_onboarded',
       actorId: createdByActorId,
       userId: createdByUserId ?? undefined,
-      contextType: 'ACTOR',
+      contextType: 'actor',
       contextId: resolvedInput.actorId,
       metadata: {
         departmentCategoryId: deptId,

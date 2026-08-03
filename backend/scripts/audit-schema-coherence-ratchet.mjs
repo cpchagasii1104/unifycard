@@ -33,9 +33,9 @@ const CEILINGS = {
   // (schema-ghost) ao SSOT canônico (reconciliation_runs/reconciliation_ledger_discrepancies);
   // arquivo dormente allowlistado (DT-BANK-RECONCILIATION-HISTORY-DORMANT). 1º descida
   // desde que os tetos existem: WRITE 260→259 (1 INSERT), READ 355→353 (2 FROM).
-  'GHOST-WRITE-vivo': 259,      // Cond.1 escrita em tabela ausente, código vivo — o que cai primeiro
+  'GHOST-WRITE-vivo': 258,      // Cond.1 escrita em tabela ausente, código vivo — o que cai primeiro
   'GHOST-WRITE-scripts': 5,
-  'GHOST-READ-vivo': 349,  // 353→349 em 2026-08-02: getStats+getPenalties reescritos sobre tabelas REAIS (event_participants e actor_penalties eram fantasmas) — 1ª descida do teto grande por CONSERTO       // Cond.1 leitura (CORRUPTOR 323 + DEBT 32)
+  'GHOST-READ-vivo': 345,  // 349→345 em 2026-08-03: business_audit_logs MATERIALIZADA (a trilha de compliance escrevia numa tabela ausente, 40 call sites, 42P01 engolido) · 353→349 em 2026-08-02: getStats+getPenalties reescritos sobre tabelas REAIS (event_participants e actor_penalties eram fantasmas) — 1ª descida do teto grande por CONSERTO       // Cond.1 leitura (CORRUPTOR 323 + DEBT 32)
   'GHOST-READ-scripts': 27,     // (CORRUPTOR 9 + DEBT 18)
   'BOUNDARY-WRITE-vivo': 4,     // Cond.3 (bank_* write, 0) + Cond.5 (actors INSERT, 4)
   'BOUNDARY-WRITE-scripts': 327, // Cond.3 (100) + Cond.5 (227)

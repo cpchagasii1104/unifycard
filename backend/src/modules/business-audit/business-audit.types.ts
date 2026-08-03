@@ -58,14 +58,14 @@ export type BusinessAuditAction =
   | 'policy_deactivated'
   | 'policy_decision_applied'
   | 'policy_decision_revoked'
-  | 'MARKETPLACE_STORE_ONBOARDED'
-  | 'MARKETPLACE_CATEGORY_IMPORTED'
-  | 'MARKETPLACE_CATEGORY_IMPORT_UPDATED';
+  | 'marketplace_store_onboarded'
+  | 'marketplace_category_imported'
+  | 'marketplace_category_import_updated';
 
 /**
  * Tipo de contexto da ação
  */
-export type BusinessAuditContextType = 'event' | 'rfq' | 'booking' | 'service_order' | 'bundle' | 'split' | 'agreement' | 'evidence_pack' | 'escrow' | 'trust_profile' | 'ledger' | 'payout_batch' | 'payout_order' | 'invoice' | 'risk_command_center' | 'ACTOR';
+export type BusinessAuditContextType = 'event' | 'rfq' | 'booking' | 'service_order' | 'bundle' | 'split' | 'agreement' | 'evidence_pack' | 'escrow' | 'trust_profile' | 'ledger' | 'payout_batch' | 'payout_order' | 'invoice' | 'risk_command_center' | 'actor';
 
 /**
  * Log de auditoria de negócio
