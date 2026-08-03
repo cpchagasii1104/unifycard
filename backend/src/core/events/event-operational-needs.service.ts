@@ -33,20 +33,28 @@ export const eventOperationalNeedsService = {
   /**
    * Declara uma necessidade. Só grava se needConceptId ∈ template do formato do evento (SELEÇÃO das
    * sugestões, não catálogo livre). Fora do template → retorna null (rota responde 422, não grava).
-   * Idempotente: re-declarar reativa (status='open'). fulfillment_kind fixo 'service' na v1.
+   * Idempotente: re-declarar reativa (status='open').
+   *
+   * 🔴 fulfillment_kind é HERDADO do template, não fixo (F-EVENT-ORCHESTRATION-RENTABLE, 2026-08-03).
+   * Antes era o literal 'service' — correto enquanto TODO o catálogo era serviço, e QUEBRADO no
+   * instante em que o template ganhou necessidade que se resolve LOCANDO (mesma data): selecionar
+   * "Mesa de som" tentava gravar ('mesa-de-som','service'), par que NÃO existe em concept_offer_kinds,
+   * e a FK composta fk_event_op_needs_need_is_offerable RECUSAVA — erro na cara do organizador, não
+   * gravação errada em silêncio. Provado em efêmera contra o código do HEAD.
+   * Quem diz COMO a necessidade se resolve é o TEMPLATE; aqui só se copia. A FK segue sendo o
+   * enforcement: se o template disser um kind que o concept não oferta, ela continua recusando.
    */
   async add(tenantId: string, eventId: string, needConceptId: string): Promise<EventOperationalNeed | null> {
     const rows = await runQueriesWithTenant<{ need_concept_id: string; fulfillment_kind: string; status: string }>(
       tenantId,
       `INSERT INTO event_operational_needs (event_id, need_concept_id, fulfillment_kind, status)
-       SELECT $1::uuid, $2::uuid, 'service', 'open'
-        WHERE EXISTS (
-          SELECT 1 FROM events e
-          JOIN event_orchestration_template_items t
-            ON t.format_concept_id = e.event_format_concept_id AND t.need_concept_id = $2::uuid
-          WHERE e.id = $1::uuid
-        )
-       ON CONFLICT (event_id, need_concept_id) DO UPDATE SET status = 'open', updated_at = now()
+       SELECT $1::uuid, $2::uuid, t.fulfillment_kind, 'open'
+         FROM events e
+         JOIN event_orchestration_template_items t
+           ON t.format_concept_id = e.event_format_concept_id AND t.need_concept_id = $2::uuid
+        WHERE e.id = $1::uuid
+       ON CONFLICT (event_id, need_concept_id)
+         DO UPDATE SET status = 'open', fulfillment_kind = EXCLUDED.fulfillment_kind, updated_at = now()
        RETURNING need_concept_id, fulfillment_kind, status`,
       [eventId, needConceptId]
     );

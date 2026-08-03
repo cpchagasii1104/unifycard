@@ -1,5 +1,56 @@
 # REMEDIATION DT LOG
 
+## 🧪 A TRAVESSIA PEGOU UM BURACO QUE A DIREÇÃO TINHA ACABADO DE ABRIR (2026-08-03)
+
+**Contexto:** a direção sugeriu a Clayton *"parar de ampliar e atravessar o fluxo uma vez"*. Ele
+respondeu **"faça a sua sugestão"** — atravessar do jeito que a direção consegue: E2E de MONTAGEM
+completa em efêmera (`validate-pipeline-e2e-event-full-assembly.ts` +
+`run-event-full-assembly-ephemeral.ps1`), usando **os mesmos services que a tela usa**, nunca SQL
+equivalente reescrito.
+
+Cobre o vão que o E2E irmão (`event-publish-funnel`) não toca — **local, capacidade, áreas e
+orquestração**: `formato SHOW → ONDE → QUANDO → QUANTOS → ÁREAS com preço → necessidades →
+publicar → FEED vê`. **14/14.**
+
+### 🔴 O ACHADO — e ele era MEU, com 20 minutos de idade
+`event-operational-needs.service.ts` gravava `fulfillment_kind` como o **literal `'service'`**:
+```sql
+SELECT $1::uuid, $2::uuid, 'service', 'open'   -- FIXO
+```
+Correto enquanto TODO o catálogo era serviço. **Quebrado no instante em que a migration
+`20260803110000` (minha, do mesmo dia) ligou som/luz/gerador ao Show:** selecionar *"Mesa de som"*
+tentava gravar o par `('mesa-de-som','service')`, que **não existe** em `concept_offer_kinds`, e a
+FK composta `fk_event_op_needs_need_is_offerable` **RECUSAVA**.
+
+**Não era gravação errada em silêncio — era ERRO na cara do organizador.** Ou seja: eu ampliei o
+catálogo e, com isso, quebrei a seleção de qualquer necessidade locável. **Ninguém teria visto até
+Clayton clicar.**
+
+Conserto: o kind é **HERDADO do template** (`t.fulfillment_kind`), com `ON CONFLICT` atualizando
+também o kind. A FK segue sendo o enforcement — se o template declarar kind que o concept não
+oferta, ela continua recusando.
+
+### 🔴 DUAS ERRATAS DA DIREÇÃO NESTA MESMA FATIA
+1. **Vermelha R3 mal configurada.** Esperei EXCEÇÃO onde o contrato é devolver **`null`** (a ROTA
+   traduz em 422). Li *"não lançou"* como *"aceitou"* e quase reportei bug inexistente — a
+   assinatura de §2.1 outra vez. Corrigida: agora afirma `null` **E** `rowCount = 0`.
+2. **Prova vermelha impura.** Para forçar o vermelho, editei só o literal e deixei o `JOIN` novo —
+   um **híbrido que nunca existiu**, que falhou por outro motivo (`multiple rows`). Refeita
+   instalando o arquivo **exato do HEAD** (`git show HEAD:…`), e só então o erro verdadeiro
+   apareceu: violação da FK. *Prova vermelha sobre código que nunca rodou não prova nada.*
+
+### O que a travessia CONFIRMOU (não só o que quebrou)
+`② venue relido` (o conserto de hoje, provado ponta a ponta) · `⑤ soma 450/500, sobra permitida` ·
+`⑤b meia de 15001 → 7500` (arredonda a favor do consumidor) · `⑤c preço servido = MENOR área` ·
+`⑥ SHOW com 10 necessidades, 7 locáveis` · `⑨ o feed VÊ o show montado` ·
+`R1 estouro recusado` · `R2 meia errada recusada` · `⑦b serviço segue service`.
+
+**Verificação:** typecheck BE 0 · `validate:regression-guards` **238 OK** · efêmera criada e
+destruída, `unificard_dev` intocado.
+
+---
+
+
 ## 🎪 F-EVENT-ORCHESTRATION-RENTABLE — a orquestração passa a enxergar LOCAÇÃO (2026-08-03, GO de Clayton)
 
 **O pedido:** *"em Operação faltam funções, como a recepção, quem monitora a bilheteria, equipe de
