@@ -805,6 +805,17 @@ export default function EventOrganizerPanel({ eventId }: EventOrganizerPanelProp
           )}
         </p>
 
+        {/* AUTODEFESA (Clayton, 2026-08-03): com a capacidade toda distribuída, pedir mais uma área é
+            redundante — e qualquer valor digitado ali seria recusado pelo servidor
+            (SECTOR_CAPACITY_EXCEEDS_EVENT). O formulário some e diz o que fazer para reabri-lo.
+            Mesma autodefesa que o SectorBuilder do wizard já tinha; esta tela ficou para trás. */}
+        {remainingCapacity != null && remainingCapacity <= 0 ? (
+          <p className="organizer-hint organizer-hint-muted">
+            ✅ A capacidade está toda distribuída — não há lugares livres para uma nova área. Para criar
+            outra, aumente a capacidade total do evento ou reduza a de uma área existente.
+          </p>
+        ) : (
+        <>
         <div className="organizer-form-grid">
           <label className="organizer-field organizer-field-small">
             <span>Número</span>
@@ -879,6 +890,8 @@ export default function EventOrganizerPanel({ eventId }: EventOrganizerPanelProp
         >
           {creatingSector ? 'Criando…' : 'Criar setor'}
         </button>
+        </>
+        )}
       </section>
 
       {/* ============ CONTRATAR (FATIA 3B) ============ */}
