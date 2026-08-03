@@ -145,6 +145,21 @@ export interface EventDeclaration {
  * 🔴 NOTA: responsible_actor_id é alias de actor_id no domínio.
  * No banco pode continuar usando actor_id por enquanto.
  */
+/**
+ * Endereço ativo do evento (F-EVENT-VENUE-READBACK).
+ * Projeção READ-ONLY de address_assignments + addresses — não é substrato novo, não é escrita.
+ */
+export interface EventVenue {
+  postalCode: string | null;
+  street: string | null;
+  number: string | null;
+  complement: string | null;
+  cityId: string | null;
+  cityName: string | null;
+  stateCode: string | null;
+  neighborhoodDisplay: string | null;
+}
+
 export interface Event {
   id: string;
   tenantId: string;
@@ -171,6 +186,11 @@ export interface Event {
   // F-EVENT-ORGANIZER-CONTINUITY: coluna já existia, nunca era relida no agregado (mesmo padrão do
   // resto desta lista) — o painel do organizador precisa distinguir "a definir depois" de "faltando".
   locationMode?: EventLocationMode | null;
+  // F-EVENT-VENUE-READBACK: endereço ATIVO do evento, lido de address_assignments (owner_type='event',
+  // role='OPERATIONAL', is_primary, valid_until_at IS NULL) — a MESMA linha que o passo 5 do wizard
+  // grava. Só o GET por id popula (as listagens não fazem o LATERAL); ausente = não há endereço ativo,
+  // nunca "não consegui ler". A cidade é SEMPRE do Location Core, jamais texto livre.
+  venue?: EventVenue | null;
   completedAt?: string | null; // ISO 8601
   createdAt: string; // ISO 8601
   updatedAt: string; // ISO 8601

@@ -50,6 +50,16 @@ interface EventRow {
   is_all_or_nothing: boolean | null;
   location_mode: string | null;
   min_sector_price_cents: number | string | null;
+  // F-EVENT-VENUE-READBACK: só o GET por id traz estas (LEFT JOIN LATERAL); nas listagens vêm
+  // undefined — por isso opcionais. Ausência = sem endereço ativo, e o leitor NÃO deve inventar zero.
+  venue_postal_code?: string | null;
+  venue_street?: string | null;
+  venue_number?: string | null;
+  venue_complement?: string | null;
+  venue_city_id?: string | null;
+  venue_city_name?: string | null;
+  venue_state_code?: string | null;
+  venue_neighborhood_display?: string | null;
   createdAt: string;
   updatedAt: string;
   metadata: Record<string, any> | null;
@@ -1624,11 +1634,39 @@ class EventService {
         -- F-EVENT-FROM-PRICE-COHERENCE (G0): "a partir de" É o menor inteira_price_cents quando há
         -- setor (igualdade, não teto) — NÃO altera o dado gravado, só o que é SERVIDO.
         (SELECT MIN(s.inteira_price_cents) FROM event_sectors s WHERE s.event_id = events.id) AS min_sector_price_cents,
+        -- F-EVENT-VENUE-READBACK: o endereço do evento JÁ é gravado pelo passo 5 do wizard em
+        -- address_assignments (owner_type='event', role='OPERATIONAL') — ver updateEvent nesta mesma
+        -- classe. Faltava LEITURA: sem ela o painel do organizador não enxergava o que o wizard
+        -- salvou e anunciava "nenhum local declarado" sobre endereço existente (falso vermelho).
+        -- Critério de ativo IDÊNTICO ao do writer: is_primary + valid_until_at IS NULL.
+        venue.postal_code    AS venue_postal_code,
+        venue.street         AS venue_street,
+        venue.number         AS venue_number,
+        venue.complement     AS venue_complement,
+        venue.city_id        AS venue_city_id,
+        venue.city_name      AS venue_city_name,
+        venue.state_code     AS venue_state_code,
+        venue.neighborhood_display_text AS venue_neighborhood_display,
         created_at AS "createdAt",
         updated_at AS "updatedAt",
         metadata
       FROM events
-      WHERE tenant_id = $1 AND id = $2
+      LEFT JOIN LATERAL (
+        SELECT a.postal_code, a.street, a.number, a.complement, a.city_id,
+               a.neighborhood_display_text, c.name AS city_name, s.abbreviation AS state_code
+          FROM address_assignments aa
+          JOIN addresses a ON a.address_id = aa.address_id
+          LEFT JOIN cities c ON c.city_id = a.city_id
+          LEFT JOIN states s ON s.state_id = a.state_id
+         WHERE aa.owner_type = 'event'
+           AND aa.owner_id = events.id
+           AND aa.role = 'OPERATIONAL'
+           AND aa.is_primary = true
+           AND aa.valid_until_at IS NULL
+         ORDER BY aa.created_at DESC
+         LIMIT 1
+      ) venue ON true
+      WHERE events.tenant_id = $1 AND events.id = $2
       LIMIT 1
       `,
       [tenantId, eventId]
@@ -1639,7 +1677,23 @@ class EventService {
     }
 
     const event = this.toEvent(row);
-    
+
+    // F-EVENT-VENUE-READBACK: projeta o endereço ATIVO quando existe linha em address_assignments.
+    // `cityId` é a âncora: sem cidade governada não há endereço territorial (o writer exige venueCityId).
+    // Ausência do bloco = não há endereço ativo — asserção honesta, não "falha ao ler".
+    if (row.venue_city_id) {
+      event.venue = {
+        postalCode: row.venue_postal_code ?? null,
+        street: row.venue_street ?? null,
+        number: row.venue_number ?? null,
+        complement: row.venue_complement ?? null,
+        cityId: row.venue_city_id,
+        cityName: row.venue_city_name ?? null,
+        stateCode: row.venue_state_code ?? null,
+        neighborhoodDisplay: row.venue_neighborhood_display ?? null,
+      };
+    }
+
     // Recuperar declaration do metadata se existir
     // 🔴 REGRA CANÔNICA: Recuperar mesmo se declaredAt for null (draft)
     // Time windows podem existir em draft sem declaration completa

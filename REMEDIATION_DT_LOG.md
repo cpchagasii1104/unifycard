@@ -1,5 +1,64 @@
 # REMEDIATION DT LOG
 
+## 📍 F-EVENT-VENUE-READBACK — o painel para de negar o endereço que o wizard salvou (2026-08-03, GO de Clayton)
+
+**O sintoma, reproduzido por Clayton:** preencheu o CEP `81920410` no passo 5 do wizard, viu
+*"📍 Curitiba / PR · Sítio Cercado"* na tela, terminou o fluxo. Abriu o painel do organizador:
+**"🔴 Local · Faltando · Nenhum local declarado ainda"**, com um SEGUNDO formulário de endereço,
+vazio.
+
+**A causa — provada no banco, não deduzida.** O endereço estava salvo, ativo e correto:
+```sql
+SELECT aa.owner_id, aa.role, aa.is_primary, aa.valid_until_at, a.postal_code, c.name FROM address_assignments aa
+  JOIN addresses a USING(address_id) LEFT JOIN cities c USING(city_id) WHERE aa.owner_type='event' ...
+→ 11c4b4f0… | OPERATIONAL | primary=t | valid_until_at NULL | 81920410 | Curitiba
+```
+Não eram dois substratos concorrentes de escrita. Era **um substrato canônico bem escrito**
+(`address_assignments`, gravado pelo passo 5) + **um sinal fraco paralelo**
+(`metadata.location_name`, que SÓ o painel escreve e o wizard nunca pede) + **um leitor que
+consultava só o fraco**. Sem endpoint de leitura do forte, o painel derivava "faltando" de uma
+ausência que não significava ausência.
+
+🔴 **Autoria assumida:** o painel saiu de fatia conduzida pela DIREÇÃO
+(F-EVENT-ORGANIZER-CONTINUITY), e eu registrei na época *"endereço completo não é reconferido
+(sem endpoint)"*. Registrar a limitação não a torna inofensiva: a derivação escolhida produz
+**falso vermelho no caminho feliz** — manda o usuário refazer trabalho já feito, que é pior que
+campo vazio. **Ausência de leitor não autoriza afirmar ausência de dado** (mesma família de
+`zero é afirmação; desconhecido é a verdade`, CLAUDE.md §3.2).
+
+**O conserto (3 arquivos, backend ADITIVO, zero migration, Δbank=0):**
+1. `event.service.ts` `getEvent` — `LEFT JOIN LATERAL` do endereço ativo, critério **idêntico ao
+   do writer** (`role='OPERATIONAL' AND is_primary AND valid_until_at IS NULL`). Mesmo padrão da
+   subquery `min_sector_price_cents` que já vivia na query. `venue` só é populado quando há
+   `cityId` — ausência é asserção honesta, nunca "falhei ao ler".
+2. `event.types.ts` — `EventVenue` como projeção READ-ONLY. Não é substrato novo, não escreve.
+3. `EventOrganizerPanel.tsx` — a dimensão Local passa a ler **do forte para o fraco**
+   (endereço ativo → nome declarado → nada), e o formulário **abre pré-preenchido**, a mesma
+   cortesia que a seção Agenda já fazia com a janela candidata. A assimetria entre as duas seções
+   da MESMA tela era o defeito de fundo.
+4. Texto de tela que virou mentira (*"o endereço já gravado não é reexibido aqui"*) **corrigido no
+   mesmo commit** — comentário que mente é correção obrigatória (CLAUDE.md §6).
+
+⚠️ **`states` NÃO tem coluna `code`** — tem `abbreviation`. Peguei escrevendo `s.code` por
+suposição; o `information_schema` derrubou antes de virar erro em runtime. *Leia a coluna, não o
+nome que você esperava.*
+
+**Verificação:** query provada contra `unificard_dev` com o evento REAL de Clayton (devolve
+`81920410 · Curitiba · Sítio Cercado`) · typecheck BE 0 · FE 0 · `validate:regression-guards`
+**238 COMMANDS OK**.
+
+**Fica registrado, não consertado (pedido de Clayton no mesmo dia — análise de redundância do
+fluxo):** o wizard e o painel perguntam a MESMA coisa em 4 dimensões — acesso/custo (passo 3 ×
+"Acesso e vaquinha"), preço (passo 3 × Setores), capacidade (passo 3 × meta × Setores) e local
+(passo 5 × painel, agora resolvido). A distinção legítima é *declaração de intenção* (wizard) ×
+*confirmação operacional* (painel) — mas **nada na tela diz isso**, e o painel não mostra o que
+foi declarado antes. Próxima fatia (F2): cada campo repetido exibe a declaração de origem.
+E **F3 — a ORDEM do fluxo (território antes ou depois?) — é decisão de Clayton, não tocada**;
+o desenho anterior defendia CEP primeiro (ver entrada dos wizards mortos, item 3).
+
+---
+
+
 ## 🧹 OS WIZARDS MORTOS DE EVENTO CAEM — 20 arquivos, com a intenção registrada como herança (2026-08-03, GO de Clayton: "vamos apagar o que está morto")
 
 **Origem:** Clayton suspeitou de *"dois caminhos de criação para o mesmo objetivo"* (`/events/new`

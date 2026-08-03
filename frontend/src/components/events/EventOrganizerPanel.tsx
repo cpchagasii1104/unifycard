@@ -53,6 +53,19 @@ interface OrganizerEventView {
   fundingDeadlineAt: string | null;
   isAllOrNothing: boolean;
   locationMode: 'fixed_place' | 'hybrid' | 'to_be_defined' | null;
+  // F-EVENT-VENUE-READBACK: endereço ATIVO projetado pelo GET /events/:id (address_assignments,
+  // a MESMA linha que o passo 5 do wizard grava). Antes disto o painel só via metadata.location_name
+  // — um sinal que SÓ ele escreve — e anunciava "nenhum local declarado" sobre endereço existente.
+  venue: {
+    postalCode: string | null;
+    street: string | null;
+    number: string | null;
+    complement: string | null;
+    cityId: string | null;
+    cityName: string | null;
+    stateCode: string | null;
+    neighborhoodDisplay: string | null;
+  } | null;
   metadata: Record<string, unknown> | null;
 }
 
@@ -190,6 +203,21 @@ export default function EventOrganizerPanel({ eventId }: EventOrganizerPanelProp
           declaration?: { desired_time_windows?: Array<{ start_datetime?: string; end_datetime?: string }> };
         };
         setLocationName(typeof meta.location_name === 'string' ? meta.location_name : '');
+        // F-EVENT-VENUE-READBACK: o formulário abre com o que JÁ foi salvo — mesma cortesia que a
+        // Agenda já fazia com a janela candidata. Sem isto o organizador redigita um endereço que
+        // o wizard já gravou, e não tem como saber se está confirmando ou contradizendo.
+        if (ev.venue) {
+          setVenueCep(ev.venue.postalCode ?? '');
+          setVenueCityId(ev.venue.cityId);
+          setVenueCityLabel(
+            [ev.venue.cityName, ev.venue.stateCode].filter(Boolean).join(' / ') +
+              (ev.venue.neighborhoodDisplay ? ` · ${ev.venue.neighborhoodDisplay}` : '')
+          );
+          setVenueNeighborhoodDisplay(ev.venue.neighborhoodDisplay);
+          setVenueStreet(ev.venue.street ?? '');
+          setVenueNumber(ev.venue.number ?? '');
+          setVenueComplement(ev.venue.complement ?? '');
+        }
         // Agenda: se já há data CONFIRMADA (coluna), ela manda. Senão, pré-preenche da primeira
         // janela CANDIDATA declarada no wizard — o organizador confirma, não redigita do zero.
         if (ev.datetimeStart) {
@@ -235,12 +263,22 @@ export default function EventOrganizerPanel({ eventId }: EventOrganizerPanelProp
     };
     const items: ProgressItem[] = [];
 
-    // 1. LOCAL — "endereço completo" não é reconferido aqui (sem endpoint, ver aviso na seção Local);
-    // o sinal disponível é o nome declarado + o modo escolhido.
+    // 1. LOCAL — 3 sinais, do FORTE para o fraco (F-EVENT-VENUE-READBACK).
+    // O forte é o endereço ATIVO em address_assignments, gravado pelo passo 5 do wizard e agora
+    // RELIDO pelo GET. O fraco é metadata.location_name, que só ESTA tela escreve. Antes, só o
+    // fraco era consultado: quem preenchia o CEP no wizard via "Nenhum local declarado" sobre um
+    // endereço salvo e correto — um falso vermelho manda refazer trabalho já feito.
+    const declaredName = typeof meta.location_name === 'string' ? meta.location_name.trim() : '';
     if (event.locationMode === 'to_be_defined') {
       items.push({ dimension: 'Local', category: 'aguardando', label: 'Você decidiu definir depois — não é falta, é adiamento seu' });
-    } else if (typeof meta.location_name === 'string' && meta.location_name.trim()) {
-      items.push({ dimension: 'Local', category: 'pronto', label: `Nome declarado: "${meta.location_name}" (endereço detalhado não é reconferido nesta tela)` });
+    } else if (event.venue?.cityId) {
+      const onde = [event.venue.cityName, event.venue.stateCode].filter(Boolean).join(' / ');
+      const bairro = event.venue.neighborhoodDisplay ? ` · ${event.venue.neighborhoodDisplay}` : '';
+      const cep = event.venue.postalCode ? ` (CEP ${event.venue.postalCode})` : '';
+      const nome = declaredName ? `"${declaredName}" — ` : '';
+      items.push({ dimension: 'Local', category: 'pronto', label: `${nome}${onde}${bairro}${cep}` });
+    } else if (declaredName) {
+      items.push({ dimension: 'Local', category: 'faltando', label: `Nome declarado: "${declaredName}" — falta o endereço (CEP) para resolver a região` });
     } else {
       items.push({ dimension: 'Local', category: 'faltando', label: 'Nenhum local declarado ainda' });
     }
@@ -537,7 +575,7 @@ export default function EventOrganizerPanel({ eventId }: EventOrganizerPanelProp
         )}
         <p className="organizer-hint organizer-hint-muted">
           A cidade vem do Location Core via CEP (verdade territorial) — sem CEP resolvido, só o nome do local é salvo.
-          O endereço já gravado não é reexibido aqui (leitura do endereço do evento ainda não tem endpoint).
+          Os campos abrem com o endereço já gravado (inclusive o que você informou ao criar o evento); salvar substitui o anterior.
         </p>
         <button
           className="organizer-button organizer-button-primary"
