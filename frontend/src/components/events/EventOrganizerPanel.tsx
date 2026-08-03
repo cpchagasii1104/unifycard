@@ -229,6 +229,22 @@ export default function EventOrganizerPanel({ eventId }: EventOrganizerPanelProp
           setVenueStreet(ev.venue.street ?? '');
           setVenueNumber(ev.venue.number ?? '');
           setVenueComplement(ev.venue.complement ?? '');
+
+          // O CEP pré-preenchido NÃO dispara onVenueCepChange (que só roda no onChange do campo), e
+          // o passo "Onde" do wizard grava apenas CEP+cidade+bairro — nunca a RUA. Resultado: o
+          // organizador via o CEP certo com o logradouro vazio e precisava redigitar o mesmo CEP
+          // para o resolver rodar. Aqui completamos SÓ o que falta, uma vez.
+          // ⚠️ Não sobrescreve cidade/bairro: esses vieram do backend (verdade gravada); o resolver
+          // é fonte de PREENCHIMENTO do que nunca foi gravado, não autoridade sobre o que já existe.
+          const cepDigits = (ev.venue.postalCode ?? '').replace(/\D/g, '');
+          if (cepDigits.length === 8 && !ev.venue.street) {
+            try {
+              const r = await resolveCep(cepDigits);
+              if (!cancelled && r?.resolved && r.street) setVenueStreet(r.street);
+            } catch {
+              // Falha do resolver não pode derrubar o painel: o organizador digita a rua à mão.
+            }
+          }
         }
         // Agenda: se já há data CONFIRMADA (coluna), ela manda. Senão, pré-preenche da primeira
         // janela CANDIDATA declarada no wizard — o organizador confirma, não redigita do zero.
