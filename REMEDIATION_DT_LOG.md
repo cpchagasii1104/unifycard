@@ -62,6 +62,24 @@ Enfiar `'sales_channel'` no vocabulário de ofertabilidade seria misturar relaç
 natureza de oferta. Frente própria, não decidida.
 **O catálogo do show grande** (recepção, bilheteria, saúde, banheiros, palco, som) é decisão de
 PRODUTO de Clayton — o substrato agora aceita, os itens ele dita ou aprova.
+
+### 2ª fatia — `20260803110000`: SHOW vai de 3 para 10 necessidades, sem criar conceito nenhum
+O inventário mostrou que **som, luz, energia e cobertura JÁ estavam cadastrados** como `rentable` —
+nunca ligados a formato de evento algum. Ligados ao Show: `mesa-de-som` · `caixa-de-som` ·
+`microfone` (obrigatórios) · `monitor-de-palco` · `torre-de-iluminacao` · `gerador` · `tenda`.
+🔴 **Identidade por SLUG, nunca por UUID literal:** `concept_id` é `uuid_generate_v4()` por
+ambiente — UUID escrito à mão casaria em `unificard_dev` e falharia em qualquer outro banco.
+⚠️ **O risco desta migration era o SILÊNCIO:** `INSERT ... SELECT` com slug errado insere **zero
+linhas sem erro**. Por isso o slug do formato e os 7 concepts foram CONTADOS antes (`1` e `7`), e o
+resultado conferido depois pela **query real da tela** — não pela mensagem "executado com sucesso".
+**NÃO criados** (decisão de produto pendente): Palco · Banheiro químico · Grade de contenção ·
+Recepção · Bilheteria · Brigadista/ambulância · Produção.
+
+**Sugestão da direção registrada:** parar de ampliar e ATRAVESSAR o fluxo uma vez. Clayton corrigiu
+a leitura de que "0 eventos publicados" fosse sintoma — em sistema sem usuários esse número não
+informa nada. O argumento que fica de pé é outro: **não há informação nenhuma sobre o fluxo real**,
+e ela não aparece por análise. Som como 3 linhas separadas (mesa/caixa/microfone) é justamente o
+tipo de decisão que só se resolve vendo na tela.
 **Conectar seleção → contratação** segue FACTUAL: marcar necessidade não dispara RFQ/cotação/
 contrato. Encosta em dinheiro ⇒ porta própria.
 
