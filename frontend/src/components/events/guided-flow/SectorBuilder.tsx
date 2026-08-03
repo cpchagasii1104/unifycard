@@ -38,6 +38,26 @@ function centsToReais(cents: number): string {
   return (cents / 100).toFixed(2).replace('.', ',');
 }
 
+/**
+ * Traduz os códigos NOMEADOS que o servidor devolve (event-sector.service/repository) em orientação.
+ * Código desconhecido volta CRU de propósito: mensagem genérica esconderia um defeito novo.
+ */
+function orientFromServerError(err: unknown): string {
+  const raw = err instanceof Error ? err.message : String(err);
+  if (raw.includes('SECTOR_CAPACITY_EXCEEDS_EVENT')) {
+    return 'Esta área não cabe: a soma das áreas passaria da capacidade total do evento. Reduza a quantidade desta área, ou volte e aumente o total.';
+  }
+  if (raw.includes('SECTOR_MEIA_PRICE_NOT_HALF')) {
+    return 'A meia-entrada precisa ser exatamente a metade da inteira (Lei 12.933/2013). Ela é calculada automaticamente — se este erro apareceu, avise.';
+  }
+  if (raw.includes('SECTOR_MEIA_QUOTA_BELOW_LEGAL_FLOOR')) {
+    return 'A cota de meia-entrada não pode ser menor que 40% das vagas (piso legal, Lei 12.933/2013).';
+  }
+  if (raw.includes('SECTOR_INVALID_CAPACITY')) return 'A quantidade da área precisa ser um número inteiro maior que zero.';
+  if (raw.includes('SECTOR_INVALID_NAME')) return 'Dê um nome à área.';
+  return raw;
+}
+
 export default function SectorBuilder({ eventId, maxAttendees }: SectorBuilderProps) {
   const [sectors, setSectors] = useState<EventSector[]>([]);
   const [name, setName] = useState('');
@@ -91,8 +111,10 @@ export default function SectorBuilder({ eventId, maxAttendees }: SectorBuilderPr
       setName(''); setCapacity(''); setInteira(''); setQuotaPct('40');
       await load();
     } catch (err) {
-      // O servidor é quem recusa; mostramos a razão dele, não uma inventada aqui.
-      setError(err instanceof Error ? err.message : 'Não foi possível criar a área.');
+      // O servidor é quem recusa. Traduzimos os códigos NOMEADOS dele para orientação em pt-BR —
+      // sem inventar recusa própria: qualquer código desconhecido passa CRU, para o defeito
+      // aparecer em vez de virar "erro genérico" que esconde a causa.
+      setError(orientFromServerError(err));
     } finally {
       setSaving(false);
     }
@@ -117,10 +139,17 @@ export default function SectorBuilder({ eventId, maxAttendees }: SectorBuilderPr
         </ul>
       )}
 
+      {/* AVISA E ORIENTA (pedido de Clayton, 2026-08-03). O estado "completo" e o "sobra" não são
+          erro — sobra pode ser legítima (cortesia, staff, imprensa). Por isso orientam, não bloqueiam:
+          bloquear engessa, calar esconde. Quem RECUSA é o servidor, e só quando a soma EXCEDE. */}
       <p className="step-hint">
-        {total != null && remaining != null
-          ? `${used} de ${total} lugares distribuídos · restam ${remaining}`
-          : `${used} lugares distribuídos · você não declarou um total, então nada limita as áreas`}
+        {total == null || remaining == null
+          ? `${used} lugares distribuídos · você não declarou um total, então nada limita as áreas`
+          : remaining === 0
+            ? `✅ ${used} de ${total} lugares distribuídos — a capacidade está toda coberta por áreas.`
+            : remaining > 0
+              ? `${used} de ${total} lugares distribuídos · restam ${remaining} sem área. Você pode deixar assim (cortesia, staff, imprensa) ou criar outra área para cobrir.`
+              : `⚠️ As áreas somam ${used}, acima do total de ${total}. Aumente a capacidade total ou reduza uma área — o servidor recusa salvar assim.`}
       </p>
 
       <div className="option-grid">
