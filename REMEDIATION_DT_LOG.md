@@ -1,5 +1,78 @@
 # REMEDIATION DT LOG
 
+## 🚀 O TRABALHO SAIU DO DISCO — 2567 commits no GitHub, e a ERRATA que custou 40 minutos (2026-08-02, GO de Clayton)
+
+**Estado:** `rescue-structural` @ `49546eb6c` — local == `origin/rescue-structural`, 0 pendentes.
+Até hoje **110 commits do maior arco** (6 migrations, 2 emendas de lei, 1 selo) viviam num disco só.
+
+### O bloqueio
+`estouaprendendo.md`, **771.871.250 bytes (736 MB)**, num único commit de 27/abr (`82c73a7ba`).
+O GitHub recusa >100 MB no `pre-receive`. O arquivo já não existia na árvore havia meses — mas
+blob na história viaja junto com a linhagem.
+
+### 🔴 ERRATA DA DIREÇÃO — a assinatura de §2.1 de novo, e desta vez eu tinha ACABADO de escrevê-la
+**`git log -- <arquivo>` NÃO lista "os commits que CONTÊM o arquivo". Lista "os commits que o
+MUDARAM" — e isso INCLUI o commit que o APAGOU.**
+Os 4 que ele devolveu, e a verdade medida depois, um por um:
+
+| commit | o que `git log --` sugeriu | o que `git ls-tree` PROVOU |
+|---|---|---|
+| `eff30dea6` 26/abr | contém o blob | contém — **57 KB** (inofensivo) |
+| `82c73a7ba` 27/abr | contém o blob | contém — **736 MB** ← o único culpado |
+| `cadd09a57` 30/abr | contém o blob | contém — **65 KB** (inofensivo) |
+| `39ea70623` 22/mai | contém o blob | **VAZIO — este REMOVEU o arquivo** |
+
+Ancorei o range no mais recente (`39ea70623^..HEAD`) por lê-lo como "o último que tem". Ele era o
+que **deixou de ter**. Resultado: **25 minutos reescrevendo 2079 commits que nunca tiveram o
+problema**, encerrados por `WARNING: Ref 'refs/heads/rescue-structural' is unchanged` — o git
+avisando, no fim, que eu havia filtrado o vazio.
+
+**A checagem de uma linha que teria evitado tudo, obrigatória antes de qualquer reescrita:**
+```
+git ls-tree <commit> -- <arquivo>      # VAZIO = o arquivo NÃO está nele
+git log --oneline --all --full-history --find-object=<sha_do_blob>
+```
+`--find-object` responde a pergunta certa (*"quem carrega ESTE blob"*); `git log -- path` responde
+outra. E `git log -- path` **sem `--full-history` ainda simplifica a história** — duas armadilhas
+empilhadas no mesmo comando.
+
+### O método que funcionou — e por que o óbvio não servia
+`git filter-branch` é a ferramenta canônica e **falhou 3 vezes**, nenhuma por estar errada:
+1. alvo errado (a errata acima) — 25 min, efeito zero
+2. alvo certo, **morta aos 46%** — o ambiente não sustenta processo de 28 min
+3. abortou em 54 s com `could not write rewritten commit` — tropeçou no `.git-rewrite/` **travado**
+   que a 2ª deixou (`Device or resource busy` foi a pista); a 4ª morreu aos 953/2348
+
+`git filter-repo` exigiria instalar Python (ausente na máquina). A saída foi **`fast-export` →
+filtro → `fast-import`**, que é o que o filter-repo faz por dentro:
+
+```
+git fast-export --no-data --reencode=no --signed-tags=strip --tag-of-filtered-object=drop <ref> \
+  | node strip-path-filter.mjs <path> refs/heads/<origem> refs/heads/<destino> \
+  | git fast-import --quiet
+```
+**5,2 segundos** para 2567 commits — contra 28 minutos. `--no-data` é o segredo: os blobs viajam
+por SHA, não por conteúdo, então o de 736 MB nunca entra no fluxo.
+
+⚠️ **O filtro NÃO pode ser linha-a-linha.** O formato tem blocos `data <n>` cujos n bytes seguintes
+são literais (as mensagens de commit); um `grep -v` ingênuo mutilaria qualquer mensagem que citasse
+o nome do arquivo. O filtro respeita os blocos e **redireciona a ref** — o branch original fica
+intocado até a verificação passar.
+
+### As 6 provas exigidas antes de mover o branch (todas verdes)
+`git diff` original×novo **vazio** (conteúdo idêntico) · **2567 = 2567** commits · MD5 de
+`autor|email|data|assunto` dos 2567 **idêntico** (nada de autoria se perdeu) · path **ausente** do
+`--full-history` do branch novo · `git fsck` limpo · maior blob agora **19 MB**.
+Rede de segurança: tag **`pre-blob-rewrite-2026-08-02` → `3e15b08b9`** (o estado antigo, local).
+
+### O que sobra registrado
+`node_modules/` está na história (libvips 19 MB, esbuild 11 MB). **Não bloqueia** — nenhum passa de
+100 MB — mas é peso permanente: 34.479 objetos, ~3,6 GB descomprimidos no primeiro envio.
+Se um dia a limpeza for decidida, o método acima resolve em segundos.
+
+---
+
+
 ## 🏁 F-ESCROW-RETIREMENT ENCERRADA — o 2º ledger está aposentado, com herança e guarda (2026-08-02, 4 GOs de Clayton)
 
 A frente que o roteador pedia desde o primeiro dia (*"a resposta quase sempre é: já existe no
