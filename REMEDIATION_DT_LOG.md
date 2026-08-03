@@ -1,5 +1,63 @@
 # REMEDIATION DT LOG
 
+## 🔢 A ORDEM DAS PERGUNTAS DO WIZARD — quantidade ANTES de preço (2026-08-03, decisão de Clayton)
+
+**A decisão, na palavra dele:** *"nesta parte já devia perguntar antes a quantidade, aí descobrindo
+a quantidade (total), descobrir se haverá setores diferentes"* · *"o wizard em si já tem que
+oferecer o passo a passo seguindo uma lógica, mas o frontend só guia o usuário, a verdade sempre
+fica no backend"*.
+
+**Isto não é preferência de UX — é a causa-raiz de um bug que JÁ MORDEU.** O comentário em
+`checkout-financial-firewall.ts:37` registra o evento real `948b0278`: valor anunciado cru
+**R$50**, menor setor criado depois **R$80** — o evento anunciava um preço e cobrava outro.
+`F-EVENT-FROM-PRICE-COHERENCE` (2026-08-01, decisão B de Clayton) fechou o buraco **na vitrine**
+(passa a servir o menor setor por IGUALDADE, com E2E 5/5). A **ordem da pergunta**, que produz o
+conflito, nunca foi tocada — até hoje.
+
+**O que estava errado, medido:**
+· `grep -rln "sector\|setor" frontend/src/components/events/guided-flow/` → **nenhum** dos 8 passos
+  menciona setor. O organizador não é sequer informado de que áreas com preços diferentes existem.
+· O passo pedia **"Valor anunciado (R$)"** e só DEPOIS **"Capacidade"** — o preço de um ingresso
+  antes de saber quantos ingressos existem.
+
+**A lei já existia no backend, e ela dá razão à ordem nova** (`event-sector.service.ts`):
+```
+:8   "SUM(capacity dos setores) reconcilia A events.max_attendees (SSOT), NUNCA ao lado dela"
+:107 "SUM(capacity já persistidos) + a nova capacity NÃO pode exceder events.max_attendees"
+:109 "max_attendees NULL = sem teto declarado (nada a reconciliar)"
+```
+A capacidade total **já é** a fonte da verdade que limita os setores. Só o wizard perguntava ao
+contrário — a lógica não estava faltando, estava invertida na tela.
+
+**Ordem nova (`Step2Description.tsx`):** ① quantidade TOTAL → ② mínimo → ③ tem custo? → ④ **o preço
+é igual para todos?** (a pergunta que não existia) → ⑤a valor único · ⑤b encaminha às áreas, sem
+anunciar valor nenhum.
+
+🔴 **O que NÃO foi feito, de propósito — e é a aplicação direta da lição do `location_name`:**
+a escolha *único × por-área* **NÃO é persistida** em campo nenhum. Seria um SEGUNDO SINAL sobre um
+fato que já tem dono (existir linha em `event_sectors`), exatamente o defeito que fez o painel
+anunciar "nenhum local declarado" sobre endereço existente. A escolha é **navegação local**,
+inicializada DERIVANDO do único dado real (já haver valor anunciado ⇒ preço único). Migalha §7.1
+gravada no topo do arquivo com o NÃO e o EM VEZ.
+
+**Texto de tela corrigido antes de commitar:** eu havia escrito *"a soma precisa caber aqui — quem
+confere é o servidor"*. O `:109` prova que **`max_attendees` NULL desliga a reconciliação** — a
+frase teria mentido no caso vazio. Reescrita para dizer que sem teto nada limita as áreas.
+
+⚠️ **Custo autoinfligido, registrado:** o `Edit` no Windows converteu o arquivo inteiro para CRLF
+(era `i/lf`), e `git diff --check` acusou trailing whitespace em **152 linhas**. Convertido de volta
+com script pontual **neste arquivo só** (nunca varredura — ver o churn de 533 linhas de 2026-08-02).
+Diff real: 78 inserções, 12 deleções.
+
+**Verificação:** typecheck FE 0 · `validate:regression-guards` **238 COMMANDS OK** ·
+`git ls-files --eol` = `i/lf w/lf`.
+
+**Aberto, sem GO:** os setores nascerem DENTRO do wizard (hoje só existem no painel) — é a fatia
+grande, bifurcação nomeada e não decidida.
+
+---
+
+
 ## 📍 F-EVENT-VENUE-READBACK — o painel para de negar o endereço que o wizard salvou (2026-08-03, GO de Clayton)
 
 **O sintoma, reproduzido por Clayton:** preencheu o CEP `81920410` no passo 5 do wizard, viu
