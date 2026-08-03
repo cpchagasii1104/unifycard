@@ -682,25 +682,38 @@ export default function EventOrganizerPanel({ eventId }: EventOrganizerPanelProp
             ⚠️ NÃO exibimos "você declarou R$X": ticketPriceCents SERVIDO é o MENOR setor quando há
             área (F-EVENT-FROM-PRICE-COHERENCE), não o valor cru — afirmá-lo como declaração seria
             mentira. Só se afirma o que o payload sustenta. */}
-        <p className="organizer-hint organizer-hint-muted">
-          Você declarou ao criar o evento:{' '}
-          <strong>{accessTypeLabel(event.eventAccessType)}</strong>
-          {event.maxAttendees != null && <> · até <strong>{event.maxAttendees}</strong> pessoas</>}
-          {event.minAttendees != null && <> · mínimo <strong>{event.minAttendees}</strong></>}
-          . Os campos abrem com esses valores; salvar substitui.
-        </p>
+        {/* F-EVENT-ACCESS-DERIVED (Clayton, 2026-08-03): "não entendi a lógica… depois que eu já
+            defini quantidade, setores, valores por setor".
+            Ele está certo: com ÁREA COM PREÇO existindo, perguntar "tipo de acesso" é pedir em forma
+            VAGA o que já está detalhado logo abaixo. O tipo passa a ser LEITURA DERIVADA do fato
+            (existe setor com preço ⇒ é pago) e só volta a ser editável quando não há nenhuma área.
+            ⚠️ A derivação é de APRESENTAÇÃO. A coluna events.event_access_type continua sendo a
+            verdade gravada; esta tela não a reescreve sozinha. */}
+        {sectors.length > 0 ? (
+          <p className="organizer-hint">
+            <strong>Tipo de acesso: {accessTypeLabel(event.eventAccessType)}</strong> — derivado das{' '}
+            {sectors.length} área(s) com preço definidas abaixo. Para mudar, altere ou remova as áreas.
+          </p>
+        ) : (
+          <div className="organizer-form-grid">
+            <label className="organizer-field">
+              <span>Tipo de acesso</span>
+              <select value={accessType} onChange={(e) => setAccessType(e.target.value as typeof accessType)}>
+                <option value="">— não definido —</option>
+                <option value="gratuito">Gratuito</option>
+                <option value="pago">Pago</option>
+                <option value="contribuicao_opcional">Contribuição opcional</option>
+              </select>
+            </label>
+          </div>
+        )}
+
+        {/* A "meta/mínimo" NÃO é capacidade nem acesso: é o gatilho do tudo-ou-nada — o número abaixo
+            do qual o evento NÃO acontece. Estava sob o mesmo título de "tipo de acesso", o que fazia
+            parecer repetição do que o wizard já perguntou. Nome e explicação agora dizem o que é. */}
         <div className="organizer-form-grid">
           <label className="organizer-field">
-            <span>Tipo de acesso</span>
-            <select value={accessType} onChange={(e) => setAccessType(e.target.value as typeof accessType)}>
-              <option value="">— não definido —</option>
-              <option value="gratuito">Gratuito</option>
-              <option value="pago">Pago</option>
-              <option value="contribuicao_opcional">Contribuição opcional</option>
-            </select>
-          </label>
-          <label className="organizer-field">
-            <span>Meta / mínimo de participantes</span>
+            <span>O evento só acontece se ao menos … pessoas confirmarem</span>
             <input
               type="number"
               min={1}
