@@ -1,5 +1,52 @@
 # REMEDIATION DT LOG
 
+## 🔧 Dívida #1 do cartório abaixo fechada — rate limiter do E2E de nascimento (2026-08-04)
+
+**Origem:** Clayton pediu para começar a fechar as 3 dívidas nomeadas na entrada logo abaixo,
+começando pela do rate limiter. Corrigido nesta fatia; as outras duas (verificação de email/
+telefone, `Register.tsx` mais restritivo que a decisão) seguem em aberto, sem tocar.
+
+### A correção
+`validate-pipeline-e2e-c1-birth-minimum-atomic-organic.ts` faz 6+ `POST /auth/register` em
+sequência, no mesmo processo/IP, em segundos — e `auth-rate-limit.service.ts` limita
+`auth.register` a 3/minuto por IP. A partir da 4ª chamada o próprio sistema devolvia `429` e
+derrubava o teste. A válvula já existia e nunca tinha sido usada aqui: `RATE_LIMIT_AUTH_REGISTER`
+(env var, lida em `auth-rate-limit.service.ts:42`). Setei `process.env.RATE_LIMIT_AUTH_REGISTER
+??= '50'` como primeira linha de `main()` — ANTES de `buildApp()`, que só importa `auth.routes`
+(e com ele o rate limiter) dinamicamente, então o módulo nasce já com o teto de teste. Processo
+próprio do script: não toca o servidor dev (`npm run dev`, processo separado) nem o limite de
+produção (3/min segue o default fora dali).
+
+**Por que 50, não "sem limite":** continua sendo um rate limiter de verdade dentro do teste — só
+parou de confundir "seis chamadas de um E2E legítimo" com abuso. Se o teste crescer bem além de
+50 chamadas, ele volta a falhar honestamente, não silenciosamente.
+
+**Verificado, antes e depois, mesma corrida:**
+```
+antes: RESULTADO: 26/29 verdes — falhas: H1, N1, Z2
+depois: RESULTADO: 27/29 verdes — falhas: N1, Z2 (H1 e B5 agora verdes, reproduzido 2x)
+```
+
+### 🟡 Achado novo, ao corrigir — N1/Z2 não têm relação com rate limit
+
+Removido o ruído do 429, `N1` e `Z2` continuam falhando por um motivo TOTALMENTE diferente:
+ambos fazem `SELECT ... WHERE slug = 'user-cpchagasii-1780115896426'` — um tenant histórico
+específico, hardcoded, do modelo ANTIGO "tenant-per-signup" (`user-${timestamp}`), que este
+mesmo E2E prova estar proibido (`INV2`). Medido agora em `unificard_dev`: **esse tenant não
+existe** — a tabela `tenants` tem só `unificard-inicial` e `system-tenant`. Não fui eu nem esta
+sessão que apagou algo: a consolidação para tenant único (que este E2E protege) evidentemente já
+varreu os tenants antigos do modelo per-signup faz tempo, e o teste nunca foi atualizado para não
+depender mais da existência de UM tenant específico daquele modelo extinto. **Não toquei** — são
+duas asserções (não uma) que decidem "o que deveria existir agora" numa arquitetura que já mudou;
+isso é julgamento sobre o teste, não mecânica de configuração como o rate limit foi. Fica
+registrado para quando alguém decidir o que N1/Z2 devem checar na realidade pós-consolidação.
+
+**Verificação desta fatia:** typecheck BE 0 · `git diff --check` limpo · `git ls-files --eol` =
+`i/lf w/lf` · script rodado 2x direto contra `unificard_dev` (self-cleaning por MARKER, já era o
+desenho do script) · nenhuma escrita fora do que o próprio E2E já fazia.
+
+---
+
 ## 🧾 As 6 perguntas do "Ricardo" — cadastro PF verificado ponta a ponta (2026-08-04)
 
 **Origem:** Clayton colou o questionário que outra instância (persona "Ricardo, 35 anos, quer se
@@ -79,17 +126,11 @@ exatamente com a lógica lida no código.
 
 ### 🟡 Dívida nomeada — encontrada, NÃO corrigida nesta fatia
 
-1. **`validate-pipeline-e2e-c1-birth-minimum-atomic-organic.ts` está incompatível com o rate
-   limiter de registro.** `auth-rate-limit.service.ts:41-44`: `auth.register` = 3/minuto por IP,
-   sem exceção para teste/dev. O script faz 6+ `POST /auth/register` em sequência no mesmo
-   processo/IP — a partir da 4ª chamada (`H1`, teste de referral inválido) o próprio rate limit
-   devolve `429` e derruba o teste (`H1`, e em cascata `N1`/`Z2`, contagens que dependem de
-   registros que nunca aconteceram). **Não é causado por esta fatia** — confirmado via
-   `git log -S` que o rate limiter (`c4c45ec77`) é anterior ao último toque neste E2E
-   (`ed6196a89`), ou seja, o teste já nasceu — ou ficou — incompatível com o próprio limite que o
-   sistema aplica. Preso: ou o E2E precisa de uma exceção de rate-limit para teste (env var já
-   existe, `RATE_LIMIT_AUTH_REGISTER`, só não está setada em ambiente de teste), ou o teste precisa
-   espaçar as chamadas. Não decidi qual — é escopo de quem mexer nesse E2E de novo.
+1. ✅ **RESOLVIDO 2026-08-04** — `validate-pipeline-e2e-c1-birth-minimum-atomic-organic.ts` estava
+   incompatível com o rate limiter de registro (3/min por IP, 6+ chamadas no mesmo processo).
+   Ver entrada no topo deste arquivo ("Dívida #1 do cartório abaixo fechada") para a correção e o
+   achado novo que apareceu ao consertar (N1/Z2 — tenant histórico hardcoded que não existe mais,
+   sem relação com rate limit, ainda em aberto).
 2. **Sem verificação de email/telefone, em lugar nenhum** — nem coluna, nem rota, nem bloqueio.
    Não é bug (nunca foi prometido em nenhuma decisão que encontrei) — é ausência honesta. Prática
    de mercado (Uber/Instagram/Facebook): enviar verificação em background, LEMBRAR, nunca

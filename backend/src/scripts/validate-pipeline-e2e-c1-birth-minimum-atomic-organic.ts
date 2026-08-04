@@ -104,6 +104,18 @@ async function cleanup(): Promise<void> {
 }
 
 async function main(): Promise<void> {
+  // 🔴 CORRIGIDO 2026-08-04 — este E2E faz 6+ POST /auth/register em sequência, no mesmo
+  // processo/IP, em segundos. `auth-rate-limit.service.ts` limita `auth.register` a 3/min por IP
+  // (sem exceção de teste) — a partir da 4ª chamada (H1, referral inválido) o próprio rate limit
+  // devolvia 429 e derrubava o teste (e em cascata N1/Z2, que dependiam de registros que nunca
+  // aconteceram). Não é bug do rate limiter nem deste E2E em si — é a falta de usar a válvula que
+  // JÁ existe: `RATE_LIMIT_AUTH_REGISTER` (env var, lida em auth-rate-limit.service.ts:42). Setado
+  // AQUI, antes de `buildApp()` — que só importa `auth.routes` (e com ele o rate limiter)
+  // dinamicamente — para o módulo nascer já com o teto de teste. Processo próprio: NÃO afeta o
+  // servidor dev (`npm run dev`, processo separado) nem o limite de produção (3/min continua o
+  // default fora daqui). `??=` preserva um override explícito do ambiente, se algum dia existir.
+  process.env.RATE_LIMIT_AUTH_REGISTER ??= '50';
+
   delete process.env.PILOT_MODE; // organic por padrão
   await cleanup();
   const app = await buildApp();
