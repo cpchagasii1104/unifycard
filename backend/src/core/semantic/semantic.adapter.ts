@@ -141,17 +141,34 @@ export async function resolveConceptsFromSearchTerm(
   if (!normalizedTerm) {
     return { normalizedTerm, conceptIds: [] };
   }
-  // UNIQUE(normalized_term, concept_id) já garante 1 linha por concept neste termo — sem DISTINCT.
+  // 🔴 EXATO **OU** PREFIXO (2026-08-04). Antes era só `normalized_term = $1`, e o campo do perfil
+  // profissional dizia "digite e selecione da lista" enquanto exigia a palavra INTEIRA e correta:
+  // Clayton digitou "baixis" e recebeu "Nenhuma profissão encontrada". Ninguém digita "cabeleireiro"
+  // completo antes de ver sugestão — o campo prometia autocomplete e entregava acerto-ou-nada.
+  //
+  // AMPLIA sem alterar o que já funcionava: o match EXATO continua vindo primeiro (ordenação), então
+  // nenhum caller passa a receber outro primeiro-resultado. O prefixo só ACRESCENTA candidatos depois.
+  // DISTINCT porque um concept pode casar por exato E por prefixo ao mesmo tempo (ex.: "dj").
+  //
+  // Piso de 3 caracteres para o prefixo: com 1-2 letras a lista viraria ruído ("a" traria tudo).
+  // Termo curto continua exigindo exato — comportamento antigo preservado onde ele fazia sentido.
   const result = await pool.query<{ concept_id: string }>(
     `
-    SELECT a.concept_id
-    FROM service_search_aliases a
-    WHERE a.normalized_term = $1
-      AND a.is_active = true
-      AND a.review_status = 'approved'
-    ORDER BY
-      CASE a.confidence WHEN 'high' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END,
-      a.concept_id
+    SELECT concept_id FROM (
+      SELECT DISTINCT ON (a.concept_id)
+             a.concept_id,
+             CASE WHEN a.normalized_term = $1 THEN 0 ELSE 1 END AS exact_rank,
+             CASE a.confidence WHEN 'high' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END AS conf_rank
+        FROM service_search_aliases a
+       WHERE a.is_active = true
+         AND a.review_status = 'approved'
+         AND (
+           a.normalized_term = $1
+           OR (length($1) >= 3 AND a.normalized_term LIKE $1 || '%')
+         )
+       ORDER BY a.concept_id, exact_rank, conf_rank
+    ) ranked
+    ORDER BY ranked.exact_rank, ranked.conf_rank, ranked.concept_id
     `,
     [normalizedTerm],
   );
