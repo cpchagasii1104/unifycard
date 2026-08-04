@@ -1,5 +1,101 @@
 # REMEDIATION DT LOG
 
+## 🎭 As 4 faces de evento por modo — e o ENDPOINT MORTO que escondia tudo (2026-08-04)
+
+**Origem:** Clayton, com dois prints: *"ainda não vejo mudanças neste usuário usando o consumir e
+operar"*, *"consegue em meus eventos concluir os 37 sendo cadastrados?"*, *"consegue criar as
+conexões para a gente ver funcionando? é usuário teste e os eventos são testes, depois a gente
+apaga."*
+
+### 🔴 ACHADO 1 — a vitrine lia um endpoint APOSENTADO, e engolia o erro
+
+O print dizia "Publicados (6)" em `/meus-eventos` e "Nenhum evento encontrado" em `/eventos`. Os
+mesmos 6 eventos. Isso descartou "falta de dado" e apontou para a leitura. Medido com curl:
+
+```
+GET /api/feed  →  {"error":"Legacy feed endpoint retired.
+                   Use the canonical GET /social/feed (social 2.0).",
+                   "code":"SOCIAL_LEGACY_API_FEED_RETIRED"}
+```
+
+`EventosPage.tsx:77-80` chamava `getUnifiedFeed()` → `/api/feed` e **engolia a falha**:
+`.catch(() => ({ items: [] }))`, com o comentário culpando uma dívida de schema antiga. Falha
+**MUDA**: lista vazia para sempre, sem erro, sem log visível, sem ninguém saber. A vitrine nunca
+mostrou evento nenhum — e não era por falta de evento.
+
+**Conserto:** `listPublicEvents()` → `GET /api/events/events` **sem** `organizerActorId`, que é a
+rota canônica onde o SERVIDOR aplica o piso `public_discovery` (`visibility='public' AND status IN
+('published','active')` — `events-sprint76.routes.ts:208-216`). O frontend não filtra status:
+quem decide o que é público é o backend. Falha de rede agora **aparece** (mensagem + "tentar de
+novo"), nunca vira lista vazia — *zero é afirmação; desconhecido é a verdade*.
+
+**Bônus removido junto:** a tela FABRICAVA status — `status: 'published'` hardcoded (linha 95) e
+`metadata.status || 'published'` (111) ao reconstruir evento a partir de post de feed. Afirmava o
+que nunca leu. Some com a leitura de feed; agora todo evento vem da rota de evento, com status real.
+
+### 🔴 ACHADO 2 — `startAt` × `datetimeStart`: TODOS os eventos diziam "sem data confirmada"
+
+Mesma interface TS (`Event`) usada por DOIS endpoints com formatos diferentes:
+```
+GET /events/:id         (detalhe)          → datetimeStart / datetimeEnd
+GET /api/events/events  (lista/discovery)  → startAt / endAt          ← a lista manda ISTO
+```
+`OrganizerEventsDashboard` lia `datetimeStart` sobre dados da LISTA → sempre `undefined` → **todos
+os 43 eventos** apareciam como "sem data confirmada", inclusive os 6 publicados COM data, e a
+pendência mentia dizendo que faltava confirmar a data que já estava lá. Provado com curl no payload
+real antes do conserto. Agora lê `startAt ?? datetimeStart`, com os dois formatos documentados no tipo.
+
+### As 4 faces, implementadas
+
+Precedente seguido: **`RentalResourceListPage`** (troca fonte de dados **e** corpo), não
+`ProviderServiceHubPage` (que só troca rótulo — o precedente fraco).
+
+| | **Consumir** | **Operar** |
+|---|---|---|
+| `/eventos` | vitrine: eventos publicados, ordenados por data | produzir: criar evento + porta para a gestão |
+| `/meus-eventos` | **quem me ajuda**: as necessidades do evento com fornecedores REAIS | os eventos que administro, por situação (o que já existia) |
+
+⚠️ **"Modo operante prioriza, NÃO esconde"** (frase-âncora de Clayton, 9 arquivos): cada face
+carrega banner com o convite explícito para a oposta. Nenhuma face é beco sem saída.
+
+`EventSupplierBoard` consome `GET /api/events/:id/need-suppliers` (a ponte da fatia anterior) e
+**não cruza id nenhum** — só desenha. CSS próprio, porque `organizer-*` mora em
+`EventOrganizerPanel.css`, que NÃO é montado nesta rota.
+
+### 🗓️ Os 37 rascunhos, concluídos pelo CAMINHO REAL
+
+`seed-complete-draft-events.ts` — autorizado explicitamente ("são testes, depois a gente apaga").
+
+**36 eventos** sem data, concluídos via `eventService.declareEvent → updateEvent → publishEvent`.
+🔴 **NUNCA** `UPDATE events SET status='published'`: a máquina de estados é autoridade e
+`draft → published` é PROIBIDA — o script respeita `draft → declared → published`, e por isso
+**12 precisaram ser declarados antes**. Manda SEMPRE as duas datas, porque `updateEvent` rejeita
+`datetimeStart` sozinho contra evento sem `datetime_end` (bug do `new Date(null)`=1970, já
+registrado no E2E do publish-funnel).
+
+```
+declarados 12 · com data 36 · publicados 36 · falhas 0
+vitrine: 0 → 42 eventos       ainda sem data: 0       Δbank: 0 → 0
+```
+Idempotente (2ª corrida: "Encontrados: 0 — nada a fazer"). Marcados
+`metadata.completed_by_seed = true` para poderem ser apagados depois, como Clayton pediu.
+
+**Verificação:** typecheck BE 0, FE 0 · rota canônica conferida ao vivo (41 eventos, **41 com
+`startAt`**) · ponte HTTP conferida ao vivo (17 necessidades, fornecedor real em cada) ·
+`git diff --check` limpo · `git ls-files --eol` = `i/lf w/lf`.
+
+### 🟡 Aberto
+
+- A vitrine mostra **os mesmos eventos para PF e PJ**. A separação que Clayton descreveu (PF vê
+  show/festa; PJ vê feira/reunião) depende de dado governado que **nunca foi semeado**:
+  `event_format_concepts.required_capabilities` está `NULL` nos 23 formatos. É decisão de
+  catálogo, não código.
+- `teatro` e `circo` seguem ausentes dos 23 formatos.
+- Os eventos de teste têm títulos ruins ("Teste", "ddfsgb") — publicados porque Clayton pediu,
+  e apagáveis por `metadata->>'completed_by_seed'`.
+
+---
+
 ## 🌱 O ESTOQUE — fornecedores e eventos de demonstração semeados (2026-08-04)
 
 **Autorização:** Clayton, explícita: *"sim, pode semear fornecedores e eventos de demonstração"*,

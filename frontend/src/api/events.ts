@@ -20,6 +20,15 @@ export interface Event {
   // removi os antigos (blast radius de outros consumidores não verificado nesta fatia).
   datetimeStart?: string | null;
   datetimeEnd?: string | null;
+  // 🔴 2026-08-04 — TERCEIRO par de nomes para a MESMA data, e o que a LISTA realmente manda.
+  // Esta interface é usada por DOIS endpoints com formatos diferentes:
+  //   GET /events/:id            (detalhe, event.service.ts toEvent) → datetimeStart/datetimeEnd
+  //   GET /api/events/events     (lista/discovery, sprint76)         → startAt/endAt
+  // `OrganizerEventsDashboard` lia `datetimeStart` sobre dados da LISTA: sempre `undefined`, então
+  // TODOS os eventos (inclusive os 6 publicados COM data) apareciam como "sem data confirmada".
+  // Provado com curl na rota real antes de escrever isto. Leia sempre `startAt ?? datetimeStart`.
+  startAt?: string | null;
+  endAt?: string | null;
   cityId: string | null;
   ticketPrice: number | null;
   acceptsConsumption: boolean;
@@ -858,6 +867,63 @@ export async function listOrganizerEvents(organizerActorId: string): Promise<Eve
     `/api/events/events?organizerActorId=${encodeURIComponent(organizerActorId)}&limit=200`
   );
   return res.events ?? [];
+}
+
+/**
+ * VITRINE pública de eventos (modo Consumir de /eventos).
+ *
+ * 🔴 2026-08-04 — substitui `getUnifiedFeed()`, que batia em `/api/feed`, endpoint **APOSENTADO**:
+ *   {"error":"Legacy feed endpoint retired. Use the canonical GET /social/feed (social 2.0)."}
+ * `EventosPage` engolia esse erro num `.catch(() => ({items:[]}))` e culpava uma dívida de schema
+ * no comentário — então a vitrine mostrava "Nenhum evento encontrado" SEMPRE, por endpoint morto e
+ * não por falta de evento. Medido com curl contra a rota real antes de trocar.
+ *
+ * A rota canônica é a MESMA de `listOrganizerEvents`, sem `organizerActorId`: o servidor então
+ * aplica o piso `public_discovery` (visibility='public' AND status IN ('published','active')) —
+ * events-sprint76.routes.ts:208-216. Quem decide o que é público é o BACKEND; aqui não se filtra
+ * status, senão o frontend viraria a autoridade do que aparece.
+ */
+export async function listPublicEvents(limit = 50): Promise<Event[]> {
+  const res = await apiFetchJson<{ events: Event[]; total: number }>(
+    `/api/events/events?limit=${encodeURIComponent(String(limit))}`
+  );
+  return res.events ?? [];
+}
+
+/** Um fornecedor candidato para uma necessidade do evento (projeção de GET /events/:id/need-suppliers). */
+export interface NeedSupplier {
+  sourceKind: 'service' | 'rentable';
+  offerId: string;
+  providerActorId: string;
+  providerDisplayName: string | null;
+  offerLabel: string | null;
+  priceCents: number | null;
+  priceUnit: string | null;
+}
+
+export interface NeedWithSuppliers {
+  needConceptId: string;
+  label: string;
+  fulfillmentKind: string;
+  isRequired: boolean;
+  declaredStatus: string | null;
+  supplierCount: number;
+  suppliers: NeedSupplier[];
+}
+
+/**
+ * F-EVENT-SUPPLIER-BRIDGE — necessidades do evento JÁ resolvidas contra fornecedores reais.
+ * A junção (need_concept → oferta de serviço / recurso locável) é feita no BACKEND, por CONCEPT.
+ * O frontend NÃO cruza id nenhum: só desenha o que vier ("a verdade vive no backend", Clayton).
+ */
+export async function getEventNeedSuppliers(eventId: string, onlyDeclared = false): Promise<NeedWithSuppliers[]> {
+  // Prefixo `/api/events/` — o mesmo das rotas irmãs (`orchestration-suggestions`,
+  // `operational-needs`). Conferido no arquivo antes de escrever: errar o prefixo aqui produziria
+  // 404 silencioso, exatamente o defeito que esta fatia está consertando na vitrine.
+  const res = await apiFetchJson<{ needs: NeedWithSuppliers[] }>(
+    `/api/events/${encodeURIComponent(eventId)}/need-suppliers${onlyDeclared ? '?onlyDeclared=true' : ''}`
+  );
+  return res.needs ?? [];
 }
 
 /**

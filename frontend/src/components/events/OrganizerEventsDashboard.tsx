@@ -55,11 +55,23 @@ type Stats = {
  * duplicar a regra criaria duas respostas para a mesma pergunta. Aqui é o bloqueio de PUBLICAÇÃO,
  * e o painel continua sendo o lugar do diagnóstico completo.
  */
+/**
+ * 🔴 CORRIGIDO 2026-08-04 — a data desta LISTA vem em `startAt`, não em `datetimeStart`.
+ * Esta tela lia `datetimeStart`, que só existe no payload de DETALHE (`GET /events/:id`); na rota
+ * de lista (sprint76) o campo é `startAt`. Resultado medido: TODOS os eventos apareciam com "sem
+ * data confirmada" — inclusive os 6 publicados COM data — e a pendência mentia dizendo que faltava
+ * confirmar a data que já estava lá. Provado com curl na rota real antes do conserto.
+ */
+function inicioDoEvento(ev: Event): string | null {
+  return ev.startAt ?? ev.datetimeStart ?? null;
+}
+
 function pendenciaParaPublicar(ev: Event & { statusCanonical?: string }): string | null {
   const st = (ev.statusCanonical ?? ev.status ?? '').toLowerCase();
   if (st !== 'draft' && st !== 'declared') return null;
-  if (!ev.datetimeStart) return 'Falta confirmar a data — sem ela o evento não pode ser publicado.';
-  if (new Date(ev.datetimeStart).getTime() < Date.now()) return 'A data confirmada já passou — o feed só mostra evento futuro.';
+  const inicio = inicioDoEvento(ev);
+  if (!inicio) return 'Falta confirmar a data — sem ela o evento não pode ser publicado.';
+  if (new Date(inicio).getTime() < Date.now()) return 'A data confirmada já passou — o feed só mostra evento futuro.';
   if (st === 'draft') return 'Rascunho: falta concluir a declaração para poder publicar.';
   return 'Pronto para publicar.';
 }
@@ -168,8 +180,8 @@ export default function OrganizerEventsDashboard() {
                   <li key={ev.id} className="organizer-event-row">
                     <Link to={`/events/${ev.id}`} className="organizer-event-title">{ev.title}</Link>
                     <span className="organizer-event-meta">
-                      {ev.datetimeStart
-                        ? new Date(ev.datetimeStart).toLocaleString('pt-BR')
+                      {inicioDoEvento(ev)
+                        ? new Date(inicioDoEvento(ev) as string).toLocaleString('pt-BR')
                         : 'sem data confirmada'}
                     </span>
                     <span className="organizer-event-meta">

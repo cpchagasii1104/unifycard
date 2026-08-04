@@ -1,12 +1,34 @@
 // frontend/src/pages/MeusEventosPage.tsx
-// Página de GESTÃO dos eventos do organizador (F-EVENT-ORGANIZER-DASHBOARD, 2026-08-03).
-// Distinta de EventosPage, que é DESCOBERTA (feed público). Aqui é a visão de quem organiza:
-// status, ingressos vendidos e o que falta para publicar.
+//
+// ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+// ║ STATUS:  CANÔNICO — "Meus eventos", com as DUAS faces do modo operante
+// ║ NORMA:   "Modo operante prioriza, NÃO esconde" (operatingMode.ts:9) · precedente de modo que
+// ║          troca CONTEÚDO = RentalResourceListPage (não ProviderServiceHubPage, que só troca rótulo)
+// ║ NÃO:     NÃO esconder a outra face — cada modo carrega o convite explícito para o oposto.
+// ║ EM VEZ:  trocar a fonte de dados e o corpo, mantendo as duas alcançáveis.
+// ╚════════════════════════════════════════════════════════════════
+//
+// Desenho de Clayton (2026-08-04):
+//   OPERAR   → os eventos que eu administro, por situação (o que já existia)
+//   CONSUMIR → as empresas que me ajudam a realizar: segurança, energia, banheiros, palcos, equipamento
+//
+// Distinta de EventosPage, que é DESCOBERTA (vitrine pública).
 
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import OrganizerEventsDashboard from '../components/events/OrganizerEventsDashboard';
+import EventSupplierBoard from '../components/events/EventSupplierBoard';
+import { useOperatingMode } from '../hooks/useOperatingMode';
+import { useActiveActor } from '../contexts/ActiveActorContext';
+import { listOrganizerEvents, type Event } from '../api/events';
 
 export default function MeusEventosPage() {
+  const { mode } = useOperatingMode();
+
+  if (mode === 'consumir') {
+    return <MeusEventosConsumir />;
+  }
+
   return (
     <div className="page-container">
       <div className="flow-header">
@@ -15,7 +37,101 @@ export default function MeusEventosPage() {
           Tudo que você organiza, por situação. <Link to="/events/new">Criar novo evento</Link>.
         </p>
       </div>
+      {/* "Prioriza, não esconde": a outra face segue anunciada, nunca removida. */}
+      <div className="eventos-mode-banner" role="note">
+        <strong>Você está operando.</strong> Procurando quem fornece som, segurança ou banheiro
+        químico para os seus eventos? Troque para <em>Consumir</em> no topo da página.
+      </div>
       <OrganizerEventsDashboard />
+    </div>
+  );
+}
+
+/**
+ * Face CONSUMIR — quem me ajuda a realizar. Carrega os eventos que EU organizo (mesma fonte da
+ * face Operar: o backend decide o que posso ver) e, para o evento escolhido, projeta as
+ * necessidades já resolvidas contra fornecedores reais.
+ */
+function MeusEventosConsumir() {
+  const { activeActor, actors } = useActiveActor();
+  const [events, setEvents] = useState<Event[] | null>(null);
+  const [erro, setErro] = useState<string | null>(null);
+  const [selecionado, setSelecionado] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async (): Promise<void> => {
+      // Mesmo motivo da face Operar: "meus eventos" é o que EU organizo em QUALQUER papel, e o
+      // organizador troca de chapéu no cabeçalho. Uma chamada por papel, tolerante a falha de um.
+      const ids = Array.from(new Set([
+        ...(actors ?? []).map((a) => a.actor_id),
+        ...(activeActor?.actor_id ? [activeActor.actor_id] : []),
+      ].filter(Boolean)));
+      if (ids.length === 0) return;
+      try {
+        const results = await Promise.allSettled(ids.map((id) => listOrganizerEvents(id)));
+        if (cancelled) return;
+        const porId = new Map<string, Event>();
+        for (const r of results) {
+          if (r.status === 'fulfilled') for (const ev of r.value) porId.set(ev.id, ev);
+        }
+        const list = Array.from(porId.values());
+        setEvents(list);
+        setSelecionado((atual) => atual ?? list[0]?.id ?? null);
+      } catch (e) {
+        if (!cancelled) setErro(e instanceof Error ? e.message : 'Não foi possível carregar seus eventos.');
+      }
+    };
+    void load();
+    return () => { cancelled = true; };
+  }, [activeActor?.actor_id, actors]);
+
+  const evento = events?.find((e) => e.id === selecionado) ?? null;
+
+  return (
+    <div className="page-container">
+      <div className="flow-header">
+        <h1>Quem me ajuda</h1>
+        <p className="flow-subtitle">
+          Empresas e profissionais que atendem o que os seus eventos precisam.
+        </p>
+      </div>
+
+      <div className="eventos-mode-banner" role="note">
+        <strong>Você está consumindo.</strong> Para acompanhar status, ingressos vendidos e o que
+        falta publicar, troque para <em>Operar</em> no topo da página.
+      </div>
+
+      {erro && <p className="organizer-hint organizer-hint-warn">{erro}</p>}
+      {events === null && !erro && <p className="organizer-hint">Carregando seus eventos…</p>}
+
+      {events !== null && events.length === 0 && (
+        <p className="organizer-hint">
+          Você ainda não tem eventos. <Link to="/events/new">Criar o primeiro</Link> — depois volte
+          aqui para ver quem pode ajudar a realizá-lo.
+        </p>
+      )}
+
+      {events !== null && events.length > 0 && (
+        <>
+          <nav className="organizer-tabs" role="tablist" aria-label="Escolha o evento">
+            {events.map((ev) => (
+              <button
+                key={ev.id}
+                type="button"
+                role="tab"
+                aria-selected={selecionado === ev.id}
+                className={`organizer-tab ${selecionado === ev.id ? 'organizer-tab-active' : ''}`}
+                onClick={() => setSelecionado(ev.id)}
+              >
+                {ev.title}
+              </button>
+            ))}
+          </nav>
+
+          {evento && <EventSupplierBoard eventId={evento.id} eventTitle={evento.title} />}
+        </>
+      )}
     </div>
   );
 }

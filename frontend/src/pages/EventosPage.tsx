@@ -1,266 +1,182 @@
 // src/pages/EventosPage.tsx
-// Página de listagem de eventos - Integração mínima com backend
-// CONTRATO: Usa feed para buscar eventos, wizard é único fluxo de criação
+//
+// ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+// ║ STATUS:  CANÔNICO — a VITRINE de eventos (descoberta), com as duas faces do modo operante
+// ║ NORMA:   "a verdade vive no backend" (Clayton) · "Modo operante prioriza, NÃO esconde"
+// ║          (operatingMode.ts:9) · precedente de modo que troca conteúdo = RentalResourceListPage
+// ║ NÃO:     NÃO filtrar status/visibilidade aqui (o piso é do servidor); NÃO reconstruir evento a
+// ║          partir de post de feed; NÃO afirmar status que não foi lido.
+// ║ EM VEZ:  listPublicEvents() → rota canônica sprint76, que aplica `public_discovery` server-side.
+// ╚════════════════════════════════════════════════════════════════
+//
+// ═══ 2026-08-04 — POR QUE ESTA TELA FOI REESCRITA ═══
+// 🔴 A vitrine mostrava "Nenhum evento encontrado" SEMPRE, e não era falta de evento: ela lia
+// `getUnifiedFeed()` → `/api/feed`, endpoint **APOSENTADO**, que responde:
+//     {"error":"Legacy feed endpoint retired. Use the canonical GET /social/feed (social 2.0)."}
+// e o erro era ENGOLIDO por um `.catch(() => ({ items: [] }))`, com o comentário culpando uma
+// dívida de schema antiga. Falha muda: 200 lógico com lista vazia, para sempre, sem ninguém saber.
+// Medido com curl na rota real antes de trocar — 6 eventos publicados existiam e nenhum chegava.
+//
+// 🔴 E a tela FABRICAVA status: `status: 'published'` hardcoded para post com linked_event, e
+// `metadata.status || 'published'` para intent=event. Afirmava o que nunca leu, violando
+// "frontend nunca cria verdade" e "zero é afirmação; desconhecido é a verdade". Some junto com a
+// leitura de feed — agora todo evento vem da rota de evento, com status REAL.
+//
+// ═══ AS DUAS FACES (desenho de Clayton, 2026-08-04) ═══
+//   CONSUMIR → vitrine: o que está acontecendo e eu posso ir
+//   OPERAR   → produzir: a porta de criar e gerir
+// O modo troca CONTEÚDO (padrão RentalResourceListPage), não só rótulo. E como "prioriza, não
+// esconde", cada face carrega o convite explícito para a outra — nunca um beco.
 
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useMemo } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import { useActiveActor } from '../contexts/ActiveActorContext';
-import { getSocialFeed } from '../api/social';
-import { getUnifiedFeed } from '../api/feed';
-import { publishEvent } from '../api/events';
-import EventCard from '../components/events/EventCard';
+import { useOperatingMode } from '../hooks/useOperatingMode';
+import { listPublicEvents, type Event } from '../api/events';
 import { validateActiveActor } from '../utils/guardrails';
-import { showToast } from '../components/common/Toast';
-import type { FeedItem } from '@unificard/contracts';
 import './EventosPage.css';
 
-interface EventFromFeed {
-  eventId: string;
-  title: string;
-  eventType: string;
-  cityId: string | null;
-  status: string;
-  ticketPrice: number | null;
-  acceptsConsumption: boolean;
-  actor_id?: string;
-  actor_type?: string;
-  // F-EVENT-PUBLISH-FUNNEL: null quando a fonte do item não carrega data (posts com
-  // linked_event/intent=event) — honesto: sem dado, botão fica desabilitado, não adivinha.
-  datetimeStart?: string | null;
+/** Data do evento na LISTA: o payload da rota de discovery manda `startAt` (não `datetimeStart`). */
+function inicioDoEvento(ev: Event): string | null {
+  return ev.startAt ?? ev.datetimeStart ?? null;
+}
+
+function formatarData(iso: string | null): string {
+  if (!iso) return 'data a confirmar';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return 'data a confirmar';
+  return d.toLocaleString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
 export default function EventosPage() {
   const navigate = useNavigate();
   const { activeActor } = useActiveActor();
-  const [events, setEvents] = useState<EventFromFeed[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { mode } = useOperatingMode();
+  const [events, setEvents] = useState<Event[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [isPublishing, setIsPublishing] = useState<string | null>(null);
 
-  // Carregar eventos via feed
   useEffect(() => {
-    loadEvents();
-  }, [activeActor]);
-
-  const loadEvents = async () => {
-    if (!validateActiveActor(activeActor)) {
-      setIsLoading(false);
-      return;
-    }
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      // UNIFICADO: Usar exatamente a mesma lógica do SocialFeed2
-      // 1. Buscar feed social (posts)
-      if (!activeActor) {
-        setIsLoading(false);
-        return;
-      }
-
-      // Bug 2 fix (2026-05-14): tolerar gracioso failure dos 2 feeds individualmente.
-      // Ambos dependem de DT-SOCIAL-REPOSITORY-DRIFT-§28 (cascata 20+ arquivos —
-      // schema canônico posts.id vs camelCase legacy p.post_id). Falha de um feed
-      // não deve impedir navegação ou ocultar eventos encontrados no outro.
-      const feedData = await getSocialFeed({
-        actor_type: activeActor.actor_type as 'user' | 'page',
-        actor_id: activeActor.actor_id,
-        actor_status: activeActor.company_status,
-        limit: 50,
-      }).catch((err) => {
-        console.warn('[EventosPage] getSocialFeed indisponível (DT-§28):', err?.message);
-        return { posts: [] as any[] };
-      });
-
-      // 2. Buscar feed unificado (eventos standalone) - mesma fonte do feed
-      const unifiedData = await getUnifiedFeed({ limit: 50 }).catch((err) => {
-        console.warn('[EventosPage] getUnifiedFeed indisponível (DT-§28):', err?.message);
-        return { items: [] as any[] };
-      });
-
-      // 3. Extrair eventos de posts com intent=event ou linked_event
-      const eventItems: EventFromFeed[] = [];
-      
-      if (feedData.posts) {
-        for (const post of feedData.posts) {
-          // Posts com linked_event
-          if (post.linked_event) {
-            eventItems.push({
-              eventId: post.linked_event.id,
-              title: post.linked_event.title,
-              eventType: 'cultural', // linked_event não tem eventType, usar default
-              cityId: post.linked_event.location_cultural_profile_id || null,
-              status: 'published',
-              ticketPrice: null,
-              acceptsConsumption: false,
-              actor_id: post.actor?.actor_id,
-              actor_type: post.actor?.actor_type,
-              datetimeStart: null, // esta fonte (linked_event) não carrega data — honesto, não adivinha
-            });
-          }
-          // Posts com intent=event
-          else if (post.intent === 'event' && post.intent_metadata) {
-            const metadata = post.intent_metadata;
-            if (metadata.event_id) {
-              eventItems.push({
-                eventId: metadata.event_id,
-                title: metadata.title || post.content?.substring(0, 50) || 'Evento',
-                eventType: metadata.event_type || 'cultural',
-                cityId: metadata.city_id || null,
-                status: metadata.status || 'published',
-                ticketPrice: metadata.ticket_price_cents ? metadata.ticket_price_cents / 100 : null,
-                acceptsConsumption: metadata.accepts_consumption || false,
-                actor_id: post.actor?.actor_id,
-                actor_type: post.actor?.actor_type,
-                datetimeStart: null, // metadata do post não carrega data — honesto, não adivinha
-              });
-            }
-          }
+    let cancelled = false;
+    const load = async (): Promise<void> => {
+      if (!validateActiveActor(activeActor)) { setEvents([]); return; }
+      setError(null);
+      try {
+        const list = await listPublicEvents(50);
+        if (!cancelled) setEvents(list);
+      } catch (e) {
+        // 🔴 Falha de rede/rota NÃO vira lista vazia: lista vazia AFIRMA "não há eventos", e foi
+        // exatamente essa mentira (endpoint aposentado engolido) que esta tela carregava.
+        if (!cancelled) {
+          setEvents(null);
+          setError(e instanceof Error ? e.message : 'Não foi possível carregar os eventos.');
         }
       }
+    };
+    void load();
+    return () => { cancelled = true; };
+  }, [activeActor?.actor_id]);
 
-      // 4. Extrair eventos standalone do feed unificado (mesma lógica do SocialFeed2)
-      if (unifiedData.items) {
-        const standaloneEvents = unifiedData.items
-          .filter((item: FeedItem): item is Extract<FeedItem, { type: 'EVENT_STANDALONE' }> => 
-            item.type === 'EVENT_STANDALONE' && item.event !== undefined
-          )
-          .map((item) => ({
-            eventId: item.event.id,
-            title: item.event.title,
-            eventType: item.event.eventType,
-            cityId: item.event.cityId,
-            status: item.event.status,
-            ticketPrice: item.event.ticketPrice ? item.event.ticketPrice / 100 : null,
-            acceptsConsumption: item.event.acceptsConsumption || false,
-            actor_id: undefined, // Eventos standalone não têm actor direto no feed
-            actor_type: undefined,
-            datetimeStart: item.event.startTime, // FeedEvent.startTime é real (event-feed-adapter.ts)
-          }));
-        
-        eventItems.push(...standaloneEvents);
-      }
+  const ordenados = useMemo(() => {
+    if (!events) return [];
+    return [...events].sort((a, b) => {
+      const da = inicioDoEvento(a); const db = inicioDoEvento(b);
+      if (!da && !db) return 0;
+      if (!da) return 1;           // sem data desce
+      if (!db) return -1;
+      return new Date(da).getTime() - new Date(db).getTime();
+    });
+  }, [events]);
 
-      // 5. Remover duplicatas por eventId
-      const uniqueEvents = Array.from(
-        new Map(eventItems.map(e => [e.eventId, e])).values()
-      );
-
-      setEvents(uniqueEvents);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao carregar eventos');
-      console.error('Erro ao carregar eventos:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleCreateClick = (e: React.MouseEvent<HTMLButtonElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    // Wizard é o único fluxo de criação
-    navigate('/events/new');
-  };
-
-  const handlePublishEvent = async (eventId: string) => {
-    setIsPublishing(eventId);
-
-    try {
-      await publishEvent(eventId);
-      showToast('Evento publicado!', 'success');
-      loadEvents();
-    } catch (err: any) {
-      const errorMessage = err.message || 'Erro ao publicar evento';
-      
-      // Tratar erro 403 (débito pendente)
-      if (errorMessage.includes('débito pendente') || errorMessage.includes('bloqueada')) {
-        showToast(errorMessage, 'error');
-      } else {
-        showToast(errorMessage, 'error');
-      }
-      console.error('Erro ao publicar evento:', err);
-    } finally {
-      setIsPublishing(null);
-    }
-  };
-
-  const isEventOwner = (event: EventFromFeed): boolean => {
-    if (!activeActor) return false;
-    return (
-      event.actor_id === activeActor.actor_id &&
-      event.actor_type === activeActor.actor_type
-    );
-  };
-
-  if (isLoading) {
+  // ══ MODO OPERAR — produzir ═══════════════════════════════════════════════
+  if (mode === 'operar') {
     return (
       <div className="eventos-page">
-        <div className="eventos-loading">Carregando eventos...</div>
+        <div className="eventos-header">
+          <h1>🎬 Produzir evento</h1>
+          <button className="eventos-create-button" type="button" onClick={() => navigate('/events/new')}>
+            + Criar evento
+          </button>
+        </div>
+
+        <div className="eventos-mode-banner" role="note">
+          <strong>Você está operando.</strong> Aqui você cria. Para acompanhar o que já criou —
+          status, ingressos vendidos e o que falta publicar — vá para{' '}
+          <Link to="/meus-eventos">Meus eventos</Link>.
+        </div>
+
+        <div className="eventos-produzir-grid">
+          <button type="button" className="eventos-produzir-card" onClick={() => navigate('/events/new')}>
+            <span className="eventos-produzir-icone">✨</span>
+            <span className="eventos-produzir-titulo">Criar um evento</span>
+            <span className="eventos-produzir-hint">Formato, data, local, ingressos e equipe — passo a passo.</span>
+          </button>
+          <button type="button" className="eventos-produzir-card" onClick={() => navigate('/meus-eventos')}>
+            <span className="eventos-produzir-icone">📋</span>
+            <span className="eventos-produzir-titulo">Meus eventos</span>
+            <span className="eventos-produzir-hint">Acompanhar os que já existem, por situação.</span>
+          </button>
+        </div>
+
+        {/* "Prioriza, não esconde": a vitrine continua alcançável daqui. */}
+        <div className="eventos-cross-mode">
+          <p className="eventos-hint-muted">
+            {ordenados.length > 0
+              ? `Há ${ordenados.length} evento(s) acontecendo por perto.`
+              : 'Nenhum evento publicado por perto ainda.'}
+          </p>
+        </div>
       </div>
     );
   }
 
+  // ══ MODO CONSUMIR — vitrine ══════════════════════════════════════════════
   return (
     <div className="eventos-page">
       <div className="eventos-header">
-        <h1>🎭 Eventos</h1>
-        <button
-          className="eventos-create-button"
-          onClick={handleCreateClick}
-          type="button"
-        >
+        <h1>🎭 Eventos por perto</h1>
+        <button className="eventos-create-button" type="button" onClick={() => navigate('/events/new')}>
           + Criar evento
         </button>
       </div>
 
+      <div className="eventos-mode-banner" role="note">
+        <strong>Você está consumindo.</strong> Estes são os eventos publicados que você pode
+        acompanhar. Quer organizar o seu? <Link to="/meus-eventos">Vá para Meus eventos</Link>.
+      </div>
+
       {error && (
         <div className="eventos-error">
-          {error}
+          {error} — <button type="button" className="eventos-link-button" onClick={() => window.location.reload()}>tentar de novo</button>
         </div>
       )}
 
-      {events.length === 0 && !error && (
+      {events === null && !error && <p className="eventos-hint-muted">Carregando eventos…</p>}
+
+      {events !== null && ordenados.length === 0 && !error && (
         <div className="eventos-empty">
-          <p>Nenhum evento encontrado.</p>
-          <p>Crie seu primeiro evento!</p>
+          <p>Nenhum evento publicado por perto ainda.</p>
+          <p className="eventos-hint-muted">
+            Quando alguém publicar um evento com data, ele aparece aqui.
+          </p>
         </div>
       )}
 
-      <div className="eventos-list">
-        {events.map((event) => (
-          <div key={event.eventId} className="eventos-item">
-            <EventCard
-              eventId={event.eventId}
-              title={event.title}
-              eventType={event.eventType}
-              cityId={event.cityId}
-              status={event.status}
-              ticketPrice={event.ticketPrice}
-              acceptsConsumption={event.acceptsConsumption}
-              onClick={() => navigate(`/events/${event.eventId}`)}
-            />
-            {/* F-EVENT-PUBLISH-FUNNEL ②: declared->published é a transição PERMITIDA
-                (event.aggregate.ts:51); draft->published é PROIBIDA (draft:['declared','cancelled']).
-                Desabilitado sem data: publicar sem data deixaria o evento publicado e invisível
-                no feed (feed.routes.ts exige datetime_start futura). */}
-            {isEventOwner(event) && event.status === 'declared' && (
-              <>
-                <button
-                  className="eventos-publish-button"
-                  onClick={() => handlePublishEvent(event.eventId)}
-                  disabled={isPublishing === event.eventId || !event.datetimeStart}
-                  title={!event.datetimeStart ? 'Defina a data do evento antes de publicar' : undefined}
-                >
-                  {isPublishing === event.eventId ? 'Publicando...' : 'Publicar'}
-                </button>
-                {!event.datetimeStart && (
-                  <p className="eventos-publish-disabled-reason">Defina a data antes de publicar</p>
-                )}
-              </>
-            )}
-          </div>
-        ))}
+      <div className="eventos-vitrine-grid">
+        {ordenados.map((ev) => {
+          const inicio = inicioDoEvento(ev);
+          return (
+            <button
+              key={ev.id}
+              type="button"
+              className="eventos-vitrine-card"
+              onClick={() => navigate(`/events/${ev.id}`)}
+            >
+              <span className="eventos-vitrine-data">{formatarData(inicio)}</span>
+              <span className="eventos-vitrine-titulo">{ev.title}</span>
+              {ev.description && <span className="eventos-vitrine-desc">{ev.description}</span>}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
