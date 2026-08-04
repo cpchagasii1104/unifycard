@@ -80,7 +80,12 @@ export const MODULE_REGISTRY: ModuleRegistryEntry[] = [
   // Era '/events/new' — pulava direto pro wizard, ao contrário de 'create-company' (→/empresas)
   // e 'create-group' (→/grupos), que abrem a LISTA de onde se cria. 'Meus eventos' já tem
   // "Criar novo evento" a um clique (MeusEventosPage.tsx:15) — o padrão dos irmãos agora se aplica aqui.
-  { moduleKey: 'create-event', label: 'Evento', icon: '🎭', route: '/meus-eventos', group: 'Criar', contexts: ['personal'], status: 'LIVE' },
+  // 🔴 CORRIGIDO 2026-08-04 — rótulo/ícone eram 'Evento'/🎭, idênticos (a um plural de distância)
+  // à entrada 'events' (Comércio, linha ~58), que também é 🎭. Clayton bateu o olho no menu e
+  // leu como duplicado. Rótulo agora casa com o H1 real da página (MeusEventosPage.tsx:13,
+  // "Meus eventos") — mesmo padrão de desambiguação que 'companies'/"Minhas Empresas" (linha 73)
+  // já usa para o mesmo tipo de par Criar×Conta. Ícone trocado para não repetir 🎭.
+  { moduleKey: 'create-event', label: 'Meus Eventos', icon: '📋', route: '/meus-eventos', group: 'Criar', contexts: ['personal'], status: 'LIVE' },
   { moduleKey: 'create-page', label: 'Página', icon: '📄', route: '/em-desenvolvimento?feature=page', group: 'Criar', contexts: ['personal'], status: 'STUB' },
   { moduleKey: 'create-channel', label: 'Canal', icon: '📡', route: '/em-desenvolvimento?feature=channel', group: 'Criar', contexts: ['personal'], status: 'STUB' },
 

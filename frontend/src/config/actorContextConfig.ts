@@ -377,7 +377,11 @@ const PROFILE_PF: ActorContextProfile = {
         'marketplace',
         'transferir',
       ],
-      sidebarPriorities: ['/social', '/grupos', '/marketplace', '/em-desenvolvimento?feature=mobility', '/em-desenvolvimento?feature=food'],
+      // '/eventos' (vitrine) entra aqui em 2026-08-04: o modo NÃO chegava a eventos porque
+      // nenhuma das duas listas os citava — não porque faltasse mecanismo. "Modo operante
+      // prioriza, NÃO esconde" (operatingMode.ts:9): as duas entradas seguem sempre visíveis;
+      // o modo só decide qual ganha destaque.
+      sidebarPriorities: ['/social', '/grupos', '/marketplace', '/eventos', '/em-desenvolvimento?feature=mobility', '/em-desenvolvimento?feature=food'],
       // Convite transversal ao modo Operar
       crossModeHint: { actionId: 'trabalhar-perto', label: 'Trabalhe perto' },
     },
@@ -391,7 +395,8 @@ const PROFILE_PF: ActorContextProfile = {
         'transferir',
         'extrato',
       ],
-      sidebarPriorities: ['/perfil?tab=agenda', '/services', '/extrato', '/banco'],
+      // '/meus-eventos' (gestão) é o par de '/eventos' no modo Consumir — ver comentário acima.
+      sidebarPriorities: ['/perfil?tab=agenda', '/services', '/meus-eventos', '/extrato', '/banco'],
       // Convite transversal ao modo Consumir
       crossModeHint: { actionId: 'pedir-comida', label: 'Pedir comida' },
     },
@@ -447,12 +452,14 @@ const PROFILE_PJ: ActorContextProfile = {
   byOperatingMode: {
     operar: {
       quickActions: ['vender', 'campanhas', 'pedidos', 'crm', 'contratar', 'marketplace', 'transferir'],
-      sidebarPriorities: ['/marketplace', '/services', '/banco', '/extrato'],
+      // Empresa PRODUZ evento (INTENT_GROUPS_PJ_GENERIC já traz "Produzir evento") — mesma
+      // simetria da PF: gestão no Operar, vitrine no Consumir. Prioriza, não esconde.
+      sidebarPriorities: ['/marketplace', '/services', '/meus-eventos', '/banco', '/extrato'],
       crossModeHint: { actionId: 'comprar-insumos', label: 'Comprar insumos' },
     },
     consumir: {
       quickActions: ['comprar-insumos', 'fornecedores', 'contratar-servico', 'marketplace', 'transferir', 'extrato', 'campanhas'],
-      sidebarPriorities: ['/marketplace', '/services', '/extrato', '/banco'],
+      sidebarPriorities: ['/marketplace', '/services', '/eventos', '/extrato', '/banco'],
       crossModeHint: { actionId: 'vender', label: 'Voltar a vender' },
     },
   },
@@ -508,12 +515,15 @@ const PROFILE_GROUP: ActorContextProfile = {
   byOperatingMode: {
     operar: {
       quickActions: ['membros', 'votacoes', 'contribuir', 'campanhas', 'impacto', 'eventos', 'transferir', 'extrato'],
-      sidebarPriorities: ['/grupos', '/em-desenvolvimento?feature=votes', '/impacto', '/banco'],
+      // 🔴 GRUPO é o actor de uma BANDA (grupo-ator, arco F1) — produzir show é o ato central
+      // dele. `eventos` já estava nas quickActions dos DOIS modos e em NENHUMA das priorities:
+      // o modo não alcançava eventos justamente para quem mais depende deles.
+      sidebarPriorities: ['/grupos', '/meus-eventos', '/em-desenvolvimento?feature=votes', '/impacto', '/banco'],
       crossModeHint: { actionId: 'comprar-insumos', label: 'Comprar para o grupo' },
     },
     consumir: {
       quickActions: ['comprar-insumos', 'fornecedores', 'contratar-servico', 'marketplace', 'eventos', 'transferir', 'extrato'],
-      sidebarPriorities: ['/marketplace', '/services', '/extrato', '/banco'],
+      sidebarPriorities: ['/marketplace', '/services', '/eventos', '/extrato', '/banco'],
       crossModeHint: { actionId: 'membros', label: 'Voltar a coordenar' },
     },
   },

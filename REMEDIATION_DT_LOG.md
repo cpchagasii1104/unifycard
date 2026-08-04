@@ -1,5 +1,80 @@
 # REMEDIATION DT LOG
 
+## 🎭 "Eventos está duplicado no menu?" — não era duplicata, e a verdade paralela está noutro lugar (2026-08-04)
+
+**Origem:** Clayton olhou o menu lateral e perguntou: *"consegue ver que eventos está duplicado?
+Tem em comércio e em criar, os dois fazem a mesma coisa. Um está como eventos e o outro como
+evento. Isto está criando verdades paralelas? Como deve ser? e o modo consumir e operar ainda não
+funciona para eventos."* Três perguntas, três respostas diferentes — medidas, não deduzidas.
+
+### ① "Os dois fazem a mesma coisa?" — NÃO. Fontes diferentes, medidas.
+
+| entrada | rota | de onde LÊ | o que mostra |
+|---|---|---|---|
+| Comércio → Eventos | `/eventos` | feed social + feed unificado | só **publicados**, de **todo mundo** — vitrine |
+| Criar → Meus Eventos | `/meus-eventos` | `listOrganizerEvents` (`organizer_dashboard`) | só **meus**, em **todos os status** (inclui `draft`) |
+
+Prova de que a vitrine nunca mostra rascunho: `feed.routes.ts:241-244` filtra
+`status IN ('published','active') AND datetime_start >= NOW()`. São telas distintas — mas o
+**rótulo** as fazia parecer a mesma coisa (`Eventos` × `Evento`, ambas 🎭). Isso foi erro meu, de
+hoje de manhã, ao religar as duas ao menu.
+
+**Corrigido:** `Criar → 📋 Meus Eventos` (casa com o `<h1>` real da página), `Comércio → 🎭
+Eventos`. Mesmo padrão de desambiguação que `companies`/"Minhas Empresas" já usava.
+
+### ② "Está criando verdades paralelas?" — SIM, mas dentro de `EventosPage`, não no menu
+
+O menu era só ruído de nomenclatura. A verdade paralela real está em `EventosPage.tsx`, que
+**reconstrói o conceito "evento" a partir de post do feed** em 2 das suas 3 fontes, e nas duas
+**AFIRMA um status que nunca leu**:
+```
+EventosPage.tsx:95   status: 'published',                 // post com linked_event — hardcoded
+EventosPage.tsx:111  status: metadata.status || 'published',  // post intent=event — default inventado
+EventosPage.tsx:134  status: item.event.status,           // EVENT_STANDALONE — este é REAL
+```
+Viola duas leis da casa ao mesmo tempo: *"frontend nunca cria verdade"* e *"zero é uma afirmação;
+desconhecido é a verdade"* — status que não se conseguiu ler não pode virar `'published'`.
+
+**Consequência medida, e é pior do que parece:** o botão "Publicar" dessa tela
+(`EventosPage.tsx:247`) só renderiza com `status === 'declared'`. Como a tela lê SÓ do feed, e o
+feed serve só `published`/`active` (linha 241 acima), **esse botão nunca pode aparecer** — é CTA
+morto desde que nasceu. A publicação real acontece pelo painel do organizador
+(`EventOrganizerPanel`) e por `/meus-eventos`, que leem status de verdade (`statusCanonical`).
+
+⚠️ **NÃO corrigido nesta fatia, de propósito.** Consertar exige decidir o que a vitrine faz quando
+o status é desconhecido (esconde o card? mostra sem selo?) e mexe no contrato de `EventCard`
+(`status: string`, sem `null`). É decisão de produto, não mecânica — fatia própria.
+
+### ③ "O modo Consumir/Operar não funciona para eventos" — a causa NÃO era falta de mecanismo
+
+Eu ia fazer o modo ESCONDER uma das entradas. **Errado, e a norma me parou:** *"Modo operante
+prioriza, NÃO esconde"* é frase-âncora de Clayton, repetida em **9 arquivos**
+(`operatingMode.ts:9`, `useOperatingMode.ts:12`, `GlobalSidebar.tsx:10`, `OperatingModeToggle`,
+`OperatingModeBadge`, `businessProfileCatalog`, `actorContextConfig` ×2…). O mecanismo existe e
+funciona: o modo alimenta `sidebarPriorities`, que **destaca** sem remover.
+
+A causa real era banal: **`/eventos` e `/meus-eventos` não estavam em NENHUMA das listas de
+prioridade, de nenhum perfil.** O modo não "não funcionava para eventos" — eventos é que nunca
+tinham sido inscritos nele.
+
+**Corrigido nos 3 perfis** (`actorContextConfig.ts`), sempre com a mesma simetria — vitrine no
+Consumir, gestão no Operar:
+```
+PF     consumir += /eventos        · operar += /meus-eventos
+PJ     consumir += /eventos        · operar += /meus-eventos   (INTENT_GROUPS_PJ já traz "Produzir evento")
+GRUPO  consumir += /eventos        · operar += /meus-eventos
+```
+🔴 O caso do **GRUPO** é o que mais doía e ninguém tinha visto: grupo-ator é o actor de uma
+**BANDA** (arco F1), produzir show é o ato central dele — e `eventos` já estava nas
+`quickActions` dos DOIS modos e em **nenhuma** das priorities. O modo não alcançava eventos
+justamente para quem mais depende deles.
+
+**Verificação:** typecheck BE 0, FE 0 · projeção conferida ao vivo contra o dev server
+(`GET /navigation/modules` → `Comércio → 🎭 Eventos (/eventos)` · `Criar → 📋 Meus Eventos
+(/meus-eventos)`) · `git diff --check` limpo · `git ls-files --eol` = `i/lf w/lf`.
+
+---
+
 ## 🔧 Dívida #1 do cartório abaixo fechada — rate limiter do E2E de nascimento (2026-08-04)
 
 **Origem:** Clayton pediu para começar a fechar as 3 dívidas nomeadas na entrada logo abaixo,
