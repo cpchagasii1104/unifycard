@@ -920,7 +920,11 @@ export interface NeedSupplier {
   providerDisplayName: string | null;
   offerLabel: string | null;
   priceCents: number | null;
-  priceUnit: string | null;
+  // 🔴 EIXOS SEPARADOS (2026-08-04). Era UM `priceUnit` carregando duração (serviço) E unidade de
+  // cobrança (locação) — §4.34: dois eixos num nome só. §7 manda o frontend espelhar EXATAMENTE o
+  // contrato da API; o contrato agora tem dois campos, e cada tipo de oferta preenche o seu.
+  durationMinutes: number | null;
+  pricingUnit: string | null;
 }
 
 export interface NeedWithSuppliers {
@@ -1072,7 +1076,10 @@ export interface ProviderOffer {
   offerId: string;
   label: string | null;
   priceCents: number | null;
-  priceUnit: string | null;
+  /** SERVIÇO: duração da oferta. `null` em locação (eixos separados — ver `NeedSupplier`). */
+  durationMinutes: number | null;
+  /** LOCAÇÃO: unidade de cobrança (`por_hora`·`por_dia`·…). `null` em serviço. */
+  pricingUnit: string | null;
   conceptId: string | null;
   windows: ProviderOfferWindow[];
 }

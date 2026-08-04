@@ -36,23 +36,9 @@ import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { getSupplierShowcase, listOrganizerEvents, type ProviderShowcase, type ProviderOffer, type Event } from '../api/events';
 import { requestOfferingBooking, type OfferingBookingResult } from '../api/offerings';
 import { useActiveActor } from '../contexts/ActiveActorContext';
-import { formatCentsAsBRL } from '../utils/money';
+import { formatSupplierPrice } from '../utils/money';
 import './SupplierPage.css';
 
-/** Preço legível. `priceUnit` significa coisas DIFERENTES por substrato — não unificar às cegas. */
-function precoLegivel(cents: number | null, unidade: string | null, kind: string): string {
-  if (cents == null) return 'sob consulta';
-  const valor = formatCentsAsBRL(cents);
-  if (kind === 'rentable') {
-    const porUnidade: Record<string, string> = {
-      por_hora: '/hora', por_dia: '/dia', por_semana: '/semana',
-      por_mes: '/mês', por_semestre: '/semestre', por_ano: '/ano',
-    };
-    return `${valor}${unidade ? porUnidade[unidade] ?? '' : ''}`;
-  }
-  const min = unidade ? Number(unidade) : NaN;
-  return Number.isFinite(min) && min > 0 ? `${valor} · ${Math.round(min / 60)}h` : valor;
-}
 
 function janelaLegivel(inicio: string, fim: string): string {
   const d = new Date(inicio);
@@ -191,7 +177,7 @@ function OfferCard({ oferta, meusEventos, eventoSugerido, requesterActorId }: {
       <div className="sp-oferta-head">
         <span className="sp-oferta-label">{oferta.label ?? 'Oferta sem rótulo'}</span>
         <span className="sp-oferta-kind">{oferta.sourceKind === 'rentable' ? '🔑 alugar' : '🛠️ contratar'}</span>
-        <span className="sp-oferta-preco">{precoLegivel(oferta.priceCents, oferta.priceUnit, oferta.sourceKind)}</span>
+        <span className="sp-oferta-preco">{formatSupplierPrice(oferta)}</span>
       </div>
 
       {oferta.windows.length === 0 ? (

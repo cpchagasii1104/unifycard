@@ -25,7 +25,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getSupplierCatalog, type NeedWithSuppliers, type Event } from '../../api/events';
-import { formatCentsAsBRL } from '../../utils/money';
+import { formatSupplierPrice } from '../../utils/money';
 import './EventSupplierBoard.css';
 import './SupplierCatalog.css';
 
@@ -34,20 +34,6 @@ interface Props {
   eventos: Event[];
 }
 
-/** Rótulo de preço. `priceUnit` significa coisas diferentes por substrato — ver comentário. */
-function precoLegivel(cents: number | null, unidade: string | null, kind: string): string {
-  if (cents == null) return 'sob consulta';
-  const valor = formatCentsAsBRL(cents);
-  if (kind === 'rentable') {
-    const porUnidade: Record<string, string> = {
-      por_hora: '/hora', por_dia: '/dia', por_semana: '/semana',
-      por_mes: '/mês', por_semestre: '/semestre', por_ano: '/ano',
-    };
-    return `${valor}${unidade ? porUnidade[unidade] ?? '' : ''}`;
-  }
-  const min = unidade ? Number(unidade) : NaN;
-  return Number.isFinite(min) && min > 0 ? `${valor} · ${Math.round(min / 60)}h` : valor;
-}
 
 function inicioDoEvento(ev: Event): string | null {
   return ev.startAt ?? ev.datetimeStart ?? null;
@@ -199,7 +185,7 @@ export default function SupplierCatalog({ eventos }: Props) {
                       {s.providerDisplayName ?? 'Fornecedor'}
                     </Link>
                     <span className="supplier-offer-what">{s.offerLabel ?? ''}</span>
-                    <span className="supplier-offer-price">{precoLegivel(s.priceCents, s.priceUnit, s.sourceKind)}</span>
+                    <span className="supplier-offer-price">{formatSupplierPrice(s)}</span>
                   </li>
                 ))}
               </ul>

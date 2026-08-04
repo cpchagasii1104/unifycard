@@ -100,3 +100,40 @@ export function formatReaisOnBlur(input: string): string {
   const cents = reaisToCents(input);
   return cents == null ? input : centsToReaisString(cents);
 }
+
+/**
+ * Preço legível de uma oferta de fornecedor — SERVIÇO ou LOCAÇÃO, uma função só.
+ *
+ * 🔴 2026-08-04 — nasceu de DOIS consertos ao mesmo tempo:
+ *  1. O contrato tinha UM campo (`priceUnit`) carregando dois eixos — duração (serviço) e unidade
+ *     de cobrança (locação). É o defeito que `07_NOMENCLATURA_CANONICA §4.34` nomeia (`severity` e
+ *     `priority` não são sinônimos). A API passou a devolver `durationMinutes` e `pricingUnit`
+ *     separados, e esta função recebe os dois — cada oferta preenche o seu, o outro vem `null`.
+ *  2. A leitura estava COPIADA em três telas (painel do evento, catálogo, página do fornecedor).
+ *     Três cópias de "como preço se lê" divergem em silêncio; agora é uma.
+ *
+ * `null` em preço NÃO vira "R$ 0,00": preço ausente é "sob consulta" — afirmação diferente, e a
+ * errada custaria caro numa tela de contratação.
+ */
+const UNIDADE_DE_COBRANCA: Record<string, string> = {
+  por_hora: '/hora',
+  por_dia: '/dia',
+  por_semana: '/semana',
+  por_mes: '/mês',
+  por_semestre: '/semestre',
+  por_ano: '/ano',
+};
+
+export function formatSupplierPrice(input: {
+  priceCents: number | null;
+  durationMinutes: number | null;
+  pricingUnit: string | null;
+}): string {
+  if (input.priceCents == null) return 'sob consulta';
+  const valor = formatCentsAsBRL(input.priceCents);
+  // Unidade de cobrança desconhecida some do rótulo em vez de aparecer crua: mostrar um valor que
+  // o vocabulário não reconhece é pior que mostrar só o preço.
+  if (input.pricingUnit) return `${valor}${UNIDADE_DE_COBRANCA[input.pricingUnit] ?? ''}`;
+  const min = input.durationMinutes;
+  return min != null && min > 0 ? `${valor} · ${Math.round(min / 60)}h` : valor;
+}

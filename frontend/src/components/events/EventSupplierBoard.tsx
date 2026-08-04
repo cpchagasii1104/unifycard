@@ -18,6 +18,8 @@
 
 import { useEffect, useState } from 'react';
 import { getEventNeedSuppliers, type NeedWithSuppliers } from '../../api/events';
+// Preço de fornecedor se lê num lugar SÓ — três cópias desta regra divergiriam em silêncio.
+import { formatSupplierPrice } from '../../utils/money';
 import './EventSupplierBoard.css';
 
 interface Props {
@@ -25,20 +27,6 @@ interface Props {
   eventTitle: string;
 }
 
-function precoLegivel(cents: number | null, unidade: string | null, kind: string): string {
-  if (cents == null) return 'sob consulta';
-  const valor = (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-  if (kind === 'rentable') {
-    const porUnidade: Record<string, string> = {
-      por_hora: '/hora', por_dia: '/dia', por_semana: '/semana',
-      por_mes: '/mês', por_semestre: '/semestre', por_ano: '/ano',
-    };
-    return `${valor}${unidade ? porUnidade[unidade] ?? '' : ''}`;
-  }
-  // service: priceUnit vem como duração em minutos.
-  const min = unidade ? Number(unidade) : NaN;
-  return Number.isFinite(min) && min > 0 ? `${valor} · ${Math.round(min / 60)}h` : valor;
-}
 
 export default function EventSupplierBoard({ eventId, eventTitle }: Props) {
   const [needs, setNeeds] = useState<NeedWithSuppliers[] | null>(null);
@@ -99,7 +87,7 @@ export default function EventSupplierBoard({ eventId, eventTitle }: Props) {
                   <li key={s.offerId} className="supplier-offer">
                     <span className="supplier-offer-name">{s.providerDisplayName ?? 'Fornecedor'}</span>
                     <span className="supplier-offer-what">{s.offerLabel ?? ''}</span>
-                    <span className="supplier-offer-price">{precoLegivel(s.priceCents, s.priceUnit, s.sourceKind)}</span>
+                    <span className="supplier-offer-price">{formatSupplierPrice(s)}</span>
                   </li>
                 ))}
               </ul>

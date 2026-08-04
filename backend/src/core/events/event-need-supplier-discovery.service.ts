@@ -53,8 +53,17 @@ export interface NeedSupplierOption {
   /** Rótulo da própria oferta/recurso (o que o fornecedor chamou). */
   offerLabel: string | null;
   priceCents: number | null;
-  /** 'service': duração em minutos. 'rentable': unidade de cobrança (diaria/hora/…). */
-  priceUnit: string | null;
+  /**
+   * 🔴 EIXOS SEPARADOS (2026-08-04). Havia UM campo `priceUnit` carregando as DUAS coisas —
+   * `duration_minutes` quando serviço, `pricing_unit` quando locação. É a classe de defeito que
+   * `07_NOMENCLATURA_CANONICA §4.34` nomeia (`severity` e `priority` não são sinônimos): dois
+   * eixos num nome só. A tela só não mentia porque desempatava por `sourceKind` — o CONTRATO
+   * mentia. Cada eixo agora tem nome próprio e o outro vem `null`.
+   */
+  /** SERVIÇO: quanto tempo a oferta dura. `null` em locação. */
+  durationMinutes: number | null;
+  /** LOCAÇÃO: unidade de cobrança (`por_hora`·`por_dia`·`por_semana`·…). `null` em serviço. */
+  pricingUnit: string | null;
 }
 
 export interface NeedWithSuppliers {
@@ -90,7 +99,10 @@ export interface ProviderOffer {
   offerId: string;
   label: string | null;
   priceCents: number | null;
-  priceUnit: string | null;
+  /** SERVIÇO: duração da oferta. `null` em locação. Ver a nota de eixos em `NeedSupplierOption`. */
+  durationMinutes: number | null;
+  /** LOCAÇÃO: unidade de cobrança (`por_hora`·`por_dia`·…). `null` em serviço. */
+  pricingUnit: string | null;
   /** Identidade semântica do que se oferece (Lei 7) — a tela lê o rótulo, roteia pelo concept. */
   conceptId: string | null;
   windows: ProviderOfferWindow[];
@@ -242,7 +254,8 @@ class EventNeedSupplierDiscoveryService {
         ? runQueriesWithTenant<{
             need_concept_id: string; offer_id: string; provider_actor_id: string;
             provider_display_name: string | null; offer_label: string | null;
-            price_cents: string | number | null; price_unit: string | null;
+            price_cents: string | number | null;
+            duration_minutes: number | null; pricing_unit: string | null;
           }>(
             tenantId,
             // canonical_services é GLOBAL (tenant_id IS NULL) — mesma condição que todo reader do
@@ -258,7 +271,10 @@ class EventNeedSupplierDiscoveryService {
                     a.display_name                   AS provider_display_name,
                     cs.name                          AS offer_label,
                     so.price_cents                   AS price_cents,
-                    so.duration_minutes::text        AS price_unit
+                    -- Eixos SEPARADOS já no SQL: serviço tem duração, não tem unidade de cobrança.
+                    -- Emitir NULL explícito é mais honesto que reaproveitar um nome para dois eixos.
+                    so.duration_minutes              AS duration_minutes,
+                    NULL::text                       AS pricing_unit
                FROM canonical_services cs
                JOIN service_offerings so
                  ON so.canonical_service_id = cs.id
@@ -276,7 +292,8 @@ class EventNeedSupplierDiscoveryService {
         ? runQueriesWithTenant<{
             need_concept_id: string; offer_id: string; provider_actor_id: string;
             provider_display_name: string | null; offer_label: string | null;
-            price_cents: string | number | null; price_unit: string | null;
+            price_cents: string | number | null;
+            duration_minutes: number | null; pricing_unit: string | null;
           }>(
             tenantId,
             // rentable_resources guarda concept_id DIRETO (não passa por canonical_services).
@@ -287,7 +304,8 @@ class EventNeedSupplierDiscoveryService {
                     a.display_name               AS provider_display_name,
                     rr.label                     AS offer_label,
                     rr.price_cents               AS price_cents,
-                    rr.pricing_unit              AS price_unit
+                    NULL::int                    AS duration_minutes,
+                    rr.pricing_unit              AS pricing_unit
                FROM rentable_resources rr
                LEFT JOIN actors a ON a.id = rr.owner_actor_id AND a.tenant_id = $2::uuid
               WHERE rr.tenant_id = $2::uuid
@@ -313,7 +331,8 @@ class EventNeedSupplierDiscoveryService {
         offerLabel: row.offer_label,
         // price_cents chega como string (BIGINT do pg) — Number() explícito, nunca aritmética em string.
         priceCents: row.price_cents === null ? null : Number(row.price_cents),
-        priceUnit: row.price_unit,
+        durationMinutes: row.duration_minutes === null ? null : Number(row.duration_minutes),
+        pricingUnit: row.pricing_unit,
       });
       byNeed.set(row.need_concept_id, list);
     };
@@ -403,12 +422,14 @@ class EventNeedSupplierDiscoveryService {
         ? runQueriesWithTenant<{
             need_concept_id: string; offer_id: string; provider_actor_id: string;
             provider_display_name: string | null; offer_label: string | null;
-            price_cents: string | number | null; price_unit: string | null;
+            price_cents: string | number | null;
+            duration_minutes: number | null; pricing_unit: string | null;
           }>(
             tenantId,
             `SELECT cs.concept_id AS need_concept_id, so.id::text AS offer_id,
                     so.provider_actor_id::text AS provider_actor_id, a.display_name AS provider_display_name,
-                    cs.name AS offer_label, so.price_cents, so.duration_minutes::text AS price_unit
+                    cs.name AS offer_label, so.price_cents,
+                    so.duration_minutes AS duration_minutes, NULL::text AS pricing_unit
                FROM canonical_services cs
                JOIN service_offerings so
                  ON so.canonical_service_id = cs.id AND so.status = 'active' AND so.tenant_id = $2::uuid
@@ -423,12 +444,14 @@ class EventNeedSupplierDiscoveryService {
         ? runQueriesWithTenant<{
             need_concept_id: string; offer_id: string; provider_actor_id: string;
             provider_display_name: string | null; offer_label: string | null;
-            price_cents: string | number | null; price_unit: string | null;
+            price_cents: string | number | null;
+            duration_minutes: number | null; pricing_unit: string | null;
           }>(
             tenantId,
             `SELECT rr.concept_id::text AS need_concept_id, rr.id::text AS offer_id,
                     rr.owner_actor_id::text AS provider_actor_id, a.display_name AS provider_display_name,
-                    rr.label AS offer_label, rr.price_cents, rr.pricing_unit AS price_unit
+                    rr.label AS offer_label, rr.price_cents,
+                    NULL::int AS duration_minutes, rr.pricing_unit AS pricing_unit
                FROM rentable_resources rr
                LEFT JOIN actors a ON a.id = rr.owner_actor_id AND a.tenant_id = $2::uuid
               WHERE rr.tenant_id = $2::uuid AND rr.is_active = true AND rr.status = 'active'
@@ -448,7 +471,8 @@ class EventNeedSupplierDiscoveryService {
         sourceKind, offerId: row.offer_id, providerActorId: row.provider_actor_id,
         providerDisplayName: row.provider_display_name, offerLabel: row.offer_label,
         priceCents: row.price_cents === null ? null : Number(row.price_cents),
-        priceUnit: row.price_unit,
+        durationMinutes: row.duration_minutes === null ? null : Number(row.duration_minutes),
+        pricingUnit: row.pricing_unit,
       });
       byNeed.set(row.need_concept_id, list);
     };
@@ -500,13 +524,14 @@ class EventNeedSupplierDiscoveryService {
       ),
       runQueriesWithTenant<{
         offer_id: string; label: string | null; price_cents: string | number | null;
-        price_unit: string | null; concept_id: string | null;
+        duration_minutes: number | null; pricing_unit: string | null; concept_id: string | null;
       }>(
         tenantId,
         // Mesmo recorte de "oferta contratável" da irmã acima: status 'active'. Oferta em draft/suspended
         // NÃO aparece — `active` é autorização operacional de contratação (DECISION-0147), não estado visual.
         `SELECT so.id::text AS offer_id, cs.name AS label, so.price_cents,
-                so.duration_minutes::text AS price_unit, cs.concept_id::text AS concept_id
+                so.duration_minutes AS duration_minutes, NULL::text AS pricing_unit,
+                cs.concept_id::text AS concept_id
            FROM service_offerings so
            LEFT JOIN canonical_services cs ON cs.id = so.canonical_service_id
           WHERE so.tenant_id = $2::uuid AND so.provider_actor_id = $1::uuid AND so.status = 'active'
@@ -515,11 +540,12 @@ class EventNeedSupplierDiscoveryService {
       ),
       runQueriesWithTenant<{
         offer_id: string; label: string | null; price_cents: string | number | null;
-        price_unit: string | null; concept_id: string | null;
+        duration_minutes: number | null; pricing_unit: string | null; concept_id: string | null;
       }>(
         tenantId,
         `SELECT rr.id::text AS offer_id, rr.label, rr.price_cents,
-                rr.pricing_unit AS price_unit, rr.concept_id::text AS concept_id
+                NULL::int AS duration_minutes, rr.pricing_unit AS pricing_unit,
+                rr.concept_id::text AS concept_id
            FROM rentable_resources rr
           WHERE rr.tenant_id = $2::uuid AND rr.owner_actor_id = $1::uuid
             AND rr.is_active = true AND rr.status = 'active'
@@ -584,13 +610,14 @@ class EventNeedSupplierDiscoveryService {
 /** Projeção comum das duas origens — o que muda entre elas é a query, não a forma de saída. */
 function toOffer(r: {
   offer_id: string; label: string | null; price_cents: string | number | null;
-  price_unit: string | null; concept_id: string | null;
+  duration_minutes: number | null; pricing_unit: string | null; concept_id: string | null;
 }): Omit<ProviderOffer, 'sourceKind' | 'windows'> {
   return {
     offerId: r.offer_id,
     label: r.label,
     priceCents: r.price_cents === null ? null : Number(r.price_cents),
-    priceUnit: r.price_unit,
+    durationMinutes: r.duration_minutes === null ? null : Number(r.duration_minutes),
+    pricingUnit: r.pricing_unit,
     conceptId: r.concept_id,
   };
 }
