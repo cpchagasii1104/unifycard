@@ -1,5 +1,72 @@
 # REMEDIATION DT LOG
 
+## 🌱 O ESTOQUE — fornecedores e eventos de demonstração semeados (2026-08-04)
+
+**Autorização:** Clayton, explícita: *"sim, pode semear fornecedores e eventos de demonstração"*,
+depois de eu ter medido e reportado que a fiação de eventos estava pronta e **sem água**.
+
+**O antes (medido, `unificard_dev`):**
+```
+17 necessidades do SHOW → 0 fornecedores em TODAS
+sistema inteiro         → 1 oferta de serviço · 0 locáveis
+vitrine (/eventos)      → 0 eventos passam no filtro do feed
+```
+
+**O depois (mesma medição, mesmo comando):**
+```
+COBERTURA do SHOW: 17/17 necessidades com fornecedor
+EVENTOS na vitrine: 6
+Δbank: 0 → 0 (ZERO)
+```
+
+### O que foi semeado — `seed-demo-event-supply.ts`
+
+**7 empresas**, cada uma com **dono humano próprio nascido pelo caminho REAL de auth**
+(`authService.register`, bcrypt, CPF com DV válido) — nunca actor órfão, nunca SQL cru de senha:
+`Muralha Segurança` · `Decibel Áudio e Luz` · `Vida Brigada e Resgate` · `Sabor & Cia Buffet` ·
+`Brilho Limpeza` · `Foco Studio` · `Rio Verde Estruturas`.
+**14 ofertas de serviço** + **3 locáveis** (banheiro químico, tenda, gerador) → cobrem as 17.
+
+**6 eventos publicados com data futura**, escolhidos para exercitar as DUAS faces da vitrine que
+Clayton descreveu:
+· lazer/PF → `show` (Pedra Noventa), `festa` (Junina), `apresentacao` (Sarau)
+· negócio/PJ → `feira` (Empreendedor), `reuniao` (Síndicos), `workshop` (Precificação)
+
+### Verificação de 1ª mão (não é relato do script — é releitura pela ponte)
+
+Rodei `listNeedsWithSuppliers` contra o evento semeado, no banco real. Saída literal:
+```
+OK Segurança de eventos      service   1 -> Muralha Segurança e Eventos   R$ 2500,00
+OK Sonorização (técnico)     service   1 -> Decibel Áudio e Luz           R$ 3800,00
+OK Banheiro químico          rentable  1 -> Rio Verde Estruturas          R$  180,00
+OK Montagem de palco         service   1 -> Decibel Áudio e Luz           R$ 4500,00
+… 17/17
+```
+É exatamente o que Clayton pediu para ver em "Meus Eventos · Consumir": *"as empresas pertinentes
+a me ajudar… segurança, energia, banheiros, palcos, equipamentos"*.
+
+**Idempotência PROVADA rodando 2×:** 2ª corrida → `CRIADOS 0 · REUSADOS 7/14/3/6`.
+
+### ⚠️ O que este seed NÃO é
+
+- **Não é migration** e não vira uma. É script de dado de demonstração, rodado sob demanda.
+- **Não cria concept nenhum** — os 17 já existiam governados. Zero risco de vocabulário paralelo.
+- **Δbank=0**, verificado antes/depois na mesma corrida.
+- Os dados são reconhecíveis: `metadata->>'demo_seed' = 'true'` em empresas, locáveis e eventos —
+  quem quiser separar demonstração de dado real tem por onde.
+- ⚠️ Rodar precisa de `RATE_LIMIT_AUTH_REGISTER` elevado (7 cadastros seguidos vs. teto de 3/min).
+  Mesma válvula das duas fatias anteriores.
+
+**Senha dos donos de demonstração:** `Teste@2026` · e-mails `*@*.demo.unificard`.
+
+### 🟢 Desbloqueado por isto
+
+As 4 faces (`/eventos`×modo, `/meus-eventos`×modo) **agora têm o que renderizar**. A próxima
+fatia é a TELA — e o padrão a seguir é `RentalResourceListPage` (precedente VIVO de modo que troca
+fonte de dados **e** layout), não `ProviderServiceHubPage` (que só troca rótulo).
+
+---
+
 ## 🔗 F-EVENT-SUPPLIER-BRIDGE — a ponte necessidade → fornecedor (2026-08-04)
 
 **Origem:** Clayton, sobre o que deveria aparecer em "Meus Eventos" no modo Consumir: *"as empresas
