@@ -70,3 +70,7 @@ artifacts/identity-cp5-a2-export*.csv
 
 # Temporary backups
 *.bak
+
+# Estado operacional do seed de demonstração — ids que o seed criou, para a faxina apagar POR ID
+# (Lei 7: identidade é o id). É estado LOCAL da máquina, não código; cada banco tem o seu.
+.demo-seed-manifest.json

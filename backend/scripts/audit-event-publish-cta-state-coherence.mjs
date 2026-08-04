@@ -40,10 +40,18 @@ if (agg === null) {
     // cada linha: `estado: ['destino1', 'destino2'],`
     const entryRe = /(\w+):\s*\[([^\]]*)\]/g;
     const canReachPublished = new Set();
+    // 🔴 2026-08-04 — O VOCABULÁRIO DE STATUS DE EVENTO, derivado do MESMO agregado (origens ∪ destinos).
+    // Sem ele o guard não sabia o que é status de evento e casava QUALQUER `.status === '...'`: em
+    // OrganizerEventsDashboard.tsx ele leu `r.status === 'fulfilled'` de um `Promise.allSettled` e
+    // acusou um CTA que não existe. É a assinatura de erro da casa — ferramenta configurada de um
+    // jeito, resultado lido como se fosse de outro. Continua derivado, nunca hardcoded.
+    const eventStatuses = new Set();
     let m;
     while ((m = entryRe.exec(body))) {
       const from = m[1];
       const targets = m[2].split(',').map((s) => s.trim().replace(/['"]/g, '')).filter(Boolean);
+      eventStatuses.add(from);
+      for (const t of targets) eventStatuses.add(t);
       if (targets.includes('published')) canReachPublished.add(from);
     }
     if (canReachPublished.size === 0) {
@@ -69,10 +77,21 @@ if (agg === null) {
       const findGateBefore = (src, idx, windowSize) => {
         const windowStart = Math.max(0, idx - windowSize);
         const window = src.slice(windowStart, idx);
-        const gateRe = /\.status\s*===\s*['"](\w+)['"]/g;
+        // 🔴 2026-08-04 — Casa QUALQUER comparação contra literal, e o filtro de vocabulário abaixo é
+        // que decide se é gate. O padrão anterior exigia `.status ===` literalmente e por isso NÃO
+        // enxergava o gate correto de OrganizerEventsDashboard (`st === 'declared'`, com `st` derivado
+        // de `statusCanonical ?? status`) — enxergava só o `r.status === 'fulfilled'` do allSettled.
+        // Ler pelo NOME do campo era a fraqueza; ler pelo VOCABULÁRIO derivado do agregado é a força.
+        const gateRe = /===\s*['"](\w+)['"]/g;
         let lastGate = null;
         let gm;
-        while ((gm = gateRe.exec(window))) lastGate = gm[1];
+        // Só conta como GATE a comparação contra um status que o agregado reconhece como de EVENTO.
+        // `r.status === 'fulfilled'` (Promise.allSettled), `res.status === 'ok'` etc. não são gates de
+        // publicação e não podem sequestrar a leitura. NÃO enfraquece: se sobrar nenhum gate de evento
+        // antes da chamada, o guard reporta "sem gate identificável" logo abaixo — que também é falha.
+        while ((gm = gateRe.exec(window))) {
+          if (eventStatuses.has(gm[1])) lastGate = gm[1];
+        }
         return lastGate;
       };
       for (const file of files) {
@@ -96,16 +115,34 @@ if (agg === null) {
           // definida — é ali que a condição de estado realmente vive.
           if (!gate) {
             const beforeWide = src.slice(Math.max(0, callIdx - 2000), callIdx);
-            const fnMatch = beforeWide.match(/const\s+(\w+)\s*=\s*async\s*\([^)]*\)\s*=>\s*\{[\s\S]*$/)
-              || beforeWide.match(/(?:async\s+)?function\s+(\w+)\s*\([^)]*\)\s*\{[\s\S]*$/);
-            if (fnMatch) {
-              const fnName = fnMatch[1];
+            // 🔴 2026-08-04 — `useCallback(` entra no padrão. Sem ele, `const publicar = useCallback(
+            // async (id) => { … publishEvent(id) … })` não casava, o guard subia até a função ANTERIOR
+            // do arquivo (`load`) e procurava o gate no lugar errado — reportando "sem gate" num
+            // arquivo cujo gate (`st === 'declared'`) está correto. Handler de React é quase sempre
+            // useCallback; não reconhecê-lo era não reconhecer o caso comum.
+            // 🔴 2026-08-04 — a envolvente é a ÚLTIMA declaração antes da chamada, não a primeira.
+            // `.match()` devolve a PRIMEIRA ocorrência: num arquivo com `const load = …` antes de
+            // `const publicar = …`, o guard elegia `load` e ia procurar o gate onde ele nunca esteve.
+            // Varremos todas e ficamos com a mais próxima da chamada.
+            const ultimaDeclaracao = (re) => {
+              let achado = null, mm;
+              const g = new RegExp(re.source, 'g');
+              while ((mm = g.exec(beforeWide))) achado = mm[1];
+              return achado;
+            };
+            const fnName = ultimaDeclaracao(/const\s+(\w+)\s*=\s*(?:useCallback\(\s*)?async\s*\([^)]*\)\s*=>\s*\{/)
+              || ultimaDeclaracao(/(?:async\s+)?function\s+(\w+)\s*\([^)]*\)\s*\{/);
+            if (fnName) {
               // procura invocações de fnName( no arquivo INTEIRO, exceto a própria definição.
               const invokeRe = new RegExp(`(?<!function\\s)(?<!const\\s)\\b${fnName}\\s*\\(`, 'g');
               let im;
               while ((im = invokeRe.exec(src))) {
                 if (im.index === beforeWide.length + (Math.max(0, callIdx - 2000))) continue; // não é a def em si (aprox.)
-                const g = findGateBefore(src, im.index, 500);
+                // Janela de 1500: o gate costuma ser calculado no topo do `.map(...)` e a invocação
+                // fica no `onClick` lá embaixo, com o JSX da linha inteira no meio (em
+                // OrganizerEventsDashboard são ~900 caracteres entre `podePublicar` e `publicar(`).
+                // 500 cortava antes do gate e produzia "sem gate identificável" num arquivo CORRETO.
+                const g = findGateBefore(src, im.index, 1500);
                 if (g) { gate = g; break; }
               }
             }

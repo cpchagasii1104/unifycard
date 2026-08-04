@@ -27,6 +27,13 @@
  */
 import 'tsconfig-paths/register';
 import { pool } from '../core/database/pool';
+// Δbank=0 se pergunta AO BANK — a sonda mora em src/modules/bank porque só o domínio Bank lê bank_*
+// (SSOT_EXCLUSIVE_BANK_RULE; C4-BANK-READ-BOUNDARY do audit-schema-coherence-ratchet).
+import { countBankMovements } from '../modules/bank/bank-movement-probe';
+// 🔴 IDENTIDADE É O ID (Lei 7). Os eventos-alvo saem do MANIFESTO que o seed escreveu, não de
+// `metadata->>'demo_seed'` — decidir sobre `events` (tabela TRANSACIONAL) por metadata é o que
+// `audit-schema-coherence-ratchet` morde em C7-METADATA-DECISION, e ele está certo.
+import { lerDoManifesto, esquecerDoManifesto, CAMINHO_DO_MANIFESTO } from './helpers/demo-seed-manifest';
 
 // 🔴 ALVOS EXPLÍCITOS (2026-08-04, 2ª versão). A 1ª versão tinha um default perigoso: apagava o
 // dado de demonstração BOM (as 7 empresas + 6 eventos realistas) e PRESERVAVA os 36 rascunhos de
@@ -64,9 +71,10 @@ const DEPENDENTES_SEM_CASCADE = [
  * eventos de teste: zero em todas — por isso foi seguro. A trava fica para a próxima vez, quando
  * pode não ser.
  */
-async function abortarSeTiverDinheiro(filtroSql: string): Promise<void> {
+async function abortarSeTiverDinheiro(eventIds: string[]): Promise<void> {
+  if (eventIds.length === 0) return;
   for (const t of ['ticket_sales', 'event_consumptions', 'event_financial_execution']) {
-    const n = await contar(`SELECT count(*)::text n FROM ${t} WHERE event_id IN (${filtroSql})`);
+    const n = await contar(`SELECT count(*)::text n FROM ${t} WHERE event_id = ANY($1::uuid[])`, [eventIds]);
     if (n > 0) {
       throw new Error(
         `ABORTADO: ${n} registro(s) em ${t} para os eventos-alvo. Apagar destruiria registro financeiro — isto exige decisão explícita de Clayton, não faxina.`
@@ -80,10 +88,14 @@ async function main(): Promise<void> {
   console.log(`🧹 Faxina do dado de demonstração em: ${db}`);
   console.log(CONFIRMAR ? '⚠️  MODO EXECUÇÃO (--confirmar)\n' : '👀 DRY-RUN — nada será apagado. Use --confirmar para executar.\n');
 
-  const bank0 = await contar(`SELECT ((SELECT count(*) FROM bank_ledger)+(SELECT count(*) FROM bank_transactions))::text n`);
+  const bank0 = await countBankMovements();
 
-  const eventosDemo = await contar(`SELECT count(*)::text n FROM events WHERE metadata->>'demo_seed' = 'true'`);
-  const eventosClayton = await contar(`SELECT count(*)::text n FROM events WHERE metadata->>'completed_by_seed' = 'true'`);
+  // Ids registrados pelos seeds. Vazio = seed não rodou (ou já foi limpo) — afirmação medida.
+  const idsDemo = lerDoManifesto('demo_events');
+  const idsClayton = lerDoManifesto('completed_events');
+  // Conta o que AINDA EXISTE desses ids (o manifesto pode citar linha já apagada à mão).
+  const eventosDemo = await contar(`SELECT count(*)::text n FROM events WHERE id = ANY($1::uuid[])`, [idsDemo]);
+  const eventosClayton = await contar(`SELECT count(*)::text n FROM events WHERE id = ANY($1::uuid[])`, [idsClayton]);
   const empresas = await contar(`SELECT count(*)::text n FROM actors WHERE metadata->>'demo_seed' = 'true'`);
   const locaveis = await contar(`SELECT count(*)::text n FROM rentable_resources WHERE metadata->>'demo_seed' = 'true'`);
   const ofertas = await contar(
@@ -99,7 +111,8 @@ async function main(): Promise<void> {
 
   if (ALVO_EVENTOS_TESTE) {
     const amostra = await pool.query<{ title: string }>(
-      `SELECT title FROM events WHERE metadata->>'completed_by_seed' = 'true' ORDER BY created_at LIMIT 8`
+      `SELECT title FROM events WHERE id = ANY($1::uuid[]) ORDER BY created_at LIMIT 8`,
+      [idsClayton]
     );
     console.log('\n   Amostra dos eventos de teste que sairão:');
     amostra.rows.forEach((r) => console.log(`        - ${r.title}`));
@@ -120,8 +133,8 @@ async function main(): Promise<void> {
   }
 
   // ── TRAVA DE DINHEIRO antes de qualquer escrita ─────────────────────────────
-  if (ALVO_EVENTOS_TESTE) await abortarSeTiverDinheiro(`SELECT id FROM events WHERE metadata->>'completed_by_seed' = 'true'`);
-  if (ALVO_DEMO) await abortarSeTiverDinheiro(`SELECT id FROM events WHERE metadata->>'demo_seed' = 'true'`);
+  if (ALVO_EVENTOS_TESTE) await abortarSeTiverDinheiro(idsClayton);
+  if (ALVO_DEMO) await abortarSeTiverDinheiro(idsDemo);
   console.log('\n✅ Trava de dinheiro: nenhum registro financeiro nos eventos-alvo.');
 
   // ── EXECUÇÃO ────────────────────────────────────────────────────────────────
@@ -131,11 +144,10 @@ async function main(): Promise<void> {
     await client.query('BEGIN');
 
     if (ALVO_EVENTOS_TESTE) {
-      const filtro = `SELECT id FROM events WHERE metadata->>'completed_by_seed' = 'true'`;
       for (const t of DEPENDENTES_SEM_CASCADE) {
-        await client.query(`DELETE FROM ${t} WHERE event_id IN (${filtro})`);
+        await client.query(`DELETE FROM ${t} WHERE event_id = ANY($1::uuid[])`, [idsClayton]);
       }
-      await client.query(`DELETE FROM events WHERE metadata->>'completed_by_seed' = 'true'`);
+      await client.query(`DELETE FROM events WHERE id = ANY($1::uuid[])`, [idsClayton]);
     }
 
     if (ALVO_DEMO) {
@@ -146,11 +158,10 @@ async function main(): Promise<void> {
         `DELETE FROM services WHERE actor_id IN (SELECT id FROM actors WHERE metadata->>'demo_seed' = 'true')`
       );
       await client.query(`DELETE FROM rentable_resources WHERE metadata->>'demo_seed' = 'true'`);
-      const filtroDemo = `SELECT id FROM events WHERE metadata->>'demo_seed' = 'true'`;
       for (const t of DEPENDENTES_SEM_CASCADE) {
-        await client.query(`DELETE FROM ${t} WHERE event_id IN (${filtroDemo})`);
+        await client.query(`DELETE FROM ${t} WHERE event_id = ANY($1::uuid[])`, [idsDemo]);
       }
-      await client.query(`DELETE FROM events WHERE metadata->>'demo_seed' = 'true'`);
+      await client.query(`DELETE FROM events WHERE id = ANY($1::uuid[])`, [idsDemo]);
       await client.query(
         `DELETE FROM actor_referral_codes WHERE owner_actor_id IN (SELECT id FROM actors WHERE metadata->>'demo_seed' = 'true')
             OR created_by_actor_id IN (SELECT id FROM actors WHERE metadata->>'demo_seed' = 'true')`
@@ -176,16 +187,21 @@ async function main(): Promise<void> {
       }
     }
 
-    const bank1 = Number(
-      (await client.query<{ n: string }>(`SELECT ((SELECT count(*) FROM bank_ledger)+(SELECT count(*) FROM bank_transactions))::text n`)).rows[0].n
-    );
+    // DENTRO da transação de propósito: a contagem tem que enxergar o que este DELETE fez, não o
+    // que o pool veria de fora. Por isso a sonda aceita o client — o escopo é decisão do caller.
+    const bank1 = await countBankMovements(client);
     if (bank1 !== bank0) {
       // Não deveria ser possível — mas se for, a transação inteira volta atrás.
       throw new Error(`ABORTADO: Δbank mudou (${bank0} → ${bank1}). Nada foi apagado.`);
     }
 
     await client.query('COMMIT');
+    // DEPOIS do COMMIT, nunca antes: se a transação voltasse atrás, esquecer os ids deixaria linhas
+    // órfãs que nenhuma faxina futura acharia — sujeira invisível é pior que sujeira listada.
+    if (ALVO_EVENTOS_TESTE) esquecerDoManifesto('completed_events');
+    if (ALVO_DEMO) esquecerDoManifesto('demo_events');
     console.log('\n✅ Faxina concluída. Δbank inalterado.');
+    console.log(`   Manifesto atualizado: ${CAMINHO_DO_MANIFESTO}`);
   } catch (e) {
     await client.query('ROLLBACK');
     console.error(`\n💥 ROLLBACK: ${e instanceof Error ? e.message : String(e)}`);

@@ -24,6 +24,13 @@
  */
 import 'tsconfig-paths/register';
 import { pool } from '../core/database/pool';
+// Δbank=0 se pergunta AO BANK — a sonda mora em src/modules/bank porque só o domínio Bank lê bank_*
+// (SSOT_EXCLUSIVE_BANK_RULE; C4-BANK-READ-BOUNDARY do audit-schema-coherence-ratchet).
+import { countBankMovements } from '../modules/bank/bank-movement-probe';
+// 🔴 Este seed ANOTA os ids que completou (Lei 7: identidade é o id). `metadata.completed_by_seed`
+// continua como RASTRO legível, mas a faxina apaga POR ID — `events` é transacional e metadata
+// não decide sobre ela (C7-METADATA-DECISION do audit-schema-coherence-ratchet).
+import { registrarNoManifesto } from './helpers/demo-seed-manifest';
 
 /** Espalha os eventos entre 5 e 90 dias no futuro, em horários plausíveis. */
 function dataFutura(indice: number): { inicio: Date; fim: Date } {
@@ -48,7 +55,7 @@ async function main(): Promise<void> {
   socialPortsRegistry.setEventFeedHandlers(adapters.eventFeedHandlersAdapter);
   const { eventService } = await import('../core/events/event.service');
 
-  const bank0 = (await pool.query<{ n: string }>(`SELECT ((SELECT count(*) FROM bank_ledger)+(SELECT count(*) FROM bank_transactions))::text n`)).rows[0].n;
+  const bank0 = String(await countBankMovements());
 
   const pendentes = (
     await pool.query<{ id: string; tenant_id: string; actor_id: string; title: string; status: string }>(
@@ -69,6 +76,8 @@ async function main(): Promise<void> {
 
   let declarados = 0, comData = 0, publicados = 0;
   const falhas: Array<{ titulo: string; etapa: string; motivo: string }> = [];
+  /** Ids que este seed publicou — é por eles que a faxina alcança estes eventos. */
+  const idsCompletados: string[] = [];
 
   for (let i = 0; i < pendentes.length; i++) {
     const ev = pendentes[i];
@@ -98,12 +107,13 @@ async function main(): Promise<void> {
       await eventService.publishEvent(ev.tenant_id, ev.id, ev.actor_id);
       publicados++;
 
-      // Marcador para poder apagar depois (pedido explícito de Clayton).
+      // Rastro legível de PROCEDÊNCIA ("de onde veio esta linha?"). NÃO é o que a faxina lê.
       await pool.query(
         `UPDATE events SET metadata = COALESCE(metadata,'{}'::jsonb) || '{"completed_by_seed":true}'::jsonb WHERE id = $1::uuid`,
         [ev.id]
       );
 
+      idsCompletados.push(ev.id);
       console.log(`   ✅ ${ev.title.slice(0, 44).padEnd(44)} → publicado ${inicio.toLocaleDateString('pt-BR')}`);
     } catch (e) {
       const motivo = e instanceof Error ? e.message : String(e);
@@ -112,7 +122,11 @@ async function main(): Promise<void> {
     }
   }
 
-  const bank1 = (await pool.query<{ n: string }>(`SELECT ((SELECT count(*) FROM bank_ledger)+(SELECT count(*) FROM bank_transactions))::text n`)).rows[0].n;
+  // Registrado ANTES do relatório: se algo falhar adiante, o que já foi publicado continua
+  // alcançável pela faxina — evento publicado e não-registrado seria sujeira invisível.
+  registrarNoManifesto('completed_events', idsCompletados);
+
+  const bank1 = String(await countBankMovements());
   const naVitrine = (
     await pool.query<{ n: string }>(
       `SELECT count(*)::text n FROM events

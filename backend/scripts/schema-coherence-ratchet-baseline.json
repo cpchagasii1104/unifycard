@@ -1,10 +1,10 @@
 {
  "_comment": "Baseline CONGELADA do ratchet schema-coherence v2 POR CONDICAO (F-SCHEMA-COHERENCE-TRUTH, 2026-07-31, GO Clayton). Chave: arquivo::tabela::padrao::condicao::severidade::vivo|scripts -> contagem. GHOST (Cond.1) = tabela NAO existe; BOUNDARY (Cond.3/4/5) = tabela EXISTE, acesso fora do modulo autorizado (autoridade, nao schema). Regenerar apos conserto REAL: node scripts/audit-schema-coherence-ratchet.mjs --write-baseline (recusa crescer) + baixar CEILINGS no guard no MESMO commit.",
- "generatedAt": "2026-08-03",
+ "generatedAt": "2026-08-04",
  "buckets": {
   "GHOST-WRITE-vivo": 258,
   "GHOST-WRITE-scripts": 5,
-  "GHOST-READ-vivo": 345,
+  "GHOST-READ-vivo": 344,
   "GHOST-READ-scripts": 27,
   "BOUNDARY-WRITE-vivo": 4,
   "BOUNDARY-WRITE-scripts": 327,
@@ -36,7 +36,6 @@
   "core/events/event-payment-prepared.service.ts::event_payment_authorization::FROM::C1-GHOST-READ::CORRUPTOR::vivo": 3,
   "core/events/event-payment-prepared.service.ts::event_payment_authorization::INSERT::C1-GHOST-WRITE::BLOCKER::vivo": 1,
   "core/events/event-payment-prepared.service.ts::event_payment_authorization::UPDATE::C1-GHOST-WRITE::BLOCKER::vivo": 1,
-  "core/events/event-rsvp.service.ts::event_rsvp_counts::FROM::C1-GHOST-READ::CORRUPTOR::vivo": 1,
   "core/home-feed/home-feed.service.ts::bank_splits::FROM::C4-BANK-READ-BOUNDARY::CORRUPTOR::vivo": 1,
   "core/identity/identity.service.ts::actors::INSERT::C5-ACTORS-INSERT-BOUNDARY::CORRUPTOR::vivo": 1,
   "core/memory/memory.repository.ts::user_memory_entities::FROM::C1-GHOST-READ::CORRUPTOR::vivo": 2,

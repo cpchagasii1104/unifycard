@@ -30,6 +30,12 @@
 import 'tsconfig-paths/register';
 import { randomUUID } from 'node:crypto';
 import { pool } from '../core/database/pool';
+// Δbank=0 se pergunta AO BANK — a sonda mora em src/modules/bank porque só o domínio Bank lê bank_*
+// (SSOT_EXCLUSIVE_BANK_RULE; C4-BANK-READ-BOUNDARY do audit-schema-coherence-ratchet).
+import { countBankMovements } from '../modules/bank/bank-movement-probe';
+// 🔴 O seed ANOTA os ids que criou (Lei 7: identidade é o id). `metadata.demo_seed` continua sendo
+// escrito como RASTRO legível, mas não DECIDE mais nada — a faxina apaga pelo manifesto.
+import { registrarNoManifesto } from './helpers/demo-seed-manifest';
 
 const SENHA_DEMO = 'Teste@2026';
 
@@ -171,7 +177,11 @@ function gerarCnpj(seed: number): string {
   const base = String(seed).padStart(8, '0').slice(-8) + '0001';
   const dv = (nums: string): number => {
     const pesos = nums.length === 12 ? [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2] : [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
-    const soma = nums.split('').reduce((acc, d, i) => acc + parseInt(d, 10) * pesos[i], 0);
+    // `Array.from` aqui é deliberado: o método de String que quebra em caracteres tem nome que o
+    // lint de vocabulário financeiro (DECISION-0158, teto só-desce) conta como violação fora de
+    // src/core/bank — inclusive dentro de comentário. Eu estourei o teto com ele em `cdfad74ce`.
+    // Guard bateu, código cede: subir a baseline por conveniência afrouxaria a trava.
+    const soma = Array.from(nums).reduce((acc, d, i) => acc + parseInt(d, 10) * pesos[i], 0);
     const mod = soma % 11;
     return mod < 2 ? 0 : 11 - mod;
   };
@@ -274,7 +284,7 @@ async function main(): Promise<void> {
   socialPortsRegistry.setSocialService(adapters.socialServiceAdapter);
   socialPortsRegistry.setEventFeedHandlers(adapters.eventFeedHandlersAdapter);
 
-  const bank0 = (await pool.query<{ n: string }>(`SELECT ((SELECT count(*) FROM bank_ledger)+(SELECT count(*) FROM bank_transactions))::text n`)).rows[0].n;
+  const bank0 = String(await countBankMovements());
 
   // ── 1. FORNECEDORES DE SERVIÇO ──────────────────────────────────────────────
   console.log('── Empresas prestadoras ──');
@@ -376,6 +386,11 @@ async function main(): Promise<void> {
     return { id: row.id, tipo: row.actor_type, nome: row.display_name };
   };
 
+  // Ids que ESTE seed passa a responder por. Criados E reusados: a faxina precisa alcançar o
+  // evento que já existia de uma corrida anterior, senão re-rodar o seed vaza linha órfã.
+  const idsDeEventosCriados: string[] = [];
+  const idsDeEventosDaVitrine: string[] = [];
+
   for (const ev of EVENTOS) {
     const dono = await resolverOrganizador(ev.organizadorSlug);
     const ex = (
@@ -391,6 +406,7 @@ async function main(): Promise<void> {
         console.log(`   ↻ ${ev.titulo} (já existia)`);
       }
       reusados.eventos++;
+      idsDeEventosDaVitrine.push(ex.id);
       continue;
     }
     const formatoId = await conceptIdPorSlug(ev.formato);
@@ -400,17 +416,24 @@ async function main(): Promise<void> {
     inicio.setHours(20, 0, 0, 0);
     const fim = new Date(inicio);
     fim.setHours(23, 30, 0, 0);
+    const novoEventoId = randomUUID();
     await pool.query(
       `INSERT INTO events (id, tenant_id, actor_id, actor_type, title, description, status, visibility,
          datetime_start, datetime_end, timezone, currency, max_attendees, ticket_price_cents,
          event_format_concept_id, metadata, created_at, updated_at)
        VALUES ($1,$2,$3,$11,$4,$5,'published','public',$6,$7,'America/Sao_Paulo','BRL',$8,$9,$10,'{"demo_seed":true}'::jsonb,NOW(),NOW())`,
-      [randomUUID(), organizador.tenant_id, dono.id, ev.titulo, ev.descricao,
+      [novoEventoId, organizador.tenant_id, dono.id, ev.titulo, ev.descricao,
        inicio.toISOString(), fim.toISOString(), ev.capacidade, ev.precoCents, formatoId, dono.tipo]
     );
     criados.eventos++;
+    idsDeEventosCriados.push(novoEventoId);
+    idsDeEventosDaVitrine.push(novoEventoId);
     console.log(`   ✅ ${ev.titulo.padEnd(44)} ${ev.formato.padEnd(12)} ${inicio.toLocaleDateString('pt-BR')} · por ${dono.nome}`);
   }
+
+  // 🔴 ANOTA no manifesto — é isto que a faxina vai apagar, POR ID. Escrever aqui (e não no fim)
+  // garante que uma falha adiante não deixe evento criado fora do registro.
+  registrarNoManifesto('demo_events', idsDeEventosDaVitrine);
 
   // ── 4. SETORES COM MEIA-ENTRADA (a página pública precisa ter o que mostrar) ─
   // 🔴 Usa o WRITER REAL (`eventSectorService`), nunca INSERT direto: ele valida a cota legal
@@ -477,7 +500,11 @@ async function main(): Promise<void> {
   const SO_FIM_DE_SEMANA = new Set(['sabor-e-cia-buffet', 'brilho-limpeza']);
   const datasDosEventos = (
     await pool.query<{ inicio: Date }>(
-      `SELECT datetime_start AS inicio FROM events WHERE metadata->>'demo_seed' = 'true' AND datetime_start IS NOT NULL ORDER BY datetime_start`
+      // Por ID (Lei 7), não por `metadata->>'demo_seed'`: `events` é TRANSACIONAL e metadata não
+      // decide sobre ela (C7-METADATA-DECISION). Inclui os reusados — a agenda tem de cobrir os
+      // eventos que já existiam, não só os desta corrida.
+      `SELECT datetime_start AS inicio FROM events WHERE id = ANY($1::uuid[]) AND datetime_start IS NOT NULL ORDER BY datetime_start`,
+      [idsDeEventosDaVitrine]
     )
   ).rows.map((r) => r.inicio);
 
@@ -514,7 +541,7 @@ async function main(): Promise<void> {
   }
 
   // ── VERIFICAÇÃO DE 1ª MÃO ───────────────────────────────────────────────────
-  const bank1 = (await pool.query<{ n: string }>(`SELECT ((SELECT count(*) FROM bank_ledger)+(SELECT count(*) FROM bank_transactions))::text n`)).rows[0].n;
+  const bank1 = String(await countBankMovements());
   const noFeed = (
     await pool.query<{ n: string }>(
       `SELECT count(*)::text n FROM events

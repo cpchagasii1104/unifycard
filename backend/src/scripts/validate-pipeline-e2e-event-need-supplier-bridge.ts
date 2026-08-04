@@ -21,6 +21,9 @@
 import 'tsconfig-paths/register';
 import { randomUUID } from 'node:crypto';
 import { pool } from '../core/database/pool';
+// Δbank=0 se pergunta AO BANK — a sonda mora em src/modules/bank porque só o domínio Bank lê bank_*
+// (SSOT_EXCLUSIVE_BANK_RULE; C4-BANK-READ-BOUNDARY do audit-schema-coherence-ratchet).
+import { countBankMovements } from '../modules/bank/bank-movement-probe';
 
 const EXPECTED = process.env.EXPECTED_DATABASE_NAME || '';
 const results: { label: string; ok: boolean; reason?: string }[] = [];
@@ -73,19 +76,22 @@ async function makeHumanActorInTenant(tenantId: string, label: string): Promise<
 }
 
 /**
- * Actor 'page' (empresa fornecedora) com ÂNCORA CIVIL — `responsible_actor_id` apontando para um
- * humano. 🔴 Descoberto ao rodar: o trigger `trg_actor_responsibility_check` recusa page sem
- * responsável (§4.8 LEI_COERENCIA_SISTEMICA). A trava está CERTA e melhorou o teste: fornecedor
- * agora nasce com dono de verdade, como nasceria em produção — não como actor órfão de fixture.
+ * Actor FORNECEDOR no tenant do organizador.
+ *
+ * 🔴 2026-08-04 — ERA UM `INSERT INTO actors` DIRETO, e estava errado por DOIS motivos que se
+ * reforçam. O primeiro é de fronteira: `audit-schema-coherence-ratchet` mordeu
+ * (C5-ACTORS-INSERT-BOUNDARY) porque só `modules/identity/actor-writer.service.ts` escreve em
+ * `actors`. O segundo é de VERDADE: o actor `page` que eu inseria não tinha `company_id`, e page
+ * sem empresa é MEIA-EMPRESA — não-representável (403), como descobri no seed no mesmo dia. O
+ * teste passava com um fornecedor que não existiria em produção.
+ *
+ * `ensurePageActor` exige `companyId` justamente por isso. Como a ponte casa por CONCEPT e
+ * `provider_actor_id` aceita PF, empresa e grupo INDISTINTAMENTE, o fornecedor desta prova é um
+ * actor HUMANO nascido pelo writer soberano (`ensureUserActor`) — mais fiel, não menos: exercita
+ * o caminho pessoa-física-fornecedora sem inventar uma empresa pela metade.
  */
-async function makeSupplierPage(tenantId: string, displayName: string, slugSeed: string): Promise<string> {
-  const dono = await makeHumanActorInTenant(tenantId, `dono-${slugSeed}`);
-  const r = await pool.query<{ id: string }>(
-    `INSERT INTO actors (tenant_id, actor_type, display_name, slug, responsible_actor_id, metadata, created_at, updated_at)
-     VALUES ($1,'page',$2,$3,$4,'{}'::jsonb,NOW(),NOW()) RETURNING id`,
-    [tenantId, displayName, `${slugSeed}-${Date.now()}-${Math.floor(Math.random() * 1e5)}`, dono]
-  );
-  return r.rows[0].id;
+async function makeSupplierActor(tenantId: string, label: string): Promise<string> {
+  return makeHumanActorInTenant(tenantId, label);
 }
 
 /**
@@ -138,7 +144,7 @@ async function main(): Promise<void> {
   const { eventNeedSupplierDiscoveryService } = await import('../core/events/event-need-supplier-discovery.service');
   const { eventOperationalNeedsService } = await import('../core/events/event-operational-needs.service');
 
-  const bank0 = (await pool.query<{ n: string }>(`SELECT ((SELECT count(*) FROM bank_ledger)+(SELECT count(*) FROM bank_transactions))::text n`)).rows[0].n;
+  const bank0 = String(await countBankMovements());
 
   const org = await makeTenantWithActor('SUPBRIDGE');
   const outro = await makeTenantWithActor('SUPBRIDGEOUT');
@@ -173,14 +179,14 @@ async function main(): Promise<void> {
 
   // O fornecedor vive no MESMO tenant do organizador (é o que o isolamento exige para ser
   // descoberto) e nasce com dono humano próprio — a âncora civil que o domínio cobra.
-  const fornecedorActorId = await makeSupplierPage(org.tenantId, 'Segurança Muralha ME', 'seguranca-muralha');
+  const fornecedorActorId = await makeSupplierActor(org.tenantId, 'seguranca-muralha');
   await makeServiceOffering({
     tenantId: org.tenantId, providerActorId: fornecedorActorId, canonicalServiceId: csSeguranca,
     serviceName: 'Segurança para eventos', priceCents: 250000, durationMinutes: 480,
   });
 
   // Locação: dono oferta um banheiro químico (rentable_resources, concept DIRETO).
-  const locadorActorId = await makeSupplierPage(org.tenantId, 'Sanitários Rio Verde', 'sanitarios-rio-verde');
+  const locadorActorId = await makeSupplierActor(org.tenantId, 'sanitarios-rio-verde');
   // 🔴 `pricing_unit='por_dia'`, LIDO do CHECK, não deduzido. Eu tinha escrito 'diaria' de cabeça
   // e o banco recusou — o vocabulário real é `por_hora|por_dia|por_semana|por_mes|por_semestre|
   // por_ano`. Terceira trava do domínio a me pegar inventando valor nesta fatia; as três estavam
@@ -208,7 +214,7 @@ async function main(): Promise<void> {
   }
 
   // ISCA E: oferta IDÊNTICA (mesmo concept de segurança) em OUTRO tenant.
-  const outroFornecedorId = await makeSupplierPage(outro.tenantId, 'Segurança de Outro Tenant', 'seguranca-outra');
+  const outroFornecedorId = await makeSupplierActor(outro.tenantId, 'seguranca-outra');
   await makeServiceOffering({
     tenantId: outro.tenantId, providerActorId: outroFornecedorId, canonicalServiceId: csSeguranca,
     serviceName: 'Seguranca de outro tenant', priceCents: 1, durationMinutes: 60,
@@ -278,7 +284,7 @@ async function main(): Promise<void> {
   );
 
   // ── G — Δbank=0 ─────────────────────────────────────────────────────────────
-  const bank1 = (await pool.query<{ n: string }>(`SELECT ((SELECT count(*) FROM bank_ledger)+(SELECT count(*) FROM bank_transactions))::text n`)).rows[0].n;
+  const bank1 = String(await countBankMovements());
   rec('G · Δbank=0 — descobrir fornecedor não move dinheiro', bank0 === bank1, `${bank0} → ${bank1}`);
 
   // Panorama legível — é o que a tela vai mostrar.
