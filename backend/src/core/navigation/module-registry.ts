@@ -51,6 +51,11 @@ export const MODULE_REGISTRY: ModuleRegistryEntry[] = [
   { moduleKey: 'mobility', label: 'Pedir um carro', icon: '🚗', route: '/em-desenvolvimento?feature=mobility', group: 'Comércio', contexts: ['personal'], status: 'STUB' },
   { moduleKey: 'food', label: 'Pedir comida', icon: '🍕', route: '/em-desenvolvimento?feature=food', group: 'Comércio', contexts: ['personal'], status: 'STUB' },
   { moduleKey: 'rentals', label: 'Locações', icon: '🔑', route: '/locacoes', group: 'Comércio', contexts: ['personal'], status: 'LIVE' }, // F-RENTAL-RESOURCE-SURFACE-SLICE-B
+  // 2026-08-04: EventosPage (descoberta/feed) e MeusEventosPage (gestão) existiam desde 03/08,
+  // ambos com rota registrada em App.tsx, e nenhum era alcançável pelo menu — só 'create-event'
+  // (abaixo) existia, direto para o wizard. Clayton: "menu Evento deveria abrir a GESTÃO". Aqui
+  // fica a vitrine (Consumir); a entrada de gestão está no grupo Criar, ver comentário ali.
+  { moduleKey: 'events', label: 'Eventos', icon: '🎭', route: '/eventos', group: 'Comércio', contexts: ['personal'], status: 'LIVE' },
 
   // ── Social ───────────────────────────────────────────────────────────────
   { moduleKey: 'social', label: 'Rede Social', icon: '💬', route: '/social', group: 'Social', contexts: ['personal'], status: 'LIVE' },
@@ -72,7 +77,10 @@ export const MODULE_REGISTRY: ModuleRegistryEntry[] = [
   // ── Criar ────────────────────────────────────────────────────────────────
   { moduleKey: 'create-company', label: 'Empresa', icon: '🏢', route: '/empresas', group: 'Criar', contexts: ['personal'], status: 'LIVE' },
   { moduleKey: 'create-group', label: 'Grupo', icon: '👥', route: '/grupos', group: 'Criar', contexts: ['personal'], status: 'LIVE' },
-  { moduleKey: 'create-event', label: 'Evento', icon: '🎭', route: '/events/new', group: 'Criar', contexts: ['personal'], status: 'LIVE' },
+  // Era '/events/new' — pulava direto pro wizard, ao contrário de 'create-company' (→/empresas)
+  // e 'create-group' (→/grupos), que abrem a LISTA de onde se cria. 'Meus eventos' já tem
+  // "Criar novo evento" a um clique (MeusEventosPage.tsx:15) — o padrão dos irmãos agora se aplica aqui.
+  { moduleKey: 'create-event', label: 'Evento', icon: '🎭', route: '/meus-eventos', group: 'Criar', contexts: ['personal'], status: 'LIVE' },
   { moduleKey: 'create-page', label: 'Página', icon: '📄', route: '/em-desenvolvimento?feature=page', group: 'Criar', contexts: ['personal'], status: 'STUB' },
   { moduleKey: 'create-channel', label: 'Canal', icon: '📡', route: '/em-desenvolvimento?feature=channel', group: 'Criar', contexts: ['personal'], status: 'STUB' },
 
