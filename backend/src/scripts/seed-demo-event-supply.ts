@@ -105,14 +105,23 @@ const LOCAVEIS: Array<{ empresa: { nome: string; slug: string; email: string }; 
   },
 ];
 
-/** Eventos publicados de demonstração — o que a VITRINE (/eventos) passa a ter para mostrar. */
-const EVENTOS: Array<{ titulo: string; formato: string; diasNoFuturo: number; precoCents: number | null; capacidade: number | null; descricao: string }> = [
-  { titulo: 'Pedra Noventa ao vivo — Rock no Largo', formato: 'show', diasNoFuturo: 12, precoCents: 6000, capacidade: 400, descricao: 'A banda Pedra Noventa abre a temporada com show autoral de rock.' },
-  { titulo: 'Festa Junina do Bairro', formato: 'festa', diasNoFuturo: 20, precoCents: 2500, capacidade: 800, descricao: 'Quadrilha, comidas típicas e barracas da vizinhança.' },
-  { titulo: 'Sarau de Poesia e Violão', formato: 'apresentacao', diasNoFuturo: 8, precoCents: null, capacidade: 120, descricao: 'Noite aberta de poesia falada e música acústica. Entrada gratuita.' },
-  { titulo: 'Feira do Empreendedor Local', formato: 'feira', diasNoFuturo: 25, precoCents: null, capacidade: 1500, descricao: 'Expositores da região apresentam produtos e serviços. Rodada de negócios à tarde.' },
-  { titulo: 'Encontro de Síndicos e Condomínios', formato: 'reuniao', diasNoFuturo: 15, precoCents: 4000, capacidade: 90, descricao: 'Boas práticas de gestão condominial, com mesa de perguntas.' },
-  { titulo: 'Workshop de Precificação para Autônomos', formato: 'workshop', diasNoFuturo: 30, precoCents: 8000, capacidade: 60, descricao: 'Como formar preço de serviço sem trabalhar de graça.' },
+/**
+ * Eventos publicados de demonstração — o que a VITRINE (/eventos) passa a ter para mostrar.
+ *
+ * 🔴 `organizadorSlug` (2026-08-04): Clayton pediu que *"a vitrine de verdade deve priorizar o que
+ * é dos outros"*. Isso só significa alguma coisa se os eventos TIVEREM donos diferentes — na 1ª
+ * versão os 6 nasceram todos do actor dele, então "de outros" seria sempre vazio e a priorização
+ * seria decoração. Cada evento agora nasce do actor a quem ele pertenceria de verdade: a banda
+ * organiza o próprio show, o grupo organiza a festa do bairro, a empresa organiza a feira.
+ * `null` = fica com o actor de quem roda o seed (para a seção "seus" também ter conteúdo).
+ */
+const EVENTOS: Array<{ titulo: string; formato: string; diasNoFuturo: number; precoCents: number | null; capacidade: number | null; descricao: string; organizadorSlug: string | null }> = [
+  { titulo: 'Pedra Noventa ao vivo — Rock no Largo', formato: 'show', diasNoFuturo: 12, precoCents: 6000, capacidade: 400, descricao: 'A banda Pedra Noventa abre a temporada com show autoral de rock.', organizadorSlug: 'BANDA' },
+  { titulo: 'Festa Junina do Bairro', formato: 'festa', diasNoFuturo: 20, precoCents: 2500, capacidade: 800, descricao: 'Quadrilha, comidas típicas e barracas da vizinhança.', organizadorSlug: 'GRUPO' },
+  { titulo: 'Sarau de Poesia e Violão', formato: 'apresentacao', diasNoFuturo: 8, precoCents: null, capacidade: 120, descricao: 'Noite aberta de poesia falada e música acústica. Entrada gratuita.', organizadorSlug: 'foco-studio' },
+  { titulo: 'Feira do Empreendedor Local', formato: 'feira', diasNoFuturo: 25, precoCents: null, capacidade: 1500, descricao: 'Expositores da região apresentam produtos e serviços. Rodada de negócios à tarde.', organizadorSlug: 'muralha-seguranca' },
+  { titulo: 'Encontro de Síndicos e Condomínios', formato: 'reuniao', diasNoFuturo: 15, precoCents: 4000, capacidade: 90, descricao: 'Boas práticas de gestão condominial, com mesa de perguntas.', organizadorSlug: null },
+  { titulo: 'Workshop de Precificação para Autônomos', formato: 'workshop', diasNoFuturo: 30, precoCents: 8000, capacidade: 60, descricao: 'Como formar preço de serviço sem trabalhar de graça.', organizadorSlug: null },
 ];
 
 let criados = { empresas: 0, ofertas: 0, locaveis: 0, eventos: 0 };
@@ -274,11 +283,52 @@ async function main(): Promise<void> {
   ).rows[0];
   if (!organizador) throw new Error('actor "Dev Canonical" ausente — sem organizador para os eventos de demonstração.');
 
+  /** Resolve o actor dono do evento. Falha para o organizador padrão se o alvo não existir. */
+  const resolverOrganizador = async (slug: string | null): Promise<{ id: string; tipo: string; nome: string }> => {
+    if (!slug) return { id: organizador.id, tipo: 'user', nome: 'você' };
+    let row;
+    if (slug === 'BANDA') {
+      row = (await pool.query<{ id: string; actor_type: string; display_name: string }>(
+        `SELECT a.id::text, a.actor_type, a.display_name FROM actors a
+           JOIN groups g ON g.actor_id = a.id WHERE g.name = 'Pedra Noventa' LIMIT 1`
+      )).rows[0];
+    } else if (slug === 'GRUPO') {
+      // 🔴 `actor_type='group' LIMIT 1` pegava a BANDA (Pedra Noventa também é grupo-ator) e a
+      // festa do bairro nascia da banda. Exclui explicitamente quem já é dono de outro evento
+      // por nome — o primeiro grupo que casar NÃO sendo a banda.
+      row = (await pool.query<{ id: string; actor_type: string; display_name: string }>(
+        `SELECT id::text, actor_type, display_name FROM actors
+          WHERE actor_type='group' AND tenant_id=$1::uuid AND display_name <> 'Pedra Noventa'
+          ORDER BY created_at ASC LIMIT 1`,
+        [organizador.tenant_id]
+      )).rows[0];
+    } else {
+      row = (await pool.query<{ id: string; actor_type: string; display_name: string }>(
+        `SELECT id::text, actor_type, display_name FROM actors WHERE slug = $1 AND tenant_id=$2::uuid LIMIT 1`,
+        [slug, organizador.tenant_id]
+      )).rows[0];
+    }
+    if (!row) return { id: organizador.id, tipo: 'user', nome: 'você (alvo ausente)' };
+    return { id: row.id, tipo: row.actor_type, nome: row.display_name };
+  };
+
   for (const ev of EVENTOS) {
+    const dono = await resolverOrganizador(ev.organizadorSlug);
     const ex = (
-      await pool.query<{ id: string }>(`SELECT id::text FROM events WHERE tenant_id=$1::uuid AND title=$2 LIMIT 1`, [organizador.tenant_id, ev.titulo])
+      await pool.query<{ id: string; actor_id: string }>(`SELECT id::text, actor_id::text FROM events WHERE tenant_id=$1::uuid AND title=$2 LIMIT 1`, [organizador.tenant_id, ev.titulo])
     ).rows[0];
-    if (ex) { reusados.eventos++; console.log(`   ↻ ${ev.titulo} (já existia)`); continue; }
+    if (ex) {
+      // Idempotente E corretivo: se o evento já existe mas com o dono ERRADO (caso dos que nasceram
+      // antes de `organizadorSlug` existir), reatribui. Não recria, não duplica.
+      if (ex.actor_id !== dono.id) {
+        await pool.query(`UPDATE events SET actor_id=$1::uuid, actor_type=$2, updated_at=NOW() WHERE id=$3::uuid`, [dono.id, dono.tipo, ex.id]);
+        console.log(`   ⤳ ${ev.titulo.padEnd(44)} dono corrigido → ${dono.nome}`);
+      } else {
+        console.log(`   ↻ ${ev.titulo} (já existia)`);
+      }
+      reusados.eventos++;
+      continue;
+    }
     const formatoId = await conceptIdPorSlug(ev.formato);
     if (!formatoId) { console.log(`   ⚠️  formato '${ev.formato}' ausente — pulado`); continue; }
     const inicio = new Date();
@@ -290,12 +340,12 @@ async function main(): Promise<void> {
       `INSERT INTO events (id, tenant_id, actor_id, actor_type, title, description, status, visibility,
          datetime_start, datetime_end, timezone, currency, max_attendees, ticket_price_cents,
          event_format_concept_id, metadata, created_at, updated_at)
-       VALUES ($1,$2,$3,'user',$4,$5,'published','public',$6,$7,'America/Sao_Paulo','BRL',$8,$9,$10,'{"demo_seed":true}'::jsonb,NOW(),NOW())`,
-      [randomUUID(), organizador.tenant_id, organizador.id, ev.titulo, ev.descricao,
-       inicio.toISOString(), fim.toISOString(), ev.capacidade, ev.precoCents, formatoId]
+       VALUES ($1,$2,$3,$11,$4,$5,'published','public',$6,$7,'America/Sao_Paulo','BRL',$8,$9,$10,'{"demo_seed":true}'::jsonb,NOW(),NOW())`,
+      [randomUUID(), organizador.tenant_id, dono.id, ev.titulo, ev.descricao,
+       inicio.toISOString(), fim.toISOString(), ev.capacidade, ev.precoCents, formatoId, dono.tipo]
     );
     criados.eventos++;
-    console.log(`   ✅ ${ev.titulo.padEnd(46)} ${ev.formato.padEnd(12)} ${inicio.toLocaleDateString('pt-BR')}`);
+    console.log(`   ✅ ${ev.titulo.padEnd(44)} ${ev.formato.padEnd(12)} ${inicio.toLocaleDateString('pt-BR')} · por ${dono.nome}`);
   }
 
   // ── VERIFICAÇÃO DE 1ª MÃO ───────────────────────────────────────────────────

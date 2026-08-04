@@ -28,12 +28,51 @@
 import 'tsconfig-paths/register';
 import { pool } from '../core/database/pool';
 
+// 🔴 ALVOS EXPLÍCITOS (2026-08-04, 2ª versão). A 1ª versão tinha um default perigoso: apagava o
+// dado de demonstração BOM (as 7 empresas + 6 eventos realistas) e PRESERVAVA os 36 rascunhos de
+// teste — exatamente o inverso do que Clayton pediu quando disse "pode excluir esses 36 rascunhos".
+// Default agora é NADA: cada grupo sai só se for nomeado. Não existe "apagar tudo" implícito.
 const CONFIRMAR = process.argv.includes('--confirmar');
-const INCLUIR_EVENTOS_CLAYTON = process.argv.includes('--incluir-eventos-do-clayton');
+/** Os 36 rascunhos de teste do Clayton (metadata.completed_by_seed). */
+const ALVO_EVENTOS_TESTE = process.argv.includes('--eventos-teste');
+/** O estoque de demonstração: 7 empresas + ofertas + locáveis + 6 eventos (metadata.demo_seed). */
+const ALVO_DEMO = process.argv.includes('--demo');
 
 async function contar(sql: string, params: unknown[] = []): Promise<number> {
   const r = await pool.query<{ n: string }>(sql, params);
   return Number(r.rows[0]?.n ?? 0);
+}
+
+/**
+ * Tabelas que apontam para `events.id` SEM `ON DELETE CASCADE` — precisam ser limpas à mão.
+ * 🔴 PERGUNTADO AO BANCO, não decorado: a 1ª tentativa de apagar quebrou em
+ * `event_metrics_event_id_fkey` (a transação deu ROLLBACK, nada foi perdido). Em vez de descobrir
+ * uma FK por vez no erro, esta lista sai de `information_schema` — 14 tabelas NO ACTION, contra 4
+ * que já cascateiam sozinhas (event_category_facets, event_financial_execution,
+ * event_operational_needs, event_theme_links).
+ */
+const DEPENDENTES_SEM_CASCADE = [
+  'event_attendees', 'event_checkins', 'event_consumptions', 'event_metrics',
+  'event_occupancy_models', 'event_reservations', 'event_rsvp', 'event_sectors',
+  'event_sessions', 'event_specs', 'event_staff', 'event_tickets',
+  'group_events', 'ticket_sales',
+] as const;
+
+/**
+ * 🔴 TRAVA DE DINHEIRO. Apagar evento com venda/execução financeira destruiria registro contábil.
+ * Roda ANTES de qualquer DELETE e ABORTA se achar qualquer coisa. Medido em 2026-08-04 sobre os 36
+ * eventos de teste: zero em todas — por isso foi seguro. A trava fica para a próxima vez, quando
+ * pode não ser.
+ */
+async function abortarSeTiverDinheiro(filtroSql: string): Promise<void> {
+  for (const t of ['ticket_sales', 'event_consumptions', 'event_financial_execution']) {
+    const n = await contar(`SELECT count(*)::text n FROM ${t} WHERE event_id IN (${filtroSql})`);
+    if (n > 0) {
+      throw new Error(
+        `ABORTADO: ${n} registro(s) em ${t} para os eventos-alvo. Apagar destruiria registro financeiro — isto exige decisão explícita de Clayton, não faxina.`
+      );
+    }
+  }
 }
 
 async function main(): Promise<void> {
@@ -53,21 +92,23 @@ async function main(): Promise<void> {
   );
   const donos = await contar(`SELECT count(*)::text n FROM users WHERE email LIKE '%.demo.unificard'`);
 
-  console.log('O QUE SERIA APAGADO:');
-  console.log(`   eventos de demonstração (demo_seed)  : ${eventosDemo}`);
-  console.log(`   ofertas das empresas de demonstração : ${ofertas}`);
-  console.log(`   locáveis de demonstração             : ${locaveis}`);
-  console.log(`   empresas fornecedoras                : ${empresas}`);
-  console.log(`   donos (contas *.demo.unificard)      : ${donos}`);
-  console.log(`\nO QUE FICA (a menos que --incluir-eventos-do-clayton):`);
-  console.log(`   eventos DO CLAYTON concluídos pelo seed: ${eventosClayton}  ← trabalho dele, não sujeira minha`);
-  if (INCLUIR_EVENTOS_CLAYTON) {
-    console.log('   ⚠️  --incluir-eventos-do-clayton ATIVO: os acima TAMBÉM serão apagados.');
+  console.log('ALVOS DISPONÍVEIS (nenhum sai sem ser nomeado):\n');
+  console.log(`   --eventos-teste  → ${eventosClayton} evento(s) de teste (metadata.completed_by_seed) ${ALVO_EVENTOS_TESTE ? '  ⬅️ SELECIONADO' : ''}`);
+  console.log(`   --demo           → ${eventosDemo} evento(s) + ${ofertas} oferta(s) + ${locaveis} locável(is)`);
+  console.log(`                      + ${empresas} empresa(s) + ${donos} conta(s) *.demo.unificard ${ALVO_DEMO ? '  ⬅️ SELECIONADO' : ''}`);
+
+  if (ALVO_EVENTOS_TESTE) {
     const amostra = await pool.query<{ title: string }>(
-      `SELECT title FROM events WHERE metadata->>'completed_by_seed' = 'true' ORDER BY created_at LIMIT 10`
+      `SELECT title FROM events WHERE metadata->>'completed_by_seed' = 'true' ORDER BY created_at LIMIT 8`
     );
+    console.log('\n   Amostra dos eventos de teste que sairão:');
     amostra.rows.forEach((r) => console.log(`        - ${r.title}`));
-    if (eventosClayton > 10) console.log(`        … e mais ${eventosClayton - 10}`);
+    if (eventosClayton > 8) console.log(`        … e mais ${eventosClayton - 8}`);
+  }
+
+  if (!ALVO_EVENTOS_TESTE && !ALVO_DEMO) {
+    console.log('\n⚠️  Nenhum alvo nomeado — nada a fazer. Escolha --eventos-teste e/ou --demo.');
+    return;
   }
 
   if (!CONFIRMAR) {
@@ -78,53 +119,60 @@ async function main(): Promise<void> {
     return;
   }
 
+  // ── TRAVA DE DINHEIRO antes de qualquer escrita ─────────────────────────────
+  if (ALVO_EVENTOS_TESTE) await abortarSeTiverDinheiro(`SELECT id FROM events WHERE metadata->>'completed_by_seed' = 'true'`);
+  if (ALVO_DEMO) await abortarSeTiverDinheiro(`SELECT id FROM events WHERE metadata->>'demo_seed' = 'true'`);
+  console.log('\n✅ Trava de dinheiro: nenhum registro financeiro nos eventos-alvo.');
+
   // ── EXECUÇÃO ────────────────────────────────────────────────────────────────
-  // Ordem respeita as FKs: ofertas → serviços → locáveis → eventos → actors → users.
+  // Ordem respeita as FKs: dependentes → ofertas → serviços → locáveis → eventos → actors → users.
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
 
-    await client.query(
-      `DELETE FROM service_offerings WHERE provider_actor_id IN (SELECT id FROM actors WHERE metadata->>'demo_seed' = 'true')`
-    );
-    await client.query(
-      `DELETE FROM services WHERE actor_id IN (SELECT id FROM actors WHERE metadata->>'demo_seed' = 'true')`
-    );
-    await client.query(`DELETE FROM rentable_resources WHERE metadata->>'demo_seed' = 'true'`);
-
-    // Necessidades declaradas apontam para eventos — saem antes deles.
-    await client.query(
-      `DELETE FROM event_operational_needs WHERE event_id IN (SELECT id FROM events WHERE metadata->>'demo_seed' = 'true')`
-    );
-    await client.query(`DELETE FROM events WHERE metadata->>'demo_seed' = 'true'`);
-    if (INCLUIR_EVENTOS_CLAYTON) {
-      await client.query(
-        `DELETE FROM event_operational_needs WHERE event_id IN (SELECT id FROM events WHERE metadata->>'completed_by_seed' = 'true')`
-      );
+    if (ALVO_EVENTOS_TESTE) {
+      const filtro = `SELECT id FROM events WHERE metadata->>'completed_by_seed' = 'true'`;
+      for (const t of DEPENDENTES_SEM_CASCADE) {
+        await client.query(`DELETE FROM ${t} WHERE event_id IN (${filtro})`);
+      }
       await client.query(`DELETE FROM events WHERE metadata->>'completed_by_seed' = 'true'`);
     }
 
-    await client.query(
-      `DELETE FROM actor_referral_codes WHERE owner_actor_id IN (SELECT id FROM actors WHERE metadata->>'demo_seed' = 'true')
-          OR created_by_actor_id IN (SELECT id FROM actors WHERE metadata->>'demo_seed' = 'true')`
-    );
-    await client.query(`DELETE FROM actors WHERE metadata->>'demo_seed' = 'true'`);
-
-    // Donos de demonstração: actor humano → referral → profile → user → identity → global_user.
-    const donosRows = await client.query<{ user_id: string; global_user_id: string | null }>(
-      `SELECT user_id::text, global_user_id::text FROM users WHERE email LIKE '%.demo.unificard'`
-    );
-    for (const d of donosRows.rows) {
-      const acts = await client.query<{ id: string }>(`SELECT id::text FROM actors WHERE user_id = $1::uuid`, [d.user_id]);
-      for (const a of acts.rows) {
-        await client.query(`DELETE FROM actor_referral_codes WHERE owner_actor_id = $1::uuid OR created_by_actor_id = $1::uuid`, [a.id]);
+    if (ALVO_DEMO) {
+      await client.query(
+        `DELETE FROM service_offerings WHERE provider_actor_id IN (SELECT id FROM actors WHERE metadata->>'demo_seed' = 'true')`
+      );
+      await client.query(
+        `DELETE FROM services WHERE actor_id IN (SELECT id FROM actors WHERE metadata->>'demo_seed' = 'true')`
+      );
+      await client.query(`DELETE FROM rentable_resources WHERE metadata->>'demo_seed' = 'true'`);
+      const filtroDemo = `SELECT id FROM events WHERE metadata->>'demo_seed' = 'true'`;
+      for (const t of DEPENDENTES_SEM_CASCADE) {
+        await client.query(`DELETE FROM ${t} WHERE event_id IN (${filtroDemo})`);
       }
-      await client.query(`DELETE FROM actors WHERE user_id = $1::uuid`, [d.user_id]);
-      await client.query(`DELETE FROM profiles WHERE user_id = $1::uuid`, [d.user_id]);
-      await client.query(`DELETE FROM users WHERE user_id = $1::uuid`, [d.user_id]);
-      if (d.global_user_id) {
-        await client.query(`DELETE FROM identities WHERE global_user_id = $1::uuid`, [d.global_user_id]);
-        await client.query(`DELETE FROM global_users WHERE global_user_id = $1::uuid`, [d.global_user_id]);
+      await client.query(`DELETE FROM events WHERE metadata->>'demo_seed' = 'true'`);
+      await client.query(
+        `DELETE FROM actor_referral_codes WHERE owner_actor_id IN (SELECT id FROM actors WHERE metadata->>'demo_seed' = 'true')
+            OR created_by_actor_id IN (SELECT id FROM actors WHERE metadata->>'demo_seed' = 'true')`
+      );
+      await client.query(`DELETE FROM actors WHERE metadata->>'demo_seed' = 'true'`);
+
+      // Donos de demonstração: actor humano → referral → profile → user → identity → global_user.
+      const donosRows = await client.query<{ user_id: string; global_user_id: string | null }>(
+        `SELECT user_id::text, global_user_id::text FROM users WHERE email LIKE '%.demo.unificard'`
+      );
+      for (const d of donosRows.rows) {
+        const acts = await client.query<{ id: string }>(`SELECT id::text FROM actors WHERE user_id = $1::uuid`, [d.user_id]);
+        for (const a of acts.rows) {
+          await client.query(`DELETE FROM actor_referral_codes WHERE owner_actor_id = $1::uuid OR created_by_actor_id = $1::uuid`, [a.id]);
+        }
+        await client.query(`DELETE FROM actors WHERE user_id = $1::uuid`, [d.user_id]);
+        await client.query(`DELETE FROM profiles WHERE user_id = $1::uuid`, [d.user_id]);
+        await client.query(`DELETE FROM users WHERE user_id = $1::uuid`, [d.user_id]);
+        if (d.global_user_id) {
+          await client.query(`DELETE FROM identities WHERE global_user_id = $1::uuid`, [d.global_user_id]);
+          await client.query(`DELETE FROM global_users WHERE global_user_id = $1::uuid`, [d.global_user_id]);
+        }
       }
     }
 

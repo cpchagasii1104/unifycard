@@ -50,6 +50,14 @@ export interface Event {
   cancellationReason: string | null;
   createdByActorId: string;
   createdByUserId: string | null;
+  /**
+   * 🔴 2026-08-04 — a query da lista SEMPRE trouxe estas colunas e o mapper NUNCA as projetava.
+   * A vitrine precisa do preço para distinguir "Entrada gratuita" de "R$ 60,00" com honestidade;
+   * sem o campo, `undefined` cairia no ramo do gratuito e a tela mentiria sobre DINHEIRO.
+   * `_cents`: inteiro, nunca float (07_NOMENCLATURA §4.7). `null` = sem ingresso pago.
+   */
+  ticketPriceCents?: number | null;
+  maxAttendees?: number | null;
   metadata: Record<string, any>;
   createdAt: string;
   updatedAt: string;
@@ -177,6 +185,24 @@ export interface EventFilters {
   // 🔵 F6.5.6b-B3: userId do CALLER (derivado de req.user, NUNCA actorId declarado) — usado só no
   // public_discovery para abrir 'group' aos eventos de grupos onde o caller é membro (membership Actor-first em group_actor_memberships — cutover D9.2-B/DECISION-0188).
   discoveryUserId?: string;
+
+  // ── 2026-08-04 · F-EVENT-DISCOVERY-FILTERS ────────────────────────────────────────────────
+  // Clayton, sobre a vitrine: *"falta ferramentas de filtro, categorização, ver somente shows, ou
+  // eventos, ou demais tipos de eventos, ver por data, preço, gênero"*.
+  // 🔴 Todos ESTREITAM, nunca ampliam: aplicam-se DEPOIS do piso de visibilidade acima. Um filtro
+  // não pode revelar evento que o piso esconde — por isso entram como AND, nunca como OR.
+  // O VOCABULÁRIO destes filtros é governado e servido por GET /events/taxonomy (23 formatos em
+  // `event_format_concepts`, 9 categorias com CHECK físico) — o cliente NUNCA enumera.
+  /** slug do formato governado (show, festa, feira, reuniao…). Resolvido para concept_id no repo. */
+  formatSlug?: string;
+  /** facet de categoria (social, cultural, gastronomico…) — múltipla por evento em event_category_facets. */
+  categoryKey?: string;
+  /** true = só gratuitos (ticket_price_cents nulo ou 0). */
+  onlyFree?: boolean;
+  /** teto de preço em CENTAVOS (inteiro) — inclui os gratuitos, que são "até qualquer preço". */
+  maxPriceCents?: number;
+  /** concept_id de tema/gênero governado (event_theme_links) — ex.: rock, samba. */
+  themeConceptId?: string;
 }
 
 

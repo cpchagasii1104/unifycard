@@ -883,10 +883,32 @@ export async function listOrganizerEvents(organizerActorId: string): Promise<Eve
  * events-sprint76.routes.ts:208-216. Quem decide o que é público é o BACKEND; aqui não se filtra
  * status, senão o frontend viraria a autoridade do que aparece.
  */
-export async function listPublicEvents(limit = 50): Promise<Event[]> {
-  const res = await apiFetchJson<{ events: Event[]; total: number }>(
-    `/api/events/events?limit=${encodeURIComponent(String(limit))}`
-  );
+/**
+ * Filtros da vitrine. 🔴 O VOCABULÁRIO deles é GOVERNADO e vem de `getEventTaxonomy()` — o
+ * frontend nunca enumera formato nem categoria. Valor fora do vocabulário → o backend devolve
+ * 400 nomeado (EVENT_FORMAT_UNKNOWN / EVENT_CATEGORY_UNKNOWN), nunca ignora em silêncio: filtro
+ * ignorado calado faria o usuário pedir "só shows", receber tudo, e achar que viu tudo o que há.
+ */
+export interface PublicEventFilters {
+  formatSlug?: string;
+  categoryKey?: string;
+  themeConceptId?: string;
+  onlyFree?: boolean;
+  maxPriceCents?: number;
+  startAtFrom?: string;
+  startAtTo?: string;
+}
+
+export async function listPublicEvents(limit = 50, filtros: PublicEventFilters = {}): Promise<Event[]> {
+  const qs = new URLSearchParams({ limit: String(limit) });
+  if (filtros.formatSlug) qs.set('formatSlug', filtros.formatSlug);
+  if (filtros.categoryKey) qs.set('categoryKey', filtros.categoryKey);
+  if (filtros.themeConceptId) qs.set('themeConceptId', filtros.themeConceptId);
+  if (filtros.onlyFree) qs.set('onlyFree', 'true');
+  else if (typeof filtros.maxPriceCents === 'number') qs.set('maxPriceCents', String(Math.trunc(filtros.maxPriceCents)));
+  if (filtros.startAtFrom) qs.set('startAtFrom', filtros.startAtFrom);
+  if (filtros.startAtTo) qs.set('startAtTo', filtros.startAtTo);
+  const res = await apiFetchJson<{ events: Event[]; total: number }>(`/api/events/events?${qs.toString()}`);
   return res.events ?? [];
 }
 

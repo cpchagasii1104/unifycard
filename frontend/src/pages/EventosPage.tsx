@@ -32,9 +32,27 @@ import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useActiveActor } from '../contexts/ActiveActorContext';
 import { useOperatingMode } from '../hooks/useOperatingMode';
-import { listPublicEvents, type Event } from '../api/events';
+import {
+  listPublicEvents, getEventTaxonomy,
+  type Event, type EventTaxonomy, type PublicEventFilters,
+} from '../api/events';
 import { validateActiveActor } from '../utils/guardrails';
 import './EventosPage.css';
+
+/** Faixas de preço da vitrine. Rótulo é apresentação; o VALOR vai em centavos para o backend. */
+const FAIXAS_PRECO: Array<{ chave: string; rotulo: string; filtro: Partial<PublicEventFilters> }> = [
+  { chave: 'qualquer', rotulo: 'Qualquer preço', filtro: {} },
+  { chave: 'gratis', rotulo: 'Grátis', filtro: { onlyFree: true } },
+  { chave: 'ate30', rotulo: 'Até R$ 30', filtro: { maxPriceCents: 3000 } },
+  { chave: 'ate80', rotulo: 'Até R$ 80', filtro: { maxPriceCents: 8000 } },
+];
+
+/** Janelas de data — calculadas na hora do uso, nunca no módulo (senão "hoje" congela no load). */
+const JANELAS: Array<{ chave: string; rotulo: string; dias: number | null }> = [
+  { chave: 'qualquer', rotulo: 'Qualquer data', dias: null },
+  { chave: 'semana', rotulo: 'Próximos 7 dias', dias: 7 },
+  { chave: 'mes', rotulo: 'Próximos 30 dias', dias: 30 },
+];
 
 /** Data do evento na LISTA: o payload da rota de discovery manda `startAt` (não `datetimeStart`). */
 function inicioDoEvento(ev: Event): string | null {
@@ -50,18 +68,46 @@ function formatarData(iso: string | null): string {
 
 export default function EventosPage() {
   const navigate = useNavigate();
-  const { activeActor } = useActiveActor();
+  const { activeActor, actors } = useActiveActor();
   const { mode } = useOperatingMode();
   const [events, setEvents] = useState<Event[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Vocabulário dos filtros: SERVER-DRIVEN. Enquanto não chega, não há filtro a oferecer.
+  const [taxonomia, setTaxonomia] = useState<EventTaxonomy | null>(null);
+  const [formato, setFormato] = useState<string>('');
+  const [categoria, setCategoria] = useState<string>('');
+  const [faixaPreco, setFaixaPreco] = useState<string>('qualquer');
+  const [janela, setJanela] = useState<string>('qualquer');
+
+  useEffect(() => {
+    let cancelled = false;
+    getEventTaxonomy()
+      .then((t) => { if (!cancelled) setTaxonomia(t); })
+      .catch(() => { /* sem taxonomia = sem filtros; a lista continua funcionando */ });
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
     const load = async (): Promise<void> => {
       if (!validateActiveActor(activeActor)) { setEvents([]); return; }
       setError(null);
+      // Os filtros são aplicados NO BACKEND (query), não recortando no cliente uma lista já
+      // trazida: filtrar no cliente daria "3 de 50" quando o teto de 50 já tivesse cortado o que
+      // interessa. Quem sabe o conjunto inteiro é o servidor.
+      const filtros: PublicEventFilters = {};
+      if (formato) filtros.formatSlug = formato;
+      if (categoria) filtros.categoryKey = categoria;
+      const faixa = FAIXAS_PRECO.find((f) => f.chave === faixaPreco);
+      Object.assign(filtros, faixa?.filtro ?? {});
+      const j = JANELAS.find((x) => x.chave === janela);
+      if (j?.dias) {
+        const ate = new Date();
+        ate.setDate(ate.getDate() + j.dias);
+        filtros.startAtTo = ate.toISOString();
+      }
       try {
-        const list = await listPublicEvents(50);
+        const list = await listPublicEvents(50, filtros);
         if (!cancelled) setEvents(list);
       } catch (e) {
         // 🔴 Falha de rede/rota NÃO vira lista vazia: lista vazia AFIRMA "não há eventos", e foi
@@ -74,7 +120,7 @@ export default function EventosPage() {
     };
     void load();
     return () => { cancelled = true; };
-  }, [activeActor?.actor_id]);
+  }, [activeActor?.actor_id, formato, categoria, faixaPreco, janela]);
 
   const ordenados = useMemo(() => {
     if (!events) return [];
@@ -86,6 +132,20 @@ export default function EventosPage() {
       return new Date(da).getTime() - new Date(db).getTime();
     });
   }, [events]);
+
+  /**
+   * 🔴 Clayton: *"a vitrine de verdade deve priorizar o que é dos outros"*. Separação por
+   * `organizerActorId` contra os actors do próprio usuário — dado que o backend JÁ manda; não é
+   * verdade inventada aqui, é agrupamento de apresentação.
+   */
+  const meusActorIds = useMemo(
+    () => new Set([...(actors ?? []).map((a) => a.actor_id), activeActor?.actor_id].filter(Boolean) as string[]),
+    [actors, activeActor?.actor_id]
+  );
+  const deOutros = ordenados.filter((e) => !meusActorIds.has((e as Event & { organizerActorId?: string }).organizerActorId ?? ''));
+  const meus = ordenados.filter((e) => meusActorIds.has((e as Event & { organizerActorId?: string }).organizerActorId ?? ''));
+  const temFiltroAtivo = !!formato || !!categoria || faixaPreco !== 'qualquer' || janela !== 'qualquer';
+  const limparFiltros = (): void => { setFormato(''); setCategoria(''); setFaixaPreco('qualquer'); setJanela('qualquer'); };
 
   // ══ MODO OPERAR — produzir ═══════════════════════════════════════════════
   if (mode === 'operar') {
@@ -144,6 +204,51 @@ export default function EventosPage() {
         acompanhar. Quer organizar o seu? <Link to="/meus-eventos">Vá para Meus eventos</Link>.
       </div>
 
+      {/* ── FILTROS ── vocabulário SERVER-DRIVEN (getEventTaxonomy): 23 formatos e 9 categorias
+          governados. O front não enumera nada; se a taxonomia não chegar, some o filtro e a
+          lista continua funcionando (degradar ≠ mentir). */}
+      <div className="eventos-filtros" role="search" aria-label="Filtrar eventos">
+        <label className="eventos-filtro">
+          <span className="eventos-filtro-rotulo">Tipo</span>
+          <select value={formato} onChange={(e) => setFormato(e.target.value)} disabled={!taxonomia}>
+            <option value="">Todos os tipos</option>
+            {(taxonomia?.formats ?? []).map((f) => (
+              <option key={f.key} value={f.key}>{f.label}</option>
+            ))}
+          </select>
+        </label>
+
+        <label className="eventos-filtro">
+          <span className="eventos-filtro-rotulo">Categoria</span>
+          <select value={categoria} onChange={(e) => setCategoria(e.target.value)} disabled={!taxonomia}>
+            <option value="">Todas</option>
+            {(taxonomia?.categories ?? []).map((c) => (
+              <option key={c.key} value={c.key}>{c.label}</option>
+            ))}
+          </select>
+        </label>
+
+        <label className="eventos-filtro">
+          <span className="eventos-filtro-rotulo">Quando</span>
+          <select value={janela} onChange={(e) => setJanela(e.target.value)}>
+            {JANELAS.map((j) => <option key={j.chave} value={j.chave}>{j.rotulo}</option>)}
+          </select>
+        </label>
+
+        <label className="eventos-filtro">
+          <span className="eventos-filtro-rotulo">Preço</span>
+          <select value={faixaPreco} onChange={(e) => setFaixaPreco(e.target.value)}>
+            {FAIXAS_PRECO.map((f) => <option key={f.chave} value={f.chave}>{f.rotulo}</option>)}
+          </select>
+        </label>
+
+        {temFiltroAtivo && (
+          <button type="button" className="eventos-link-button eventos-filtro-limpar" onClick={limparFiltros}>
+            limpar filtros
+          </button>
+        )}
+      </div>
+
       {error && (
         <div className="eventos-error">
           {error} — <button type="button" className="eventos-link-button" onClick={() => window.location.reload()}>tentar de novo</button>
@@ -154,30 +259,56 @@ export default function EventosPage() {
 
       {events !== null && ordenados.length === 0 && !error && (
         <div className="eventos-empty">
-          <p>Nenhum evento publicado por perto ainda.</p>
+          {/* Vazio COM filtro ≠ vazio sem filtro. Dizer "não há eventos" quando o filtro é que
+              está restrito seria afirmar algo falso sobre o sistema. */}
+          <p>{temFiltroAtivo ? 'Nenhum evento com esses filtros.' : 'Nenhum evento publicado por perto ainda.'}</p>
           <p className="eventos-hint-muted">
-            Quando alguém publicar um evento com data, ele aparece aqui.
+            {temFiltroAtivo
+              ? <>Tente ampliar a busca — <button type="button" className="eventos-link-button" onClick={limparFiltros}>limpar filtros</button>.</>
+              : 'Quando alguém publicar um evento com data, ele aparece aqui.'}
           </p>
         </div>
       )}
 
-      <div className="eventos-vitrine-grid">
-        {ordenados.map((ev) => {
-          const inicio = inicioDoEvento(ev);
-          return (
-            <button
-              key={ev.id}
-              type="button"
-              className="eventos-vitrine-card"
-              onClick={() => navigate(`/events/${ev.id}`)}
-            >
-              <span className="eventos-vitrine-data">{formatarData(inicio)}</span>
-              <span className="eventos-vitrine-titulo">{ev.title}</span>
-              {ev.description && <span className="eventos-vitrine-desc">{ev.description}</span>}
-            </button>
-          );
-        })}
-      </div>
+      {deOutros.length > 0 && (
+        <section className="eventos-secao">
+          <h2 className="eventos-secao-titulo">Acontecendo por perto</h2>
+          <div className="eventos-vitrine-grid">
+            {deOutros.map((ev) => <CartaoEvento key={ev.id} ev={ev} onClick={() => navigate(`/events/${ev.id}`)} />)}
+          </div>
+        </section>
+      )}
+
+      {meus.length > 0 && (
+        <section className="eventos-secao">
+          <h2 className="eventos-secao-titulo eventos-secao-titulo-secundaria">
+            Seus eventos <span className="eventos-secao-hint">— você organiza</span>
+          </h2>
+          <div className="eventos-vitrine-grid">
+            {meus.map((ev) => <CartaoEvento key={ev.id} ev={ev} onClick={() => navigate(`/events/${ev.id}`)} seu />)}
+          </div>
+        </section>
+      )}
     </div>
+  );
+}
+
+function CartaoEvento({ ev, onClick, seu }: { ev: Event; onClick: () => void; seu?: boolean }) {
+  const inicio = inicioDoEvento(ev);
+  // 🔴 `ticketPriceCents` é o campo da rota de LISTA (adicionado ao mapper em 2026-08-04 — ele
+  // trazia a coluna na query e nunca a projetava). `ticketPrice` é o nome no payload de DETALHE.
+  // Ler só um dos dois faria a vitrine dizer "Entrada gratuita" para todo evento pago.
+  const preco = (ev as Event & { ticketPriceCents?: number | null }).ticketPriceCents ?? ev.ticketPrice ?? null;
+  return (
+    <button type="button" className={`eventos-vitrine-card ${seu ? 'eventos-vitrine-card-seu' : ''}`} onClick={onClick}>
+      <span className="eventos-vitrine-data">{formatarData(inicio)}</span>
+      <span className="eventos-vitrine-titulo">{ev.title}</span>
+      {ev.description && <span className="eventos-vitrine-desc">{ev.description}</span>}
+      <span className="eventos-vitrine-preco">
+        {/* null = sem preço declarado (gratuito); 0 também. undefined seria "não sei" — mas esta
+            rota sempre projeta o campo, então null aqui significa mesmo "sem ingresso pago". */}
+        {preco == null || preco === 0 ? 'Entrada gratuita' : (preco / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+      </span>
+    </button>
   );
 }

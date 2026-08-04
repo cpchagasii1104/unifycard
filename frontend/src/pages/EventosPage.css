@@ -286,3 +286,55 @@
 .eventos-produzir-hint { font-size: 13px; color: #6b7280; }
 
 .eventos-cross-mode { margin-top: 8px; }
+
+/* ── Filtros da vitrine (2026-08-04) — vocabulário vem do backend ────────── */
+.eventos-filtros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+  padding: 14px 16px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  margin-bottom: 20px;
+}
+.eventos-filtro { display: flex; flex-direction: column; gap: 4px; min-width: 150px; }
+.eventos-filtro-rotulo {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #6b7280;
+}
+.eventos-filtro select {
+  padding: 8px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  background: #fff;
+  cursor: pointer;
+}
+.eventos-filtro select:disabled { background: #f3f4f6; cursor: not-allowed; }
+.eventos-filtro-limpar { align-self: center; margin-bottom: 8px; }
+
+/* ── Seções: "de outros" primeiro, "seus" depois ─────────────────────────── */
+.eventos-secao { margin-bottom: 28px; }
+.eventos-secao-titulo {
+  font-size: 15px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.eventos-secao-titulo-secundaria { color: #6b7280; }
+.eventos-secao-hint { font-weight: 400; text-transform: none; letter-spacing: 0; font-size: 13px; }
+
+.eventos-vitrine-card-seu { background: #fafafa; border-style: dashed; }
+.eventos-vitrine-preco {
+  font-size: 13px;
+  font-weight: 600;
+  color: #065f46;
+  margin-top: 2px;
+}

@@ -83,6 +83,16 @@ class EventRepository {
       cancellationReason: (meta.cancellation_reason as string) || null,
       createdByActorId: (meta.created_by_actor_id as string) || row.actor_id,
       createdByUserId: (meta.created_by_user_id as string) || null,
+      // 🔴 2026-08-04 — a query SEMPRE trouxe `ticket_price_cents`/`max_attendees` e o mapper
+      // NUNCA os projetava. A vitrine ia mostrar "Entrada gratuita" para todo evento, porque
+      // `undefined` cairia no ramo do gratuito — mentira sobre PREÇO, na cara do usuário.
+      // Descoberto conferindo o payload real antes de escrever o cartão, não depois.
+      // `null` aqui significa MESMO "sem ingresso pago"; a coluna é nullable por desenho.
+      // `ticket_price_cents` é BIGINT → o driver pg devolve STRING. `Number()` explícito, nunca
+      // deixar string vazar como se fosse número (o typecheck pegou; em runtime viraria "60000"
+      // concatenando em vez de somando).
+      ticketPriceCents: row.ticket_price_cents == null ? null : Number(row.ticket_price_cents),
+      maxAttendees: row.max_attendees == null ? null : Number(row.max_attendees),
       metadata: meta,
       createdAt: row.created_at.toISOString(),
       updatedAt: row.updated_at.toISOString(),
@@ -304,6 +314,48 @@ class EventRepository {
       const dateTo = filters.startAtTo instanceof Date ? filters.startAtTo : new Date(filters.startAtTo);
       conditions.push(`datetime_start <= $${paramIndex}`);
       params.push(dateTo);
+      paramIndex++;
+    }
+
+    // ── 2026-08-04 · F-EVENT-DISCOVERY-FILTERS — só ESTREITAM ────────────────────────────────
+    // Entram DEPOIS do bloco de visibilidade e sempre como AND: um filtro jamais pode revelar
+    // evento que o piso público esconde. Identidade sempre por CONCEPT (Lei 7), nunca por nome:
+    // `formatSlug` casa contra `concepts.slug`, não contra o rótulo em canonical_services.
+    if (filters.formatSlug) {
+      conditions.push(
+        `event_format_concept_id = (SELECT concept_id FROM concepts WHERE slug = $${paramIndex} LIMIT 1)`
+      );
+      params.push(filters.formatSlug);
+      paramIndex++;
+    }
+
+    if (filters.categoryKey) {
+      // Categoria é MÚLTIPLA por evento (event_category_facets) — EXISTS, não JOIN, para não
+      // duplicar linha quando o evento tem várias facetas.
+      conditions.push(
+        // Coluna é `category_key` (conferida em information_schema antes de escrever — `category`
+        // seria erro em runtime, não em typecheck).
+        `EXISTS (SELECT 1 FROM event_category_facets f WHERE f.event_id = events.id AND f.category_key = $${paramIndex})`
+      );
+      params.push(filters.categoryKey);
+      paramIndex++;
+    }
+
+    if (filters.themeConceptId) {
+      conditions.push(
+        `EXISTS (SELECT 1 FROM event_theme_links tl WHERE tl.event_id = events.id AND tl.concept_id = $${paramIndex}::uuid)`
+      );
+      params.push(filters.themeConceptId);
+      paramIndex++;
+    }
+
+    if (filters.onlyFree) {
+      // Gratuito = sem preço OU preço zero. NULL não é 0 em SQL — precisa dizer os dois.
+      conditions.push(`(ticket_price_cents IS NULL OR ticket_price_cents = 0)`);
+    } else if (typeof filters.maxPriceCents === 'number' && Number.isFinite(filters.maxPriceCents)) {
+      // Teto INCLUI os gratuitos: quem procura "até R$ 50" também quer o de graça.
+      conditions.push(`(ticket_price_cents IS NULL OR ticket_price_cents <= $${paramIndex})`);
+      params.push(Math.max(0, Math.trunc(filters.maxPriceCents)));
       paramIndex++;
     }
 

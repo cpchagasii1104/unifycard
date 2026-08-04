@@ -197,6 +197,12 @@ const eventsSprint76Routes = async (fastify: FastifyInstance) => {
       startAtTo?: string;
       limit?: number;
       offset?: number;
+      // F-EVENT-DISCOVERY-FILTERS (2026-08-04) — só ESTREITAM o piso de visibilidade.
+      formatSlug?: string;
+      categoryKey?: string;
+      onlyFree?: string;
+      maxPriceCents?: string;
+      themeConceptId?: string;
     };
   }>('/events', async (req, reply) => {
     if (!req.tenant?.id) {
@@ -249,6 +255,47 @@ const eventsSprint76Routes = async (fastify: FastifyInstance) => {
     }
     if (req.query.offset) {
       filters.offset = req.query.offset;
+    }
+
+    // ── F-EVENT-DISCOVERY-FILTERS (2026-08-04) ──────────────────────────────────────────────
+    // 🔴 Entrada de usuário NUNCA entra como `as any` no filtro: cada valor é COMPOSTO a partir do
+    // vocabulário GOVERNADO (o mesmo que GET /events/taxonomy serve) e valor fora dele vira 400,
+    // não 500 e não filtro silenciosamente ignorado. Ignorar em silêncio seria pior: o usuário
+    // pediria "só shows" e receberia tudo, achando que viu tudo o que há.
+    if (req.query.formatSlug) {
+      const slug = String(req.query.formatSlug);
+      const { runQueriesWithTenant } = await import('@core/database/pool');
+      const ok = await runQueriesWithTenant<{ n: string }>(
+        tenantId,
+        `SELECT count(*)::text n FROM event_format_concepts efc
+           JOIN concepts c ON c.concept_id = efc.concept_id
+          WHERE c.slug = $1 AND efc.enabled = true`,
+        [slug]
+      );
+      if (Number(ok[0]?.n ?? 0) === 0) {
+        return reply.status(400).send({ error: 'Formato desconhecido', code: 'EVENT_FORMAT_UNKNOWN', formatSlug: slug });
+      }
+      filters.formatSlug = slug;
+    }
+    if (req.query.categoryKey) {
+      const { EVENT_CATEGORIES } = await import('@core/events/event.types');
+      const key = String(req.query.categoryKey);
+      if (!(EVENT_CATEGORIES as readonly string[]).includes(key)) {
+        return reply.status(400).send({ error: 'Categoria desconhecida', code: 'EVENT_CATEGORY_UNKNOWN', categoryKey: key });
+      }
+      filters.categoryKey = key;
+    }
+    if (req.query.themeConceptId) {
+      filters.themeConceptId = String(req.query.themeConceptId);
+    }
+    if (String(req.query.onlyFree ?? '').toLowerCase() === 'true') {
+      filters.onlyFree = true;
+    } else if (req.query.maxPriceCents) {
+      const n = Number(req.query.maxPriceCents);
+      if (!Number.isFinite(n) || n < 0) {
+        return reply.status(400).send({ error: 'maxPriceCents inválido', code: 'EVENT_MAX_PRICE_INVALID' });
+      }
+      filters.maxPriceCents = Math.trunc(n);
     }
 
     const events = await eventRepository.listEvents(tenantId, filters);

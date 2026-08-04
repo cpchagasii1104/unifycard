@@ -1,5 +1,95 @@
 # REMEDIATION DT LOG
 
+## 🔎 Filtros da vitrine, faxina dos 36 e "primeiro o que é dos outros" (2026-08-04)
+
+**Origem, três pedidos de Clayton numa mensagem:** *"em consumir falta ferramentas de filtro,
+categorização, ver somente shows, ou eventos… ver por data, preço, gênero"* · *"pode excluir esses
+36 rascunhos"* · *"a vitrine de verdade deve priorizar o que é dos outros"*.
+
+### ① A faxina — e as duas travas que ela encontrou
+
+🔴 **A 1ª versão do script de faxina tinha o default INVERTIDO**: apagaria o dado de demonstração
+BOM (7 empresas + 6 eventos realistas) e PRESERVARIA os 36 rascunhos de teste — exatamente o
+contrário do pedido. Reescrito com **alvos explícitos** (`--eventos-teste`, `--demo`) e default
+NADA: nenhum grupo sai sem ser nomeado. Não existe mais "apagar tudo" implícito.
+
+🔴 **A 1ª execução falhou e o ROLLBACK salvou** — `event_metrics_event_id_fkey`. Em vez de
+descobrir uma FK por vez no erro, **perguntei ao banco**:
+```sql
+SELECT tc.table_name, rc.delete_rule FROM information_schema.table_constraints tc …
+ WHERE ccu.table_name='events' AND ccu.column_name='id'
+```
+→ **14 tabelas NO ACTION** (limpeza manual) + 4 CASCADE. A lista virou constante derivada da
+medição, não de tentativa e erro.
+
+🔴 **TRAVA DE DINHEIRO adicionada antes de qualquer DELETE.** Duas das 14 dependentes são
+financeiras (`ticket_sales`, `event_financial_execution`, mais `event_consumptions`). Apagar
+evento com venda destruiria registro contábil. O script agora ABORTA se achar qualquer linha.
+Medido nos 36: **zero** — por isso foi seguro. A trava fica para a próxima vez, quando pode não ser.
+
+**Resultado:** 36 apagados, **vitrine 42 → 6 eventos reais**, Δbank 0.
+
+### ② Filtros — vocabulário GOVERNADO, no backend
+
+Backend (`EventFilters` + repositório + rota): `formatSlug`, `categoryKey`, `themeConceptId`,
+`onlyFree`, `maxPriceCents`. Todos **ESTREITAM**, entram como `AND` **depois** do piso de
+visibilidade — um filtro jamais pode revelar evento que o piso esconde.
+
+🔴 **Entrada de usuário validada contra o vocabulário governado, com 400 NOMEADO** — nunca
+`as any`, nunca ignorar em silêncio. Filtro ignorado calado seria pior que erro: o usuário pediria
+"só shows", receberia tudo, e acharia que viu tudo o que há.
+```
+formatSlug=teatro  → 400 EVENT_FORMAT_UNKNOWN
+categoryKey=xpto   → 400 EVENT_CATEGORY_UNKNOWN
+```
+Frontend consome `getEventTaxonomy()` (23 formatos + 9 categorias, já vivo) — **não enumera nada**.
+Sem taxonomia, o filtro some e a lista continua: degradar ≠ mentir.
+Provado ao vivo: `formatSlug=show`→1 · `formatSlug=feira`→1 · `onlyFree=true`→2 · `maxPriceCents=5000`→4.
+
+### ③ 🔴 O BUG QUE EU IA INTRODUZIR — preço que a lista nunca projetou
+
+Ao escrever o cartão da vitrine fui usar `ev.ticketPrice` e **conferi o payload real antes**: a
+rota de lista **não projeta preço**. O mapper (`toEvent`) trazia `ticket_price_cents` na query
+desde sempre e **nunca o expunha**. Se eu tivesse confiado no tipo TS, `undefined` cairia no ramo
+do gratuito e a vitrine diria **"Entrada gratuita" para TODO evento pago** — mentira sobre
+DINHEIRO, na cara do usuário. Corrigido no mapper (+`maxAttendees`), com `Number()` explícito
+porque BIGINT chega como **string** do driver pg (o typecheck pegou; em runtime concatenaria).
+
+### ④ "Primeiro o que é dos outros" — exigiu consertar o SEED antes da tela
+
+A priorização seria decoração: os 6 eventos nasceram **todos** do actor do Clayton, então "de
+outros" seria sempre vazio. O seed passou a dar a cada evento o dono que ele teria de verdade —
+e é **corretivo** (reatribui quem já existia com dono errado, sem recriar).
+
+🔴 Bug meu no caminho: `actor_type='group' LIMIT 1` para a Festa Junina pegou **a BANDA** (Pedra
+Noventa também é grupo-ator). Corrigido nomeando o alvo.
+
+```
+Sarau de Poesia          ← Foco Studio Fotografia (page)     ┐
+Pedra Noventa ao vivo    ← Pedra Noventa (group)             │ 4 de OUTROS
+Festa Junina do Bairro   ← Grupo Teste Dev (group)           │
+Feira do Empreendedor    ← Muralha Segurança (page)          ┘
+Encontro de Síndicos     ← Dev Canonical (user)              ┐ 2 SEUS
+Workshop de Precificação ← Dev Canonical (user)              ┘
+```
+A tela separa em "Acontecendo por perto" (primeiro) e "Seus eventos" (depois, visual secundário),
+por `organizerActorId` — dado que o backend **já manda**; é agrupamento de apresentação, não
+verdade inventada.
+
+### 🟡 Aberto
+
+- **Filtro por gênero existe no backend** (`themeConceptId`, sobre `event_theme_links`) e **não
+  tem UI** — os eventos semeados não têm tema linkado, então um seletor apareceria sempre vazio.
+  Precisa de tema nos eventos antes da tela.
+- PF × PJ segue sem separação (`required_capabilities` NULL nos 23 formatos).
+- `teatro` e `circo` seguem ausentes do catálogo.
+
+**Verificação:** typecheck BE 0, FE 0 · filtros conferidos ao vivo (incluindo os dois 400) ·
+preços reais projetados (`R$ 60,00` no show, `gratuito` no sarau) · seed idempotente (2ª corrida
+sem criação) · Δbank 0 em tudo · `git diff --check` limpo.
+
+---
+
 ## 🎭 As 4 faces de evento por modo — e o ENDPOINT MORTO que escondia tudo (2026-08-04)
 
 **Origem:** Clayton, com dois prints: *"ainda não vejo mudanças neste usuário usando o consumir e
@@ -21898,7 +21988,7 @@ Timestamp sugerido: `20260428205000` (janela `200000`–`210000` livre).
   FK: bank_transactions_concept_id_fkey → concepts(concept_id) ON DELETE RESTRICT
   Índice: idx_bank_transactions_concept_id (btree)
   ```
-- Comparação 506000 vs vivo: 506000 cria `UUID NULL` com FK; vivo é `UUID NOT NULL` com FK. **Não diverge entre si** — a transição NULL→NOT NULL é causada pela `20260428210000` (SET NOT NULL guarded dentro do DO) que rodou DEPOIS no banco vivo (ordem cronológica de adição ≠ alfabética). 
+- Comparação 506000 vs vivo: 506000 cria `UUID NULL` com FK; vivo é `UUID NOT NULL` com FK. **Não diverge entre si** — a transição NULL→NOT NULL é causada pela `20260428210000` (SET NOT NULL guarded dentro do DO) que rodou DEPOIS no banco vivo (ordem cronológica de adição ≠ alfabética).
 - Ordem localeCompare: `20260428200000` < `20260428205000` < `20260428210000` ✓
 
 ### Arquivo escrito (working tree, commit pendente)
