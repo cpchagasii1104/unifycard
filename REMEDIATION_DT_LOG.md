@@ -1,5 +1,105 @@
 # REMEDIATION DT LOG
 
+## 🧾 A PÁGINA DO FORNECEDOR — e o runner que estava vermelho no HEAD (2026-08-04)
+
+**Origem:** Clayton: *"quando eu clicar no tipo de prestador de serviço, empresa ou fornecedor eu
+tenho que ir para uma página (padrão para este modelo) que eu consiga montar um pedido de orçamento,
+ver a disponibilidade de agenda, ver o que ele tem a oferecer"*.
+
+### 1. A pergunta que decidia onde a tela nasce — RESPONDIDA
+
+Havia **dois** candidatos, e eu tinha proposto verificar antes de desenhar. Verifiquei.
+
+**RFQ e `requestBooking` NÃO são duas verdades concorrentes.** São dois degraus do MESMO funil, e o
+de cima está **cortado em três lugares independentes**:
+
+| corte | evidência (comando colado) |
+|---|---|
+| RFQ não é tabela | `event-rfq.service.ts:32` — *"RFQ vive em metadata do evento (event.metadata.rfqs)"*; medido: `SELECT count(*) FILTER (WHERE metadata ? 'rfqs') FROM events` → **0 de 8** |
+| o disparo bate em tabela ausente | `opportunity-dispatch.repository.ts` escreve em `opportunity_dispatches`; `SELECT to_regclass('opportunity_dispatches')` → **null**. 42P01 garantido |
+| o terminal está CONTIDO por ato de Clayton | `event-rfq.routes.ts:485` → `403 EVENT_RFQ_ACCEPT_QUOTE_CONTAINED` (2026-06-18): materializava cobrança *"em nome do provider"* sem confirmação dele. Reabrir = **DECISION de Clayton** |
+
+E o modal de conversão (`EventRFQConvertToBookingModal`) já é **terminal honesto** desde 2026-06-26:
+declara que não cria nada, porque batia em rota inexistente (404).
+
+> 🔴 **ERRATA MINHA.** Eu havia registrado *"RFQ notifica ZERO fornecedores (contador fixo em 0)"*.
+> O `servicesNotified = 0` é **contador vestigial dentro de `createRFQ`**, não o mecanismo de
+> notificação — o disparo real é `dispatchRFQToCompanies`, ato explícito separado, cercado por
+> **5 guards**. O quadro é **pior** do que eu disse, não melhor: o disparo existe, é selado, e a
+> tabela dele nunca foi materializada.
+
+**Veredito:** a página nasce sobre `requestBooking` — vivo, selado por E2E, Δbank=0, já carregando
+contexto de evento com `manage_attendees` revalidado server-side. E é o casamento honesto: clicar
+num fornecedor do catálogo **é** "já escolhi este".
+
+### 2. O que foi construído
+
+- **`getProviderShowcase` + `GET /api/events/suppliers/:providerActorId`** — mora no leitor que já
+  atravessa os DOIS substratos, para "quem é fornecedor válido" continuar com **uma** definição.
+- **`SupplierPage`** (`/fornecedores/:providerActorId`) — chave é o **ACTOR**, porque quem fornece é
+  o Actor (PF, empresa ou grupo, indistintamente), não o tipo de cadastro.
+- **`notes` religado.** `bookings.notes` e `CreateUnifiedBookingInput.notes` **sempre existiram**;
+  só `requestBooking` os descartava — o fornecedor recebia pedido de janela **mudo**. O `as any` na
+  chamada de `createBooking` era o cúmplice que escondia isso. Removido.
+
+**Prova de 1ª mão contra `unificard_dev`** (não afirmação): `POST /services/offerings/:id/bookings`
+→ **201** · `status=requested` · `gateReason=manual` (o DONO negocia — decidido server-side) ·
+`bookings.notes` **idêntico byte a byte** · `metadata.eventId` amarrado ao evento real ·
+`bank_transactions` **0 → 0, Δbank = 0**.
+
+**Zero MEDIDO que a tela precisa dizer:** `availability` tem **58** janelas de `service_offering` e
+**0** de `rentable_resource`. Locável não tem writer de agenda — a vitrine dele nasce sem horário, e
+a tela afirma isso em vez de fingir que a busca falhou.
+
+### 3. 🔴 O RUNNER ESTAVA VERMELHO NO HEAD — e 4 dos 5 vermelhos eram meus
+
+Rodei o **runner completo**, não só a fatia. Ele parava no primeiro de uma **cadeia**: cada conserto
+descobria o próximo. Medido com `git archive` do commit da baseline, não deduzido.
+
+| # | vermelho | de quem | conserto |
+|---|---|---|---|
+| 1 | `financial-vocabulary` **3882 > 3881** | meu (`cdfad74ce`) | dígito verificador usava o método de String que quebra em caracteres — palavra proibida. `Array.from`. **NÃO subi a baseline.** Meu 1º comentário explicando usou a palavra 3× e foi a 3884 — **o lint lê comentário**. Reescrito → 3881/3881 |
+| 2 | `schema-coherence-ratchet` C4 ×10 | meu | a MESMA sonda Δbank copiada em 4 scripts, cada cópia lendo `bank_*` fora do Bank. Agora **uma** sonda em `src/modules/bank/` e os scripts **perguntam** ao Bank. 817→807 |
+| 3 | idem, C5 ×1 | meu | `INSERT INTO actors` direto no E2E, e o `page` **sem `company_id`** — meia-empresa, não-representável: o teste passava contra fornecedor que não existiria em produção. Agora actor **humano** por `ensureUserActor`. 328→327 |
+| 4 | idem, C7 ×10 | meu | a faxina achava os eventos por `metadata->>'demo_seed'`, e `events` é TRANSACIONAL. **Lei 7: identidade é o id.** Os seeds passam a escrever **MANIFESTO de ids** e a faxina apaga POR ID — estritamente mais seguro (não alcança mais linha que outra pessoa tenha marcado à mão). 14→4 |
+| 5 | `event-publish-cta-state-coherence` | **do guard** | acusava um CTA inexistente: casou `r.status === 'fulfilled'` de um `Promise.allSettled` |
+
+**Ratchet-down no mesmo commit**, como o guard exige: `GHOST-READ-vivo` 345→344 — descida por
+CONSERTO meu (a leitura da tabela-fantasma `event_rsvp_counts`). **Nenhuma chave minha entrou na
+baseline.**
+
+### 4. O falso positivo do guard escondia TRÊS fraquezas reais
+
+A assinatura de erro da casa, dentro do próprio guard: *ferramenta configurada de um jeito,
+resultado lido como se fosse de outro*.
+
+1. **não sabia o que é status de EVENTO** → agora deriva o vocabulário do próprio agregado (origens
+   ∪ destinos), então `'fulfilled'` deixa de ser candidato;
+2. **exigia o texto `.status ===`** e por isso **nunca enxergou o gate CORRETO**
+   (`st === 'declared'`, com `st` derivado de `statusCanonical ?? status`);
+3. **pegava a PRIMEIRA função envolvente, não a mais próxima** — elegia `load` em vez de `publicar`,
+   e `useCallback(` sequer estava no padrão (handler de React é quase sempre `useCallback`).
+
+**Vermelha forçada DUAS vezes** antes de confiar no verde: gate movido para `draft` (a transição
+PROIBIDA) → mordeu; gate removido por completo → mordeu. Restaurado do índice (`git checkout --`),
+**nunca reeditando à mão**.
+
+### Estado
+
+`validate:regression-guards` → **238 COMMANDS OK** (estava vermelho no HEAD) · E2E
+`event-need-supplier-bridge` **9/9** com o fornecedor PF · typecheck BE 0 · FE 0 · Δbank=0.
+Commits `07a433432` (fatia) e `26aa45f66` (dívida de guard).
+
+### O que continua sendo ato de Clayton
+
+- **Reabrir a trilha RFQ→quote→booking** (exige o fluxo de confirmação do provider — DECISION própria).
+- **Materializar `opportunity_dispatches`**, ou aposentar o disparo de RFQ de vez.
+- **PF virar fornecedora pela tela**: declarar profissão grava em `actor_professional_concepts` e
+  **não cria oferta**. O E2E agora usa PF como fornecedora — o substrato aceita; falta a tela.
+- **Writer de agenda para locável** (0 janelas hoje) e o pedido de reserva de recurso.
+
+
+
 ## 🔄 O EIXO INVERTIDO — catálogo de fornecedor no lugar dos eventos (2026-08-04)
 
 **Origem:** Clayton, pela **terceira vez**, com print e caixa vermelha: *"continua aparecendo
