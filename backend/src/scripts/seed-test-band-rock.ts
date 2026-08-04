@@ -104,7 +104,7 @@ async function main(): Promise<void> {
       return [...base, d1, d2].join('');
     })();
     const reg = await authService.register(
-      undefined, MUSICO_EMAIL, MUSICO_SENHA, cpf, 'Rui da Silva (banda Pedra Noventa)', '1990-05-20', undefined
+      undefined, MUSICO_EMAIL, MUSICO_SENHA, cpf, 'Rui da Silva', '1990-05-20', undefined
     );
     owner = { user_id: reg.user.userId, tenant_id: reg.tenantId };
     console.log(`   ✅ músico criado via authService.register: ${MUSICO_EMAIL} / ${MUSICO_SENHA}`);
