@@ -1,6 +1,18 @@
 /**
+ * ⛔ SUPERADO EM 2026-08-04 — USE `semear-recursos-dev.ts` (e `recolher-recursos-dev.ts` na saída).
+ *
+ * Os ids abaixo (TENANT_ID / USER_ID / CLAYTON_ACTOR_ID) apontam para o tenant ANTERIOR e **não
+ * resolvem mais** — conferido: o actor `494642e5-…` não existe no banco atual. Rodar isto hoje
+ * falha, ou pior, credita conta errada. O sucessor resolve o alvo POR E-MAIL exatamente para não
+ * voltar a apodrecer quando o banco for re-materializado.
+ *
+ * Preservado como EVIDÊNCIA: é aqui que está registrado o achado do `trg_check_coverage`
+ * (débito+crédito na mesma transação zera a capacidade da reserve antes de checar o crédito), que
+ * o sucessor herda e não repete.
+ *
+ * ── histórico original ──────────────────────────────────────────────────────────────────────
  * Script de UM USO — semeadura de R$100 na conta de Clayton em unificard_dev, sob pedido explícito
- * ("coloque um saldo de 100 reais na conta do dev. depois a gente exclui quando eu falar").
+ * ("coloque 100 reais na conta do dev. depois a gente exclui quando eu falar").
  *
  * NÃO é um E2E. NÃO é padrão a ser repetido sem novo pedido. Reusa o mecanismo já auditado
  * (ensurePlatformAccounts + creditInitialBalance de seed-initial-balance.ts) em vez de SQL cru —
