@@ -439,6 +439,22 @@ const eventRFQRoutes = async (fastify: FastifyInstance) => {
           return reply.status(404).send({ error: 'RFQ não encontrado' });
         }
 
+        // 🔴 CONTENÇÃO POR SONDA (2026-08-04) — ANTES de qualquer sink, DEPOIS da autoridade.
+        // `dispatchRFQToCompanies` escreve em `opportunity_dispatches`, e essa tabela NÃO EXISTE
+        // neste banco (medido: `to_regclass` → null). O organizador legítimo recebia 500 (42P01):
+        // o caminho autorizava e morria. Agora recebe erro NOMEADO dizendo o que falta.
+        //
+        // A ordem importa: a checagem vem DEPOIS de `assertCanReadEventMoney` de propósito — quem
+        // não tem autoridade continua recebendo 403, e não descobre o estado do substrato por
+        // sondagem. Contenção não pode virar canal de informação para quem não podia perguntar.
+        const { opportunityDispatchSubstrateExists, opportunityDispatchUnavailableBody } =
+          await import('@modules/dispatch/opportunity-dispatch-substrate-probe');
+        if (!(await opportunityDispatchSubstrateExists(tenantId))) {
+          return reply
+            .status(501)
+            .send(opportunityDispatchUnavailableBody('POST /events/:eventId/rfqs/:rfqId/dispatch'));
+        }
+
         // Disparar oportunidades para empresas selecionadas
         const result = await eventRFQOpportunityService.dispatchRFQToCompanies(
           tenantId,
