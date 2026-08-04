@@ -103,8 +103,8 @@ function MeusEventosConsumir() {
 
       {events !== null && events.length === 0 && (
         <p className="organizer-hint">
-          Você ainda não tem eventos. <Link to="/events/new">Criar o primeiro</Link> — depois volte
-          aqui para ver quem pode ajudar a realizá-lo.
+          Você ainda não tem eventos — <Link to="/events/new">criar o primeiro</Link>. O catálogo
+          abaixo funciona mesmo assim; o evento serve só para filtrar por data.
         </p>
       )}
 
@@ -116,7 +116,13 @@ function MeusEventosConsumir() {
           FILTRO DE CONTEXTO — escolhê-lo faz o SERVIDOR derivar a janela de data dele.
           O componente antigo (EventSupplierBoard) NÃO foi apagado: segue servindo ao painel de um
           evento específico, que é onde a pergunta event-first é a certa. */}
-      {events !== null && events.length > 0 && <SupplierCatalog eventos={events} />}
+      {/* 🔴 2026-08-04 — O CATÁLOGO NÃO DEPENDE DE TER EVENTO. Ele estava atrás de
+          `events.length > 0`, então quem ainda não criou evento nenhum via a tela VAZIA — logo
+          quem mais precisa descobrir fornecedor (quem está começando) era exatamente quem não via
+          nada. A rota `/events/supplier-catalog` é desacoplada de evento POR DESENHO (não é
+          organizer-gated); a tela é que reintroduzia o acoplamento. O evento entra só como filtro
+          de contexto — e `eventos={[]}` apenas deixa o seletor "Para o evento" sem opções. */}
+      {events !== null && <SupplierCatalog eventos={events} />}
     </div>
   );
 }

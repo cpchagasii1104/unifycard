@@ -75,7 +75,9 @@ export default function SupplierCatalog({ eventos }: Props) {
     let cancelled = false;
     getSupplierCatalog()
       .then((t) => { if (!cancelled) setTodosOsTipos(t.map((x) => ({ id: x.needConceptId, label: x.label }))); })
-      .catch(() => { /* sem seletor de tipo; a lista continua */ });
+      // Falha aqui NÃO pode virar silêncio: o seletor sumiria e a tela pareceria "sem tipos".
+      // Não derruba a lista principal (que tem o próprio tratamento), mas deixa o erro APARECER.
+      .catch((e) => { if (!cancelled) console.error('[SupplierCatalog] seletor de tipos indisponível:', e); });
     return () => { cancelled = true; };
   }, []);
 

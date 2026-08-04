@@ -48,8 +48,13 @@ export default function MeusCompromissosPage() {
     }
   };
 
-  const formatDateTime = (isoString: string): string => {
+  // 🔴 2026-08-04 — aceita null porque a data PODE não existir: evento declarado sem agenda
+  // confirmada é estado real do domínio. Dizer "sem data confirmada" é a verdade; `new Date(null)`
+  // produziria 01/01/1970 — uma data INVENTADA, que é o erro mais caro que uma agenda pode cometer.
+  const formatDateTime = (isoString: string | null): string => {
+    if (!isoString) return 'sem data confirmada';
     const date = new Date(isoString);
+    if (Number.isNaN(date.getTime())) return 'data inválida';
     return date.toLocaleString('pt-BR', {
       day: '2-digit',
       month: '2-digit',
@@ -186,12 +191,43 @@ export default function MeusCompromissosPage() {
                   <p>Início: {formatDateTime(booking.startDatetime)}</p>
                   <p>Fim: {formatDateTime(booking.endDatetime)}</p>
                   <p>Solicitado em: {formatDateTime(booking.requestedAt)}</p>
+                  {/* A mensagem do pedido. Antes ela era gravada e nunca mostrada a ninguém. */}
+                  {booking.notes && <p className="meus-compromissos-notes">“{booking.notes}”</p>}
                 </div>
               </div>
             ))}
           </div>
         )}
       </section>
+
+      {/* ── PEDIDOS RECEBIDOS — o lado de quem FORNECE (2026-08-04) ──
+          Não existia. A seção acima é a agenda de quem PEDE (`requester_actor_id`); quem RECEBIA
+          um pedido não tinha onde vê-lo. Renderiza só quando há algo: seção vazia permanente
+          ensinaria que o recurso não funciona. */}
+      {commitments.incomingRequests.length > 0 && (
+        <section className="meus-compromissos-section">
+          <h2>Pedidos recebidos ({commitments.incomingRequests.length})</h2>
+          <div className="meus-compromissos-list">
+            {commitments.incomingRequests.map((pedido) => (
+              <div key={pedido.bookingId} className="meus-compromissos-item">
+                <div className="meus-compromissos-item-header">
+                  <h3>{pedido.offerLabel ?? 'Pedido'}</h3>
+                  <span className={`meus-compromissos-badge status-${pedido.status}`}>
+                    {/* Rótulo em português SEM inventar estado: o vocabulário é o do CHECK físico. */}
+                    {pedido.status === 'requested' ? 'aguardando você' : pedido.status}
+                  </span>
+                </div>
+                <div className="meus-compromissos-item-details">
+                  <p>De: {pedido.requesterDisplayName ?? 'Solicitante sem nome de exibição'}</p>
+                  <p>Início: {formatDateTime(pedido.startDatetime)}</p>
+                  <p>Fim: {formatDateTime(pedido.endDatetime)}</p>
+                  {pedido.notes && <p className="meus-compromissos-notes">“{pedido.notes}”</p>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Pendências (inbox) */}
       <section className="meus-compromissos-section">

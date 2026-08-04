@@ -63,26 +63,30 @@ const commitmentsRoutes: FastifyPluginAsync = async (fastify) => {
       const eventsParticipatingRows = await runQueriesWithTenant<{
         event_id: string;
         title: string;
-        starts_at: Date;
-        ends_at: Date;
+        datetime_start: Date | null;
+        datetime_end: Date | null;
         status: string;
         checked_in_at: Date | null;
       }>(
         tenantId,
         `
-        SELECT 
+        -- 2026-08-04 - colunas e vocabulario MEDIDOS, nao deduzidos:
+        --   events NAO tem starts_at/ends_at -> datetime_start/datetime_end
+        --   events.status CHECK = draft/declared/published/active/ended/cancelled
+        --   "ongoing" NAO EXISTE (era do desenho antigo, ver migrations_archive)
+        SELECT
           e.id as event_id,
           e.title,
-          e.starts_at,
-          e.ends_at,
+          e.datetime_start,
+          e.datetime_end,
           e.status,
           ea.checked_in_at
         FROM event_attendees ea
         JOIN events e ON ea.event_id = e.id
         WHERE ea.global_user_id = $1
           AND e.tenant_id = $2
-          AND e.status IN ('published', 'ongoing')
-        ORDER BY e.starts_at ASC
+          AND e.status IN ('published', 'active')
+        ORDER BY e.datetime_start ASC
         LIMIT 20
         `,
         [globalUserId, tenantId]
@@ -91,8 +95,10 @@ const commitmentsRoutes: FastifyPluginAsync = async (fastify) => {
       const eventsParticipating = eventsParticipatingRows.map((row) => ({
         eventId: row.event_id,
         title: row.title,
-        startTime: row.starts_at.toISOString(),
-        endTime: row.ends_at.toISOString(),
+        // Data NULA e possivel (evento declarado sem agenda confirmada): devolve null, nunca
+        // uma data inventada — e nunca estoura .toISOString() de undefined.
+        startTime: row.datetime_start ? row.datetime_start.toISOString() : null,
+        endTime: row.datetime_end ? row.datetime_end.toISOString() : null,
         status: row.status,
         checkedIn: row.checked_in_at !== null,
       }));
@@ -101,28 +107,31 @@ const commitmentsRoutes: FastifyPluginAsync = async (fastify) => {
       const eventsOrganizingRows = await runQueriesWithTenant<{
         id: string;
         title: string;
-        starts_at: Date;
-        ends_at: Date;
+        datetime_start: Date | null;
+        datetime_end: Date | null;
         status: string;
       }>(
         tenantId,
         `
-        SELECT id, title, starts_at, ends_at, status
+        -- 2026-08-04 - created_by_global_user_id NAO EXISTE em events. O dono e o ACTOR
+        -- (events.actor_id), que e como todo o resto do dominio de eventos ja resolve organizador
+        -- (event.service.ts / listOrganizerEvents). Por isso o parametro passou a ser o actor.
+        SELECT id, title, datetime_start, datetime_end, status
         FROM events
         WHERE tenant_id = $1
-          AND created_by_global_user_id = $2
-          AND status IN ('draft', 'published', 'ongoing')
-        ORDER BY starts_at ASC
+          AND actor_id = $2
+          AND status IN ('draft', 'declared', 'published', 'active')
+        ORDER BY datetime_start ASC NULLS LAST
         LIMIT 20
         `,
-        [tenantId, globalUserId]
+        [tenantId, actor.actor_id]
       );
 
       const eventsOrganizing = eventsOrganizingRows.map((row) => ({
         eventId: row.id,
         title: row.title,
-        startTime: row.starts_at.toISOString(),
-        endTime: row.ends_at.toISOString(),
+        startTime: row.datetime_start ? row.datetime_start.toISOString() : null,
+        endTime: row.datetime_end ? row.datetime_end.toISOString() : null,
         status: row.status,
       }));
 
@@ -130,28 +139,31 @@ const commitmentsRoutes: FastifyPluginAsync = async (fastify) => {
       // 🔴 NOTA: owner_user_id pode ser userId ou globalUserId dependendo do contexto
       // Tentar ambos para garantir compatibilidade
       const groupsManagingRows = await runQueriesWithTenant<{
-        group_id: string;
+        id: string;
         name: string;
-        is_active: boolean;
+        status: string;
         created_at: Date;
       }>(
         tenantId,
         `
-        SELECT group_id, name, is_active, created_at
+        -- 2026-08-04 - MEDIDO: groups nao tem group_id/is_active/owner_user_id. As colunas reais
+        -- sao id / status / owner_actor_id. Dono de grupo e ACTOR (owner_actor_id), coerente com
+        -- CONTRATO_GRUPOS_V2 e com o resto do dominio; o par userId/globalUserId aqui era chute.
+        SELECT id, name, status, created_at
         FROM groups
         WHERE tenant_id = $1
-          AND (owner_user_id = $2 OR owner_user_id = $3)
-          AND is_active = true
+          AND owner_actor_id = $2
+          AND status = 'active'
         ORDER BY created_at DESC
         LIMIT 20
         `,
-        [tenantId, userId, globalUserId]
+        [tenantId, actor.actor_id]
       );
 
       const groupsManaging = groupsManagingRows.map((row) => ({
-        groupId: row.group_id,
+        groupId: row.id,
         name: row.name,
-        isActive: row.is_active,
+        isActive: row.status === 'active',
         createdAt: row.created_at,
       }));
 
@@ -160,24 +172,42 @@ const commitmentsRoutes: FastifyPluginAsync = async (fastify) => {
         booking_id: string;
         availability_id: string;
         status: string;
-        requestedAt: Date;
+        requested_at: Date;
+        notes: string | null;
         start_datetime: Date;
         end_datetime: Date;
       }>(
         tenantId,
         `
-        SELECT 
+        -- 2026-08-04 - ESTA ROTA DEVOLVIA 500 E NINGUEM SABIA. Dois defeitos empilhados, ambos
+        -- medidos antes de tocar em nada (sem crase: isto vive dentro de template literal JS).
+        --
+        --  1. b.requestedAt SEM ASPAS: o Postgres dobra para requestedat, e a coluna e
+        --     requested_at -> 42703. A pagina "Meus compromissos" NUNCA carregou.
+        --     Comando: SELECT column_name FROM information_schema.columns
+        --              WHERE table_name = bookings AND column_name ILIKE %request%;
+        --              -> requester_actor_id, requested_at
+        --
+        --  2. status IN (confirmed, pending) -> "pending" NAO EXISTE no vocabulario.
+        --     O CHECK fisico diz: requested/confirmed/cancelled/expired/checked_in/checked_out.
+        --     Comando: SELECT pg_get_constraintdef(oid) FROM pg_constraint
+        --              WHERE conrelid = bookings::regclass AND contype = c;
+        --     "requested" e justamente o estado em que TODO pedido nasce (oferta em modo manual
+        --     negocia). Ou seja: mesmo com o 500 consertado o pedido seguiria invisivel - o
+        --     defeito MUDO por baixo do defeito barulhento.
+        SELECT
           b.booking_id,
           b.availability_id,
           b.status,
-          b.requestedAt,
+          b.requested_at,
+          b.notes,
           a.start_datetime,
           a.end_datetime
         FROM bookings b
         JOIN availability a ON b.availability_id = a.availability_id
         WHERE b.tenant_id = $1
           AND b.requester_actor_id = $2
-          AND b.status IN ('confirmed', 'pending')
+          AND b.status IN ('requested', 'confirmed', 'checked_in')
           AND a.start_datetime >= now()
         ORDER BY a.start_datetime ASC
         LIMIT 20
@@ -189,9 +219,70 @@ const commitmentsRoutes: FastifyPluginAsync = async (fastify) => {
         bookingId: row.booking_id,
         availabilityId: row.availability_id,
         status: row.status,
-        requestedAt: row.requestedAt.toISOString(),
+        requestedAt: row.requested_at.toISOString(),
+        /** A mensagem de quem pediu. Sem ela o pedido chega mudo (ver `incomingRequests` abaixo). */
+        notes: row.notes,
         startDatetime: row.start_datetime.toISOString(),
         endDatetime: row.end_datetime.toISOString(),
+      }));
+
+      // 4b. 🔴 O LADO QUE NÃO EXISTIA — PEDIDOS RECEBIDOS (2026-08-04).
+      //
+      // A consulta acima filtra `b.requester_actor_id = actor` — é a agenda de quem PEDE. Não havia
+      // NENHUMA superfície do lado de quem RECEBE. Consequência concreta: religar `bookings.notes`
+      // em `requestBooking` no mesmo dia teria entregue a mensagem a uma coluna que nenhuma tela
+      // lia. Pedido de orçamento que ninguém vê não é pedido — é beco.
+      //
+      // O provider é DERIVADO da posse da janela (nunca informado pelo cliente): `availability`
+      // aponta `owner_type`+`owner_id`, e daí sai `service_offerings.provider_actor_id` ou
+      // `rentable_resources.owner_actor_id`. Os dois substratos, porque contratar e alugar são
+      // caminhos diferentes e ambos desembocam em `bookings`.
+      //
+      // READ-ONLY · Δbank=0 · não decide nada: aceitar/recusar continua sendo ato do dono pelo
+      // caminho selado (`updateBooking` → chokepoint único de confirm).
+      const incomingRows = await runQueriesWithTenant<{
+        booking_id: string; availability_id: string; status: string;
+        requested_at: Date; notes: string | null;
+        start_datetime: Date; end_datetime: Date;
+        requester_actor_id: string; requester_display_name: string | null;
+        offer_label: string | null;
+      }>(
+        tenantId,
+        `
+        SELECT b.booking_id, b.availability_id, b.status, b.requested_at, b.notes,
+               av.start_datetime, av.end_datetime,
+               b.requester_actor_id::text AS requester_actor_id,
+               ra.display_name AS requester_display_name,
+               COALESCE(cs.name, rr.label) AS offer_label
+          FROM bookings b
+          JOIN availability av ON av.availability_id = b.availability_id
+          LEFT JOIN service_offerings so
+                 ON av.owner_type = 'service_offering' AND so.id = av.owner_id
+          LEFT JOIN canonical_services cs ON cs.id = so.canonical_service_id
+          LEFT JOIN rentable_resources rr
+                 ON av.owner_type = 'rentable_resource' AND rr.id = av.owner_id
+          LEFT JOIN actors ra ON ra.id = b.requester_actor_id AND ra.tenant_id = $1
+         WHERE b.tenant_id = $1
+           AND COALESCE(so.provider_actor_id, rr.owner_actor_id) = $2
+           AND b.status IN ('requested', 'confirmed')
+           AND av.start_datetime >= now()
+         ORDER BY (b.status = 'requested') DESC, av.start_datetime ASC
+         LIMIT 20
+        `,
+        [tenantId, actor.actor_id]
+      );
+
+      const incomingRequests = incomingRows.map((row) => ({
+        bookingId: row.booking_id,
+        availabilityId: row.availability_id,
+        status: row.status,
+        requestedAt: row.requested_at.toISOString(),
+        notes: row.notes,
+        startDatetime: row.start_datetime.toISOString(),
+        endDatetime: row.end_datetime.toISOString(),
+        requesterActorId: row.requester_actor_id,
+        requesterDisplayName: row.requester_display_name,
+        offerLabel: row.offer_label,
       }));
 
       // 5. Contador de inbox pendente
@@ -229,6 +320,7 @@ const commitmentsRoutes: FastifyPluginAsync = async (fastify) => {
         eventsOrganizing,
         groupsManaging,
         agendaBookings,
+        incomingRequests,
         inboxPendingCount,
         economySummary,
         updatedAt: new Date().toISOString(),

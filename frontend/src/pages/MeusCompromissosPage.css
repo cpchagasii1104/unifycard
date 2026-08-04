@@ -188,3 +188,15 @@
   line-height: 1.5;
 }
 
+
+/* A mensagem que acompanha o pedido (bookings.notes). Existia na coluna e nao aparecia em tela
+   nenhuma ate 2026-08-04 — pedido de orcamento que ninguem le e beco. */
+.meus-compromissos-notes {
+  margin-top: 6px;
+  padding: 8px 10px;
+  background: #f9fafb;
+  border-left: 3px solid #d1d5db;
+  border-radius: 4px;
+  font-style: italic;
+  color: #374151;
+}
