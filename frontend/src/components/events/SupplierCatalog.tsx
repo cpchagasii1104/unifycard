@@ -175,14 +175,15 @@ export default function SupplierCatalog({ eventos }: Props) {
             ) : (
               <ul className="supplier-offer-list">
                 {n.suppliers.map((s) => (
-                  // 🔴 O CLIQUE LEVA À PÁGINA DO FORNECEDOR (F-SUPPLIER-SHOWCASE, 2026-08-04).
-                  // Chave = providerActorId, não offerId: a página mostra TUDO que o fornecedor
-                  // oferece ("ver o que ele tem a oferecer"), e a oferta clicada é só a porta.
-                  // O evento de contexto viaja junto para o pedido já nascer amarrado a ele.
+                  // 🔴 O CLIQUE LEVA À CASCA UNIVERSAL DO ACTOR (ActorPage) — corrigido 2026-08-04.
+                  // Apontava para `/fornecedores/:id`, página paralela que eu criei e que foi
+                  // absorvida. Chave = providerActorId, não offerId: quem fornece é o ACTOR, e a
+                  // página dele mostra TUDO que oferece (produtos, serviços, locações) com as ações
+                  // que o contrato acender. A oferta clicada é só a porta de entrada.
                   <li key={s.offerId} className="supplier-offer">
                     <Link
                       className="supplier-offer-name"
-                      to={`/fornecedores/${s.providerActorId}${eventoContexto ? `?eventId=${eventoContexto}` : ''}`}
+                      to={`/profile/${s.providerActorId}`}
                     >
                       {s.providerDisplayName ?? 'Fornecedor'}
                     </Link>

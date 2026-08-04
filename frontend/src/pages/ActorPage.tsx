@@ -11,12 +11,15 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import EntityHero, { type EntityHeroStat, type EntityHeroAction } from '../components/entity/EntityHero';
+import QuoteRequestDialog from '../components/entity/QuoteRequestDialog';
+import { formatSupplierPrice } from '../utils/money';
 import PostCard, { type PostCardData } from '../components/social/PostCard';
 import SalesHistory from '../components/social/SalesHistory';
 import {
   getActorPage,
   type ActorPageContract,
   type ActorPageServiceItem,
+  type ActorPageRentalItem,
   type ActorPageProductItem,
   type ActorPageAgendaItem,
   type ActorPagePurchaseOrderItem,
@@ -82,6 +85,8 @@ export default function ActorPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [connectOpen, setConnectOpen] = useState(false);
+  // Pedido de orçamento: in-page (a ação vem do contrato com deeplink null), sobre a casca universal.
+  const [quoteOpen, setQuoteOpen] = useState(false);
   const [followBusy, setFollowBusy] = useState(false);
   const [reclassifyBusy, setReclassifyBusy] = useState<string | null>(null);
 
@@ -301,6 +306,13 @@ export default function ActorPage() {
   for (const a of actions) {
     if (a.key === 'connect') continue;
     if (a.key === 'support_ticket' && a.enabled) continue; // já tratado acima (abre modal)
+    // 🔴 AÇÃO IN-PAGE: habilitada e SEM deeplink. O laço tratava só (habilitada+deeplink) e
+    // (desabilitada) — `request_quote`, que nasce aceso e in-page, não renderizava NADA. Botão que
+    // o contrato manda acender e a tela engole é pior que botão ausente: o contrato fica mentindo.
+    if (a.key === 'request_quote' && a.enabled) {
+      heroActions.push({ label: a.label, onClick: () => setQuoteOpen(true), variant: 'primary' });
+      continue;
+    }
     if (a.enabled && a.deeplink) {
       heroActions.push({ label: a.label, onClick: () => { window.location.href = a.deeplink!; }, variant: 'secondary' });
     } else if (!a.enabled) {
@@ -397,6 +409,33 @@ export default function ActorPage() {
                 </li>
               ))}
             </ul>
+          </section>
+        );
+      }
+      // 🔴 2026-08-04 — LOCAÇÃO passa a renderizar. A aba acendia (o probe conta) e o bloco vinha
+      // só com `count`: o usuário via "Locações" e NADA dentro. Aba vazia ensina que não funciona.
+      case 'rentals': {
+        const items = (block.data.items ?? []) as ActorPageRentalItem[];
+        return (
+          <section key="rentals" className="actor-block">
+            <h2>Locações</h2>
+            {items.length === 0 ? (
+              <p className="muted">Nenhum item de locação ativo no momento.</p>
+            ) : (
+              <ul className="actor-item-list">
+                {items.map((r) => (
+                  <li key={r.id} className="actor-item-card">
+                    <div className="actor-item-main">
+                      <strong>{r.label ?? 'Item de locação'}</strong>
+                    </div>
+                    {/* durationMinutes null EXPLÍCITO: locação cobra por unidade de tempo, não tem duração fixa.
+                          Os dois eixos são separados no contrato desde 2026-08-04 (§4.34). */}
+                    <div className="actor-item-price">{formatSupplierPrice({ ...r, durationMinutes: null })}</div>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {block.deeplink && <a className="actor-deeplink" href={block.deeplink}>Ver todos →</a>}
           </section>
         );
       }
@@ -582,6 +621,17 @@ export default function ActorPage() {
         <p className="actor-location-chip">
           📍 {[header.location.cityName, header.location.stateCode].filter(Boolean).join(', ')}
         </p>
+      )}
+
+      {/* 🔴 O pedido de orçamento vive AQUI, sobre a casca universal — não numa página de
+          fornecedor à parte. A página que eu tinha criado (/fornecedores/:id) era a SEXTA
+          superfície de vendedor do repositório; foi absorvida, e o que valia nela era o fluxo. */}
+      {quoteOpen && (
+        <QuoteRequestDialog
+          providerActorId={header.actorId}
+          providerName={header.displayName}
+          onClose={() => setQuoteOpen(false)}
+        />
       )}
 
       {connectOpen && (

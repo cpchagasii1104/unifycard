@@ -32,7 +32,7 @@ import VitrineProfilePage from './pages/VitrineProfilePage';
 import EventDetailPage from './pages/EventDetailPage';
 import EventCreationPage from './pages/EventCreationPage';
 import MeusEventosPage from './pages/MeusEventosPage';
-import SupplierPage from './pages/SupplierPage';
+import SupplierRedirect from './pages/SupplierRedirect';
 import EventosPage from './pages/EventosPage';
 import SharePage from './pages/SharePage';
 import SocialPage from './pages/SocialPage';
@@ -348,10 +348,17 @@ function AppContent() {
               descoberta pública — misturar as duas foi o que fez o organizador não ter onde ver os
               próprios rascunhos. */}
           <Route path="meus-eventos" element={<MeusEventosPage />} />
-          {/* A página do fornecedor (F-SUPPLIER-SHOWCASE) — modelo ÚNICO para todo fornecedor, um
-              nível abaixo do catálogo "Quem me ajuda". Chave = ACTOR do fornecedor, porque quem
-              fornece é o Actor (PF, empresa ou grupo, indistintamente), não o tipo de cadastro. */}
-          <Route path="fornecedores/:providerActorId" element={<SupplierPage />} />
+          {/* 🔴 ABSORVIDA EM 2026-08-04.  era uma página de fornecedor PARALELA —
+              a sexta superfície de vendedor do repositório — contra a cláusula anti-página-paralela
+              que o próprio ActorPage declara (ele já absorveu as duas telas de perfil/empresa que
+              existiam antes; "adicionar vertical = registrar bloco, NUNCA página nova"). Clayton
+              apontou o risco antes de eu perceber: "para no MVP a gente não ter uma infinidade de
+              páginas para corrigir". ⚠️ Não cite aqui o nome das telas absorvidas: o guard
+              `audit-actor-page-contract` proíbe essas strings neste arquivo, e ele está certo —
+              nome de página morta em App.tsx é como elas voltam.
+              A rota vira REDIRECT em vez de sumir: links já compartilhados continuam chegando ao
+              lugar certo — a casca universal, que serve PF, empresa, grupo e banda igualmente. */}
+          <Route path="fornecedores/:providerActorId" element={<SupplierRedirect />} />
           <Route path="assistant" element={<AssistantPage />} />
           <Route path="compromissos" element={<MeusCompromissosPage />} />
           <Route path="meus-compromissos" element={<MeusCompromissosPage />} />

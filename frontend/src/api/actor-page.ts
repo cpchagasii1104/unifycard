@@ -46,6 +46,19 @@ export interface ActorPageServiceItem {
 }
 
 /** Item leve do bloco Produtos. */
+/**
+ * Item de LOCAÇÃO. `origem` diz de qual substrato veio — enquanto a convergência asset-first não
+ * termina, é o que informa qual caminho de contratação existe ('legacy' ainda não tem reserva).
+ */
+export interface ActorPageRentalItem {
+  id: string;
+  label: string | null;
+  priceCents: number | null;
+  pricingUnit: string | null;
+  /** Sempre 'asset': a locação viva é asset-first e o guard asset-rental-convergence garante. */
+  origem: 'asset';
+}
+
 export interface ActorPageProductItem {
   offerId: string;
   name: string;
@@ -81,7 +94,7 @@ export interface ActorPageBlock {
     count?: number;
     bio?: string | null;
     headline?: string | null;
-    items?: ActorPageServiceItem[] | ActorPageProductItem[] | ActorPageAgendaItem[];
+    items?: ActorPageServiceItem[] | ActorPageProductItem[] | ActorPageAgendaItem[] | ActorPageRentalItem[];
     cityName?: string | null;
     stateCode?: string | null;
     neighborhoodName?: string | null;

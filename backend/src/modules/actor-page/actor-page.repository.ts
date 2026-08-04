@@ -3,7 +3,7 @@
 // Cada probe é uma CONTAGEM tenant-scoped sobre o SSOT do pilar (Lei §5: projeta, não duplica).
 // Anti-PII: nenhum SELECT toca cpf/tax_id/kyc/global_user_id/documentos; header só campos públicos.
 
-import { runQueryWithTenant } from '@core/database/pool';
+import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
 
 export interface ActorHeaderRow {
   id: string;
@@ -95,11 +95,17 @@ class ActorPageRepository {
 
   /**
    * Recursos de locação ativos do actor (pilar rental).
-   * F-ASSET-MULTI-OFFER-FOUNDATION 2b-R: a locação viva convergiu para asset-first — a identidade é
-   * actor_assets, a ATIVAÇÃO de locação é actor_asset_modes.activation_mode='rental' (enabled), e os
-   * termos/status da oferta vivem em actor_asset_rental_terms. rentable_resources NÃO é mais fonte viva.
-   * Semântica de "ativo" preservada do probe antigo (is_active=true), agora sobre actor_asset_rental_terms
-   * (mesmo campo que updateStatus mantém sincronizado com status='active'). Sem category como autoridade.
+   * F-ASSET-MULTI-OFFER-FOUNDATION 2b-R: a locação convergiu POR DESENHO para asset-first — a
+   * identidade é actor_assets, a ATIVAÇÃO é actor_asset_modes.activation_mode='rental' (enabled), e
+   * os termos/status vivem em actor_asset_rental_terms. Semântica de "ativo" preservada do probe
+   * antigo (is_active=true). Sem category como autoridade.
+   *
+   * ⚠️ NOTA DE ESTADO (2026-08-04): a frase acima é verdade sobre o DESENHO e sobre o CÓDIGO —
+   * nenhum caminho vivo trata `rentable_resources` como identidade, e `audit-asset-rental-convergence`
+   * garante isso. Mas NÃO descreve o BANCO: medido hoje, `rentable_resources` = 3 linhas ativas e
+   * `actor_assets` = 1 no sistema inteiro. Consequência prática e visível: quem só tem locável
+   * legado aparece com a aba `Locações` apagada. O conserto é migrar o DADO (frente própria, GO
+   * do dono), nunca fazer esta sonda ler os dois.
    */
   countActiveRentals(tenantId: string, actorId: string): Promise<number> {
     return this.countOf(
@@ -113,6 +119,46 @@ class ActorPageRepository {
         WHERE a.tenant_id = $1 AND a.owner_actor_id = $2 AND t.is_active = true`,
       [tenantId, actorId]
     );
+  }
+
+  /**
+   * ITENS de locação para o bloco — SÓ asset-first, a fonte canônica.
+   *
+   * 🔴 ERRO MEU, REVERTIDO NO MESMO DIA (2026-08-04): eu tinha feito esta função e a contagem acima
+   * lerem TAMBÉM `rentable_resources`, para acender a aba de um fornecedor cujos 3 locáveis vivem
+   * no substrato legado. `audit-asset-rental-convergence` mordeu — e está certo: ele é a
+   * EXECUÇÃO da RFC que decidiu asset-first, e proíbe tratar `rentable_resources` como identidade
+   * do item em qualquer caminho vivo. Ler os dois teria transformado uma migração pendente em duas
+   * verdades permanentes, que é o defeito que esta casa mais paga caro.
+   *
+   * A aba fica apagada para quem só tem locável legado — e isso é a VERDADE do estado atual, não
+   * uma falha da tela. O conserto é converger o DADO, não afrouxar a leitura.
+   */
+  async listRentalItems(tenantId: string, actorId: string, limite = 12): Promise<Array<{
+    id: string; label: string | null; priceCents: number | null; pricingUnit: string | null; origem: 'asset';
+  }>> {
+    const linhas = await runQueriesWithTenant<{
+      id: string; label: string | null; price_cents: string | number | null; pricing_unit: string | null;
+    }>(
+      tenantId,
+      `SELECT a.id::text AS id, a.label, t.price_cents, t.pricing_unit
+         FROM actor_assets a
+         JOIN actor_asset_modes m
+           ON m.asset_id = a.id AND m.activation_mode = 'rental' AND m.enabled = true
+         JOIN actor_asset_rental_terms t
+           ON t.asset_id = a.id
+        WHERE a.tenant_id = $1 AND a.owner_actor_id = $2 AND t.is_active = true
+        ORDER BY a.created_at ASC
+        LIMIT $3`,
+      [tenantId, actorId, limite]
+    );
+    return linhas.map((r) => ({
+      id: r.id,
+      label: r.label,
+      priceCents: r.price_cents === null ? null : Number(r.price_cents),
+      pricingUnit: r.pricing_unit,
+      origem: 'asset' as const,
+    }));
   }
 
   /**

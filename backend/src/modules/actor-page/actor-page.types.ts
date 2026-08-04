@@ -35,7 +35,10 @@ export interface ActorPageHeader {
 }
 
 export interface ActorPageAction {
-  key: 'connect' | 'message' | 'schedule' | 'buy' | 'contract' | 'edit_profile' | 'create_service' | 'manage_rentals' | 'support_ticket' | 'panel';
+  // 🔴 2026-08-04 — 'rent' e 'request_quote' entraram (Clayton: comprar · alugar · contratar ·
+  // solicitar orçamento). Os TRÊS primeiros movem dinheiro e nascem gated por PORTA-1; o QUARTO
+  // não move (Δbank medido 0 → 0) e por isso é o único que já pode acender antes da porta.
+  key: 'connect' | 'message' | 'schedule' | 'buy' | 'rent' | 'contract' | 'request_quote' | 'edit_profile' | 'create_service' | 'manage_rentals' | 'support_ticket' | 'panel';
   label: string;
   enabled: boolean;
   /** por que está desabilitada (ex.: 'PORTA-1' dinheiro soberano; 'EM_BREVE' fluxo ainda não vivo) */

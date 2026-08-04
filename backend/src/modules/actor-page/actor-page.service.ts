@@ -312,6 +312,15 @@ class ActorPageService {
     base: ActorPageBlock
   ): Promise<ActorPageBlock> {
     switch (base.type) {
+      // 🔴 2026-08-04 — LOCAÇÃO passa a carregar ITENS, como serviços e produtos já faziam. A aba
+      // acendia (o probe conta) e o bloco vinha só com `count`: o usuário via "Locações" e nada
+      // dentro. Aba que acende vazia ensina que o recurso não funciona.
+      // `origem` viaja junto de propósito — enquanto a convergência asset-first não termina, é o
+      // que diz à tela qual caminho de contratação existe para cada item.
+      case 'rentals': {
+        const itens = await actorPageRepository.listRentalItems(tenantId, actorId, BLOCK_ITEMS_LIMIT);
+        return { ...base, data: { ...base.data, items: itens } };
+      }
       case 'services': {
         const services = await servicesRepository.findByActor(tenantId, actorId, { status: ServiceStatus.ACTIVE });
         return {
@@ -487,6 +496,30 @@ class ActorPageService {
     }
     if (lit.has('services') && !isSelf) {
       actions.push({ key: 'contract', label: 'Contratar serviço', enabled: false, gatedBy: 'PORTA-1', deeplink: null });
+    }
+
+    // ═══ 2026-08-04 — OS DOIS VERBOS QUE FALTAVAM (Clayton) ═══
+    // *"opções de botão de comprar, alugar, contratar ou solicitar orçamento (de acordo com a
+    // questão)"*. `buy` e `contract` já existiam; `rent` e `request_quote` não.
+    if (lit.has('rentals') && !isSelf) {
+      // ALUGAR nasce gated como comprar/contratar: locação termina em dinheiro. E há um segundo
+      // motivo, medido: os locáveis vivos ainda estão em `rentable_resources`, que NÃO tem
+      // superfície de reserva religada — habilitar aqui produziria botão que sempre falha.
+      actions.push({ key: 'rent', label: 'Alugar', enabled: false, gatedBy: 'PORTA-1', deeplink: null });
+    }
+
+    // 🔴 SOLICITAR ORÇAMENTO **NÃO** É GATED — e essa é a diferença que destrava o pré-dinheiro.
+    // Comprar/alugar/contratar movem dinheiro; PEDIR não move. Provado de 1ª mão em 2026-08-04:
+    // `POST /services/offerings/:id/bookings` → 201, status `requested`, Δbank medido 0 → 0. O
+    // pedido nasce como compromisso de agenda e o DONO decide; nenhuma porta soberana é tocada.
+    // Só acende quando há o que pedir — serviço ou locação publicados.
+    if ((lit.has('services') || lit.has('rentals')) && !isSelf) {
+      actions.push({
+        key: 'request_quote',
+        label: 'Solicitar orçamento',
+        enabled: true,
+        deeplink: null, // in-page: a tela abre o formulário sobre a agenda já projetada no bloco
+      });
     }
     return actions;
   }
