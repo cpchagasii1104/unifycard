@@ -31,6 +31,7 @@ import MyPageRedirect from './pages/MyPageRedirect';
 import VitrineProfilePage from './pages/VitrineProfilePage';
 import EventDetailPage from './pages/EventDetailPage';
 import EventCreationPage from './pages/EventCreationPage';
+import MeusEventosPage from './pages/MeusEventosPage';
 import EventosPage from './pages/EventosPage';
 import SharePage from './pages/SharePage';
 import SocialPage from './pages/SocialPage';
@@ -342,6 +343,10 @@ function AppContent() {
           <Route path="empresas/nova" element={<Navigate to="/empresas" replace />} />
           <Route path="events/:id" element={<EventDetailPage />} />
           <Route path="events/new" element={<EventCreationPage />} />
+          {/* Gestão do organizador (F-EVENT-ORGANIZER-DASHBOARD). Rota SEPARADA de /eventos, que é
+              descoberta pública — misturar as duas foi o que fez o organizador não ter onde ver os
+              próprios rascunhos. */}
+          <Route path="meus-eventos" element={<MeusEventosPage />} />
           <Route path="assistant" element={<AssistantPage />} />
           <Route path="compromissos" element={<MeusCompromissosPage />} />
           <Route path="meus-compromissos" element={<MeusCompromissosPage />} />

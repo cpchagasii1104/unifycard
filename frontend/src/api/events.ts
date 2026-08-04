@@ -847,6 +847,20 @@ export async function listEventSectors(eventId: string): Promise<EventSector[]> 
 
 /** Cria setor (POST owner-gated: chave exata create_events sobre o dono do evento). */
 /**
+ * Eventos DO ORGANIZADOR, para a tela de gestão (F-EVENT-ORGANIZER-DASHBOARD).
+ * 🔴 O modo de visibilidade é decidido pelo SERVIDOR (events-sprint76.routes.ts): com
+ * organizerActorId e caller que pode representá-lo, ele abre `organizer_dashboard` e devolve também
+ * os NÃO-públicos (draft/declared). Sem representação, cai para vitrine pública daquele organizador.
+ * O frontend só ESTREITA; o piso é do backend — não passamos status para "forçar" ver rascunho.
+ */
+export async function listOrganizerEvents(organizerActorId: string): Promise<Event[]> {
+  const res = await apiFetchJson<{ events: Event[]; total: number }>(
+    `/api/events/events?organizerActorId=${encodeURIComponent(organizerActorId)}&limit=200`
+  );
+  return res.events ?? [];
+}
+
+/**
  * Edita uma área existente. F-EVENT-SECTOR-EDIT: sem isto, área errada era definitiva.
  * O backend revalida TUDO (meia = metade exata, cota >= 40%, SUM <= capacidade sob advisory lock).
  */

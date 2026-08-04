@@ -254,3 +254,22 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Gestão de eventos do organizador (F-EVENT-ORGANIZER-DASHBOARD). */
+.organizer-events-list { list-style: none; margin: 0; padding: 0; }
+
+.organizer-event-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  align-items: baseline;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid #e5e5e5;
+  border-radius: 6px;
+  margin-bottom: 0.5rem;
+}
+
+.organizer-event-title { font-weight: 600; text-decoration: none; }
+.organizer-event-meta { font-size: 0.875rem; opacity: 0.75; }
+.organizer-event-pending { font-size: 0.875rem; flex-basis: 100%; opacity: 0.9; }
+.organizer-count { font-weight: 400; opacity: 0.6; }

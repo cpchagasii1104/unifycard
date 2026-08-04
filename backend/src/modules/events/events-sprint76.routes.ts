@@ -253,7 +253,11 @@ const eventsSprint76Routes = async (fastify: FastifyInstance) => {
 
     const events = await eventRepository.listEvents(tenantId, filters);
 
-    return reply.send({ events, totalCents: events.length });
+    // ⚠️ Este campo se chamava `totalCents` e é uma CONTAGEM DE EVENTOS, não dinheiro. O sufixo
+    // `_cents` é reservado a valor monetário (07_NOMENCLATURA §4.7) — ler isso como centavos levaria
+    // alguém a exibir "R$ 3,00" para 3 eventos. Renomeado ao ser encontrado; zero consumidor no
+    // repositório (grep), então a troca é segura.
+    return reply.send({ events, total: events.length });
   });
 
   /**
