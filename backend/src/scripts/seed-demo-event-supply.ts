@@ -17,8 +17,9 @@
  *    fornecedora nasce com DONO HUMANO próprio, pelo caminho real de auth (bcrypt + nascimento
  *    atômico), nunca actor órfão.
  *  · `service_offerings.service_id` é NOT NULL — oferta PENDE de um `services`, não flutua.
- *  · `rentable_resources.pricing_unit` ∈ `por_hora|por_dia|por_semana|por_mes|por_semestre|por_ano`
- *    (LIDO do CHECK, não deduzido — 'diaria' não existe).
+ *  · locação nasce pelo WRITER CANÔNICO (`rentableResourceService.create`), que é asset-first:
+ *    escreve `actor_assets` + `actor_asset_modes('rental')` + `actor_asset_rental_terms`.
+ *    `pricingUnit` ∈ `por_hora|por_dia|por_semana|por_mes|por_semestre|por_ano` (LIDO do CHECK).
  *  · Junção é por CONCEPT (Lei 7), nunca por nome.
  *
  * ⚠️ NÃO cria concept novo (não precisa: os 17 já existem e são governados). NÃO toca migration.
@@ -33,6 +34,9 @@ import { pool } from '../core/database/pool';
 // Δbank=0 se pergunta AO BANK — a sonda mora em src/modules/bank porque só o domínio Bank lê bank_*
 // (SSOT_EXCLUSIVE_BANK_RULE; C4-BANK-READ-BOUNDARY do audit-schema-coherence-ratchet).
 import { countBankMovements } from '../modules/bank/bank-movement-probe';
+// Locação pelo WRITER CANÔNICO (asset-first). Ver o comentário no laço de locáveis: o INSERT
+// direto que havia aqui criava dado que a página do actor não enxerga.
+import { rentableResourceService } from '../modules/rentals/rentable-resource.service';
 // 🔴 O seed ANOTA os ids que criou (Lei 7: identidade é o id). `metadata.demo_seed` continua sendo
 // escrito como RASTRO legível, mas não DECIDE mais nada — a faxina apaga pelo manifesto.
 import { registrarNoManifesto } from './helpers/demo-seed-manifest';
@@ -130,6 +134,8 @@ const EVENTOS: Array<{ titulo: string; formato: string; diasNoFuturo: number; pr
   { titulo: 'Workshop de Precificação para Autônomos', formato: 'workshop', diasNoFuturo: 30, precoCents: 8000, capacidade: 60, descricao: 'Como formar preço de serviço sem trabalhar de graça.', organizadorSlug: null },
 ];
 
+/** Concepts de locação recusados por elegibilidade — reportados no fim, nunca engolidos. */
+const naoElegiveis: string[] = [];
 let criados = { empresas: 0, ofertas: 0, locaveis: 0, eventos: 0 };
 let reusados = { empresas: 0, ofertas: 0, locaveis: 0, eventos: 0 };
 /** Semente de CNPJ — determinística por corrida, para não colidir com identidade fiscal já usada. */
@@ -310,21 +316,50 @@ async function main(): Promise<void> {
     for (const item of l.itens) {
       const conceptId = await conceptIdPorSlug(item.slug);
       if (!conceptId) { console.log(`   ⚠️  concept '${item.slug}' ausente — pulado`); continue; }
+      // Idempotência sobre a fonte CANÔNICA (actor_assets), não sobre a legada.
       const ex = (
         await pool.query<{ id: string }>(
-          `SELECT id::text FROM rentable_resources WHERE tenant_id=$1::uuid AND owner_actor_id=$2::uuid AND concept_id=$3::uuid LIMIT 1`,
+          `SELECT a.id::text
+             FROM actor_assets a
+             JOIN actor_asset_modes m ON m.asset_id = a.id AND m.activation_mode = 'rental'
+            WHERE a.tenant_id=$1::uuid AND a.owner_actor_id=$2::uuid AND a.concept_id=$3::uuid
+            LIMIT 1`,
           [dono.tenantId, empresaId, conceptId]
         )
       ).rows[0];
       if (ex) { reusados.locaveis++; ok++; continue; }
-      // 🔴 pricing_unit='por_dia' — LIDO do CHECK, nunca deduzido ('diaria' NÃO existe).
-      await pool.query(
-        `INSERT INTO rentable_resources (tenant_id, owner_actor_id, concept_id, resource_type, label, status, is_active, pricing_unit, price_cents, quantity, metadata, created_at, updated_at)
-         VALUES ($1,$2,$3,'equipment',$4,'active',true,'por_dia',$5,10,'{"demo_seed":true}'::jsonb,NOW(),NOW())`,
-        [dono.tenantId, empresaId, conceptId, item.label, item.priceCents]
-      );
-      criados.locaveis++;
-      ok++;
+
+      // 🔴 WRITER CANÔNICO, não INSERT direto (2026-08-04). Este bloco fazia
+      // `INSERT INTO rentable_resources` — o substrato LEGADO. Consequência medida: os 3 locáveis
+      // nasceram invisíveis para a página do actor, cuja sonda (corretamente, e defendida por
+      // `audit-asset-rental-convergence`) só lê asset-first. O fornecedor aparecia SEM aba nenhuma.
+      // É a QUARTA vez hoje que pular o writer real produz dado que o domínio nunca geraria.
+      // `pricingUnit: 'por_dia'` continua LIDO do CHECK, nunca deduzido ('diaria' não existe).
+      try {
+        await rentableResourceService.create(dono.tenantId, empresaId, {
+          conceptId,
+          resourceType: 'equipment' as never,
+          label: item.label,
+          pricingUnit: 'por_dia' as never,
+          priceCents: item.priceCents,
+          quantity: 10,
+          metadata: { demo_seed: true },
+        } as never);
+        criados.locaveis++;
+        ok++;
+      } catch (e) {
+        // 🔴 NÃO É catch GENÉRICO: só a recusa NOMEADA de elegibilidade vira "pulado". Qualquer
+        // outro erro SOBE — engolir aqui reproduziria o vício que este seed já cometeu uma vez
+        // (reportar "0 janelas ✅" escondendo um 403).
+        const msg = e instanceof Error ? e.message : String(e);
+        if (!msg.includes('NOT_ASSET_ELIGIBLE')) throw e;
+        // Lacuna MEDIDA do backfill, não erro do seed: a regra da Fatia 2 Parte A é
+        // "offer_kind=rentable ⇒ asset-elegível", e 6 concepts com offer_kind=rentable ficaram sem
+        // linha em concept_asset_eligibilities (tabela GLOBAL, semeada por migration). Fechar isso
+        // é ato de governança com migration própria — não se contorna a partir de um seed.
+        naoElegiveis.push(item.slug);
+        console.log(`   ⚠️  ${item.label.padEnd(32)} concept '${item.slug}' ainda não é asset-elegível — pulado`);
+      }
     }
     console.log(`   ✅ ${l.empresa.nome.padEnd(32)} ${ok} locável(is)`);
   }
@@ -333,6 +368,12 @@ async function main(): Promise<void> {
   // O filtro real do feed (feed.routes.ts) exige: status ∈ (published, active) E datetime_start
   // NÃO-NULA E futura. Semeamos exatamente nessa forma — se algum dia o filtro mudar, este seed
   // deixa de aparecer e isso é a informação correta, não um bug do seed.
+  if (naoElegiveis.length > 0) {
+    console.log(`\n   🔴 ${naoElegiveis.length} concept(s) de locação sem elegibilidade de asset: ${naoElegiveis.join(', ')}`);
+    console.log('      Regra vigente: offer_kind=rentable ⇒ asset-elegível. Fechar a lacuna exige');
+    console.log('      migration em concept_asset_eligibilities (GLOBAL) — governança, não seed.');
+  }
+
   console.log('\n── Eventos publicados ──');
   const organizador = (
     await pool.query<{ id: string; tenant_id: string }>(
