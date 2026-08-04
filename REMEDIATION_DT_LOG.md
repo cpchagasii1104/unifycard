@@ -1,5 +1,75 @@
 # REMEDIATION DT LOG
 
+## 🔄 O EIXO INVERTIDO — catálogo de fornecedor no lugar dos eventos (2026-08-04)
+
+**Origem:** Clayton, pela **terceira vez**, com print e caixa vermelha: *"continua aparecendo
+eventos no lugar dos filtros para localizar os tipos de fornecedores"*. Nas duas primeiras eu
+concordei e **não consertei** — entreguei o filtro no backend (fatia anterior) e deixei a tela com
+o eixo errado. Concordar não é consertar.
+
+### O que estava errado
+
+`MeusEventosConsumir` usava `getEventNeedSuppliers` (**event-first**) como MENU: o topo listava os
+EVENTOS do organizador, e as necessidades daquele evento vinham embaixo. Essa rota responde *"de
+que ESTE evento precisa?"* — pergunta certa no painel de UM evento, **errada como catálogo**.
+
+O que faltava não era layout: era uma **rota de catálogo desacoplada de evento**, que não existia.
+Todas as leituras de template eram `event-bound` (partiam de `events.event_format_concept_id`).
+
+### O que foi construído
+
+**`listSupplierCatalog` + `GET /api/events/supplier-catalog`** — os tipos de fornecedor
+`DISTINCT` por `need_concept_id` através de **todos os formatos**, não de um só. 18 tipos.
+
+Decisões que valem registro:
+- **`bool_or(is_required)`** — "obrigatório em ALGUM formato" é a informação útil; dizer
+  "obrigatório" quando é opcional em todo formato seria falso.
+- **`declaredStatus: null`** fora de evento — não se aplica; devolver `'open'` seria inventar
+  estado de declaração que ninguém fez.
+- 🔴 **NÃO é organizer-gated**, ao contrário da irmã. "Quem oferece segurança para eventos" é
+  vitrine (como `by-canonical` já é); o que pertence ao organizador é a lista de necessidades **DE
+  UM EVENTO**. Autenticação + tenant seguem obrigatórios.
+- **`eventId` é CONTEXTO, não eixo**: o servidor deriva a janela do evento — e só depois de
+  `canViewEvent`, senão a rota viraria oráculo de data de evento privado.
+
+### A tela
+
+`SupplierCatalog` — os **filtros no topo**, exatamente onde a caixa vermelha marcou:
+`Tipo de fornecedor` · `Para o evento` (contexto) · `Disponível de/até` · `Só com fornecedor`.
+
+- O seletor de tipos vem **do próprio catálogo**, nunca escrito à mão na tela.
+- Janela explícita e evento-contexto são **mutuamente exclusivos** na UI (escolher um limpa o
+  outro) — senão o usuário veria dois controles disputando a mesma data.
+- **Vazio com filtro ≠ vazio sem filtro**: o texto muda ("ninguém declarou atender nessa data" ×
+  "ninguém oferece isso ainda"). Dizer "não há fornecedor" quando o filtro é que está restrito
+  seria afirmar algo falso sobre o sistema.
+- ⚠️ **`EventSupplierBoard` NÃO foi apagado** — segue servindo ao painel de um evento específico,
+  onde a pergunta event-first é a certa. Deleção de módulo pré-existente exige autorização.
+
+### Prova pela rota HTTP real
+
+```
+catálogo completo               → 18 tipos · 17 fornecedores
+com contexto do EVENTO (16/08)  → 18 tipos · 12 fornecedores   (filtra pela data do evento)
+janela de 2027 (ninguém)        → 18 tipos ·  0 fornecedores
+availableFrom=banana            → 400 EVENT_AVAILABILITY_WINDOW_INVALID
+só availableFrom                → 400 EVENT_AVAILABILITY_WINDOW_INCOMPLETE
+```
+Os tipos continuam 18 em todos os casos — o catálogo não some, quem some é o fornecedor. Isso é de
+propósito: sumir o tipo esconderia do organizador que aquela necessidade existe.
+
+### 🟡 Aberto
+
+- Botão **"contratar"** ainda não faz nada — é a próxima fatia (`requestBooking` + `notes` +
+  contexto de evento), toda ela Δbank=0 e pré-PORTA-01.
+- Locáveis sem writer de agenda → somem no filtro por data.
+- PF virar fornecedora (decisão de Clayton) · região sem dado.
+
+**Verificação:** typecheck BE 0, FE 0 · 5 cenários provados por HTTP · estado morto removido da
+página · `git diff --check` limpo.
+
+---
+
 ## 🕐 Filtro de disponibilidade NO SERVIDOR — e a meia-empresa que ele revelou (2026-08-04)
 
 **Origem:** Clayton — *"a gente deve fazer tudo o que pode ser feito antes da PORTA-01, respeitando

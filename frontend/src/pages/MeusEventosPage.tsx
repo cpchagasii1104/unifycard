@@ -17,7 +17,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import OrganizerEventsDashboard from '../components/events/OrganizerEventsDashboard';
-import EventSupplierBoard from '../components/events/EventSupplierBoard';
+import SupplierCatalog from '../components/events/SupplierCatalog';
 import { useOperatingMode } from '../hooks/useOperatingMode';
 import { useActiveActor } from '../contexts/ActiveActorContext';
 import { listOrganizerEvents, type Event } from '../api/events';
@@ -48,15 +48,14 @@ export default function MeusEventosPage() {
 }
 
 /**
- * Face CONSUMIR — quem me ajuda a realizar. Carrega os eventos que EU organizo (mesma fonte da
- * face Operar: o backend decide o que posso ver) e, para o evento escolhido, projeta as
- * necessidades já resolvidas contra fornecedores reais.
+ * Face CONSUMIR — o CATÁLOGO de quem me ajuda a realizar. Carrega os eventos que EU organizo
+ * (mesma fonte da face Operar: o backend decide o que posso ver) e os passa ao catálogo apenas
+ * como CONTEXTO DE DATA — o eixo da tela é o tipo de fornecedor, não o evento.
  */
 function MeusEventosConsumir() {
   const { activeActor, actors } = useActiveActor();
   const [events, setEvents] = useState<Event[] | null>(null);
   const [erro, setErro] = useState<string | null>(null);
-  const [selecionado, setSelecionado] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -77,7 +76,6 @@ function MeusEventosConsumir() {
         }
         const list = Array.from(porId.values());
         setEvents(list);
-        setSelecionado((atual) => atual ?? list[0]?.id ?? null);
       } catch (e) {
         if (!cancelled) setErro(e instanceof Error ? e.message : 'Não foi possível carregar seus eventos.');
       }
@@ -85,8 +83,6 @@ function MeusEventosConsumir() {
     void load();
     return () => { cancelled = true; };
   }, [activeActor?.actor_id, actors]);
-
-  const evento = events?.find((e) => e.id === selecionado) ?? null;
 
   return (
     <div className="page-container">
@@ -112,26 +108,15 @@ function MeusEventosConsumir() {
         </p>
       )}
 
-      {events !== null && events.length > 0 && (
-        <>
-          <nav className="organizer-tabs" role="tablist" aria-label="Escolha o evento">
-            {events.map((ev) => (
-              <button
-                key={ev.id}
-                type="button"
-                role="tab"
-                aria-selected={selecionado === ev.id}
-                className={`organizer-tab ${selecionado === ev.id ? 'organizer-tab-active' : ''}`}
-                onClick={() => setSelecionado(ev.id)}
-              >
-                {ev.title}
-              </button>
-            ))}
-          </nav>
-
-          {evento && <EventSupplierBoard eventId={evento.id} eventTitle={evento.title} />}
-        </>
-      )}
+      {/* 🔴 2026-08-04 — O EIXO FOI INVERTIDO (Clayton apontou 3×).
+          Antes: abas com os EVENTOS do organizador no topo, e as necessidades daquele evento
+          embaixo. Isso responde "de que ESTE evento precisa?" — pergunta do painel de UM evento,
+          errada como catálogo, e foi o que ele marcou de vermelho no print.
+          Agora: o eixo é o TIPO DE FORNECEDOR (18, do template governado), e o evento entra como
+          FILTRO DE CONTEXTO — escolhê-lo faz o SERVIDOR derivar a janela de data dele.
+          O componente antigo (EventSupplierBoard) NÃO foi apagado: segue servindo ao painel de um
+          evento específico, que é onde a pergunta event-first é a certa. */}
+      {events !== null && events.length > 0 && <SupplierCatalog eventos={events} />}
     </div>
   );
 }

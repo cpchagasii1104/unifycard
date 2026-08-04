@@ -447,6 +447,72 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   /**
+   * GET /events/supplier-catalog — F-EVENT-SUPPLIER-CATALOG (2026-08-04).
+   *
+   * O CATÁLOGO de tipos de fornecedor para evento (segurança, sonorização, tenda…), **desacoplado
+   * de evento**. É o que a tela "Quem me ajuda" precisa como eixo principal — antes ela usava a
+   * rota event-first como menu, e por isso listava os EVENTOS do organizador no lugar dos tipos.
+   *
+   * Filtros: `availableFrom`+`availableTo` (janela declarada, server-side) · `needConceptId`
+   * (um tipo só) · `eventId` (CONTEXTO opcional: deriva a janela do evento, para quem chega por
+   * ele não redigitar a data que o sistema já sabe).
+   *
+   * ⚠️ NÃO é organizer-gated (a irmã `/:id/need-suppliers` é). "Quem oferece segurança para
+   * eventos" é vitrine, como `by-canonical`; o que pertence ao organizador é a lista de
+   * necessidades DE UM EVENTO. Autenticação + tenant continuam obrigatórios.
+   *
+   * READ-ONLY · Δbank=0 · PRÉ-PORTA-01.
+   */
+  fastify.get<{
+    Querystring: { availableFrom?: string; availableTo?: string; needConceptId?: string; eventId?: string };
+  }>('/supplier-catalog', async (req, reply) => {
+    if (!req.tenant) return reply.status(400).send({ ok: false, code: 'TENANT_REQUIRED' });
+    const tenantId = req.tenant.id;
+
+    // Mesma validação da irmã: data inválida vira 400 NOMEADO, nunca `Invalid Date` silencioso.
+    const parseJanela = (v: string | undefined, campo: string): { iso?: string; erro?: string } => {
+      if (!v) return {};
+      const d = new Date(v);
+      if (Number.isNaN(d.getTime())) return { erro: campo };
+      return { iso: d.toISOString() };
+    };
+    const de = parseJanela(req.query?.availableFrom, 'availableFrom');
+    const ate = parseJanela(req.query?.availableTo, 'availableTo');
+    if (de.erro || ate.erro) {
+      return reply.status(400).send({ ok: false, code: 'EVENT_AVAILABILITY_WINDOW_INVALID', field: de.erro ?? ate.erro });
+    }
+
+    let janelaDe = de.iso;
+    let janelaAte = ate.iso;
+    // CONTEXTO: evento informado e sem janela explícita → usa a data do evento. Só lê o evento se
+    // o caller PODE vê-lo (canViewEvent) — senão a rota viraria oráculo de data de evento privado.
+    if (!janelaDe && !janelaAte && req.query?.eventId) {
+      const { canViewEvent } = await import('./event-visibility.service');
+      if (await canViewEvent(tenantId, req.query.eventId, req.user?.userId)) {
+        const { runQueriesWithTenant } = await import('@core/database/pool');
+        const ev = await runQueriesWithTenant<{ inicio: string | null; fim: string | null }>(
+          tenantId,
+          `SELECT datetime_start::text AS inicio, datetime_end::text AS fim FROM events WHERE id = $1::uuid`,
+          [req.query.eventId]
+        );
+        janelaDe = ev[0]?.inicio ?? undefined;
+        janelaAte = ev[0]?.fim ?? ev[0]?.inicio ?? undefined;
+      }
+    }
+    if ((janelaDe && !janelaAte) || (!janelaDe && janelaAte)) {
+      return reply.status(400).send({ ok: false, code: 'EVENT_AVAILABILITY_WINDOW_INCOMPLETE', message: 'Informe availableFrom E availableTo.' });
+    }
+
+    const { eventNeedSupplierDiscoveryService } = await import('./event-need-supplier-discovery.service');
+    const needs = await eventNeedSupplierDiscoveryService.listSupplierCatalog(tenantId, {
+      availableFrom: janelaDe,
+      availableTo: janelaAte,
+      needConceptId: req.query?.needConceptId,
+    });
+    return reply.status(200).send({ needs });
+  });
+
+  /**
    * GET /events/:id/need-suppliers — F-EVENT-SUPPLIER-BRIDGE (2026-08-04). As necessidades do evento
    * JÁ RESOLVIDAS contra os fornecedores reais (service_offerings + rentable_resources), pela
    * identidade CONCEPT. É o backend que faz a junção — o frontend não cruza need_concept_id com

@@ -298,6 +298,142 @@ class EventNeedSupplierDiscoveryService {
       };
     });
   }
+
+  /**
+   * ═══ CATÁLOGO DE TIPOS DE FORNECEDOR — DESACOPLADO DE EVENTO ═══════════════════════════════
+   * (F-EVENT-SUPPLIER-CATALOG, 2026-08-04)
+   *
+   * Clayton, três vezes, olhando a tela "Quem me ajuda":
+   *   *"no lugar dos eventos que estão aparecendo, deveria aparecer os tipos de empresas, exemplo
+   *   segurança, fotografia, tendas, etc. E eu poder filtrar por data e horário"*
+   *
+   * 🔴 O EIXO ESTAVA INVERTIDO. `listNeedsWithSuppliers` (acima) é event-first: "escolha um evento
+   * → veja as necessidades DELE". Serve ao painel do organizador de UM evento, e é o que a tela
+   * usava como menu principal — por isso o topo listava os eventos dele em vez dos tipos de
+   * fornecedor. Aqui o eixo é o CATÁLOGO: "que tipos de fornecedor existem para evento", com o
+   * evento entrando só como CONTEXTO opcional (que preenche a janela de data).
+   *
+   * Fonte: `event_orchestration_template_items` — DISTINCT por `need_concept_id` através de TODOS
+   * os formatos, não de um só. É o vocabulário governado do que um evento pode precisar; nenhuma
+   * lista nova é inventada aqui, e nenhuma é escrita no frontend.
+   *
+   * ⚠️ NÃO é organizer-gated, ao contrário da irmã. "Quem oferece segurança para eventos" é
+   * informação de vitrine, como `by-canonical` já é — não pertence a nenhum evento específico.
+   * O que É organizer-gated continua sendo a lista de necessidades DE UM EVENTO (quem precisa do
+   * quê é informação de quem organiza).
+   *
+   * READ-ONLY · Δbank=0 · PRÉ-PORTA-01 (não move dinheiro, não reserva).
+   */
+  async listSupplierCatalog(
+    tenantId: string,
+    opts: { availableFrom?: string; availableTo?: string; needConceptId?: string } = {}
+  ): Promise<NeedWithSuppliers[]> {
+    const janelaDe = opts.availableFrom ?? null;
+    const janelaAte = opts.availableTo ?? null;
+    const filtrarPorJanela = !!janelaDe && !!janelaAte;
+
+    // 1) Os TIPOS. DISTINCT ON porque o mesmo need aparece em vários formatos (segurança está no
+    //    show E na festa); `bool_or(is_required)` porque "obrigatório em ALGUM formato" é a
+    //    informação útil — dizer "obrigatório" quando é opcional em todo formato seria falso.
+    const tipos = await runQueriesWithTenant<{
+      need_concept_id: string; label: string; fulfillment_kind: string; is_required: boolean; formatos: string;
+    }>(
+      tenantId,
+      `SELECT t.need_concept_id,
+              COALESCE(MIN(cs.name), MIN(nc.slug))          AS label,
+              MIN(t.fulfillment_kind)                       AS fulfillment_kind,
+              bool_or(t.is_required)                        AS is_required,
+              string_agg(DISTINCT fc.slug, ', ' ORDER BY fc.slug) AS formatos
+         FROM event_orchestration_template_items t
+         JOIN concepts nc ON nc.concept_id = t.need_concept_id
+         JOIN concepts fc ON fc.concept_id = t.format_concept_id
+         LEFT JOIN canonical_services cs
+           ON cs.concept_id = t.need_concept_id AND cs.tenant_id IS NULL AND cs.status = 'active'
+        WHERE ($1::uuid IS NULL OR t.need_concept_id = $1::uuid)
+        GROUP BY t.need_concept_id
+        ORDER BY bool_or(t.is_required) DESC, COALESCE(MIN(cs.name), MIN(nc.slug)) ASC`,
+      [opts.needConceptId ?? null]
+    );
+
+    if (tipos.length === 0) return [];
+
+    const serviceIds = tipos.filter((t) => t.fulfillment_kind === 'service').map((t) => t.need_concept_id);
+    const rentableIds = tipos.filter((t) => t.fulfillment_kind === 'rentable').map((t) => t.need_concept_id);
+
+    // 2) Fornecedores — MESMAS queries da irmã (mesma cadeia, mesmo gate de tenant, mesmo
+    //    predicado de janela). Reaproveitadas em forma, não copiadas em regra: se a regra de
+    //    "quem é fornecedor válido" mudar, ela muda nos dois lugares junto ou o defeito aparece.
+    const [serviceRows, rentableRows] = await Promise.all([
+      serviceIds.length
+        ? runQueriesWithTenant<{
+            need_concept_id: string; offer_id: string; provider_actor_id: string;
+            provider_display_name: string | null; offer_label: string | null;
+            price_cents: string | number | null; price_unit: string | null;
+          }>(
+            tenantId,
+            `SELECT cs.concept_id AS need_concept_id, so.id::text AS offer_id,
+                    so.provider_actor_id::text AS provider_actor_id, a.display_name AS provider_display_name,
+                    cs.name AS offer_label, so.price_cents, so.duration_minutes::text AS price_unit
+               FROM canonical_services cs
+               JOIN service_offerings so
+                 ON so.canonical_service_id = cs.id AND so.status = 'active' AND so.tenant_id = $2::uuid
+               LEFT JOIN actors a ON a.id = so.provider_actor_id AND a.tenant_id = $2::uuid
+              WHERE cs.tenant_id IS NULL AND cs.concept_id = ANY($1::uuid[])
+                ${janelaDeclaradaExists('service_offering', 'so.id')}
+              ORDER BY so.price_cents ASC NULLS LAST, so.created_at ASC`,
+            [serviceIds, tenantId, filtrarPorJanela ? janelaDe : null, filtrarPorJanela ? janelaAte : null]
+          )
+        : Promise.resolve([]),
+      rentableIds.length
+        ? runQueriesWithTenant<{
+            need_concept_id: string; offer_id: string; provider_actor_id: string;
+            provider_display_name: string | null; offer_label: string | null;
+            price_cents: string | number | null; price_unit: string | null;
+          }>(
+            tenantId,
+            `SELECT rr.concept_id::text AS need_concept_id, rr.id::text AS offer_id,
+                    rr.owner_actor_id::text AS provider_actor_id, a.display_name AS provider_display_name,
+                    rr.label AS offer_label, rr.price_cents, rr.pricing_unit AS price_unit
+               FROM rentable_resources rr
+               LEFT JOIN actors a ON a.id = rr.owner_actor_id AND a.tenant_id = $2::uuid
+              WHERE rr.tenant_id = $2::uuid AND rr.is_active = true AND rr.status = 'active'
+                AND rr.concept_id = ANY($1::uuid[])
+                ${janelaDeclaradaExists('rentable_resource', 'rr.id')}
+              ORDER BY rr.price_cents ASC NULLS LAST, rr.created_at ASC`,
+            [rentableIds, tenantId, filtrarPorJanela ? janelaDe : null, filtrarPorJanela ? janelaAte : null]
+          )
+        : Promise.resolve([]),
+    ]);
+
+    const byNeed = new Map<string, NeedSupplierOption[]>();
+    const push = (row: typeof serviceRows[number], sourceKind: 'service' | 'rentable'): void => {
+      const list = byNeed.get(row.need_concept_id) ?? [];
+      if (list.length >= SUPPLIERS_PER_NEED_LIMIT) return;
+      list.push({
+        sourceKind, offerId: row.offer_id, providerActorId: row.provider_actor_id,
+        providerDisplayName: row.provider_display_name, offerLabel: row.offer_label,
+        priceCents: row.price_cents === null ? null : Number(row.price_cents),
+        priceUnit: row.price_unit,
+      });
+      byNeed.set(row.need_concept_id, list);
+    };
+    for (const r of serviceRows) push(r, 'service');
+    for (const r of rentableRows) push(r, 'rentable');
+
+    return tipos.map((t) => {
+      const suppliers = byNeed.get(t.need_concept_id) ?? [];
+      return {
+        needConceptId: t.need_concept_id,
+        label: t.label,
+        fulfillmentKind: t.fulfillment_kind,
+        isRequired: t.is_required,
+        // `declaredStatus` não se aplica fora de um evento — null é a resposta honesta, não "open".
+        declaredStatus: null,
+        supplierCount: suppliers.length,
+        suppliers,
+      };
+    });
+  }
 }
 
 export const eventNeedSupplierDiscoveryService = new EventNeedSupplierDiscoveryService();

@@ -1032,3 +1032,29 @@ export async function getEventRSVPCounts(eventId: string): Promise<RSVPCounts> {
   const res = await apiFetchJson<{ counts: RSVPCounts }>(`/api/events/${eventId}/rsvp/counts`);
   return res.counts;
 }
+
+/**
+ * CATÁLOGO de tipos de fornecedor para evento — DESACOPLADO de evento (F-EVENT-SUPPLIER-CATALOG).
+ *
+ * 🔴 É o eixo que a tela "Quem me ajuda" precisa. Antes ela usava `getEventNeedSuppliers`
+ * (event-first) como menu principal, e por isso o topo listava os EVENTOS do organizador em vez
+ * dos TIPOS de fornecedor — o que Clayton apontou três vezes.
+ *
+ * `eventId` aqui é CONTEXTO, não eixo: o servidor deriva a janela de data do evento (se o caller
+ * puder vê-lo), para quem chega por um evento não redigitar a data que o sistema já sabe.
+ */
+export async function getSupplierCatalog(params: {
+  availableFrom?: string;
+  availableTo?: string;
+  needConceptId?: string;
+  eventId?: string;
+} = {}): Promise<NeedWithSuppliers[]> {
+  const qs = new URLSearchParams();
+  if (params.availableFrom) qs.set('availableFrom', params.availableFrom);
+  if (params.availableTo) qs.set('availableTo', params.availableTo);
+  if (params.needConceptId) qs.set('needConceptId', params.needConceptId);
+  if (params.eventId) qs.set('eventId', params.eventId);
+  const q = qs.toString();
+  const res = await apiFetchJson<{ needs: NeedWithSuppliers[] }>(`/api/events/supplier-catalog${q ? `?${q}` : ''}`);
+  return res.needs ?? [];
+}
