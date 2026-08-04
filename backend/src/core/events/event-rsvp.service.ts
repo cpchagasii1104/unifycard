@@ -185,14 +185,28 @@ class EventRSVPService {
   }
 
   /**
-   * Busca contagens de RSVP para um evento
+   * Busca contagens de RSVP para um evento.
+   *
+   * 🔴 CORRIGIDO 2026-08-04 — lia `event_rsvp_counts`, tabela que **NÃO EXISTE** no schema vivo:
+   *     {"error":"relação \"event_rsvp_counts\" não existe"}   [reproduzido com curl]
+   * Ela foi desenhada no pré-gênesis (`migrations_archive/0817_event_rsvp.sql:102`) como um READ
+   * MODEL desnormalizado — uma TABELA de contagens, não uma view — e nunca foi re-materializada.
+   *
+   * ⚠️ E NÃO deve ser. Uma tabela que guarda contagem ao lado da tabela que guarda os fatos é uma
+   * SEGUNDA VERDADE sobre lotação: precisa ser mantida em sincronia por trigger ou por escrita
+   * dupla, e quando divergir (e diverge) ninguém sabe qual manda — e lotação decide se ainda cabe
+   * gente. Agrega-se direto de `event_rsvp`, que é a fonte. Se um dia o volume exigir cache, que
+   * seja uma MATERIALIZED VIEW derivada, não uma tabela escrita à mão.
    */
   async getRSVPCounts(tenantId: string, eventId: string): Promise<RSVPCounts> {
     const results = await runQueriesWithTenant<RSVPCountRow>(
       tenantId,
-      `SELECT status, count 
-       FROM event_rsvp_counts 
-       WHERE tenant_id = $1 AND event_id = $2`,
+      // `count(*)::int` — o driver pg devolve BIGINT como string; sem o cast, `counts.yes` viraria
+      // "1" (string) e qualquer soma no consumidor concatenaria em vez de somar.
+      `SELECT status, count(*)::int AS count
+         FROM event_rsvp
+        WHERE tenant_id = $1 AND event_id = $2
+        GROUP BY status`,
       [tenantId, eventId]
     );
 

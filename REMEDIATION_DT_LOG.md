@@ -1,5 +1,100 @@
 # REMEDIATION DT LOG
 
+## ✅ O EVENTO FUNCIONA — inscrição gratuita ponta a ponta, Δbank=0 (2026-08-04)
+
+**Origem:** Clayton perguntou *"qual a sua sugestão para deixarmos o evento funcionando?"*. Minha
+sugestão foi começar pelo caminho que **não passa por dinheiro**: 2 dos 6 eventos publicados são
+gratuitos, e para eles "comprar" é só **se inscrever**. GO dado.
+
+### 🔴 TRÊS fantasmas empilhados no mesmo caminho — nenhum tinha sido visto
+
+O ciclo estava a 3 bugs de funcionar, e cada um escondia o seguinte:
+
+**① As 4 rotas de RSVP liam campo que não existe no request**
+```
+(request as any).tenant_id     ← não existe
+req.tenant.id                  ← o que os plugins REALMENTE põem (todo o resto do backend usa)
+```
+`tenantId` sempre `undefined` → o guard `if (!tenantId) return 401` disparava **sempre**.
+Reproduzido: `POST /api/events/:id/rsvp → {"error":"Unauthorized"}`. Por isso `event_rsvp` e
+`event_attendees` estavam com **0 linhas**: ninguém nunca conseguiu se inscrever em evento nenhum,
+desde sempre.
+🔴 **O `as any` é o denominador comum** — ele desliga exatamente a checagem que pegaria isto.
+Mesma assinatura dos outros 3 defeitos da sessão (`startAt`×`datetimeStart`, `/api/feed`
+aposentado, preço nunca projetado): **ler campo que não existe e falhar calado**.
+
+**② `getRSVPCounts` lia `event_rsvp_counts` — tabela inexistente**
+Desenhada no pré-gênesis (`migrations_archive/0817_event_rsvp.sql:102`) como READ MODEL
+desnormalizado — uma TABELA de contagens — e nunca re-materializada.
+⚠️ **E não deve ser.** Contagem guardada ao lado dos fatos é **segunda verdade sobre lotação**:
+precisa de trigger ou escrita dupla, diverge, e ninguém sabe qual manda — sendo que lotação decide
+se ainda cabe gente. Agora agrega direto de `event_rsvp`, com `count(*)::int` (sem o cast, BIGINT
+volta como string e o consumidor concatena em vez de somar).
+
+**③ O log de observabilidade derrubava a inscrição JÁ COMMITADA**
+`logAction` grava em `event_actions_log`, também do pré-gênesis
+(`migrations_archive/0818_...`), também inexistente. Estava no caminho principal com `await`, então
+a rota devolvia **500 depois de a inscrição ter sido gravada** — o usuário ficava inscrito e via
+erro. Pior que falhar limpo: ele tenta de novo achando que não deu.
+Agora o erro vai **ALTO para o log do servidor** (não engolido — isso seria a doença oposta) e a
+resposta diz a verdade: a inscrição existe. Observabilidade é acessória ao ato; falhar nela não
+desfaz o que aconteceu, então não pode fingir que desfez.
+
+### 🔴 E o gate mais frouxo estava no caminho que ESCREVE
+
+`GET /rsvp/status` e `/rsvp/counts` herdavam `canViewEvent` do evento-pai. **`POST` e `DELETE`
+não.** Dava para se inscrever (escrita) num evento privado que o caller nem pode ler. Corrigido
+nos dois, deny-first com 404 não-leak, igual aos irmãos.
+
+### Migration — o "upsert" não tinha como ser upsert
+
+`upsertRSVP` faz SELECT → decide → INSERT/UPDATE em comandos separados. Só é seguro se o banco
+impedir o par duplicado, e o único índice era a PK de `id`:
+```
+CREATE UNIQUE INDEX event_rsvp_pkey ON public.event_rsvp USING btree (id)   [só isso]
+```
+Dois cliques criariam duas presenças da mesma pessoa e inflariam a contagem — TOCTOU, o mesmo do
+cap de grupos. `20260804100000_event_rsvp_unique_participant.sql` cria **dois índices PARCIAIS**:
+um por `user_id`, outro por `lower(guest_email)`. Dois porque RSVP tem dois sujeitos possíveis, e
+um UNIQUE simples não serviria: em Postgres NULL nunca é igual a NULL, então todo convidado
+escaparia da trava. `lower()` porque e-mail é case-insensitive na prática.
+
+### A prova, ponta a ponta (curl contra o servidor real)
+
+```
+1) INSCREVER            → {"rsvp":{"id":"ad126f6d-…","status":"yes"}}    (antes: 401 sempre)
+2) CLICAR DE NOVO       → MESMO id ad126f6d-…  (não duplicou)
+3) CONTAGEM             → {"yes":1,"no":0,"maybe":0}
+4) MEU STATUS           → devolve a inscrição
+5) CANCELAR             → {"success":true}
+6) CONTAGEM DEPOIS      → {"yes":0,"no":0,"maybe":0}
+```
+
+### A tela
+
+`EventPublicView` ganhou **dois caminhos com diferença real, não cosmética**:
+· **gratuito** → "Confirmar presença" funciona de verdade (Δbank=0), vira "✅ Sua presença está
+  confirmada" + cancelar, e mostra quantos confirmaram
+· **pago** → segue dizendo a verdade ("venda ainda não liberada"), porque reserva é 501, checkout
+  é 403 pelo firewall e carrinho não existe
+
+`ehGratuito` considera o SETOR como autoridade de preço quando existe — um setor pago torna o
+evento pago mesmo com `ticket_price_cents` nulo.
+
+### 🟡 Continua aberto
+
+- `event_actions_log` inexistente: 1 chamador só, agora não-fatal. Recriar a tabela é decisão —
+  não criei tabela para um caller.
+- Ingresso PAGO: `ticket_sales` com schema divergente (501) + firewall financeiro default OFF.
+  **Ligar firewall de dinheiro é ato de Clayton.**
+- Catálogo de fornecedores com eixo certo · PF virar fornecedora · desconto por beneficiário ·
+  RFQ que notifica zero.
+
+**Verificação:** typecheck BE 0, FE 0 · migration aplicada em `unificard_dev` · ciclo completo
+provado por curl · fixture de teste removida · Δbank 0 · `git diff --check` limpo.
+
+---
+
 ## 🎟️ A página PÚBLICA do evento — visitante × dono na mesma rota (2026-08-04)
 
 **Origem:** Clayton, clicando num evento da vitrine: *"estou indo para uma tela nada a ver, de

@@ -27,11 +27,15 @@
 // Então esta tela mostra PREÇO REAL e diz a verdade sobre o botão. Fingir um carrinho que devolve
 // 403 seria a mesma doença que esta sessão vem consertando (executor que relata sucesso sem ato).
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { DateTime } from 'luxon';
-import { listEventSectors, getEventStats, type Event, type EventSector } from '../../api/events';
+import {
+  listEventSectors, getEventStats, setEventRSVP, getMyEventRSVP, removeEventRSVP, getEventRSVPCounts,
+  type Event, type EventSector, type EventRSVP, type RSVPCounts,
+} from '../../api/events';
 import { formatCentsAsBRL } from '../../utils/money';
+import { showToast } from '../common/Toast';
 import EventStatusBadge from './EventStatusBadge';
 import './EventPublicView.css';
 
@@ -66,6 +70,15 @@ export default function EventPublicView({ event, podeGerenciar, onIrParaGestao }
   const [setores, setSetores] = useState<EventSector[] | null>(null);
   const [erroSetores, setErroSetores] = useState<string | null>(null);
   const [stats, setStats] = useState<{ soldCount: number; maxCapacity: number | null; remaining: number | null; occupancyPercent: number | null } | null>(null);
+  const [minhaInscricao, setMinhaInscricao] = useState<EventRSVP | null>(null);
+  const [contagem, setContagem] = useState<RSVPCounts | null>(null);
+  const [inscrevendo, setInscrevendo] = useState(false);
+
+  const recarregarInscricao = useCallback(async (): Promise<void> => {
+    const [meu, cnt] = await Promise.allSettled([getMyEventRSVP(event.id), getEventRSVPCounts(event.id)]);
+    if (meu.status === 'fulfilled') setMinhaInscricao(meu.value);
+    if (cnt.status === 'fulfilled') setContagem(cnt.value);
+  }, [event.id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -79,8 +92,36 @@ export default function EventPublicView({ event, podeGerenciar, onIrParaGestao }
     getEventStats(event.id)
       .then((s) => { if (!cancelled) setStats(s); })
       .catch(() => { /* ocupação é acessório: sem ela a página continua completa */ });
+    void recarregarInscricao();
     return () => { cancelled = true; };
-  }, [event.id]);
+  }, [event.id, recarregarInscricao]);
+
+  const inscrever = useCallback(async (): Promise<void> => {
+    setInscrevendo(true);
+    try {
+      await setEventRSVP(event.id, 'yes');
+      showToast('Presença confirmada!', 'success');
+      await recarregarInscricao();
+    } catch (e) {
+      // Motivo REAL do backend, nunca "erro ao inscrever" genérico.
+      showToast(e instanceof Error ? e.message : 'Não foi possível confirmar', 'error');
+    } finally {
+      setInscrevendo(false);
+    }
+  }, [event.id, recarregarInscricao]);
+
+  const cancelarInscricao = useCallback(async (): Promise<void> => {
+    setInscrevendo(true);
+    try {
+      await removeEventRSVP(event.id);
+      showToast('Presença cancelada.', 'success');
+      await recarregarInscricao();
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Não foi possível cancelar', 'error');
+    } finally {
+      setInscrevendo(false);
+    }
+  }, [event.id, recarregarInscricao]);
 
   const inicio = event.datetimeStart ?? event.startAt ?? null;
   const fim = event.datetimeEnd ?? event.endAt ?? null;
@@ -88,6 +129,14 @@ export default function EventPublicView({ event, podeGerenciar, onIrParaGestao }
   const precoAvulso = event.ticketPriceCents ?? null;
   const statusReal = ((event as Event & { statusCanonical?: string }).statusCanonical ?? event.status ?? '').toLowerCase();
   const aberto = statusReal === 'published' || statusReal === 'active';
+  /**
+   * GRATUITO = sem setor pago E sem preço avulso. Decide qual dos dois caminhos a página oferece.
+   * Um setor com preço torna o evento pago mesmo que `ticket_price_cents` esteja nulo — o setor é
+   * a autoridade de preço quando existe (o backend serve `ticketPriceCents = MIN(inteira)`).
+   */
+  const ehGratuito = temSetores
+    ? setores!.every((s) => s.inteiraPriceCents === 0)
+    : precoAvulso == null || precoAvulso === 0;
 
   return (
     <div className="ev-public">
@@ -181,18 +230,54 @@ export default function EventPublicView({ event, podeGerenciar, onIrParaGestao }
           </p>
         )}
 
-        {/* 🔴 O BOTÃO QUE DIZ A VERDADE. Ver nota no topo do arquivo: reserva devolve 501,
-            checkout devolve 403 (firewall default OFF) e carrinho não existe. Um botão
-            "Comprar" aqui seria promessa falsa. */}
+        {/* ── AÇÃO ──────────────────────────────────────────────────────────
+            🔴 DOIS CAMINHOS DIFERENTES, e a diferença é REAL, não cosmética:
+            · GRATUITO → INSCRIÇÃO funciona de verdade (POST /rsvp), Δbank=0, nada de Bank.
+            · PAGO     → a venda está estruturalmente desligada (reserva 501, checkout 403 pelo
+              firewall financeiro default OFF, carrinho inexistente). O botão DIZ ISSO em vez de
+              fingir carrinho — Clayton confirmou preferir preço visível + verdade a preço oculto. */}
         <div className="ev-public-compra">
-          <button type="button" className="ev-public-btn-comprar" disabled>
-            Venda ainda não liberada
-          </button>
-          <p className="ev-public-hint">
-            {aberto
-              ? 'O evento está publicado, mas a venda de ingressos ainda não foi habilitada nesta instalação.'
-              : 'Este evento ainda não está com inscrições abertas.'}
-          </p>
+          {ehGratuito ? (
+            minhaInscricao?.status === 'yes' ? (
+              <>
+                <div className="ev-public-confirmado" role="status">✅ Sua presença está confirmada</div>
+                <button
+                  type="button"
+                  className="ev-public-btn-secundario"
+                  disabled={inscrevendo}
+                  onClick={() => void cancelarInscricao()}
+                >
+                  {inscrevendo ? 'Cancelando…' : 'Cancelar presença'}
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                className="ev-public-btn-comprar"
+                disabled={inscrevendo || !aberto}
+                onClick={() => void inscrever()}
+              >
+                {inscrevendo ? 'Confirmando…' : aberto ? 'Confirmar presença' : 'Inscrições não abertas'}
+              </button>
+            )
+          ) : (
+            <>
+              <button type="button" className="ev-public-btn-comprar" disabled>
+                Venda ainda não liberada
+              </button>
+              <p className="ev-public-hint">
+                {aberto
+                  ? 'O evento está publicado, mas a venda de ingressos ainda não foi habilitada nesta instalação.'
+                  : 'Este evento ainda não está com inscrições abertas.'}
+              </p>
+            </>
+          )}
+
+          {contagem && contagem.yes > 0 && (
+            <p className="ev-public-hint">
+              {contagem.yes === 1 ? '1 pessoa confirmou presença.' : `${contagem.yes} pessoas confirmaram presença.`}
+            </p>
+          )}
         </div>
       </section>
 

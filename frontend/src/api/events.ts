@@ -977,3 +977,58 @@ export async function createEventSector(
     body: JSON.stringify(input),
   });
 }
+
+// ── F-EVENT-FREE-REGISTRATION (2026-08-04) ─────────────────────────────────────────────────
+// Inscrição em evento — o caminho que fecha o ciclo SEM tocar em dinheiro (Δbank=0).
+//
+// 🔴 Estas rotas existiam e NUNCA funcionaram: liam `request.tenant_id`/`request.user_id`, que os
+// plugins não põem no request (é `req.tenant.id`/`req.user.userId`), então devolviam 401 SEMPRE.
+// Por isso `event_rsvp` estava com 0 linhas. Corrigido no backend nesta mesma fatia.
+//
+// Vocabulário governado por CHECK no banco: `pending|yes|no|maybe`. A rota aceita os 3 últimos.
+
+export type RSVPStatus = 'yes' | 'no' | 'maybe';
+
+export interface EventRSVP {
+  id: string;
+  event_id: string;
+  status: RSVPStatus;
+  notes: string | null;
+}
+
+export interface RSVPCounts { yes: number; no: number; maybe: number }
+
+/** Confirma (ou muda) presença. Idempotente: reclicar devolve o MESMO id, não duplica. */
+export async function setEventRSVP(eventId: string, status: RSVPStatus): Promise<EventRSVP> {
+  const res = await apiFetchJson<{ rsvp: EventRSVP }>(`/api/events/${eventId}/rsvp`, {
+    method: 'POST',
+    body: JSON.stringify({ status }),
+  });
+  return res.rsvp;
+}
+
+/**
+ * Minha inscrição neste evento — `null` quando não há (o backend devolve 404 para "não inscrito",
+ * que é ausência esperada, não erro). Distingue ausência de FALHA: falha propaga.
+ */
+export async function getMyEventRSVP(eventId: string): Promise<EventRSVP | null> {
+  try {
+    const res = await apiFetchJson<{ rsvp: EventRSVP }>(`/api/events/${eventId}/rsvp/status`);
+    return res.rsvp ?? null;
+  } catch (e) {
+    const code = (e as { statusCode?: number } | null)?.statusCode;
+    if (code === 404) return null;
+    throw e;
+  }
+}
+
+/** Cancela a inscrição. */
+export async function removeEventRSVP(eventId: string): Promise<void> {
+  await apiFetchJson(`/api/events/${eventId}/rsvp`, { method: 'DELETE' });
+}
+
+/** Quantos confirmaram. Fonte: agregação de `event_rsvp` (não há tabela de contagem paralela). */
+export async function getEventRSVPCounts(eventId: string): Promise<RSVPCounts> {
+  const res = await apiFetchJson<{ counts: RSVPCounts }>(`/api/events/${eventId}/rsvp/counts`);
+  return res.counts;
+}

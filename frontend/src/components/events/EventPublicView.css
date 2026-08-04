@@ -162,3 +162,29 @@
   .ev-public-titulo { font-size: 24px; }
   .ev-public-setor-cabeca { flex-direction: column; gap: 4px; }
 }
+
+/* Inscrição em evento gratuito (2026-08-04) — o caminho Δbank=0 que fecha o ciclo. */
+.ev-public-confirmado {
+  background: #dcfce7;
+  border: 1px solid #86efac;
+  color: #166534;
+  font-weight: 700;
+  font-size: 15px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  text-align: center;
+  margin-bottom: 10px;
+}
+.ev-public-btn-secundario {
+  width: 100%;
+  padding: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #6b7280;
+  background: #fff;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.ev-public-btn-secundario:hover:not(:disabled) { background: #f9fafb; border-color: #9ca3af; }
+.ev-public-btn-secundario:disabled { opacity: 0.6; cursor: not-allowed; }
