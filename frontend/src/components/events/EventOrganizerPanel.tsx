@@ -28,6 +28,7 @@ import {
   type OperationalNeed,
 } from '../../api/events';
 import { resolveCep } from '../../api/location';
+import { reaisToCents, centsToReaisString } from '../../utils/money';
 import { useActiveActor } from '../../contexts/ActiveActorContext';
 import { showToast } from '../../utils/toast';
 import './EventOrganizerPanel.css';
@@ -109,14 +110,9 @@ function isoToLocalInput(iso: string | null): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-/** "12,50" / "12.50" (reais) → cents inteiros; null se vazio/inválido. */
-function reaisToCents(v: string): number | null {
-  const t = v.trim();
-  if (!t) return null;
-  const n = parseFloat(t.replace(',', '.'));
-  if (isNaN(n) || n < 0) return null;
-  return Math.round(n * 100);
-}
+// 🔴 A conversão local que vivia aqui tinha o MESMO defeito do wizard: parseFloat("1.500") = 1.5,
+// gravando R$ 1,50 no lugar de R$ 1.500,00. Era a TERCEIRA cópia de conversão de dinheiro no fluxo
+// de evento. Agora usa a canônica (utils/money), com a regra de ponto/vírgula testada.
 
 /**
  * Rótulo pt-BR do vocabulário GOVERNADO de acesso (events.event_access_type). Espelha o contrato da
@@ -131,13 +127,26 @@ function accessTypeLabel(kind: OrganizerEventView['eventAccessType']): string {
 }
 
 function centsToReais(cents: number): string {
-  return `R$ ${(cents / 100).toFixed(2).replace('.', ',')}`;
+  return `R$ ${centsToReaisString(cents)}`;
 }
+
+/** Abas do painel — o organizador escolhe onde agir, em vez de rolar a página inteira. */
+const ABAS: Array<{ chave: string; titulo: string }> = [
+  { chave: 'progresso', titulo: '📊 Progresso' },
+  { chave: 'local', titulo: '📍 Local' },
+  { chave: 'agenda', titulo: '🗓️ Agenda' },
+  { chave: 'acesso', titulo: '🤝 Acesso' },
+  { chave: 'areas', titulo: '🎟️ Áreas' },
+  { chave: 'elenco', titulo: '🎸 Elenco' },
+];
 
 export default function EventOrganizerPanel({ eventId }: EventOrganizerPanelProps) {
   const { activeActor } = useActiveActor();
   const navigate = useNavigate();
 
+  // Aba ativa — navegação local de UX. NÃO é estado de domínio: nada aqui vira verdade nem é
+  // persistido. Trocar de aba não altera nada no evento.
+  const [aba, setAba] = useState<string>('progresso');
   const [event, setEvent] = useState<OrganizerEventView | null>(null);
   const [sectors, setSectors] = useState<EventSector[]>([]);
   const [operationalNeeds, setOperationalNeeds] = useState<OperationalNeed[]>([]);
@@ -520,8 +529,35 @@ export default function EventOrganizerPanel({ eventId }: EventOrganizerPanelProp
     <div className="event-organizer-panel">
       <h2 className="event-organizer-panel-title">🛠️ Gestão do organizador</h2>
 
+      {/* ABAS (Clayton, 2026-08-03: "a navegação rolando para baixo dificulta… organizar como se
+          fosse por abas"). Trocar de aba é NAVEGAÇÃO — não grava nada, não altera nada no evento.
+          O ✓/! ao lado de cada aba é DERIVADO do mesmo computeProgress que a aba Progresso usa:
+          uma fonte só, para as duas nunca discordarem. */}
+      <nav className="organizer-tabs" role="tablist">
+        {ABAS.map((t) => {
+          const dim = t.chave === 'local' ? 'Local'
+            : t.chave === 'agenda' ? 'Agenda'
+            : t.chave === 'areas' ? 'Setores'
+            : null;
+          const item = dim ? progressItems.find((p) => p.dimension === dim) : null;
+          const marca = item?.category === 'pronto' ? ' ✓' : item?.category === 'faltando' ? ' !' : '';
+          return (
+            <button
+              key={t.chave}
+              type="button"
+              role="tab"
+              aria-selected={aba === t.chave}
+              className={`organizer-tab ${aba === t.chave ? 'organizer-tab-active' : ''}`}
+              onClick={() => setAba(t.chave)}
+            >
+              {t.titulo}{marca}
+            </button>
+          );
+        })}
+      </nav>
+
       {/* ============ PROGRESSO ============ */}
-      <section className="organizer-section organizer-progress-section">
+      <section className={`organizer-section ${aba === 'progresso' ? '' : 'organizer-section-hidden'}`} data-aba="progresso">
         <h3 className="organizer-section-title">📊 Progresso do evento</h3>
         <ul className="organizer-progress-list">
           {progressItems.map((item, idx) => {
@@ -544,7 +580,7 @@ export default function EventOrganizerPanel({ eventId }: EventOrganizerPanelProp
       </section>
 
       {/* ============ LOCAL ============ */}
-      <section className="organizer-section">
+      <section className={`organizer-section ${aba === 'local' ? '' : 'organizer-section-hidden'}`}>
         <h3 className="organizer-section-title">📍 Local</h3>
         <div className="organizer-form-grid">
           <label className="organizer-field organizer-field-wide">
@@ -615,7 +651,7 @@ export default function EventOrganizerPanel({ eventId }: EventOrganizerPanelProp
       </section>
 
       {/* ============ AGENDA (F-EVENT-PUBLISH-FUNNEL ①) ============ */}
-      <section className="organizer-section">
+      <section className={`organizer-section ${aba === 'agenda' ? '' : 'organizer-section-hidden'}`}>
         <h3 className="organizer-section-title">🗓️ Agenda</h3>
         {event.datetimeStart ? (
           <p className="organizer-hint">
@@ -674,7 +710,7 @@ export default function EventOrganizerPanel({ eventId }: EventOrganizerPanelProp
       </section>
 
       {/* ============ VAQUINHA ============ */}
-      <section className="organizer-section">
+      <section className={`organizer-section ${aba === 'acesso' ? '' : 'organizer-section-hidden'}`}>
         <h3 className="organizer-section-title">🤝 Acesso e vaquinha</h3>
         {/* F-EVENT-DECLARED-CONTEXT: o wizard já perguntou acesso, mínimo e capacidade. Reperguntar
             sem mostrar o que foi declarado faz o organizador não saber se está CONFIRMANDO ou
@@ -764,7 +800,7 @@ export default function EventOrganizerPanel({ eventId }: EventOrganizerPanelProp
       </section>
 
       {/* ============ SETORES ============ */}
-      <section className="organizer-section">
+      <section className={`organizer-section ${aba === 'areas' ? '' : 'organizer-section-hidden'}`}>
         <h3 className="organizer-section-title">🎟️ Setores (inteira / meia-entrada)</h3>
 
         {/* F-EVENT-DECLARED-CONTEXT: as áreas passaram a nascer no WIZARD (decisão B de Clayton).
@@ -910,7 +946,7 @@ export default function EventOrganizerPanel({ eventId }: EventOrganizerPanelProp
       {/* ============ CONTRATAR (FATIA 3B) ============ */}
       {/* Leva o organizador à descoberta com o eventId no query (?eventId=) — o modal CONTRATAR da
           descoberta pré-seleciona este evento na proposta orquestrada (C3). Navegação pura, sem writer. */}
-      <section className="organizer-section">
+      <section className={`organizer-section ${aba === 'elenco' ? '' : 'organizer-section-hidden'}`}>
         <h3 className="organizer-section-title">🎸 Elenco / atrações</h3>
         <p className="organizer-hint">
           Encontre bandas, artistas e serviços e envie uma proposta de contratação já amarrada a este evento.

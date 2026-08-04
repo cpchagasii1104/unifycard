@@ -24,15 +24,23 @@
    scroll continua funcionando (arraste), mas sem o trilho feio. Fade nas bordas avisa que há mais
    conteúdo, sem precisar de barra visível. Paleta reharmonizada com o índigo do resto do sistema
    (era azul/verde genérico #007bff/#28a745, destoava). */
+/* ABAS FIXAS NO TOPO (Clayton, 2026-08-03: "a navegação rolando para baixo dificulta… as abas na
+   parte de cima"). Antes, ao descer no passo, o organizador perdia de vista onde estava e quanto
+   faltava. `sticky` mantém a régua visível durante toda a rolagem do passo. */
 .flow-progress {
   display: flex;
   gap: 0.5rem;
   margin-bottom: 1.75rem;
   overflow-x: auto;
-  padding: 0.25rem 0.25rem 0.75rem;
+  padding: 0.5rem 0.25rem 0.75rem;
   scrollbar-width: none;
   -ms-overflow-style: none;
   mask-image: linear-gradient(90deg, transparent 0, #000 24px, #000 calc(100% - 24px), transparent 100%);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: #fff;
+  border-bottom: 1px solid #ececf4;
 }
 
 .flow-progress::-webkit-scrollbar {
@@ -50,6 +58,23 @@
   border: 1px solid transparent;
   opacity: 0.65;
   transition: opacity 0.15s, background 0.15s, border-color 0.15s;
+  font: inherit;
+  text-align: left;
+}
+
+/* Passo JÁ VISITADO é clicável (volta direto, sem rolar). Passo futuro NÃO: pular adiante burlaria
+   a validação de cada etapa, que é onde o backend é chamado. A régua orienta; ela não autoriza. */
+.progress-step.clickable {
+  cursor: pointer;
+}
+
+.progress-step.clickable:hover {
+  opacity: 1;
+  background: #eef1ff;
+}
+
+.progress-step:disabled {
+  cursor: default;
 }
 
 .progress-step.active {

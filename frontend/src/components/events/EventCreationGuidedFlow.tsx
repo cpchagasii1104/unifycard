@@ -499,15 +499,25 @@ export default function EventCreationGuidedFlow({ initialAudienceKeys, groupId }
 
       {/* Indicador de progresso */}
       <div className="flow-progress">
-        {stepTitles.map((title, index) => (
-          <div
-            key={index}
-            className={`progress-step ${index === currentStep ? 'active' : index < currentStep ? 'completed' : ''}`}
-          >
-            <div className="progress-step-number">{index + 1}</div>
-            <div className="progress-step-title">{title}</div>
-          </div>
-        ))}
+        {stepTitles.map((title, index) => {
+          // Só passo JÁ VISITADO é navegável. Pular adiante burlaria a validação de cada etapa —
+          // é ali que o backend é chamado (declare, setTimeWindows, updateEvent). A régua ORIENTA,
+          // não autoriza: quem valida cada avanço continua sendo o handler do passo.
+          const visitado = index < currentStep;
+          return (
+            <button
+              type="button"
+              key={index}
+              disabled={!visitado || isLoadingStep}
+              onClick={() => visitado && setCurrentStep(index)}
+              title={visitado ? `Voltar para "${title}"` : 'Disponível depois de concluir os passos anteriores'}
+              className={`progress-step ${index === currentStep ? 'active' : visitado ? 'completed clickable' : ''}`}
+            >
+              <div className="progress-step-number">{index + 1}</div>
+              <div className="progress-step-title">{title}</div>
+            </button>
+          );
+        })}
       </div>
 
       {error && (
