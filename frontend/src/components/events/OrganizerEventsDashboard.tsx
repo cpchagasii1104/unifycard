@@ -55,11 +55,12 @@ type Stats = {
  * duplicar a regra criaria duas respostas para a mesma pergunta. Aqui é o bloqueio de PUBLICAÇÃO,
  * e o painel continua sendo o lugar do diagnóstico completo.
  */
-function pendenciaParaPublicar(ev: Event): string | null {
-  if (ev.status !== 'draft' && ev.status !== 'declared') return null;
+function pendenciaParaPublicar(ev: Event & { statusCanonical?: string }): string | null {
+  const st = (ev.statusCanonical ?? ev.status ?? '').toLowerCase();
+  if (st !== 'draft' && st !== 'declared') return null;
   if (!ev.datetimeStart) return 'Falta confirmar a data — sem ela o evento não pode ser publicado.';
   if (new Date(ev.datetimeStart).getTime() < Date.now()) return 'A data confirmada já passou — o feed só mostra evento futuro.';
-  if (ev.status === 'draft') return 'Rascunho: falta concluir a declaração para poder publicar.';
+  if (st === 'draft') return 'Rascunho: falta concluir a declaração para poder publicar.';
   return 'Pronto para publicar.';
 }
 
@@ -110,9 +111,13 @@ export default function OrganizerEventsDashboard() {
   }, [activeActor?.actor_id, actors]);
 
   const agrupados = useMemo(() => {
-    const base = GRUPOS.map((g) => ({ ...g, itens: (events ?? []).filter((e) => g.status.includes(e.status)) }));
+    // 🔴 statusCanonical = valor REAL da coluna. O campo `status` desta rota e vocabulario LEGADO
+    // MAIUSCULO que FUNDE published|declared|active num so "PUBLISHED" — usa-lo mostraria "publicado"
+    // para evento que nao esta no ar. Sem isso, 37 eventos caiam em "Outros status".
+    const st = (e: Event & { statusCanonical?: string }) => (e.statusCanonical ?? e.status ?? '').toLowerCase();
+    const base = GRUPOS.map((g) => ({ ...g, itens: (events ?? []).filter((e) => g.status.includes(st(e))) }));
     const conhecidos = new Set(GRUPOS.flatMap((g) => g.status));
-    const outros = (events ?? []).filter((e) => !conhecidos.has(e.status));
+    const outros = (events ?? []).filter((e) => !conhecidos.has(st(e)));
     if (outros.length > 0) {
       base.push({ chave: 'outros', titulo: 'Outros status', status: [], ajuda: 'Status ainda sem rótulo nesta tela.', itens: outros });
     }

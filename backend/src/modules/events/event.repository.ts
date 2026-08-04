@@ -66,6 +66,15 @@ class EventRepository {
       startAt: row.datetime_start ?? new Date(0),
       endAt: row.datetime_end ?? new Date(0),
       status: dbStatusToSprint76(row.status),
+      // 🔴 O STATUS REAL, CRU DA COLUNA — aditivo, ao lado do legado, sem quebrar consumidor algum.
+      // `dbStatusToSprint76` DESTRÓI informação: funde published|declared|active num só 'PUBLISHED'.
+      // Um evento DECLARED (não publicado, não à venda, fora do feed) chega ao cliente como
+      // "PUBLISHED" — quem confiasse nisso mostraria "publicado" para algo que não está no ar.
+      // Descoberto em 2026-08-03 pela tela Meus Eventos: 37 eventos caíram em "Outros status"
+      // porque o vocabulário legado é MAIÚSCULO e não existe no banco (events.status é minúsculo:
+      // draft·declared·published·active·ended·cancelled).
+      // Quem precisa da verdade usa `statusCanonical`; o legado segue intocado até sua convergência.
+      statusCanonical: row.status,
       publishedAt: meta.published_at ? new Date(meta.published_at as string) : null,
       publishedByActorId: (meta.published_by_actor_id as string) || null,
       closedAt: meta.closed_at ? new Date(meta.closed_at as string) : null,

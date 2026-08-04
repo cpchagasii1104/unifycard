@@ -34,6 +34,14 @@ export interface Event {
   startAt: Date;
   endAt: Date;
   status: EventStatus;
+  /**
+   * Status REAL da coluna events.status (vocabulário governado, minúsculo:
+   * draft·declared·published·active·ended·cancelled).
+   * 🔴 Existe porque `status` acima é o vocabulário LEGADO deste módulo e PERDE informação:
+   * published, declared e active colapsam num único 'PUBLISHED'. Quem precisa distinguir
+   * "declarado mas não publicado" de "publicado de fato" TEM de ler este campo.
+   */
+  statusCanonical?: string;
   publishedAt: Date | null;
   publishedByActorId: string | null;
   closedAt: Date | null;
