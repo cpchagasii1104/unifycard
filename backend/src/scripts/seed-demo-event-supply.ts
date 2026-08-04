@@ -126,6 +126,8 @@ const EVENTOS: Array<{ titulo: string; formato: string; diasNoFuturo: number; pr
 
 let criados = { empresas: 0, ofertas: 0, locaveis: 0, eventos: 0 };
 let reusados = { empresas: 0, ofertas: 0, locaveis: 0, eventos: 0 };
+/** Semente de CNPJ — determinística por corrida, para não colidir com identidade fiscal já usada. */
+let cnpjSeq = 71000000;
 
 /** CPF com dígitos verificadores REAIS — o cadastro valida de verdade. */
 function gerarCpf(): string {
@@ -142,17 +144,17 @@ function gerarCpf(): string {
 }
 
 /** Dono humano da empresa, pelo caminho REAL de auth (nunca SQL cru de senha). */
-async function garantirDonoHumano(email: string, nome: string): Promise<{ userId: string; actorId: string; tenantId: string }> {
+async function garantirDonoHumano(email: string, nome: string): Promise<{ userId: string; actorId: string; tenantId: string; globalUserId: string }> {
   const existente = (
-    await pool.query<{ user_id: string; tenant_id: string; actor_id: string | null }>(
-      `SELECT u.user_id::text AS user_id, u.tenant_id::text AS tenant_id,
+    await pool.query<{ user_id: string; tenant_id: string; actor_id: string | null; global_user_id: string }>(
+      `SELECT u.user_id::text AS user_id, u.tenant_id::text AS tenant_id, u.global_user_id::text AS global_user_id,
               (SELECT a.id::text FROM actors a WHERE a.user_id = u.user_id AND a.actor_type='user' LIMIT 1) AS actor_id
          FROM users u WHERE u.email = $1 LIMIT 1`,
       [email]
     )
   ).rows[0];
   if (existente?.actor_id) {
-    return { userId: existente.user_id, actorId: existente.actor_id, tenantId: existente.tenant_id };
+    return { userId: existente.user_id, actorId: existente.actor_id, tenantId: existente.tenant_id, globalUserId: existente.global_user_id };
   }
   const { authService } = await import('../core/auth/auth.service');
   const reg = await authService.register(undefined, email, SENHA_DEMO, gerarCpf(), nome, '1985-03-15', undefined);
@@ -160,20 +162,66 @@ async function garantirDonoHumano(email: string, nome: string): Promise<{ userId
     await pool.query<{ id: string }>(`SELECT id::text FROM actors WHERE user_id = $1::uuid AND actor_type='user' LIMIT 1`, [reg.user.userId])
   ).rows[0]?.id;
   if (!actorId) throw new Error(`actor humano não nasceu para ${email}`);
-  return { userId: reg.user.userId, actorId, tenantId: reg.tenantId };
+  const gu = (await pool.query<{ g: string }>('SELECT global_user_id::text AS g FROM users WHERE user_id = $1::uuid', [reg.user.userId])).rows[0].g;
+  return { userId: reg.user.userId, actorId, tenantId: reg.tenantId, globalUserId: gu };
 }
 
-/** Actor 'page' da empresa, com âncora civil (responsible_actor_id). Idempotente por slug. */
-async function garantirEmpresa(tenantId: string, nome: string, slug: string, donoActorId: string): Promise<string> {
-  const ex = (await pool.query<{ id: string }>(`SELECT id::text FROM actors WHERE tenant_id=$1::uuid AND slug=$2 LIMIT 1`, [tenantId, slug])).rows[0];
+/** CNPJ com dígitos verificadores REAIS — `createCompany` valida na borda (DECISION-0085 §4.3). */
+function gerarCnpj(seed: number): string {
+  const base = String(seed).padStart(8, '0').slice(-8) + '0001';
+  const dv = (nums: string): number => {
+    const pesos = nums.length === 12 ? [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2] : [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+    const soma = nums.split('').reduce((acc, d, i) => acc + parseInt(d, 10) * pesos[i], 0);
+    const mod = soma % 11;
+    return mod < 2 ? 0 : 11 - mod;
+  };
+  const d1 = dv(base);
+  return base + String(d1) + String(dv(base + String(d1)));
+}
+
+/**
+ * Empresa fornecedora — pelo CAMINHO REAL (`companiesService.createCompany`), que cria a linha em
+ * `companies`, o vínculo em `company_users` e o `page` actor com `company_id` preenchido.
+ *
+ * 🔴 A 1ª versão fazia INSERT direto em `actors` com `actor_type='page'` e `responsible_actor_id`.
+ * Parecia certo (a âncora civil estava lá) e produzia uma MEIA-ENTIDADE: page SEM `company_id`.
+ * O defeito só apareceu ao tentar declarar agenda:
+ *     403 SERVICE_OFFERING_NOT_REPRESENTABLE — "Sem autoridade sobre o prestador desta oferta"
+ * porque `canRepresentActor` (authorization.service.ts:483) resolve page por
+ * `actor.company_id → canManageCompany`, e `company_id` era NULL. A autoridade estava CERTA; o
+ * seed é que tinha criado uma empresa que não era empresa.
+ * Lição, de novo: usar o writer real teria evitado — INSERT direto pula justamente o que dá
+ * existência completa à coisa.
+ */
+async function garantirEmpresa(
+  tenantId: string, globalUserId: string, nome: string, slug: string, seedCnpj: number
+): Promise<string> {
+  const ex = (
+    await pool.query<{ id: string }>(
+      `SELECT a.id::text FROM actors a JOIN companies c ON c.company_id = a.company_id
+        WHERE a.tenant_id = $1::uuid AND c.company_name = $2 LIMIT 1`,
+      [tenantId, nome]
+    )
+  ).rows[0];
   if (ex) { reusados.empresas++; return ex.id; }
-  const r = await pool.query<{ id: string }>(
-    `INSERT INTO actors (tenant_id, actor_type, display_name, slug, responsible_actor_id, metadata, created_at, updated_at)
-     VALUES ($1,'page',$2,$3,$4,'{"demo_seed":true}'::jsonb,NOW(),NOW()) RETURNING id`,
-    [tenantId, nome, slug, donoActorId]
+
+  const { companiesService } = await import('../core/companies/companies.service');
+  const { company } = await companiesService.createCompany(
+    globalUserId,
+    { cnpj: gerarCnpj(seedCnpj), companyName: nome, role: 'owner', fetchFromRevenue: false } as never,
+    tenantId
+  );
+  const pageActor = (
+    await pool.query<{ id: string }>(`SELECT id::text FROM actors WHERE company_id = $1::uuid LIMIT 1`, [company.companyId])
+  ).rows[0];
+  if (!pageActor) throw new Error(`page actor não nasceu para a empresa ${nome}`);
+  // Marcador para a faxina alcançar (o writer real não conhece `demo_seed`).
+  await pool.query(
+    `UPDATE actors SET metadata = COALESCE(metadata,'{}'::jsonb) || '{"demo_seed":true}'::jsonb, slug = COALESCE(slug, $2) WHERE id = $1::uuid`,
+    [pageActor.id, slug]
   );
   criados.empresas++;
-  return r.rows[0].id;
+  return pageActor.id;
 }
 
 async function canonicalServiceIdPorSlug(slug: string): Promise<string | null> {
@@ -232,7 +280,7 @@ async function main(): Promise<void> {
   console.log('── Empresas prestadoras ──');
   for (const f of FORNECEDORES) {
     const dono = await garantirDonoHumano(f.email, `Responsável ${f.nome}`);
-    const empresaId = await garantirEmpresa(dono.tenantId, f.nome, f.slug, dono.actorId);
+    const empresaId = await garantirEmpresa(dono.tenantId, dono.globalUserId, f.nome, f.slug, cnpjSeq++);
     let ok = 0;
     for (const n of f.needs) {
       const csId = await canonicalServiceIdPorSlug(n.slug);
@@ -247,7 +295,7 @@ async function main(): Promise<void> {
   console.log('\n── Empresas locadoras ──');
   for (const l of LOCAVEIS) {
     const dono = await garantirDonoHumano(l.empresa.email, `Responsável ${l.empresa.nome}`);
-    const empresaId = await garantirEmpresa(dono.tenantId, l.empresa.nome, l.empresa.slug, dono.actorId);
+    const empresaId = await garantirEmpresa(dono.tenantId, dono.globalUserId, l.empresa.nome, l.empresa.slug, cnpjSeq++);
     let ok = 0;
     for (const item of l.itens) {
       const conceptId = await conceptIdPorSlug(item.slug);
@@ -393,6 +441,60 @@ async function main(): Promise<void> {
       }
     }
     console.log(`   ✅ ${titulo.slice(0, 40).padEnd(42)} ${n} setor(es)`);
+  }
+
+  // ── 5. AGENDA DOS FORNECEDORES (sem isto o filtro por data não tem o que filtrar) ─
+  // 🔴 Usa `declareAvailability` — o WRITER REAL, que valida representação do provider e grava na
+  // fonte temporal canônica (`availability`, owner_type='service_offering'). INSERT direto seria
+  // persistir estado temporal fora do SSOT, exatamente o que a norma proíbe.
+  //
+  // ⚠️ DE PROPÓSITO nem todo fornecedor atende todo dia: sem isso o filtro por data pareceria
+  // funcionar mostrando sempre a lista inteira, e eu não teria como provar que ele FILTRA. Quem
+  // fica de fora é tão importante quanto quem aparece.
+  //   · `muralha-seguranca`, `decibel-audio-luz`, `vida-brigada` → atendem TODAS as datas
+  //   · `sabor-e-cia-buffet`, `brilho-limpeza`                   → só fins de semana (sáb/dom)
+  //   · `foco-studio`                                            → NENHUMA janela (nunca aparece
+  //                                                                 no filtro por data)
+  console.log('\n── Agenda dos fornecedores ──');
+  const { serviceOfferingService } = await import('../modules/services/service-offering.service');
+  const SEM_AGENDA = new Set(['foco-studio']);
+  const SO_FIM_DE_SEMANA = new Set(['sabor-e-cia-buffet', 'brilho-limpeza']);
+  const datasDosEventos = (
+    await pool.query<{ inicio: Date }>(
+      `SELECT datetime_start AS inicio FROM events WHERE metadata->>'demo_seed' = 'true' AND datetime_start IS NOT NULL ORDER BY datetime_start`
+    )
+  ).rows.map((r) => r.inicio);
+
+  for (const f of FORNECEDORES) {
+    if (SEM_AGENDA.has(f.slug)) { console.log(`   ⚪ ${f.nome.padEnd(32)} sem janela (de propósito)`); continue; }
+    const dono = await garantirDonoHumano(f.email, `Responsável ${f.nome}`);
+    const empresaId = await garantirEmpresa(dono.tenantId, dono.globalUserId, f.nome, f.slug, cnpjSeq++);
+    const ofertas = (
+      await pool.query<{ id: string }>(
+        `SELECT id::text FROM service_offerings WHERE provider_actor_id = $1::uuid AND status = 'active'`,
+        [empresaId]
+      )
+    ).rows;
+    let janelas = 0;
+    for (const data of datasDosEventos) {
+      const diaSemana = data.getDay(); // 0=dom, 6=sáb
+      if (SO_FIM_DE_SEMANA.has(f.slug) && diaSemana !== 0 && diaSemana !== 6) continue;
+      // Janela generosa em volta do evento (montagem antes, desmontagem depois).
+      const ini = new Date(data); ini.setHours(ini.getHours() - 4);
+      const fim = new Date(data); fim.setHours(fim.getHours() + 6);
+      for (const of of ofertas) {
+        try {
+          await serviceOfferingService.declareAvailability({
+            tenantId: dono.tenantId, userId: dono.userId, offeringId: of.id,
+            startDatetime: ini.toISOString(), endDatetime: fim.toISOString(),
+          });
+          janelas++;
+        } catch {
+          // Janela já declarada numa corrida anterior — idempotência, não erro.
+        }
+      }
+    }
+    console.log(`   ✅ ${f.nome.padEnd(32)} ${janelas} janela(s)`);
   }
 
   // ── VERIFICAÇÃO DE 1ª MÃO ───────────────────────────────────────────────────

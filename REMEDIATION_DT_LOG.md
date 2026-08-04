@@ -1,5 +1,112 @@
 # REMEDIATION DT LOG
 
+## 🕐 Filtro de disponibilidade NO SERVIDOR — e a meia-empresa que ele revelou (2026-08-04)
+
+**Origem:** Clayton — *"a gente deve fazer tudo o que pode ser feito antes da PORTA-01, respeitando
+normas, ontologia, N0 N1 N2, SSOT, nomenclaturas, leis de coerência sistêmica, **tempo**"*. GO para
+começar pelo filtro temporal, que é onde o SSOT manda.
+
+### O que PORTA-01 é (lido na fonte, não de cabeça)
+
+`DECISION-0131:110,128` — é a **1ª row em `financial_approval_policies` + `authorities`**, ATO
+SOBERANO, que torna payout aprovável (hoje **0/0, fail-closed**). A fronteira não é "vender
+ingresso": é **mover dinheiro**. Isso libera mais do que eu supunha — inclusive contratar
+fornecedor, que o próprio código declara `PRÉ-DINHEIRO: 'confirmed' = compromisso de agenda
+(Δbank=0)` e `Zero Bank writer` (`service-offering.service.ts:508`).
+
+### O filtro — e por que no servidor
+
+O que existia era **client-side** (`frontend/src/api/service-discovery.ts:199-241` varria janelas em
+JS). Errado por dois motivos independentes: (1) com teto de resultados o servidor corta ANTES do
+filtro, e o fornecedor livre que ficou fora do teto some sem ninguém saber; (2) quem conhece o
+conjunto inteiro é o servidor — filtrar depois de receber é opinar sobre uma amostra e apresentar
+como o todo.
+
+🔴 **O predicado é ESPELHO, não invenção.** Copiado de `unified-availability.repository.ts:236-244`
+(leitor canônico `listAvailability`): `end_datetime >= :from AND start_datetime <= :to`. Escrever
+outro overlap criaria duas respostas para "está livre?", e elas divergiriam no limite — o caso
+`>=` × `>` é exatamente onde esse bug mora.
+
+⚠️ **Sem SQL dinâmico**: a janela entra sempre como `$3`/`$4` com curto-circuito `IS NULL`. Montar
+string condicional é como se erra índice de parâmetro — e aqui erro de índice compararia data
+contra `tenant_id`.
+
+⚠️ **O que o filtro NÃO afirma:** que a janela está LIVRE. Afirma que o fornecedor **declarou
+atender** naquele período. Descontar reserva feita depende de `bookings` (0 linhas hoje) — dizer
+"livre" agora seria afirmar o que não se mediu.
+
+### SSOT temporal — conferido, não presumido
+
+`SSOT_REGISTRY_UNIFICARD.md` diz que `unified_availability` governa *"RSVP com efeito temporal"* e
+que *"nenhuma outra tabela pode persistir estado temporal"*. Fui verificar se a inscrição da fatia
+anterior violou: **não** — `event_rsvp` tem só `created_at`/`updated_at` (carimbo de auditoria),
+sem janela, início ou fim; o tempo do evento mora em `events.datetime_start`.
+
+🟡 **Mas o documento nomeia tabelas que não existem:**
+```
+❌ unified_availability   ← o SSOT diz ser a autoridade
+❌ unified_bookings
+✅ availability     14 linhas   ← o que EXISTE
+✅ schedules         0 linhas   ← "violação ativa C63: 6 WRITE paths"… com ZERO linhas
+```
+Uma das duas afirmações do documento está velha. **Não toquei em norma** — é ato de Clayton.
+
+### 🔴 O ACHADO: minhas "empresas" não eram empresas
+
+Ao declarar agenda pelo writer real, veio `403 SERVICE_OFFERING_NOT_REPRESENTABLE`. Meu `catch`
+genérico tinha engolido isso e reportado **"0 janela(s)" com ✅** — o vício que venho apontando na
+sessão inteira, cometido por mim. Tirei o catch e o erro apareceu.
+
+Causa: `canRepresentActor` (`authorization.service.ts:483`) resolve `page` por
+`actor.company_id → canManageCompany`. Minhas 7 fornecedoras nasceram de **INSERT direto em
+`actors`** com `actor_type='page'` + `responsible_actor_id` — parecia certo (a âncora civil estava
+lá) e produzia **meia-entidade: page SEM `company_id`**, sem linha em `companies`, sem
+`company_users`. **A autoridade estava certa; o seed é que criou uma empresa que não era empresa.**
+
+**Conserto:** `garantirEmpresa` passou a usar `companiesService.createCompany` — o caminho real,
+com CNPJ de dígito válido — que cria `companies` + `company_users` + o page actor com `company_id`.
+Geração antiga removida pela faxina (`--demo`) e resemeada. **Terceira vez na sessão que INSERT
+direto pulou justamente o que dá existência completa à coisa.**
+
+### A prova de que o filtro FILTRA
+
+Semeei agenda **de propósito desigual** — sem isso o filtro pareceria funcionar mostrando sempre a
+lista inteira, e eu não teria como provar que ele filtra. Quem fica de fora importa tanto quanto
+quem aparece:
+· Muralha/Decibel/Vida Brigada → todas as datas (18/18/6 janelas)
+· Sabor & Cia / Brilho → só fim de semana (8/2)
+· Foco Studio → **nenhuma**, de propósito
+
+```
+EVENTO: Pedra Noventa ao vivo (2026-08-16, domingo)
+  sem filtro de data        → 17 fornecedores
+  janela DO EVENTO          → 12 fornecedores
+  janela de 2027 (ninguém)  →  0 fornecedores
+
+  quem SAI ao filtrar pela data:
+    Fotografia · Promotores        (Foco Studio — sem janela, como projetado)
+    Banheiro químico · Gerador · Tenda  (Rio Verde — locáveis sem agenda, ver abaixo)
+```
+
+`useEventWindow=true` deriva a janela do próprio evento: quem chega pelo evento não redigita a
+data que o sistema já sabe. Evento sem data → **ausência de filtro**, nunca janela inventada.
+
+Rota valida entrada com 400 NOMEADO (`EVENT_AVAILABILITY_WINDOW_INVALID` /
+`..._INCOMPLETE`) — `new Date('banana')` não lança, produz `NaN`, e o Postgres receberia lixo.
+
+### 🟡 Aberto
+
+- **Locáveis não têm agenda declarada** — `declareAvailability` é do domínio de oferta de serviço;
+  `rentable_resource` é `owner_type` válido em `availability` mas sem writer equivalente semeado.
+  Por isso os 3 locáveis somem no filtro por data. Honesto, e é fatia própria.
+- Catálogo de tipos desacoplado de evento (a caixa vermelha) · `requestBooking` + `notes` +
+  contexto · PF virar fornecedora.
+
+**Verificação:** typecheck BE 0 · filtro provado em 3 cenários · faxina+reseed com Δbank 0 ·
+temporários removidos · `git diff --check` limpo.
+
+---
+
 ## ✅ O EVENTO FUNCIONA — inscrição gratuita ponta a ponta, Δbank=0 (2026-08-04)
 
 **Origem:** Clayton perguntou *"qual a sua sugestão para deixarmos o evento funcionando?"*. Minha

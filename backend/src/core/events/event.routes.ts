@@ -459,14 +459,43 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
    * um evento é informação de quem o organiza. READ-ONLY: não cria need, não abre RFQ, não reserva,
    * Δbank=0.
    */
-  fastify.get<{ Params: { id: string }; Querystring: { onlyDeclared?: string } }>('/:id/need-suppliers', async (req, reply) => {
+  fastify.get<{
+    Params: { id: string };
+    Querystring: { onlyDeclared?: string; availableFrom?: string; availableTo?: string; useEventWindow?: string };
+  }>('/:id/need-suppliers', async (req, reply) => {
     if (!req.tenant) return reply.status(400).send({ ok: false, code: 'TENANT_REQUIRED' });
     const tenantId = req.tenant.id;
     await assertRepresentsEventOwner(tenantId, req.user?.userId, req.params.id);
     // Entrada de usuário NUNCA entra como `as any`: só o literal 'true' liga o filtro.
     const onlyDeclared = String(req.query?.onlyDeclared ?? '').toLowerCase() === 'true';
+    const useEventWindow = String(req.query?.useEventWindow ?? '').toLowerCase() === 'true';
+
+    // 🕐 Janela de disponibilidade (F-EVENT-SUPPLIER-AVAILABILITY). Data inválida vira 400
+    // NOMEADO, nunca `Invalid Date` silencioso: `new Date('banana')` não lança, produz NaN, e o
+    // Postgres receberia lixo. Este é o mesmo tipo de defeito que já custou caro nesta base.
+    const parseJanela = (v: string | undefined, campo: string): { iso?: string; erro?: string } => {
+      if (!v) return {};
+      const d = new Date(v);
+      if (Number.isNaN(d.getTime())) return { erro: campo };
+      return { iso: d.toISOString() };
+    };
+    const de = parseJanela(req.query?.availableFrom, 'availableFrom');
+    const ate = parseJanela(req.query?.availableTo, 'availableTo');
+    if (de.erro || ate.erro) {
+      return reply.status(400).send({ ok: false, code: 'EVENT_AVAILABILITY_WINDOW_INVALID', field: de.erro ?? ate.erro });
+    }
+    // Meia janela não filtra nada de forma útil e esconderia o engano do chamador.
+    if ((de.iso && !ate.iso) || (!de.iso && ate.iso)) {
+      return reply.status(400).send({ ok: false, code: 'EVENT_AVAILABILITY_WINDOW_INCOMPLETE', message: 'Informe availableFrom E availableTo.' });
+    }
+
     const { eventNeedSupplierDiscoveryService } = await import('./event-need-supplier-discovery.service');
-    const needs = await eventNeedSupplierDiscoveryService.listNeedsWithSuppliers(tenantId, req.params.id, { onlyDeclared });
+    const needs = await eventNeedSupplierDiscoveryService.listNeedsWithSuppliers(tenantId, req.params.id, {
+      onlyDeclared,
+      availableFrom: de.iso,
+      availableTo: ate.iso,
+      useEventWindow,
+    });
     return reply.status(200).send({ needs });
   });
 

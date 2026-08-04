@@ -72,6 +72,54 @@ export interface NeedWithSuppliers {
 /** Teto de fornecedores devolvidos POR necessidade — a tela é um panorama, não o catálogo inteiro. */
 const SUPPLIERS_PER_NEED_LIMIT = 8;
 
+/**
+ * 🕐 FILTRO DE DISPONIBILIDADE — SERVER-SIDE (F-EVENT-SUPPLIER-AVAILABILITY, 2026-08-04)
+ *
+ * Clayton: *"eu poder filtrar por data e horário (que é muito importante)"*, e depois:
+ * *"respeitando … leis de coerência sistêmica, tempo"*.
+ *
+ * ═══ POR QUE NO SERVIDOR, E NÃO NO CLIENTE ═══
+ * O filtro por janela que existia era CLIENT-SIDE (`frontend/src/api/service-discovery.ts:199-241`
+ * varria as janelas em JS). Isso é errado por dois motivos independentes:
+ *   1. com teto de resultados, o servidor corta ANTES do filtro — o cliente recebe 8 e mostra 2,
+ *      e o fornecedor livre que ficou fora do teto some sem ninguém saber;
+ *   2. quem conhece o conjunto inteiro é o servidor. Filtrar depois de receber é opinar sobre uma
+ *      amostra e apresentar como se fosse o todo.
+ *
+ * ═══ SSOT TEMPORAL (respeitado, não contornado) ═══
+ * `SSOT_REGISTRY_UNIFICARD.md` → *"unified_availability é a fonte única de verdade para estado
+ * temporal"* e *"nenhuma outra tabela ou módulo pode definir ou persistir estado temporal"*.
+ * ⚠️ A tabela VIVA chama-se `availability` (o documento nomeia `unified_availability`, que não
+ * existe no banco — divergência registrada no cartório; norma é ato de Clayton, não meu).
+ * Aqui NÃO se persiste tempo nenhum: é LEITURA sobre a fonte temporal. Zero tabela nova.
+ *
+ * ═══ O PREDICADO É ESPELHO, NÃO INVENÇÃO ═══
+ * `unified-availability.repository.ts:236-244` (leitor canônico `listAvailability`) define
+ * sobreposição como:
+ *     end_datetime   >= :from        AND     start_datetime <= :to
+ * Copiado byte a byte. Escrever outro overlap aqui criaria duas respostas para "está livre?" —
+ * e elas divergiriam no limite (o caso `>=` × `>` é exatamente onde esse tipo de bug mora).
+ *
+ * ⚠️ O que este filtro NÃO afirma: que a janela está LIVRE. Ele afirma que o fornecedor DECLAROU
+ * atender naquele período. Descontar reserva já feita depende de `bookings` (0 linhas hoje) e é
+ * outra fatia — dizer "livre" agora seria afirmar o que não se mediu.
+ *
+ * ⚠️ Sem SQL dinâmico: a janela entra SEMPRE como `$3`/`$4` e o `IS NULL` faz curto-circuito
+ * quando não há filtro. Montar string de query condicionalmente é como se erra índice de
+ * parâmetro — e erro de índice aqui compararia data contra tenant_id.
+ */
+function janelaDeclaradaExists(ownerType: 'service_offering' | 'rentable_resource', idExpr: string): string {
+  return `AND ($3::timestamptz IS NULL OR EXISTS (
+            SELECT 1 FROM availability av
+             WHERE av.tenant_id = $2::uuid
+               AND av.owner_type = '${ownerType}'
+               AND av.owner_id = ${idExpr}
+               AND av.status = 'active'
+               AND av.end_datetime   >= $3::timestamptz
+               AND av.start_datetime <= $4::timestamptz
+          ))`;
+}
+
 class EventNeedSupplierDiscoveryService {
   /**
    * Necessidades do evento (as DECLARADAS pelo organizador, senão as SUGERIDAS pelo formato) já
@@ -81,14 +129,40 @@ class EventNeedSupplierDiscoveryService {
    * `onlyDeclared=false` → o template inteiro do formato, marcando o que já foi declarado
    *                        (`declaredStatus`), para ele descobrir o que ainda nem considerou.
    *
+   * `availableFrom`/`availableTo` → só fornecedores que DECLARARAM atender naquele período
+   *                                 (ver OVERLAP_PREDICATE). Filtro no SERVIDOR, sobre a fonte
+   *                                 temporal. Omitir os dois = sem filtro de tempo.
+   * `useEventWindow=true`         → deriva a janela do PRÓPRIO evento (datetime_start/end). É o
+   *                                 "evento como contexto": quem chega pelo evento não deveria
+   *                                 redigitar a data que o sistema já sabe.
+   *
    * READ-ONLY e Δbank=0: não cria need, não abre RFQ, não reserva, não move dinheiro.
    */
   async listNeedsWithSuppliers(
     tenantId: string,
     eventId: string,
-    opts: { onlyDeclared?: boolean } = {}
+    opts: { onlyDeclared?: boolean; availableFrom?: string; availableTo?: string; useEventWindow?: boolean } = {}
   ): Promise<NeedWithSuppliers[]> {
     const onlyDeclared = opts.onlyDeclared === true;
+
+    // Janela de disponibilidade. Precedência: janela explícita > janela do evento > sem filtro.
+    let janelaDe = opts.availableFrom ?? null;
+    let janelaAte = opts.availableTo ?? null;
+    if (!janelaDe && !janelaAte && opts.useEventWindow) {
+      const ev = await runQueriesWithTenant<{ inicio: string | null; fim: string | null }>(
+        tenantId,
+        `SELECT datetime_start::text AS inicio, datetime_end::text AS fim FROM events WHERE id = $1::uuid`,
+        [eventId]
+      );
+      // ⚠️ Evento SEM data não vira janela "aberta" nem janela "vazia": vira AUSÊNCIA de filtro.
+      // Inventar um período aqui (hoje→sempre, por exemplo) faria a tela afirmar disponibilidade
+      // sobre um período que ninguém pediu.
+      janelaDe = ev[0]?.inicio ?? null;
+      // Evento com início e sem fim: a janela é o próprio instante de início (start<=X<=start),
+      // que é o mínimo honesto — não estica para o infinito.
+      janelaAte = ev[0]?.fim ?? ev[0]?.inicio ?? null;
+    }
+    const filtrarPorJanela = !!janelaDe && !!janelaAte;
 
     // 1) As necessidades. Fonte: template do FORMATO do evento (autoridade do que aquele formato
     //    pede) LEFT JOIN a declaração do organizador. `event_format_concept_id` é a identidade
@@ -158,8 +232,9 @@ class EventNeedSupplierDiscoveryService {
                LEFT JOIN actors a ON a.id = so.provider_actor_id AND a.tenant_id = $2::uuid
               WHERE cs.tenant_id IS NULL
                 AND cs.concept_id = ANY($1::uuid[])
+                ${janelaDeclaradaExists('service_offering', 'so.id')}
               ORDER BY so.price_cents ASC NULLS LAST, so.created_at ASC`,
-            [serviceNeedIds, tenantId]
+            [serviceNeedIds, tenantId, filtrarPorJanela ? janelaDe : null, filtrarPorJanela ? janelaAte : null]
           )
         : Promise.resolve([]),
       rentableNeedIds.length
@@ -184,8 +259,9 @@ class EventNeedSupplierDiscoveryService {
                 AND rr.is_active = true
                 AND rr.status = 'active'
                 AND rr.concept_id = ANY($1::uuid[])
+                ${janelaDeclaradaExists('rentable_resource', 'rr.id')}
               ORDER BY rr.price_cents ASC NULLS LAST, rr.created_at ASC`,
-            [rentableNeedIds, tenantId]
+            [rentableNeedIds, tenantId, filtrarPorJanela ? janelaDe : null, filtrarPorJanela ? janelaAte : null]
           )
         : Promise.resolve([]),
     ]);
