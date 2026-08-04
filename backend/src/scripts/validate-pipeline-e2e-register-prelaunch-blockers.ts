@@ -84,6 +84,13 @@ async function cleanup(): Promise<void> {
 }
 
 async function main(): Promise<void> {
+  // 🔴 CORRIGIDO 2026-08-04 — mesmo achado de `validate-pipeline-e2e-c1-birth-minimum-atomic-
+  // organic.ts` (ver REMEDIATION_DT_LOG.md): este E2E também faz múltiplos POST /auth/register
+  // em sequência, no mesmo processo/IP, e tropeçava no rate limiter (3/min) antes de chegar em
+  // T(3). Mesma válvula, mesmo lugar: setado ANTES de `buildApp()` importar `auth.routes`
+  // dinamicamente. Processo próprio deste script — não afeta servidor dev nem produção.
+  process.env.RATE_LIMIT_AUTH_REGISTER ??= '50';
+
   delete process.env.PILOT_MODE; // organic
   await cleanup();
   const app = await buildApp();

@@ -64,6 +64,14 @@
   font-weight: 600;
 }
 
+/* 🔴 2026-08-04: nome/nascimento/gênero viraram opcionais no cadastro (DECISION-0115 D2,
+   progressivo) — indicador neutro, sem o vermelho de "required". */
+.register-label-inline .register-optional {
+  color: #9ca3af;
+  font-weight: 400;
+  font-size: 0.8125em;
+}
+
 /* 🔴 LAYOUT: Wrapper do trigger do tooltip - posição relativa para ancorar o balão */
 .register-label-inline .info-trigger {
   position: relative;

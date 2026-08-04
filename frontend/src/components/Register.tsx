@@ -1,6 +1,13 @@
 // src/components/Register.tsx
-// Tela de registro - Coleta dados civis imutáveis (nome, CPF, nascimento, sexo)
-// Padrão: sistemas bancários, fintechs, gov.br
+// Tela de registro - Coleta CPF (obrigatório) e, se a pessoa quiser, nome/nascimento/gênero
+// já de cara. Todos IMUTÁVEIS a partir de quando forem preenchidos.
+//
+// 🔴 CORRIGIDO 2026-08-04 — só CPF é exigido AQUI (guaranteed birth chain, DECISION-0115 D2;
+// `auth.service.ts` recusa 400 sem ele). Nome/nascimento/gênero são "perfil complementar" na
+// mesma decisão — PROGRESSIVOS por desenho, não requisito do nascimento — e o contrato HTTP
+// (`registerSchema`, `auth.routes.ts`) já os marcava `.optional()`; só esta tela é que os
+// tornava `required` na UI, sem necessidade. Continuam IMUTÁVEIS quando preenchidos (aqui ou
+// depois em /perfil — mesmo lock em `profile.service.ts`, `personal_data_locked`).
 
 import { useState, useEffect, useRef } from 'react';
 import { register, checkCpfExists, validateReferralCode } from '../api/auth';
@@ -180,19 +187,17 @@ export default function Register({ onRegisterSuccess, onBackToLogin, onBackToHom
       return;
     }
 
-    // 🔴 VALIDAÇÕES DE DADOS CIVIS IMUTÁVEIS
-    
-    // Validar Nome Completo
-    if (!fullName || fullName.trim().length === 0) {
-      setFullNameError('Nome completo é obrigatório');
-      setIsLoading(false);
-      return;
-    }
-    const nameValidation = validateFullName(fullName);
-    if (!nameValidation.valid) {
-      setFullNameError(nameValidation.error || 'Nome inválido');
-      setIsLoading(false);
-      return;
+    // 🔴 VALIDAÇÕES DE DADOS CIVIS — CPF é o único obrigatório (ver comentário no topo do
+    // arquivo). Nome/nascimento/gênero: só valida FORMATO se a pessoa preencheu; vazio passa.
+
+    // Validar Nome Completo (progressivo — só valida se preenchido)
+    if (fullName.trim().length > 0) {
+      const nameValidation = validateFullName(fullName);
+      if (!nameValidation.valid) {
+        setFullNameError(nameValidation.error || 'Nome inválido');
+        setIsLoading(false);
+        return;
+      }
     }
 
     // Validar CPF
@@ -208,23 +213,20 @@ export default function Register({ onRegisterSuccess, onBackToLogin, onBackToHom
       return;
     }
 
-    // Validar Data de Nascimento
-    if (!birthdate) {
-      setBirthdateError('Data de nascimento é obrigatória');
-      setIsLoading(false);
-      return;
+    // Validar Data de Nascimento (progressivo — só valida se preenchida)
+    if (birthdate) {
+      const birthValidation = validateBirthdate(birthdate);
+      if (!birthValidation.valid) {
+        setBirthdateError(birthValidation.error || 'Data inválida');
+        setIsLoading(false);
+        return;
+      }
+      setUserAge(birthValidation.age);
     }
-    const birthValidation = validateBirthdate(birthdate);
-    if (!birthValidation.valid) {
-      setBirthdateError(birthValidation.error || 'Data inválida');
-      setIsLoading(false);
-      return;
-    }
-    setUserAge(birthValidation.age);
 
-    // Validar gênero (vocabulário canónico)
-    if (!gender || !isGender(gender)) {
-      setGenderError('Selecione o gênero');
+    // Validar gênero (vocabulário canónico; progressivo — só valida se selecionado)
+    if (gender && !isGender(gender)) {
+      setGenderError('Gênero inválido');
       setIsLoading(false);
       return;
     }
@@ -248,9 +250,9 @@ export default function Register({ onRegisterSuccess, onBackToLogin, onBackToHom
         password,
         cpfNumbers,
         referralCode.trim() || undefined,
-        fullName.trim(),
+        fullName.trim() || undefined,
         isoBirthdate || undefined,
-        gender
+        gender || undefined
       );
       
       if (result.success && result.data.tokens.accessToken) {
@@ -343,14 +345,16 @@ export default function Register({ onRegisterSuccess, onBackToLogin, onBackToHom
             />
           </div>
 
-          {/* 🔴 DADOS CIVIS IMUTÁVEIS - Coletados apenas no cadastro */}
+          {/* 🔴 DADOS CIVIS — CPF é imutável e obrigatório aqui; nome/nascimento/gênero são
+              progressivos (podem ser preenchidos agora ou depois em /perfil) e ficam imutáveis
+              a partir de QUANDO forem preenchidos, não necessariamente no cadastro. */}
           <div className="form-group">
             <label htmlFor="fullName" className="register-label">
               <span className="register-label-inline">
-                Nome Completo <span className="required">*</span>
+                Nome Completo <span className="register-optional">(opcional)</span>
                 <span className="info-trigger">
                   <InfoTooltip
-                    content="Este dado não poderá ser alterado após o cadastro."
+                    content="Se preenchido, não poderá ser alterado depois. Pode deixar em branco agora e completar no seu perfil."
                     position="top"
                   />
                 </span>
@@ -380,8 +384,7 @@ export default function Register({ onRegisterSuccess, onBackToLogin, onBackToHom
                   }
                 }
               }}
-              required
-              placeholder="Digite seu nome completo"
+              placeholder="Digite seu nome completo (opcional)"
               className={fullNameError ? "error" : ""}
             />
             {fullNameError && <span className="field-error">{fullNameError}</span>}
@@ -389,7 +392,7 @@ export default function Register({ onRegisterSuccess, onBackToLogin, onBackToHom
               <span className="field-success">✓</span>
             )}
             <small style={{ fontSize: '0.8125rem', color: '#6b7280', display: 'block', marginTop: '0.25rem' }}>
-              Este dado não poderá ser alterado após o cadastro
+              {fullName ? 'Preenchido: não poderá ser alterado após o cadastro' : 'Pode ser preenchido agora ou depois, no seu perfil'}
             </small>
           </div>
 
@@ -467,10 +470,10 @@ export default function Register({ onRegisterSuccess, onBackToLogin, onBackToHom
             <div className="form-group">
               <label htmlFor="birthdate" className="register-label">
                 <span className="register-label-inline">
-                  Data de Nascimento <span className="required">*</span>
+                  Data de Nascimento <span className="register-optional">(opcional)</span>
                   <span className="info-trigger">
                     <InfoTooltip
-                      content="Este dado não poderá ser alterado após o cadastro."
+                      content="Se preenchida, não poderá ser alterada depois. Pode deixar em branco agora e completar no seu perfil."
                       position="top"
                     />
                   </span>
@@ -503,7 +506,6 @@ export default function Register({ onRegisterSuccess, onBackToLogin, onBackToHom
                     }
                   }
                 }}
-                required
                 className={birthdateError ? "error" : ""}
                 max={new Date(new Date().setFullYear(new Date().getFullYear() - 16)).toISOString().split('T')[0]}
               />
@@ -512,17 +514,17 @@ export default function Register({ onRegisterSuccess, onBackToLogin, onBackToHom
                 <span className="field-success">✓ {userAge} anos</span>
               )}
               <small style={{ fontSize: '0.8125rem', color: '#6b7280', display: 'block', marginTop: '0.25rem' }}>
-                Este dado não poderá ser alterado após o cadastro
+                {birthdate ? 'Preenchida: não poderá ser alterada após o cadastro' : 'Pode ser preenchida agora ou depois, no seu perfil'}
               </small>
             </div>
 
             <div className="form-group">
               <label htmlFor="gender" className="register-label">
                 <span className="register-label-inline">
-                  Gênero <span className="required">*</span>
+                  Gênero <span className="register-optional">(opcional)</span>
                   <span className="info-trigger">
                     <InfoTooltip
-                      content="Este dado não poderá ser alterado após o cadastro."
+                      content="Se selecionado, não poderá ser alterado depois. Pode deixar em branco agora e completar no seu perfil."
                       position="top"
                     />
                   </span>
@@ -536,15 +538,9 @@ export default function Register({ onRegisterSuccess, onBackToLogin, onBackToHom
                   setGender(v === '' ? '' : (v as Gender));
                   setGenderError(null);
                 }}
-                onBlur={() => {
-                  if (!gender) {
-                    setGenderError('Selecione o gênero');
-                  }
-                }}
-                required
                 className={genderError ? "error" : ""}
               >
-                <option value="">Selecione</option>
+                <option value="">Selecione (opcional)</option>
                 <option value="male">Masculino</option>
                 <option value="female">Feminino</option>
                 <option value="non_binary">Não-binário</option>
@@ -556,7 +552,7 @@ export default function Register({ onRegisterSuccess, onBackToLogin, onBackToHom
                 <span className="field-success">✓</span>
               )}
               <small style={{ fontSize: '0.8125rem', color: '#6b7280', display: 'block', marginTop: '0.25rem' }}>
-                Este dado não poderá ser alterado após o cadastro
+                {gender ? 'Preenchido: não poderá ser alterado após o cadastro' : 'Pode ser preenchido agora ou depois, no seu perfil'}
               </small>
             </div>
           </div>

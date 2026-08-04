@@ -137,17 +137,44 @@ exatamente com a lógica lida no código.
    bloquear uso — exatamente o padrão que este sistema já segue para tudo o mais (conta nasce
    ativa). Construir isso é infraestrutura nova (provedor de email/SMS, coluna, rota de confirmação)
    — fora do escopo de uma correção; precisa de GATE/GO próprio se Clayton quiser.
-3. **`Register.tsx` exige mais do que a própria decisão manda.** `registerSchema` já marca
-   `fullName`/`birthdate`/`gender` `.optional()` (`auth.routes.ts:17-19`) — o desenho já é
-   "progressivo" no contrato HTTP, seguindo DECISION-0115 D2. A ÚNICA tela que existe hoje
-   (`Register.tsx`) ignora isso e torna os três `required` na UI (HTML + validação JS antes do
-   submit, linhas ~186-230), produzindo 5 campos obrigatórios na primeira tela (email, nome, CPF,
-   nascimento, gênero) onde a norma já autoriza 2 (email, CPF) + senha. Relaxar isso alinharia com
-   o padrão de mercado que o próprio Clayton pediu para adotar (cadastro mínimo, resto progressivo)
-   — **não fiz** porque tocar nisso exige checar todo consumidor de `profile.fullName/birthdate/
-   gender` por null-safety (ex.: idade mínima de 16 anos hoje só existe como atributo HTML `max` no
-   campo de nascimento — SEM nenhuma validação server-side; ninguém percebeu porque a UI sempre
-   exigiu o campo). Isso é produto+compliance, não bug — GATE próprio.
+3. ✅ **RESOLVIDO 2026-08-04** — `Register.tsx` exigia mais do que a própria decisão manda.
+   `registerSchema` já marcava `fullName`/`birthdate`/`gender` `.optional()`
+   (`auth.routes.ts:17-19`) — o contrato HTTP já era "progressivo", seguindo DECISION-0115 D2 —
+   mas a ÚNICA tela que existe (`Register.tsx`) tornava os três `required` na UI (HTML +
+   validação JS bloqueante), produzindo 5 campos obrigatórios na primeira tela (email, nome, CPF,
+   nascimento, gênero) onde a norma já autoriza 2 (email, CPF) + senha.
+
+   **Verifiquei antes de mexer** se soltar esses campos deixaria alguém num beco sem saída: existe
+   sim uma tela pós-cadastro que os coleta depois (`Profile.tsx`, /perfil), com o MESMO mecanismo
+   de trava (`hasFullName`/`hasBirthdate`/`hasGender`, `personal_data_locked` em
+   `profile.service.ts`) — imutável a partir de QUANDO for preenchido, não necessariamente no
+   cadastro. Sem essa tela eu não teria feito a mudança (teria sido regressão, não correção).
+
+   **Correção:** removido `required` HTML + validação bloqueante de nome/nascimento/gênero em
+   `Register.tsx`; formato só é validado SE a pessoa preencher. Label trocou `*` vermelho por
+   `(opcional)` neutro (CSS novo `.register-optional`, ao lado do `.required` existente). CPF
+   continua obrigatório e bloqueante — isso é decisão vigente (0115 D2), não o bug.
+
+   ⚠️ **Não resolvido, ainda em aberto:** a idade mínima de 16 anos (atributo HTML `max` no campo
+   de nascimento) continua SEM nenhuma validação server-side — pré-existente, descoberto na
+   investigação anterior, não fica pior nem melhor com esta correção (o campo já podia ser
+   omitido via chamada direta à API antes disso; agora só a UI oficial reconhece o que a API
+   sempre permitiu). Decisão de política/compliance, não bug — GATE próprio se Clayton quiser
+   enforcement real.
+
+   **Efeito colateral encontrado e corrigido de brinde:** ao rodar
+   `validate-pipeline-e2e-register-prelaunch-blockers.ts` para validar que nada quebrou, achei o
+   MESMO problema de rate-limit da dívida #1 (script faz múltiplos `/auth/register` em sequência,
+   trombava em T(3)) — mesma correção aplicada (`RATE_LIMIT_AUTH_REGISTER ??= '50'` antes de
+   `buildApp()`).
+
+   **Verificação:** typecheck BE 0, FE 0 · `validate-pipeline-e2e-register-prelaunch-blockers.ts`
+   22/22 (as asserções estruturais T4-fe/T7/T8/T2-fe/T7-fe que fazem regex no código-fonte de
+   `Register.tsx` continuam batendo — a refatoração não quebrou os pontos que eram contrato) ·
+   `validate-pipeline-e2e-c1-birth-minimum-atomic-organic.ts` 27/29 estável (N1/Z2 = dívida
+   separada, tenant histórico que não existe mais) · `git diff --check` limpo, `git ls-files
+   --eol` = `i/lf w/lf` em todos os arquivos tocados (Register.css veio CRLF do Edit no Windows,
+   normalizado antes do commit).
 
 **Verificação final desta fatia:** typecheck BE 0 · 2 fixtures de teste criados em `unificard_dev`
 e removidos (`ricardo.navcheck*`, CPFs `44776426366`/`19644525388`) · zero resíduo confirmado.
