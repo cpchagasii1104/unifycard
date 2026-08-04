@@ -153,6 +153,20 @@ class EventSectorService {
   async listSectors(tenantId: string, eventId: string): Promise<EventSector[]> {
     return eventSectorRepository.listSectorsByEvent(tenantId, eventId);
   }
+
+  /** Leitura pontual — a rota usa para provar que a área pertence AO evento do path. */
+  async getSector(tenantId: string, sectorId: string): Promise<EventSector | null> {
+    return eventSectorRepository.getSectorById(tenantId, sectorId);
+  }
+
+  /**
+   * Remove uma área. Sem validação de forma (não há body) e sem reconciliação: apagar só LIBERA
+   * capacidade. ⚠️ Como updateSector, este método NÃO verifica autoridade — o gate de ownership é
+   * obrigação da ROTA (ver nota E7 abaixo).
+   */
+  async deleteSector(tenantId: string, sectorId: string): Promise<boolean> {
+    return eventSectorRepository.deleteSector(tenantId, sectorId);
+  }
 }
 
 // 🔴 E7 (auditoria blind): updateSector acima é DEAD CODE hoje — zero rota o expõe, zero caller.

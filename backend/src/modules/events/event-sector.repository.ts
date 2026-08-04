@@ -263,6 +263,22 @@ class EventSectorRepository {
     return this.toSector(rows[0]);
   }
 
+  /**
+   * Remove uma área. Não há reconciliação a fazer: apagar só LIBERA capacidade, nunca estoura o teto
+   * (SUM diminui). Escopo por tenant no WHERE — nunca só por id.
+   * ⚠️ DELETE físico é correto AQUI e seria errado no ledger: setor é catálogo declarado do evento,
+   * não trilha financeira. Nada foi vendido enquanto o Bank está fora (Δbank=0).
+   * @returns true se removeu, false se não existia (ou é de outro tenant) — quem chama decide o 404.
+   */
+  async deleteSector(tenantId: string, sectorId: string): Promise<boolean> {
+    const rows = await runQueriesWithTenant<{ id: string }>(
+      tenantId,
+      `DELETE FROM event_sectors WHERE tenant_id = $1 AND id = $2 RETURNING id`,
+      [tenantId, sectorId]
+    );
+    return (rows?.length ?? 0) > 0;
+  }
+
   async listSectorsByEvent(tenantId: string, eventId: string): Promise<EventSector[]> {
     const rows = await runQueriesWithTenant<EventSectorRow>(
       tenantId,

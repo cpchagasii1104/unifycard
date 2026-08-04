@@ -55,6 +55,11 @@ export default function SectorBuilder({ eventId, maxAttendees }: SectorBuilderPr
   const [quotaPct, setQuotaPct] = useState('40');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Edição inline de área existente (F-EVENT-SECTOR-EDIT).
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editCapacity, setEditCapacity] = useState('');
+  const [editInteira, setEditInteira] = useState('');
 
   const load = useCallback(async () => {
     if (!eventId) return;
@@ -92,6 +97,63 @@ export default function SectorBuilder({ eventId, maxAttendees }: SectorBuilderPr
   const overBy = wouldExceed && remaining != null && capacityBeingTyped != null
     ? capacityBeingTyped - remaining
     : 0;
+
+  // `isFull` é DERIVADO da lista que o backend devolveu — some/volta sozinho ao editar ou apagar.
+  // Não é estado próprio do cliente: se fosse, divergiria da verdade na primeira falha de rede.
+  const isFull = remaining != null && remaining <= 0;
+
+  const startEdit = (s: EventSector) => {
+    setError(null);
+    setEditingId(s.id);
+    setEditName(s.name);
+    setEditCapacity(String(s.capacity));
+    setEditInteira(centsToReais(s.inteiraPriceCents));
+  };
+
+  const handleSaveEdit = async (sectorId: string) => {
+    if (!eventId) return;
+    setError(null);
+    const cap = editCapacity.trim() ? Number.parseInt(editCapacity, 10) : NaN;
+    const inteiraC = reaisToCents(editInteira);
+    if (!editName.trim()) { setError('Dê um nome à área.'); return; }
+    if (!Number.isInteger(cap) || cap < 1) { setError('Informe quantas pessoas cabem nesta área.'); return; }
+    if (inteiraC == null) { setError('Informe o preço da inteira.'); return; }
+
+    setSaving(true);
+    try {
+      const { updateEventSector } = await import('../../../api/events');
+      await updateEventSector(eventId, sectorId, {
+        name: editName.trim(),
+        capacity: cap,
+        inteiraPriceCents: inteiraC,
+        // A meia continua DERIVADA da inteira — nunca digitada, mesma conta do servidor.
+        meiaPriceCents: Math.floor(inteiraC / 2),
+      });
+      setEditingId(null);
+      await load();
+    } catch (err) {
+      setError(orientFromServerError(err));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (s: EventSector) => {
+    if (!eventId) return;
+    // Confirmação explícita: apagar área é ato do organizador, não efeito colateral de clique.
+    if (!window.confirm(`Remover a área "${s.name}" (${s.capacity} lugares)?`)) return;
+    setError(null);
+    setSaving(true);
+    try {
+      const { deleteEventSector } = await import('../../../api/events');
+      await deleteEventSector(eventId, s.id);
+      await load();
+    } catch (err) {
+      setError(orientFromServerError(err));
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleCreate = async () => {
     if (!eventId) return;
@@ -152,8 +214,33 @@ export default function SectorBuilder({ eventId, maxAttendees }: SectorBuilderPr
         <ul className="sector-list">
           {sectors.map((s) => (
             <li key={s.id}>
-              <strong>{s.name}</strong> · {s.capacity} lugares · inteira R$ {centsToReais(s.inteiraPriceCents)} ·
-              meia R$ {centsToReais(s.meiaPriceCents)}
+              {editingId === s.id ? (
+                // EDIÇÃO INLINE: o backend revalida TUDO (meia = metade exata, cota ≥ 40%,
+                // SUM(capacity) <= max_attendees sob advisory lock). Aqui só coletamos.
+                <div className="option-grid">
+                  <input className="form-textarea" value={editName} onChange={(e) => setEditName(e.target.value)} />
+                  <input className="form-textarea" type="number" min={1} value={editCapacity}
+                    onChange={(e) => setEditCapacity(e.target.value)} />
+                  <input className="form-textarea" inputMode="decimal" value={editInteira}
+                    onChange={(e) => setEditInteira(e.target.value)} />
+                  <button type="button" className="step-button" disabled={saving} onClick={() => void handleSaveEdit(s.id)}>
+                    {saving ? 'Salvando…' : 'Salvar'}
+                  </button>
+                  <button type="button" className="step-button" disabled={saving} onClick={() => setEditingId(null)}>
+                    Cancelar
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <strong>{s.name}</strong> · {s.capacity} lugares · inteira R$ {centsToReais(s.inteiraPriceCents)} ·
+                  meia R$ {centsToReais(s.meiaPriceCents)}
+                  {' '}
+                  <button type="button" className="sector-icon-button" title="Editar esta área"
+                    onClick={() => startEdit(s)} disabled={saving}>✏️</button>
+                  <button type="button" className="sector-icon-button" title="Excluir esta área"
+                    onClick={() => void handleDelete(s)} disabled={saving}>🗑️</button>
+                </>
+              )}
             </li>
           ))}
         </ul>
@@ -172,38 +259,54 @@ export default function SectorBuilder({ eventId, maxAttendees }: SectorBuilderPr
               : `⚠️ As áreas somam ${used}, acima do total de ${total}. Aumente a capacidade total ou reduza uma área — o servidor recusa salvar assim.`}
       </p>
 
-      <div className="option-grid">
-        <input className="form-textarea" placeholder="Nome (ex.: Pista)" value={name}
-          onChange={(e) => setName(e.target.value)} />
-        <input className="form-textarea" type="number" min={1} placeholder="Quantas pessoas"
-          value={capacity} onChange={(e) => setCapacity(e.target.value)} />
-      </div>
-
-      <div className="option-grid">
-        <input className="form-textarea" inputMode="decimal" placeholder="Preço inteira (R$)"
-          value={inteira} onChange={(e) => setInteira(e.target.value)} />
-        <input className="form-textarea" type="number" min={40} max={100} placeholder="Cota de meia (%)"
-          value={quotaPct} onChange={(e) => setQuotaPct(e.target.value)} />
-      </div>
-
-      {/* Avisa ENQUANTO digita, sem esperar o clique. */}
-      {wouldExceed && (
-        <p className="flow-error-message">
-          Não cabe: restam <strong>{remaining}</strong> lugares e você digitou <strong>{capacityBeingTyped}</strong>
-          {' '}— {overBy} a mais. Reduza esta área, ou volte e aumente o total do evento.
+      {/* AUTODEFESA (Clayton, 2026-08-03): "se o sistema completar a quantidade de ingressos definidos
+          no início, tem como não aparecer mais a possibilidade de inserir nome de setor… e aí só
+          aparecer o botão editar?". Com a capacidade coberta, o formulário SOME — só o lápis e a
+          lixeira acima seguem disponíveis. Reduzir ou apagar uma área o traz de volta sozinho,
+          porque `remaining` é derivado da lista que o backend devolve. */}
+      {isFull ? (
+        <p className="step-hint">
+          Para criar outra área, reduza a quantidade de uma existente (✏️) ou remova uma (🗑️) — ou volte
+          e aumente o total do evento.
         </p>
+      ) : (
+        <>
+          <div className="option-grid">
+            <input className="form-textarea" placeholder="Nome (ex.: Pista)" value={name}
+              onChange={(e) => setName(e.target.value)} />
+            <input className="form-textarea" type="number" min={1} placeholder="Quantas pessoas"
+              value={capacity} onChange={(e) => setCapacity(e.target.value)} />
+          </div>
+
+          <div className="option-grid">
+            <input className="form-textarea" inputMode="decimal" placeholder="Preço inteira (R$)"
+              value={inteira} onChange={(e) => setInteira(e.target.value)} />
+            <input className="form-textarea" type="number" min={40} max={100} placeholder="Cota de meia (%)"
+              value={quotaPct} onChange={(e) => setQuotaPct(e.target.value)} />
+          </div>
+
+          {/* Avisa ENQUANTO digita, sem esperar o clique. */}
+          {wouldExceed && (
+            <p className="flow-error-message">
+              Não cabe: restam <strong>{remaining}</strong> lugares e você digitou <strong>{capacityBeingTyped}</strong>
+              {' '}— {overBy} a mais. Reduza esta área, ou volte e aumente o total do evento.
+            </p>
+          )}
+
+          <p className="step-hint">
+            Meia-entrada: {meiaCents != null ? `R$ ${centsToReais(meiaCents)}` : 'informe a inteira'} — sempre
+            exatamente a metade, calculada automaticamente. A cota mínima é 40% das vagas (Lei 12.933/2013).
+          </p>
+
+          {error && <p className="flow-error-message">{error}</p>}
+
+          <button type="button" className="step-button" disabled={saving || wouldExceed} onClick={handleCreate}>
+            {saving ? 'Criando…' : wouldExceed ? 'Quantidade não cabe' : 'Adicionar área'}
+          </button>
+        </>
       )}
 
-      <p className="step-hint">
-        Meia-entrada: {meiaCents != null ? `R$ ${centsToReais(meiaCents)}` : 'informe a inteira'} — sempre
-        exatamente a metade, calculada automaticamente. A cota mínima é 40% das vagas (Lei 12.933/2013).
-      </p>
-
-      {error && <p className="flow-error-message">{error}</p>}
-
-      <button type="button" className="step-button" disabled={saving || wouldExceed} onClick={handleCreate}>
-        {saving ? 'Criando…' : wouldExceed ? 'Quantidade não cabe' : 'Adicionar área'}
-      </button>
+      {isFull && error && <p className="flow-error-message">{error}</p>}
     </div>
   );
 }

@@ -28,3 +28,22 @@
   font-size: 0.9rem;
 }
 
+
+/* Ações por área (editar/excluir) — F-EVENT-SECTOR-EDIT. */
+.sector-icon-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 0 0.25rem;
+  opacity: 0.75;
+}
+
+.sector-icon-button:hover:not(:disabled) {
+  opacity: 1;
+}
+
+.sector-icon-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+}

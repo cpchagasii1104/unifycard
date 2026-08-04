@@ -846,6 +846,26 @@ export async function listEventSectors(eventId: string): Promise<EventSector[]> 
 }
 
 /** Cria setor (POST owner-gated: chave exata create_events sobre o dono do evento). */
+/**
+ * Edita uma área existente. F-EVENT-SECTOR-EDIT: sem isto, área errada era definitiva.
+ * O backend revalida TUDO (meia = metade exata, cota >= 40%, SUM <= capacidade sob advisory lock).
+ */
+export async function updateEventSector(
+  eventId: string,
+  sectorId: string,
+  input: Partial<CreateEventSectorInput>
+): Promise<EventSector> {
+  return apiFetchJson<EventSector>(`/api/events/events/${eventId}/sectors/${sectorId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
+}
+
+/** Remove uma área. Apagar só LIBERA capacidade — nunca estoura o teto. */
+export async function deleteEventSector(eventId: string, sectorId: string): Promise<void> {
+  await apiFetchJson(`/api/events/events/${eventId}/sectors/${sectorId}`, { method: 'DELETE' });
+}
+
 export async function createEventSector(
   eventId: string,
   input: CreateEventSectorInput

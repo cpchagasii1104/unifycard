@@ -1,7 +1,7 @@
 // backend/src/modules/events/events-sprint76.routes.ts
 // SPRINT 76: EVENTS + TICKETING + CHECK-IN (CANÔNICO)
 
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { eventRepository } from './event.repository';
 import { ticketService } from './ticket.service';
 import { checkInService } from './checkin.service';
@@ -441,6 +441,79 @@ const eventsSprint76Routes = async (fastify: FastifyInstance) => {
 
     const sectors = await eventSectorService.listSectors(tenantId, req.params.id);
     return reply.send(sectors);
+  });
+
+  /**
+   * PATCH /events/:id/sectors/:sectorId · DELETE /events/:id/sectors/:sectorId
+   * F-EVENT-SECTOR-EDIT (2026-08-03, pedido de Clayton: "lápis de editar e lixeira"). Sem isto, uma
+   * área errada era definitiva — e com a capacidade cheia o organizador ficava sem saída nenhuma.
+   *
+   * 🔴 O GATE DE OWNERSHIP É REPETIDO AQUI DE PROPÓSITO. A nota E7 em event-sector.service.ts avisa:
+   * "qualquer wiring FUTURO de rota PRECISA repetir o gate (userCanActOnEventOwner sobre
+   * event.organizerActorId) NA ROTA — este service NÃO reverifica autoridade". Espelha o padrão já
+   * SELADO do POST /events/:id/sectors, incluindo o 404 antes do 403 (não vaza existência).
+   * A reconciliação SUM(capacity) <= max_attendees continua no repository, sob advisory lock.
+   */
+  const assertSectorOwner = async (
+    req: FastifyRequest<{ Params: { id: string; sectorId: string } }>,
+    reply: FastifyReply
+  ): Promise<{ tenantId: string } | null> => {
+    if (!req.tenant?.id) {
+      await reply.status(400).send({ error: 'Tenant é obrigatório' });
+      return null;
+    }
+    const tenantId = req.tenant.id;
+    const userId = req.user?.userId;
+    if (!userId) {
+      await reply.status(401).send({ error: 'Authentication required', code: 'AUTH_REQUIRED' });
+      return null;
+    }
+    const event = await eventRepository.getEventById(tenantId, req.params.id);
+    if (!event) {
+      await reply.status(404).send({ error: 'Evento não encontrado' });
+      return null;
+    }
+    if (!(await userCanActOnEventOwner(tenantId, userId, event.organizerActorId, 'create_events'))) {
+      await reply.status(403).send({ error: 'EVENT_SECTOR_ACTOR_NOT_AUTHORIZED', code: 'EVENT_SECTOR_ACTOR_NOT_AUTHORIZED' });
+      return null;
+    }
+    // A área tem de ser DESTE evento: sem isto, o id de um setor de outro evento do mesmo tenant
+    // passaria pelo gate do evento A e editaria o evento B.
+    const sector = await eventSectorService.getSector(tenantId, req.params.sectorId);
+    if (!sector || sector.eventId !== req.params.id) {
+      await reply.status(404).send({ error: 'Setor não encontrado neste evento' });
+      return null;
+    }
+    return { tenantId };
+  };
+
+  fastify.patch<{
+    Params: { id: string; sectorId: string };
+    Body: Partial<CreateEventSectorInput>;
+  }>('/events/:id/sectors/:sectorId', async (req, reply) => {
+    const ctx = await assertSectorOwner(req, reply);
+    if (!ctx) return reply;
+    try {
+      const sector = await eventSectorService.updateSector(ctx.tenantId, req.params.sectorId, req.body);
+      return reply.send(sector);
+    } catch (error) {
+      const statusCode = (error as { statusCode?: number })?.statusCode ?? 400;
+      const code = (error as { code?: string })?.code;
+      return reply.status(statusCode).send({
+        error: error instanceof Error ? error.message : String(error),
+        ...(code ? { code } : {}),
+      });
+    }
+  });
+
+  fastify.delete<{
+    Params: { id: string; sectorId: string };
+  }>('/events/:id/sectors/:sectorId', async (req, reply) => {
+    const ctx = await assertSectorOwner(req, reply);
+    if (!ctx) return reply;
+    const removed = await eventSectorService.deleteSector(ctx.tenantId, req.params.sectorId);
+    if (!removed) return reply.status(404).send({ error: 'Setor não encontrado neste evento' });
+    return reply.status(200).send({ ok: true });
   });
 
   /**
