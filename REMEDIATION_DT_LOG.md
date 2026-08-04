@@ -1,5 +1,118 @@
 # REMEDIATION DT LOG
 
+## 🧾 As 6 perguntas do "Ricardo" — cadastro PF verificado ponta a ponta (2026-08-04)
+
+**Origem:** Clayton colou o questionário que outra instância (persona "Ricardo, 35 anos, quer se
+cadastrar") fez sobre a tela de cadastro — 6 perguntas sem código, só comportamento — e pediu para
+conferir CADA UMA no código real, corrigir o que der, e registrar o resto como dívida nomeada. Ele
+autorizou aplicar prática de mercado já validada (Facebook/Instagram/Uber) onde a documentação
+permitir, sem precisar perguntar de novo.
+
+### O que foi medido, pergunta por pergunta (arquivo:linha, não suposição)
+
+1. **Tela única, um só POST.** `frontend/src/components/Register.tsx` — um `<form>` só, sem
+   wizard/steps. Campos na mesma submissão: email, nome completo, CPF, data nascimento, gênero,
+   senha — todos `required` na tela — e código de indicação (o único opcional). Sem telefone, sem
+   endereço/bairro em lugar nenhum do formulário.
+2. **Só email, nos dois lados** (`auth.routes.ts` `registerSchema`/`loginSchema`; `Login.tsx`).
+   Telefone não existe como campo de auth. **Sem confirmação bloqueante**: `users` não tem
+   `email_verified`/`phone_verified`/`verified_at`; token é emitido no mesmo commit do
+   nascimento, sem gate de verificação no meio.
+3. **Senha real, bcrypt**, nunca OTP/passwordless. `users.password_hash NOT NULL`; `bcrypt.hash`
+   no cadastro, `bcrypt.compare` no login. Zero rota `/auth/otp` ou equivalente.
+4. **CPF é obrigatório na hora — ver achado abaixo, era comentário mentindo o contrário.**
+5. **Bairro/endereço nunca é pedido no cadastro** e hoje não existe NENHUMA tela de perfil PF
+   para preenchê-lo depois (a entidade `addresses` existe, mas sem UI de "meu bairro"). Estado
+   "sem bairro" é aceito para uso geral do app; o que ele bloqueia de fato é a política de fundo
+   regional (`POLICY_REGIONAL_ORIGIN_UNRESOLVABLE`, fail-closed, zero split) — provado em
+   `validate-pipeline-e2e-regional-fund-pf-resolver.ts:295-303`. Não bloqueia login/uso geral.
+6. **Conta nasce ativa, sem "pendente".** Não existe status de conta nem verificação bloqueante —
+   **corrigido abaixo** (o único sinal que existia, `requiresOnboarding`, estava incorreto).
+
+### 🔴 Achado 1 — comentário mentindo sobre CPF (CORRIGIDO)
+
+`auth.service.ts:400-403` dizia *"DECISION-0115: perfil/gender são progressivos"* e incluía
+`normalizedCpf` na MESMA condição/bloco que fullName/birthdate/gender, como se CPF fosse mais um
+dado "progressivo, best-effort". **Não é.** 150 linhas acima, no mesmo método: CPF é exigido
+(`auth.service.ts:253-257`, `400` síncrono se ausente), validado (258-264) e gravado de forma
+bloqueante DENTRO da transação atômica de nascimento (300-382) — é a própria `UNIQUE` key de
+`global_users` (`migrations/0058_users_global_users_profiles_app.sql:16,23`). `registerSchema`
+(`auth.routes.ts:16`) marca `cpf` SEM `.optional()`, ao contrário de `fullName`/`birthdate`/
+`gender` (linhas 17-19, todos `.optional()`). A leitura literal da própria DECISION-0115 D2
+confirma isto: CPF/global_user está DENTRO da cadeia "garantida", só "perfil complementar" é
+progressivo (`docs/02_decisions/DECISION_0115_HUMAN_BIRTH_VERTICAL_ROOT_DECISIONS.md:29`).
+
+Este achado já tinha sido feito e registrado **em outro lugar** — `ARQUITETURA/DOCS/03-identidade-
+e-autoridade/decisoes.md:269-304` e `ARQUITETURA/BACKEND/internal/identity/LEIA-ME.md:166-182`,
+ambos `[decidido 2026-08-04]` — mas `ARQUITETURA/` é o espaço de desenho-do-zero (nunca commitado,
+não é o sistema em produção); o comentário mentiroso continuava vivo em `backend/src` até agora.
+**Fechado o loop:** comentário reescrito para não afirmar o que o código não faz — CPF permanece
+obrigatório (é decisão vigente, não bug), só o TEXTO estava errado.
+
+### 🔴 Achado 2 — `requiresOnboarding` hardcoded, ignorando o que acabou de gravar (CORRIGIDO)
+
+`auth.service.ts:457` (antes da correção): `const requiresOnboarding = true;` — sempre, mesmo
+quando o formulário (a única tela que existe, `Register.tsx`) já mandou fullName+birthdate+gender
+e o bloco pós-commit (`upsertProfile`, linha ~410) **acabou de marcar** `onboarding_completed =
+true` no mesmo request (`profile.service.ts:357-360`: `hasFullName && hasBirthdate && hasGender`
+→ true). `login()` já resolve isto corretamente (`auth.service.ts:558-566`, lê
+`profileService.isOnboardingCompleted`) — `register()` nunca usava o mesmo padrão.
+
+**Efeito real, medido:** todo cadastro caía em `/perfil` (`App.tsx:149-150`) para "completar" dado
+que o usuário tinha acabado de dar — fricção sem propósito, pior que o próprio login.
+
+**Correção:** `register()` agora computa `requiresOnboarding` do mesmo jeito que `login()`, lendo
+o estado real pós-gravação, com o mesmo fallback conservador (`true`) se a leitura falhar.
+
+**Provado ao vivo** (dev server rodando, `unificard_dev`, fixtures limpos depois):
+```
+POST /auth/register {email,password,cpf,fullName,birthdate,gender} → requiresOnboarding: false
+POST /auth/register {email,password,cpf,fullName}                   → requiresOnboarding: true
+```
+Bate com a asserção pré-existente `B5 A: requiresOnboarding = true`
+(`validate-pipeline-e2e-c1-birth-minimum-atomic-organic.ts:141`, que registra SEM
+birthdate/gender — continua `true`, sem regressão).
+
+**Verificação:** typecheck BE 0. O E2E completo do arquivo acima não roda limpo hoje (ver dívida
+nomeada abaixo) — validado por chamada HTTP direta e isolada em vez disso, e o resultado bate
+exatamente com a lógica lida no código.
+
+### 🟡 Dívida nomeada — encontrada, NÃO corrigida nesta fatia
+
+1. **`validate-pipeline-e2e-c1-birth-minimum-atomic-organic.ts` está incompatível com o rate
+   limiter de registro.** `auth-rate-limit.service.ts:41-44`: `auth.register` = 3/minuto por IP,
+   sem exceção para teste/dev. O script faz 6+ `POST /auth/register` em sequência no mesmo
+   processo/IP — a partir da 4ª chamada (`H1`, teste de referral inválido) o próprio rate limit
+   devolve `429` e derruba o teste (`H1`, e em cascata `N1`/`Z2`, contagens que dependem de
+   registros que nunca aconteceram). **Não é causado por esta fatia** — confirmado via
+   `git log -S` que o rate limiter (`c4c45ec77`) é anterior ao último toque neste E2E
+   (`ed6196a89`), ou seja, o teste já nasceu — ou ficou — incompatível com o próprio limite que o
+   sistema aplica. Preso: ou o E2E precisa de uma exceção de rate-limit para teste (env var já
+   existe, `RATE_LIMIT_AUTH_REGISTER`, só não está setada em ambiente de teste), ou o teste precisa
+   espaçar as chamadas. Não decidi qual — é escopo de quem mexer nesse E2E de novo.
+2. **Sem verificação de email/telefone, em lugar nenhum** — nem coluna, nem rota, nem bloqueio.
+   Não é bug (nunca foi prometido em nenhuma decisão que encontrei) — é ausência honesta. Prática
+   de mercado (Uber/Instagram/Facebook): enviar verificação em background, LEMBRAR, nunca
+   bloquear uso — exatamente o padrão que este sistema já segue para tudo o mais (conta nasce
+   ativa). Construir isso é infraestrutura nova (provedor de email/SMS, coluna, rota de confirmação)
+   — fora do escopo de uma correção; precisa de GATE/GO próprio se Clayton quiser.
+3. **`Register.tsx` exige mais do que a própria decisão manda.** `registerSchema` já marca
+   `fullName`/`birthdate`/`gender` `.optional()` (`auth.routes.ts:17-19`) — o desenho já é
+   "progressivo" no contrato HTTP, seguindo DECISION-0115 D2. A ÚNICA tela que existe hoje
+   (`Register.tsx`) ignora isso e torna os três `required` na UI (HTML + validação JS antes do
+   submit, linhas ~186-230), produzindo 5 campos obrigatórios na primeira tela (email, nome, CPF,
+   nascimento, gênero) onde a norma já autoriza 2 (email, CPF) + senha. Relaxar isso alinharia com
+   o padrão de mercado que o próprio Clayton pediu para adotar (cadastro mínimo, resto progressivo)
+   — **não fiz** porque tocar nisso exige checar todo consumidor de `profile.fullName/birthdate/
+   gender` por null-safety (ex.: idade mínima de 16 anos hoje só existe como atributo HTML `max` no
+   campo de nascimento — SEM nenhuma validação server-side; ninguém percebeu porque a UI sempre
+   exigiu o campo). Isso é produto+compliance, não bug — GATE próprio.
+
+**Verificação final desta fatia:** typecheck BE 0 · 2 fixtures de teste criados em `unificard_dev`
+e removidos (`ricardo.navcheck*`, CPFs `44776426366`/`19644525388`) · zero resíduo confirmado.
+
+---
+
 ## 🤥 F-INTENT-EXECUTOR-HONESTY — 10 executores paravam de mentir (2026-08-03)
 
 **Origem:** Clayton trouxe o catálogo consolidado de erros do legado e pediu para ver *"se algum

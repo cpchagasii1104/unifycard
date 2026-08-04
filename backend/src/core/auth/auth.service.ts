@@ -398,9 +398,18 @@ class AuthService {
     });
 
     // ── PÓS-COMMIT — DADOS PROGRESSIVOS (best-effort; nascimento já é COMPLETO e atômico) ──
-    // DECISION-0115: perfil/gender são progressivos, NÃO requisitos do nascimento.
-    // (O vínculo de referral NÃO é mais pós-commit: materializa DENTRO da transação de
-    // nascimento — DECISION-0119 D2.) Gender permanece em metadata (casa canônica = Fatia 4).
+    // 🔴 CORRIGIDO 2026-08-04 — este comentário mentia. Dizia "DECISION-0115: perfil/gender são
+    // progressivos" e incluía `normalizedCpf` na mesma condição/bloco, como se CPF fosse mais um
+    // dado progressivo. NÃO é: CPF já foi exigido (linhas 253-257), validado (258-264) e GRAVADO
+    // de forma síncrona e bloqueante ANTES desta linha, dentro da transação atômica de nascimento
+    // (linhas 300-382) — é a própria UNIQUE key de `global_users` (migration 0058). A leitura
+    // literal de DECISION-0115 D2 ("CPF/global_user → users → identity → actor" é a cadeia
+    // GARANTIDA; só "perfil complementar" — fullName/birthdate/gender — "permanece progressivo")
+    // confirma isso. O `normalizedCpf` abaixo NÃO coleta CPF de novo: só espelha o valor já
+    // gravado em `profiles.metadata.cpf` (leitura de conveniência). Progressivo de verdade aqui é
+    // só fullName/birthdate/gender. (O vínculo de referral NÃO é mais pós-commit: materializa
+    // DENTRO da transação de nascimento — DECISION-0119 D2.) Gender permanece em metadata (casa
+    // canônica = Fatia 4).
     if (fullName || birthdate || gender || normalizedCpf) {
       try {
         const { profileService } = await import('@core/profile/profile.service');
@@ -454,7 +463,22 @@ class AuthService {
       console.error('[AuthService] ❌ ERRO ao provisionar actor_referral_code (não crítico):', err instanceof Error ? err.message : String(err));
     }
 
-    const requiresOnboarding = true;
+    // 🔴 CORRIGIDO 2026-08-04 — era hardcoded `true`, sempre, mesmo quando o formulário de
+    // cadastro (a única tela que existe hoje, Register.tsx) já enviou fullName+birthdate+gender e
+    // o bloco acima (upsertProfile) acabou de marcar `onboarding_completed=true` no mesmo
+    // request. Resultado real: todo cadastro caía em /perfil (App.tsx) para "completar" dado que
+    // já tinha acabado de dar. `login()` já resolve isto de verdade (linhas 558-566) — mesmo
+    // padrão aplicado aqui, lendo o estado que ACABOU de ser gravado, não afirmando um valor fixo.
+    let requiresOnboarding = true;
+    try {
+      const { profileService } = await import('@core/profile/profile.service');
+      const isCompleted = await profileService.isOnboardingCompleted(finalTenantId, user.userId);
+      requiresOnboarding = !isCompleted;
+    } catch (err) {
+      // Falha ao verificar → assume que precisa (mesmo fallback conservador do login()).
+      requiresOnboarding = true;
+    }
+
     return {
       user,
       tokens,
