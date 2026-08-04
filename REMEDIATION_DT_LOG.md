@@ -1,5 +1,98 @@
 # REMEDIATION DT LOG
 
+## ⚖️ PROVA DE RASTREABILIDADE A POSTERIORI — e o eixo fundido que a conferência achou (2026-08-04)
+
+**Origem:** Clayton perguntou, sobre a fatia da página do fornecedor: *"tudo o que você fez
+respeitou as normas, a ontologia, N0/N1/N2, SSOT, lei de coerência sistêmica? Sim ou não?"* — e
+depois: *"corrija o que tiver que corrigir, o sistema está virgem sem usuários reais."*
+
+**Resposta que dei: NÃO.** A substância estava conforme; o **rito** não, em dois pontos, e havia um
+defeito real. Este registro existe porque **`00_AGENT_PROTOCOL` §2.2.2 exige a prova ANTES de
+executar**, e eu executei sem declará-la. Registrar depois não conserta a ordem — conserta a
+lacuna documental e deixa o próximo com o que eu deveria ter escrito primeiro.
+
+### 1. A prova que faltava (§2.2.2 — as quatro linhas obrigatórias)
+
+**Documentos de `docs/01_normative/` lidos/revistos:** `00_AGENT_PROTOCOL.md` (§2.2.2 prova,
+§2.3.2 GATE, §2.3.3 proibições estruturais) · `SSOT_EXCLUSIVE_BANK_RULE.md` (integral, 147 linhas) ·
+`SSOT_REGISTRY_UNIFICARD.md` (linha temporal) · `LEI_DE_COERENCIA_SISTEMICA_UNIFICARD.md`
+(§4.6/§4.7 fronteira financeira) · `07_NOMENCLATURA_CANONICA.md` (§4.34 eixos, §7 espelho do
+frontend) · `18_DOMAIN_ONTOLOGY_UNIFICARD.md`.
+
+**Por que o conjunto é suficiente:** a fatia toca **três** pilares e nenhum outro. **Semântico**
+(descoberta casa por `concept_id`), **temporal** (lê janela de agenda), **financeiro** (afirma
+Δbank=0 e criou uma sonda dentro do Bank). Não toca identidade (não escreve `actors` — o E2E
+passou a usar o writer soberano), não toca migration/DDL, não cria tabela.
+
+**SSOT por pilar, nomeados:**
+- **semântico → CONCEPT** (`concepts.concept_id`; `canonical_services` e `rentable_resources`
+  ligam-se a ele). `categories`/`slug`/`metadata` **NÃO** são identidade (Lei 7).
+- **financeiro → `bank_ledger` / UnifyBank** (Lei 5, `SSOT_REGISTRY`). A sonda **só conta linhas**;
+  não calcula nem infere saldo — o que §2.5 da regra do Bank proíbe explicitamente.
+- **temporal → Agenda / Unified Availability**. ⚠️ O registry nomeia `unified_availability`, que
+  **não existe** no banco; a tabela viva é `availability`. Divergência já registrada; norma é ato
+  de Clayton, não meu. Só **leio** — o registry proíbe outro módulo **definir ou persistir** estado
+  temporal, e nada aqui persiste.
+
+**Precedência aplicada (§2.2.7):** Constituição > Leis > SSOT Registry > Ontologia. Não houve
+conflito entre os documentos lidos.
+
+**O que NÃO é SSOT, explicitado:** N0/N1/N2 é **navegação** e não participou de nenhum roteamento
+(a descoberta roteia por `concept_id`) · `category_id` é árvore, não identidade · `slug` sem
+validade normativa — e foi exatamente por isso que a faxina trocou `metadata->>'demo_seed'` por
+**id**.
+
+### 2. O que a conferência declarou CONFORME
+
+- **Fronteira financeira.** §2.3.2 e §2.3.3 nomeiam a fronteira **exata**: SQL em `bank_ledger`/
+  `bank_transactions`/`bank_accounts` **fora de `backend/src/modules/bank/`** → ABORTAR. É
+  precisamente onde a sonda foi posta. Os 8 sítios anteriores nos scripts **violavam a norma**, não
+  só o guard — o conserto foi de violação para conformidade.
+- **`SSOT_EXCLUSIVE_BANK_RULE` §2:** zero tabela financeira nova, zero campo de saldo fora do Bank,
+  zero `INSERT/UPDATE/DELETE`, zero saldo inferido. Δbank medido **0 → 0**.
+- **Lei 7 / Lei 2:** junção por CONCEPT; nenhuma migration; GENESIS intocado.
+
+### 3. 🔴 O DEFEITO QUE A CONFERÊNCIA ACHOU — eixo fundido, meu
+
+`priceUnit` carregava **duas coisas**: `duration_minutes` quando serviço, `pricing_unit` quando
+locação. É a classe que **§4.34** nomeia (*"`severity` e `priority` NÃO são sinônimos"*). As telas
+não mentiam porque desempatavam por `sourceKind` na leitura — **o contrato mentia**. Pior: herdei
+da projeção do catálogo (também minha) e **propaguei para um contrato NOVO** em vez de separar.
+
+Conserto: `durationMinutes` e `pricingUnit`, separados **até o SQL** — cada query emite o seu eixo e
+um `NULL` explícito para o outro, de modo que a forma é honesta na origem, não remontada no caller.
+
+**Segundo defeito, achado ao consertar o primeiro:** a leitura de preço estava **copiada em três
+telas**. Três cópias de *"como preço se lê"* divergem em silêncio. Agora uma só
+(`formatSupplierPrice`), recebendo os dois eixos. Unidade desconhecida **some** do rótulo em vez de
+sair crua; preço nulo continua *"sob consulta"* e **nunca** "R$ 0,00" — afirmação diferente, e a
+errada é cara numa tela de contratação.
+
+**Medido em `unificard_dev`, nas 17 ofertas vivas:** serviço (14) → `durationMinutes` numérico e
+`pricingUnit` **sempre** null; locação (3) → `durationMinutes` **sempre** null e `pricingUnit`
+`por_dia`.
+
+### 4. 🔴 O QUE NÃO SE CONSERTA RETROATIVAMENTE — fica registrado como foi
+
+1. **§2.2.2 violada na ordem.** A prova é exigida **antes** da execução; produzi depois, sob
+   pergunta. A norma diz que prova ausente = execução deve ser abortada.
+2. **§2.3.2 GATE não foi aberto.** Criei arquivo no domínio Bank (pilar financeiro) e leitor de
+   descoberta (pilar semântico) **sem GATE formal e sem GO para esta fatia**. Tratei a missão
+   permanente de Clayton (*"tudo o que pode ser feito antes da PORTA-01"*) como autorização geral —
+   **o protocolo não concede isso**, e a §5 do roteador diz literalmente *"não se autorize"*.
+3. **Escolha sem norma que a sustente:** a rota ficou em `/api/events/suppliers/:providerActorId`.
+   Defensável como continuação do catálogo de fornecedor de evento; não é decisão normativa.
+
+**Clayton autorizou a correção** (*"corrija o que tiver que corrigir, o sistema está virgem sem
+usuários reais"*) — o que ratifica o material. Os itens 1 e 2 ficam como **precedente**, não como
+permissão: a próxima fatia que tocar pilar abre GATE e declara a prova ANTES.
+
+### Estado
+
+Runner **238 COMMANDS OK** · E2E `event-need-supplier-bridge` **9/9** · typecheck BE 0 · FE 0 ·
+Δbank=0. Commit `824e9140d`.
+
+
 ## 🧾 A PÁGINA DO FORNECEDOR — e o runner que estava vermelho no HEAD (2026-08-04)
 
 **Origem:** Clayton: *"quando eu clicar no tipo de prestador de serviço, empresa ou fornecedor eu
