@@ -64,18 +64,35 @@ function pendenciaParaPublicar(ev: Event): string | null {
 }
 
 export default function OrganizerEventsDashboard() {
-  const { activeActor } = useActiveActor();
+  const { activeActor, actors } = useActiveActor();
   const [events, setEvents] = useState<Event[] | null>(null);
   const [stats, setStats] = useState<Record<string, Stats>>({});
   const [erro, setErro] = useState<string | null>(null);
+  // Aba visível — navegação de UX, nunca estado de domínio.
+  const [abaAtiva, setAbaAtiva] = useState<string>('montagem');
 
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
-      if (!activeActor?.actor_id) return;
+      // 🔴 NÃO basta o actor ATIVO. "Meus eventos" é o que EU organizo em QUALQUER papel — e o
+      // organizador troca de chapéu no cabeçalho (pessoa física, página, empresa). Com um só actor,
+      // quem estivesse "Operando" como página via ZERO eventos criados como pessoa física, e o
+      // backend ainda caía em `public_discovery` (piso published/active), escondendo os `declared`.
+      // Sintoma real: todos os grupos em (0) com eventos existindo no banco.
+      const ids = Array.from(new Set([
+        ...(actors ?? []).map((a) => a.actor_id),
+        ...(activeActor?.actor_id ? [activeActor.actor_id] : []),
+      ].filter(Boolean)));
+      if (ids.length === 0) return;
       try {
-        const list = await listOrganizerEvents(activeActor.actor_id);
+        // Uma chamada por papel. Falha de um papel não pode zerar os outros — por isso allSettled.
+        const results = await Promise.allSettled(ids.map((id) => listOrganizerEvents(id)));
         if (cancelled) return;
+        const porId = new Map<string, Event>();
+        for (const r of results) {
+          if (r.status === 'fulfilled') for (const ev of r.value) porId.set(ev.id, ev);
+        }
+        const list = Array.from(porId.values());
         setEvents(list);
         // Ingressos vendidos: uma chamada por evento, tolerante a falha individual.
         // Falha de UM não pode zerar o número dos outros nem afirmar "0 vendidos" (zero é asserção).
@@ -90,7 +107,7 @@ export default function OrganizerEventsDashboard() {
     };
     void load();
     return () => { cancelled = true; };
-  }, [activeActor?.actor_id]);
+  }, [activeActor?.actor_id, actors]);
 
   const agrupados = useMemo(() => {
     const base = GRUPOS.map((g) => ({ ...g, itens: (events ?? []).filter((e) => g.status.includes(e.status)) }));
@@ -114,11 +131,25 @@ export default function OrganizerEventsDashboard() {
 
   return (
     <div className="organizer-events-dashboard">
-      {agrupados.map((g) => (
+      {/* ABAS (Clayton: "podia também ser em abas"). A contagem fica NO rótulo, então dá para ver
+          quantos há em cada situação sem abrir. Navegação pura — não grava nem altera nada. */}
+      <nav className="organizer-tabs" role="tablist">
+        {agrupados.map((g) => (
+          <button
+            key={g.chave}
+            type="button"
+            role="tab"
+            aria-selected={abaAtiva === g.chave}
+            className={`organizer-tab ${abaAtiva === g.chave ? 'organizer-tab-active' : ''}`}
+            onClick={() => setAbaAtiva(g.chave)}
+          >
+            {g.titulo} ({g.itens.length})
+          </button>
+        ))}
+      </nav>
+
+      {agrupados.filter((g) => g.chave === abaAtiva).map((g) => (
         <section key={g.chave} className="organizer-section">
-          <h3 className="organizer-section-title">
-            {g.titulo} <span className="organizer-count">({g.itens.length})</span>
-          </h3>
           <p className="organizer-hint organizer-hint-muted">{g.ajuda}</p>
 
           {g.itens.length === 0 ? (
