@@ -351,10 +351,26 @@ async function main(): Promise<void> {
         [organizador.tenant_id]
       )).rows[0];
     } else {
-      row = (await pool.query<{ id: string; actor_type: string; display_name: string }>(
-        `SELECT id::text, actor_type, display_name FROM actors WHERE slug = $1 AND tenant_id=$2::uuid LIMIT 1`,
-        [slug, organizador.tenant_id]
-      )).rows[0];
+      // 🔴 BUSCA POR NOME, não por slug (2026-08-04, 2ª correção).
+      // `createCompany` GERA o próprio slug (`page-22901467`) — o `COALESCE(slug, $2)` que eu tinha
+      // posto nunca aplicava, porque o slug já vinha preenchido. Resultado: o resolvedor procurava
+      // 'muralha-seguranca', não achava, e caía no organizador padrão. Sarau e Feira nasceram do
+      // Dev Canonical em vez das empresas — o que ESVAZIA a seção "de outros" da vitrine, que era
+      // justamente o pedido de Clayton.
+      // O `slug` do FORNECEDOR é chave do seed, não do domínio; quem tem nome estável aqui é a
+      // empresa. Casar por `display_name` é ler o que o writer real de fato gravou.
+      const nomePorSlug: Record<string, string> = Object.fromEntries([
+        ...FORNECEDORES.map((f) => [f.slug, f.nome]),
+        ...LOCAVEIS.map((l) => [l.empresa.slug, l.empresa.nome]),
+      ]);
+      const nome = nomePorSlug[slug];
+      row = nome
+        ? (await pool.query<{ id: string; actor_type: string; display_name: string }>(
+            `SELECT id::text, actor_type, display_name FROM actors
+              WHERE display_name = $1 AND tenant_id = $2::uuid AND company_id IS NOT NULL LIMIT 1`,
+            [nome, organizador.tenant_id]
+          )).rows[0]
+        : undefined;
     }
     if (!row) return { id: organizador.id, tipo: 'user', nome: 'você (alvo ausente)' };
     return { id: row.id, tipo: row.actor_type, nome: row.display_name };
