@@ -1,5 +1,93 @@
 # REMEDIATION DT LOG
 
+## 🎟️ A página PÚBLICA do evento — visitante × dono na mesma rota (2026-08-04)
+
+**Origem:** Clayton, clicando num evento da vitrine: *"estou indo para uma tela nada a ver, de
+buscar no catálogo, sendo que deveria aparecer a página (mesmo modelo para todos os eventos e para
+facilitar nos app) com informações sobre o evento, ingressos disponíveis… Aparecer valores,
+setores, quantidade de meias, etc. Que nem aparece em eventim."* GO: *"sim, tome cuidado para
+ficar bem feito."*
+
+### 🔴 O achado que reorganizou a fatia: o endpoint público JÁ EXISTIA, sem consumidor
+
+`GET /api/events/events/:id/sectors` é gated por `canViewEvent` (não owner-only) e o comentário no
+backend diz literalmente *"VITRINE do comprador"* (`events-sprint76.routes.ts:472-479`). Devolve
+nome do setor, capacidade, `inteira_price_cents`, `meia_price_cents` e `meia_quota_bps`.
+**Nenhum consumidor no frontend.** A tela que faltava tinha a fonte pronta há tempo.
+
+E o substrato de meia é **sólido**, não improviso: cota `40%–100%` travada no DDL
+(`meia_quota_bps CHECK BETWEEN 4000 AND 10000`, Lei 12.933/2013) e `meia = inteira/2` por **CHECK
+físico** (`chk_event_sectors_meia_is_half_inteira`) — que substituiu um antigo `meia <= inteira`
+permissivo demais. O writer reconcilia capacidade sob `pg_advisory_xact_lock`.
+
+### O que estava errado — 23 blocos, UM gate
+
+`EventPage.tsx` renderiza 23 blocos e apenas o `EventOrganizerPanel` verificava dono. Visitante via
+**"Histórico de Estados"**, **"Artistas / Serviços Selecionados"** com "Buscar no Catálogo",
+**"Publicar Evento"** e **"Criar RFQ"**. Os writes falhavam no backend (403), mas os controles
+apareciam — ruído de gestão para quem só quer ir ao show.
+
+⚠️ **Verifiquei antes de alarmar:** o bloco "Economia do Evento" (Total Coletado / Total Esperado)
+**NÃO vaza** — `GET /:eventId/economy` tem kill switch e lança `LEGACY_FINANCIAL_PATH_DISABLED`
+incondicional → 500 → `eventEconomy` fica null → o bloco nunca renderiza. Ia reportar vazamento de
+faturamento e a medição me impediu.
+
+### A correção
+
+**`EventPublicView`** — face do visitante, componente próprio. **Não** saí pendurando
+`{isOwner && …}` em 8 blocos: cada um esquecido continuaria vazando, e a página de quem COMPRA não
+é a de quem ADMINISTRA com pedaços escondidos — é outra tela. Mostra cabeçalho, quando, descrição,
+**setores com inteira/meia/cota**, ocupação, e o botão de compra.
+
+Comparação de dono contra **TODOS os actors representados**, não só o ativo — senão a dona da banda
+veria o próprio show como visitante ao estar "operando" como pessoa física. Bônus: `?ver=publico`
+deixa o dono espiar a própria página sem deslogar.
+
+⚠️ **É HINT DE UX, NÃO AUTORIDADE** — está escrito no código. Quem protege é o 403 do backend, que
+segue revalidando todo write; esconder controle não protege nada sozinho.
+
+### 🔴 O BOTÃO DIZ A VERDADE — e isso foi decisão, não preguiça
+
+A compra está estruturalmente desligada, medido:
+```
+POST /tickets/:id/reserve|pay   → 501  (repositório mira colunas que `ticket_sales` não tem)
+POST /api/events/:id/checkout   → 403  (firewall CHECKOUT_FINANCIAL_RUNTIME_ENABLED, default OFF)
+carrinho de ingresso            → não existe em nenhum lugar do domínio de evento
+```
+A tela mostra **preço real** e um botão desabilitado *"Venda ainda não liberada"*, explicando que o
+evento está publicado mas a venda não foi habilitada. **Clayton confirmou preferir assim.** Fingir
+carrinho que devolve 403 seria a mesma doença que esta sessão vem consertando (relatar sucesso sem
+ato). Também não inventa meia quando não há setor: sem setor declarado, não existe cota governada
+para exibir, e calcular "metade disso" na tela seria o frontend criando política de preço.
+
+### Setores de demonstração — pelo WRITER REAL
+
+Semeados via `eventSectorService.createSector`, **nunca INSERT direto**: só assim passam pela
+validação da cota legal, pela exigência de metade exata e pela reconciliação de capacidade sob
+advisory lock. Provado ao vivo pelo endpoint público:
+```
+Pista      300 lugares  inteira R$  60,00  meia R$ 30,00  cota 40%
+Camarote   100 lugares  inteira R$ 120,00  meia R$ 60,00  cota 40%
+soma das capacidades: 400  (= max_attendees do evento)
+```
+
+### 🟡 Aberto, nomeado
+
+- **"O que este evento está contratando"** (Clayton pediu, para fornecedor entrar em contato): as
+  três rotas de necessidade são **organizer-gated** — não existe endpoint público. Precisa de rota
+  nova; **não fiz** para não inventar superfície pública sem decisão.
+- **Desconto por beneficiário** (doador de sangue, professor): **zero substrato**. O DDL do setor
+  diz explicitamente que a elegibilidade da meia (estudante/PCD/idoso/CadÚnico) é "PORTA-01, FORA".
+  Elegibilidade ≠ preço: alguém tem de PROVAR que é doador. Decisão de produto+compliance.
+- **Carrinho e venda real**: conserto estrutural (schema de `ticket_sales` + firewall), não tela.
+- **"Quem me ajuda" com eixo de fornecedor**: precisa de rota de catálogo de tipos desacoplada de
+  evento + filtro de disponibilidade **no servidor** (o de hoje é client-side). Ambos inexistentes.
+
+**Verificação:** typecheck BE 0, FE 0 · endpoint de setores conferido ao vivo · seed idempotente
+(2ª corrida reusa) · Δbank 0 · `git diff --check` limpo · `git ls-files --eol` = `i/lf w/lf`.
+
+---
+
 ## 🔎 Filtros da vitrine, faxina dos 36 e "primeiro o que é dos outros" (2026-08-04)
 
 **Origem, três pedidos de Clayton numa mensagem:** *"em consumir falta ferramentas de filtro,

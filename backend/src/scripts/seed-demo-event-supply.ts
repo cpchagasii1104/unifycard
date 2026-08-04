@@ -348,6 +348,53 @@ async function main(): Promise<void> {
     console.log(`   ✅ ${ev.titulo.padEnd(44)} ${ev.formato.padEnd(12)} ${inicio.toLocaleDateString('pt-BR')} · por ${dono.nome}`);
   }
 
+  // ── 4. SETORES COM MEIA-ENTRADA (a página pública precisa ter o que mostrar) ─
+  // 🔴 Usa o WRITER REAL (`eventSectorService`), nunca INSERT direto: ele valida a cota legal
+  // (40%–100%, Lei 12.933/2013), exige `meia = inteira/2` exato — o mesmo que o CHECK físico
+  // `chk_event_sectors_meia_is_half_inteira` impõe — e reconcilia capacidade sob advisory lock
+  // contra `events.max_attendees`. Escrever direto pularia as três garantias.
+  console.log('\n── Setores com meia-entrada ──');
+  const SETORES: Record<string, Array<{ nome: string; capacidade: number; inteiraCents: number }>> = {
+    'Pedra Noventa ao vivo — Rock no Largo': [
+      { nome: 'Pista', capacidade: 300, inteiraCents: 6000 },
+      { nome: 'Camarote', capacidade: 100, inteiraCents: 12000 },
+    ],
+    'Festa Junina do Bairro': [
+      { nome: 'Entrada única', capacidade: 800, inteiraCents: 2500 },
+    ],
+  };
+  const { eventSectorService } = await import('../modules/events/event-sector.service');
+  for (const [titulo, setores] of Object.entries(SETORES)) {
+    const ev = (await pool.query<{ id: string; tenant_id: string }>(
+      `SELECT id::text, tenant_id::text FROM events WHERE title = $1 LIMIT 1`, [titulo]
+    )).rows[0];
+    if (!ev) { console.log(`   ⚠️  evento ausente: ${titulo}`); continue; }
+    const jaTem = Number((await pool.query<{ n: string }>(
+      `SELECT count(*)::text n FROM event_sectors WHERE event_id = $1::uuid`, [ev.id]
+    )).rows[0].n);
+    if (jaTem > 0) { console.log(`   ↻ ${titulo.slice(0, 40)} (${jaTem} setor(es) já existiam)`); continue; }
+    let n = 0;
+    for (let i = 0; i < setores.length; i++) {
+      const s = setores[i];
+      try {
+        await eventSectorService.createSector(ev.tenant_id, ev.id, {
+          sectorNumber: i + 1,
+          name: s.nome,
+          capacity: s.capacidade,
+          meiaQuotaBps: 4000, // piso legal 40%
+          inteiraPriceCents: s.inteiraCents,
+          // Metade EXATA: o writer recusa qualquer outro valor, e a divisão inteira (floor) é a
+          // mesma que o CHECK do banco aplica.
+          meiaPriceCents: Math.floor(s.inteiraCents / 2),
+        });
+        n++;
+      } catch (e) {
+        console.log(`   ⚠️  ${s.nome}: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
+    console.log(`   ✅ ${titulo.slice(0, 40).padEnd(42)} ${n} setor(es)`);
+  }
+
   // ── VERIFICAÇÃO DE 1ª MÃO ───────────────────────────────────────────────────
   const bank1 = (await pool.query<{ n: string }>(`SELECT ((SELECT count(*) FROM bank_ledger)+(SELECT count(*) FROM bank_transactions))::text n`)).rows[0].n;
   const noFeed = (

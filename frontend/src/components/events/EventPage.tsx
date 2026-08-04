@@ -1,6 +1,10 @@
 // src/components/events/EventPage.tsx
-// Página completa do evento (read-only, navegação para checkout)
-import { useState, useEffect } from 'react';
+// Página do evento. Duas faces na MESMA rota:
+//   VISITANTE  → EventPublicView (informação + ingressos + preços) — modelo único, pensado p/ app
+//   ORGANIZADOR → esta página (gestão: setores, RFQ, catálogo, publicação, histórico)
+// A escolha é por representação do actor dono; ver nota extensa junto ao `souOrganizador` abaixo.
+import { useState, useEffect, useMemo } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { DateTime } from 'luxon';
 import { getEvent, getEventStats, getEventEconomy, getEventClosureSummary, getEventStateHistory, getEventAvailabilityPreview, getEventPosts, getEventParticipants, getEventMetrics, trackEventMetric, updateEvent, getEventById, publishEvent, type Event, type AvailabilityPreview as AvailabilityPreviewType } from '../../api/events';
 import { getEventRFQs, type EventRFQ } from '../../api/event-rfq';
@@ -18,6 +22,8 @@ import EventRFQQuotesView from './EventRFQQuotesView';
 import { getEventTrustSignals } from '../../utils/trustSignals';
 import AgreementBanner from '../agreements/AgreementBanner';
 import DisputeBanner from '../evidence/DisputeBanner';
+import EventPublicView from './EventPublicView';
+import { useActiveActor } from '../../contexts/ActiveActorContext';
 import './EventPage.css';
 
 export interface EventPageProps {
@@ -27,6 +33,15 @@ export interface EventPageProps {
 
 export default function EventPage({ eventId: propEventId, onNavigateToCheckout }: EventPageProps) {
   const eventId = propEventId || '';
+  const { activeActor, actors } = useActiveActor();
+  const [searchParams] = useSearchParams();
+  /** Todos os actors que o usuário representa — o organizador troca de chapéu no cabeçalho. */
+  const meusActorIds = useMemo(
+    () => new Set([...(actors ?? []).map((a) => a.actor_id), activeActor?.actor_id].filter(Boolean) as string[]),
+    [actors, activeActor?.actor_id]
+  );
+  /** `?ver=publico` — o dono espia a própria página como o público vê, sem deslogar. */
+  const forcarVisaoPublica = searchParams.get('ver') === 'publico';
 
   const [event, setEvent] = useState<Event | null>(null);
   const [eventStats, setEventStats] = useState<{
@@ -406,12 +421,57 @@ export default function EventPage({ eventId: propEventId, onNavigateToCheckout }
     );
   }
 
+  // ══ VISITANTE × DONO (2026-08-04) ═══════════════════════════════════════════════════════════
+  // 🔴 Clayton, olhando /events/:id: *"estou indo para uma tela nada a ver, de buscar no catálogo"*.
+  // Esta página renderiza 23 blocos e SÓ UM (o EventOrganizerPanel) checava se quem olha é o dono.
+  // Um visitante via "Histórico de Estados", "Artistas/Serviços Selecionados", "Buscar no Catálogo",
+  // "Publicar Evento" e "Criar RFQ" — os writes falhavam no backend (403), mas os controles apareciam.
+  //
+  // A face do visitante virou componente próprio (EventPublicView) em vez de eu ir pendurando
+  // `{isOwner && …}` em 8 blocos: cada esquecido continuaria vazando, e a página de quem COMPRA
+  // não deve ser a de quem ADMINISTRA com pedaços escondidos — é outra tela.
+  //
+  // ⚠️ ISTO É HINT DE UX, NÃO AUTORIDADE. A autoridade permanece no backend, que revalida todo
+  // write (mesma doutrina do EventOrganizerPanel:6-8). Esconder controle não protege nada sozinho;
+  // o que protege é o 403 que já existe. Aqui é só parar de mostrar ruído de gestão a quem visita.
+  //
+  // Comparação contra TODOS os actors que o usuário representa (não só o ativo): o organizador
+  // troca de chapéu no cabeçalho, e comparar apenas com o ativo faria a própria dona da banda ver
+  // o próprio show como visitante ao estar "operando" como pessoa física.
+  const donoDoEvento = (event as Event & { actorId?: string }).actorId ?? null;
+  const souOrganizador = !!donoDoEvento && meusActorIds.has(donoDoEvento);
+
+  if (!souOrganizador || forcarVisaoPublica) {
+    return (
+      <div className="event-page">
+        {forcarVisaoPublica && souOrganizador && (
+          <div className="event-page-owner-note">
+            Pré-visualização: é assim que o público vê este evento.{' '}
+            <Link to={`/events/${eventId}`} className="event-page-owner-link">Voltar à gestão</Link>
+          </div>
+        )}
+        <EventPublicView
+          event={event as Parameters<typeof EventPublicView>[0]['event']}
+          podeGerenciar={souOrganizador && !forcarVisaoPublica}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="event-page">
       {/* Header */}
       <div className="event-page-header">
         <h1 className="event-page-title">{event.title}</h1>
         <EventStatusBadge status={event.status} />
+      </div>
+
+      {/* Como o dono vê a própria página aos olhos de quem visita — sem precisar deslogar. */}
+      <div className="event-page-owner-note">
+        Você organiza este evento, então está vendo o painel de gestão.{' '}
+        <Link to={`/events/${eventId}?ver=publico`} className="event-page-owner-link">
+          Ver como o público vê
+        </Link>
       </div>
 
       {/* Painel do ORGANIZADOR (owner-only como hint; autoridade real = backend, DECISION-0189A):
