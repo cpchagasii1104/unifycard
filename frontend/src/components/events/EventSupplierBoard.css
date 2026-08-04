@@ -111,3 +111,20 @@
   flex-wrap: wrap;
   margin-bottom: 16px;
 }
+
+/* Botão Publicar na lista de gestão (2026-08-04) — a tela dizia "Pronto para publicar" e não
+   oferecia como. Vive aqui porque EventSupplierBoard.css é carregado na rota /meus-eventos;
+   EventOrganizerPanel.css (onde mora o resto de .organizer-*) NÃO é montado nela. */
+.organizer-event-publish {
+  padding: 6px 14px;
+  background: #6d28d9;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  align-self: flex-start;
+}
+.organizer-event-publish:hover:not(:disabled) { background: #5b21b6; }
+.organizer-event-publish:disabled { background: #9ca3af; cursor: not-allowed; }

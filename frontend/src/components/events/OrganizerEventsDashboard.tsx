@@ -18,10 +18,11 @@
 // `organizer_dashboard` (que devolve os NÃO-públicos), `getEventStats` (soldCount) e a noção de
 // pendência do painel. Esta tela costura — sem duplicar regra de negócio.
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { listOrganizerEvents, getEventStats, type Event } from '../../api/events';
+import { listOrganizerEvents, getEventStats, publishEvent, type Event } from '../../api/events';
 import { useActiveActor } from '../../contexts/ActiveActorContext';
+import { showToast } from '../common/Toast';
 
 /**
  * Grupos = PROJEÇÃO dos status governados. Um status só aparece em um grupo; qualquer valor novo
@@ -83,6 +84,8 @@ export default function OrganizerEventsDashboard() {
   const [erro, setErro] = useState<string | null>(null);
   // Aba visível — navegação de UX, nunca estado de domínio.
   const [abaAtiva, setAbaAtiva] = useState<string>('montagem');
+  const [publicando, setPublicando] = useState<string | null>(null);
+  const [recarregar, setRecarregar] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -120,7 +123,29 @@ export default function OrganizerEventsDashboard() {
     };
     void load();
     return () => { cancelled = true; };
-  }, [activeActor?.actor_id, actors]);
+  }, [activeActor?.actor_id, actors, recarregar]);
+
+  /**
+   * 🔴 2026-08-04 — o botão que FALTAVA. Esta tela dizia "Pronto para publicar" e não oferecia
+   * como publicar: o CTA vivia em EventosPage, que virou vitrine (e lá era código MORTO, porque a
+   * vitrine só lista published — um `status === 'declared'` que nunca podia ser verdadeiro).
+   * Clayton viu dois eventos "Pronto para publicar" sem botão nenhum.
+   * A AUTORIDADE segue no backend: `publishEvent` revalida dono e transição (declared→published;
+   * draft→published é PROIBIDA). Aqui é só a porta.
+   */
+  const publicar = useCallback(async (eventId: string) => {
+    setPublicando(eventId);
+    try {
+      await publishEvent(eventId);
+      showToast('Evento publicado!', 'success');
+      setRecarregar((n) => n + 1);
+    } catch (e) {
+      // Motivo REAL do backend na tela — nunca "erro ao publicar" genérico.
+      showToast(e instanceof Error ? e.message : 'Não foi possível publicar', 'error');
+    } finally {
+      setPublicando(null);
+    }
+  }, []);
 
   const agrupados = useMemo(() => {
     // 🔴 statusCanonical = valor REAL da coluna. O campo `status` desta rota e vocabulario LEGADO
@@ -176,6 +201,12 @@ export default function OrganizerEventsDashboard() {
               {g.itens.map((ev) => {
                 const s = stats[ev.id];
                 const pend = pendenciaParaPublicar(ev);
+                // Publicar só a partir de 'declared' COM data futura — a mesma condição que o
+                // backend exige (declared→published) e que o feed exige (data futura). Nunca em
+                // 'draft': essa transição é PROIBIDA e o botão só produziria erro na cara do dono.
+                const st = ((ev as Event & { statusCanonical?: string }).statusCanonical ?? ev.status ?? '').toLowerCase();
+                const inicio = inicioDoEvento(ev);
+                const podePublicar = st === 'declared' && !!inicio && new Date(inicio).getTime() > Date.now();
                 return (
                   <li key={ev.id} className="organizer-event-row">
                     <Link to={`/events/${ev.id}`} className="organizer-event-title">{ev.title}</Link>
@@ -194,6 +225,16 @@ export default function OrganizerEventsDashboard() {
                         : 'carregando vendas…'}
                     </span>
                     {pend && <span className="organizer-event-pending">{pend}</span>}
+                    {podePublicar && (
+                      <button
+                        type="button"
+                        className="organizer-event-publish"
+                        disabled={publicando === ev.id}
+                        onClick={() => void publicar(ev.id)}
+                      >
+                        {publicando === ev.id ? 'Publicando…' : 'Publicar'}
+                      </button>
+                    )}
                   </li>
                 );
               })}
