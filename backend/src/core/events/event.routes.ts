@@ -447,6 +447,30 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   /**
+   * GET /events/:id/need-suppliers — F-EVENT-SUPPLIER-BRIDGE (2026-08-04). As necessidades do evento
+   * JÁ RESOLVIDAS contra os fornecedores reais (service_offerings + rentable_resources), pela
+   * identidade CONCEPT. É o backend que faz a junção — o frontend não cruza need_concept_id com
+   * oferta no cliente ("a verdade vive no backend", Clayton).
+   *
+   * `?onlyDeclared=true` → só as necessidades que o organizador declarou.
+   * default              → o template inteiro do formato, marcando o que já foi declarado.
+   *
+   * Organizer-gated (assertRepresentsEventOwner, fail-closed 403/404) — a lista de fornecedores de
+   * um evento é informação de quem o organiza. READ-ONLY: não cria need, não abre RFQ, não reserva,
+   * Δbank=0.
+   */
+  fastify.get<{ Params: { id: string }; Querystring: { onlyDeclared?: string } }>('/:id/need-suppliers', async (req, reply) => {
+    if (!req.tenant) return reply.status(400).send({ ok: false, code: 'TENANT_REQUIRED' });
+    const tenantId = req.tenant.id;
+    await assertRepresentsEventOwner(tenantId, req.user?.userId, req.params.id);
+    // Entrada de usuário NUNCA entra como `as any`: só o literal 'true' liga o filtro.
+    const onlyDeclared = String(req.query?.onlyDeclared ?? '').toLowerCase() === 'true';
+    const { eventNeedSupplierDiscoveryService } = await import('./event-need-supplier-discovery.service');
+    const needs = await eventNeedSupplierDiscoveryService.listNeedsWithSuppliers(tenantId, req.params.id, { onlyDeclared });
+    return reply.status(200).send({ needs });
+  });
+
+  /**
    * PATCH /events/:id/audience — DECISION-0161 (writer mínimo da plateia).
    * Organizer-gated (resolveRepresentedActor sobre event.actor_id, fail-closed). Seta o MACRO
    * (visibility, validado pelo CHECK existente) + refinamento (audience_relationship_types, validado

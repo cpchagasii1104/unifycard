@@ -1,5 +1,103 @@
 # REMEDIATION DT LOG
 
+## 🔗 F-EVENT-SUPPLIER-BRIDGE — a ponte necessidade → fornecedor (2026-08-04)
+
+**Origem:** Clayton, sobre o que deveria aparecer em "Meus Eventos" no modo Consumir: *"as empresas
+pertinentes a me ajudar com os eventos, seja de segurança, coisas de energia, banheiros, palcos,
+equipamentos e etc."* E, como diretriz de execução: ***"lembrando que a verdade vive no backend"*** —
+o que decidiu sozinho que esta fatia começa no backend, não na tela.
+
+### O achado do inventário: duas pontas vivas, nada no meio
+
+Antes de escrever qualquer coisa, inventário (regra da casa: *onde isso já existe?*). O resultado
+foi melhor que o esperado — quase tudo existia, desligado:
+
+| peça | estado medido |
+|---|---|
+| 23 formatos governados (`show`, `feira`, `reuniao`, `assembleia`…) | ✅ VIVO, lidos do banco pelo wizard |
+| Template do SHOW = 17 necessidades | ✅ VIVO (`event_orchestration_template_items`) |
+| `service_offerings` / `rentable_resources` alcançáveis por `concept_id` | ✅ VIVOS |
+| **junção entre os dois** | ❌ **não existia** — `grep needConceptId` fora de `core/events` só achava E2E e wizard |
+
+### O que foi construído
+
+`event-need-supplier-discovery.service.ts` + `GET /events/:id/need-suppliers` (organizer-gated,
+read-only, Δbank=0). A junção é **por CONCEPT** (Lei 7 — identidade), nunca por rótulo. Varre os
+**dois** substratos conforme `fulfillment_kind` do template — serviço → `service_offerings`,
+locação → `rentable_resources` — porque a régua de Clayton (*serviço = gente; locação = bem*)
+atravessa a ponte: `banheiro-quimico` é rentable e `brigadista` é service **no mesmo template**.
+
+`tenant_id` explícito nas duas queries de oferta, não só RLS — simetria com
+`listActiveBycanonicalService`, que já filtrava explicitamente.
+
+### 🔴 As 3 travas do domínio que me pegaram — todas certas, todas melhoraram a fatia
+
+1. `trg_actor_responsibility_check` recusou `actor_type='page'` **sem `responsible_actor_id`**
+   (§4.8 LEI_COERENCIA). Consequência: o fornecedor de teste passou a nascer com **dono humano
+   próprio**, como nasceria em produção, em vez de actor órfão de fixture.
+2. `service_offerings.service_id` é **NOT NULL** — oferta não flutua, pende de um `services`.
+   Eu tinha inserido só a oferta: teria provado a ponte contra uma forma que o domínio nunca gera.
+3. `pricing_unit='diaria'` **não existe** — o CHECK real é
+   `por_hora|por_dia|por_semana|por_mes|por_semestre|por_ano`. Eu escrevi de cabeça.
+   Comando que resolveu (colado, como manda a casa):
+   ```sql
+   SELECT pg_get_constraintdef(oid) FROM pg_constraint
+    WHERE conrelid='rentable_resources'::regclass AND contype='c';
+   ```
+
+**As três são a mesma assinatura de erro da casa** — *ferramenta/valor deduzido pelo nome em vez
+de lido na fonte*. As três foram pegas pelo banco, não por cuidado meu.
+
+### A prova (9/9) e a VERMELHA FORÇADA
+
+`validate-pipeline-e2e-event-need-supplier-bridge.ts` + runner efêmero. **NUNCA tocou
+`unificard_dev`.**
+
+```
+A  need SERVIÇO encontra a empresa      · A2 preço em centavos inteiros
+B  need LOCAÇÃO encontra o rentable      · C  zero honesto (need sem oferta = count 0, não some)
+D  🔴 oferta de OUTRO concept não vaza   · E  🔴 oferta de OUTRO tenant não vaza
+F  onlyDeclared                          · F2 template inteiro marca o declarado
+G  Δbank=0
+```
+
+🔴 **Guard que nunca falha é decoração — forcei o vermelho.** Removi `AND so.tenant_id = $2::uuid`
+e rodei: **4 asserções caíram**, com `E · vazou=true` e a **isca de 1 centavo do outro tenant vindo
+em PRIMEIRO lugar** (`priceCents=1`, porque a ordenação é por preço asc — projetada assim de
+propósito, para que o vazamento fosse impossível de não notar). Arquivo restaurado de cópia
+pristina do HEAD (não reeditado à mão — a lição da "prova vermelha impura"), 9/9 de novo.
+
+### ⚠️ O CATÁLOGO DE OFERTA ESTÁ VAZIO — e isto é o próximo obstáculo real
+
+A ponte funciona. O que não existe é **oferta**. Medido em `unificard_dev`:
+
+```
+17 necessidades do SHOW  →  0 fornecedores em TODAS as 17
+sistema inteiro          →  1 service_offering (a banda) · 0 rentable_resources
+eventos que passam no filtro da vitrine → 0  (26 declared + 12 draft; só 2 com data)
+```
+
+Ou seja: as 4 faces que Clayton descreveu (`/eventos`×modo, `/meus-eventos`×modo) renderizariam
+"nada encontrado" mesmo perfeitamente implementadas. **O sistema está quase todo fiado e sem
+água.** Cada frente seguinte precisa da sua metade de dado — semear fornecedores/eventos de
+demonstração é ATO DE CLAYTON (escrita no banco oficial), pedido e ainda **não autorizado**.
+
+### 🟡 Aberto, nomeado
+
+- **`/meus-eventos` e `/eventos` ainda não consomem a ponte** — a tela é a próxima fatia (o padrão
+  a seguir é `RentalResourceListPage`, precedente VIVO de modo que troca fonte de dados **e**
+  layout; `ProviderServiceHubPage` só troca rótulo e é o precedente FRACO).
+- **`teatro` e `circo` não existem** entre os 23 formatos (Clayton citou os dois).
+- **`event_format_concepts.required_capabilities` nunca foi semeada** — é o gancho pronto para
+  separar formato de PF × de empresa, e está `NULL` em todos os 23.
+- **`ACTOR_EVENT_TYPE_MATRIX`** (a separação PF×PJ do modelo legado) está **dormente**: `eventType`
+  virou opcional no caminho concept-first e o wizard não o passa, então a matriz nunca dispara.
+
+**Verificação:** typecheck BE 0 · E2E 9/9 em efêmera, com vermelha forçada e restaurada ·
+`git diff --check` limpo · `git ls-files --eol` = `i/lf w/lf` · zero escrita em `unificard_dev`.
+
+---
+
 ## 🎭 "Eventos está duplicado no menu?" — não era duplicata, e a verdade paralela está noutro lugar (2026-08-04)
 
 **Origem:** Clayton olhou o menu lateral e perguntou: *"consegue ver que eventos está duplicado?
