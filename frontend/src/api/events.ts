@@ -1058,3 +1058,41 @@ export async function getSupplierCatalog(params: {
   const res = await apiFetchJson<{ needs: NeedWithSuppliers[] }>(`/api/events/supplier-catalog${q ? `?${q}` : ''}`);
   return res.needs ?? [];
 }
+
+/** Uma janela publicada pelo fornecedor. `availabilityId` é o que o pedido de reserva consome. */
+export interface ProviderOfferWindow {
+  availabilityId: string;
+  startAt: string;
+  endAt: string;
+  capacity: number | null;
+}
+
+export interface ProviderOffer {
+  sourceKind: 'service' | 'rentable';
+  offerId: string;
+  label: string | null;
+  priceCents: number | null;
+  priceUnit: string | null;
+  conceptId: string | null;
+  windows: ProviderOfferWindow[];
+}
+
+export interface ProviderShowcase {
+  providerActorId: string;
+  displayName: string | null;
+  offers: ProviderOffer[];
+}
+
+/**
+ * A VITRINE DO FORNECEDOR — o que ele oferece e quando pode (F-SUPPLIER-SHOWCASE, 2026-08-04).
+ *
+ * Clayton: *"quando eu clicar no tipo de prestador de serviço, empresa ou fornecedor eu tenho que ir
+ * para uma página (padrão para este modelo) que eu consiga montar um pedido de orçamento, ver a
+ * disponibilidade de agenda, ver o que ele tem a oferecer"*.
+ *
+ * 🔴 Esta função NÃO contrata — só lê. O pedido é ato separado (`requestOfferingBooking`).
+ */
+export async function getSupplierShowcase(providerActorId: string): Promise<ProviderShowcase> {
+  const res = await apiFetchJson<{ supplier: ProviderShowcase }>(`/api/events/suppliers/${providerActorId}`);
+  return res.supplier;
+}

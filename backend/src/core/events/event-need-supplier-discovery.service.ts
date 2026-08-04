@@ -72,6 +72,41 @@ export interface NeedWithSuppliers {
 /** Teto de fornecedores devolvidos POR necessidade — a tela é um panorama, não o catálogo inteiro. */
 const SUPPLIERS_PER_NEED_LIMIT = 8;
 
+/** Teto de janelas de agenda devolvidas POR oferta na vitrine do fornecedor. */
+const WINDOWS_PER_OFFER_LIMIT = 20;
+
+/** Uma janela publicada pelo fornecedor. `availabilityId` é o que o pedido de reserva consome. */
+export interface ProviderOfferWindow {
+  /** 🔴 A PK de `availability` chama-se `availability_id`, NÃO `id` — conferido no banco, não deduzido. */
+  availabilityId: string;
+  startAt: string;
+  endAt: string;
+  capacity: number | null;
+}
+
+/** Uma oferta do fornecedor, com a agenda que ele publicou para ela. */
+export interface ProviderOffer {
+  sourceKind: 'service' | 'rentable';
+  offerId: string;
+  label: string | null;
+  priceCents: number | null;
+  priceUnit: string | null;
+  /** Identidade semântica do que se oferece (Lei 7) — a tela lê o rótulo, roteia pelo concept. */
+  conceptId: string | null;
+  windows: ProviderOfferWindow[];
+}
+
+/**
+ * A VITRINE DO FORNECEDOR — o que ele tem a oferecer + quando pode. Read-only.
+ * ⚠️ `displayName` pode ser null: quem fornece é um ACTOR, e nem todo actor tem nome de exibição.
+ * Null aqui é honesto ("não há nome"), e a tela decide o fallback — não inventamos nome no servidor.
+ */
+export interface ProviderShowcase {
+  providerActorId: string;
+  displayName: string | null;
+  offers: ProviderOffer[];
+}
+
 /**
  * 🕐 FILTRO DE DISPONIBILIDADE — SERVER-SIDE (F-EVENT-SUPPLIER-AVAILABILITY, 2026-08-04)
  *
@@ -434,6 +469,130 @@ class EventNeedSupplierDiscoveryService {
       };
     });
   }
+
+  /**
+   * ═══ A PÁGINA DO FORNECEDOR (F-SUPPLIER-SHOWCASE, 2026-08-04) ═══
+   * Clayton: *"quando eu clicar no tipo de prestador de serviço, empresa ou fornecedor eu tenho que
+   * ir para uma página (padrão para este modelo) que eu consiga montar um pedido de orçamento, ver a
+   * disponibilidade de agenda, ver o que ele tem a oferecer"*.
+   *
+   * 🔴 POR QUE ESTE MÉTODO MORA AQUI, e não numa casa nova: este arquivo já é o leitor que sabe
+   * atravessar os DOIS substratos de fornecimento (`service_offerings` × `rentable_resources`) com o
+   * mesmo gate de tenant e o mesmo predicado temporal. Abrir um segundo leitor com as mesmas junções
+   * criaria a segunda verdade sobre "quem é fornecedor válido" — exatamente o que a casa já pagou caro.
+   *
+   * 🔴 O QUE ESTA PÁGINA **NÃO** É: ela não contrata. Devolve `availabilityId` porque é isso que o
+   * pedido de reserva consome (`POST /offerings/:offeringId/bookings`), e esse caminho é o ÚNICO vivo
+   * (Δbank=0, autoridade de evento revalidada server-side). A trilha RFQ→quote→booking está CONTIDA
+   * por ato de Clayton (403 EVENT_RFQ_ACCEPT_QUOTE_CONTAINED, 2026-06-18) e reabri-la é DECISION dele.
+   *
+   * ⚠️ ZERO ≠ DESCONHECIDO: oferta sem janela devolve `windows: []` — afirmação MEDIDA de que o
+   * fornecedor não publicou agenda, não falha de leitura. Medido em unificard_dev em 2026-08-04:
+   * `availability` tem 58 janelas de `service_offering` e **0** de `rentable_resource` — os locáveis
+   * não têm writer de agenda, então a vitrine deles nasce sem horário e a tela precisa dizer isso.
+   */
+  async getProviderShowcase(tenantId: string, providerActorId: string): Promise<ProviderShowcase | null> {
+    const [actorRows, serviceRows, rentableRows] = await Promise.all([
+      runQueriesWithTenant<{ display_name: string | null }>(
+        tenantId,
+        `SELECT display_name FROM actors WHERE id = $1::uuid AND tenant_id = $2::uuid LIMIT 1`,
+        [providerActorId, tenantId]
+      ),
+      runQueriesWithTenant<{
+        offer_id: string; label: string | null; price_cents: string | number | null;
+        price_unit: string | null; concept_id: string | null;
+      }>(
+        tenantId,
+        // Mesmo recorte de "oferta contratável" da irmã acima: status 'active'. Oferta em draft/suspended
+        // NÃO aparece — `active` é autorização operacional de contratação (DECISION-0147), não estado visual.
+        `SELECT so.id::text AS offer_id, cs.name AS label, so.price_cents,
+                so.duration_minutes::text AS price_unit, cs.concept_id::text AS concept_id
+           FROM service_offerings so
+           LEFT JOIN canonical_services cs ON cs.id = so.canonical_service_id
+          WHERE so.tenant_id = $2::uuid AND so.provider_actor_id = $1::uuid AND so.status = 'active'
+          ORDER BY so.created_at ASC`,
+        [providerActorId, tenantId]
+      ),
+      runQueriesWithTenant<{
+        offer_id: string; label: string | null; price_cents: string | number | null;
+        price_unit: string | null; concept_id: string | null;
+      }>(
+        tenantId,
+        `SELECT rr.id::text AS offer_id, rr.label, rr.price_cents,
+                rr.pricing_unit AS price_unit, rr.concept_id::text AS concept_id
+           FROM rentable_resources rr
+          WHERE rr.tenant_id = $2::uuid AND rr.owner_actor_id = $1::uuid
+            AND rr.is_active = true AND rr.status = 'active'
+          ORDER BY rr.created_at ASC`,
+        [providerActorId, tenantId]
+      ),
+    ]);
+
+    // Actor inexistente devolve null — o chamador vira 404. Devolver vitrine vazia diria "existe e
+    // não oferece nada", que é afirmação diferente e falsa.
+    if (actorRows.length === 0) return null;
+
+    // Sem `windows` ainda — a agenda entra logo abaixo, numa query só. O tipo diz isso em vez de um
+    // cast: `Omit` mantém o compilador defendendo o contrato até a montagem final.
+    const ofertas: Array<Omit<ProviderOffer, 'windows'>> = [
+      ...serviceRows.map((r) => ({ ...toOffer(r), sourceKind: 'service' as const })),
+      ...rentableRows.map((r) => ({ ...toOffer(r), sourceKind: 'rentable' as const })),
+    ];
+
+    // Agenda em UMA query para todas as ofertas (nunca N+1 dentro de laço).
+    // Só janelas que ainda podem ser usadas: `end_datetime >= now()`. Janela vencida não é agenda,
+    // é histórico — mostrá-la como contratável seria oferecer o que não existe mais.
+    const windowsByOwner = new Map<string, ProviderOfferWindow[]>();
+    if (ofertas.length > 0) {
+      const rows = await runQueriesWithTenant<{
+        owner_type: string; owner_id: string; availability_id: string;
+        start_datetime: Date; end_datetime: Date; capacity: number | null;
+      }>(
+        tenantId,
+        `SELECT owner_type, owner_id::text AS owner_id, availability_id::text AS availability_id,
+                start_datetime, end_datetime, capacity
+           FROM availability
+          WHERE tenant_id = $1::uuid
+            AND status = 'active'
+            AND end_datetime >= now()
+            AND ( (owner_type = 'service_offering'  AND owner_id = ANY($2::uuid[]))
+               OR (owner_type = 'rentable_resource' AND owner_id = ANY($3::uuid[])) )
+          ORDER BY start_datetime ASC`,
+        [tenantId, serviceRows.map((r) => r.offer_id), rentableRows.map((r) => r.offer_id)]
+      );
+      for (const w of rows) {
+        const list = windowsByOwner.get(w.owner_id) ?? [];
+        if (list.length >= WINDOWS_PER_OFFER_LIMIT) continue;
+        list.push({
+          availabilityId: w.availability_id,
+          startAt: new Date(w.start_datetime).toISOString(),
+          endAt: new Date(w.end_datetime).toISOString(),
+          capacity: w.capacity,
+        });
+        windowsByOwner.set(w.owner_id, list);
+      }
+    }
+
+    return {
+      providerActorId,
+      displayName: actorRows[0].display_name,
+      offers: ofertas.map((o) => ({ ...o, windows: windowsByOwner.get(o.offerId) ?? [] })),
+    };
+  }
+}
+
+/** Projeção comum das duas origens — o que muda entre elas é a query, não a forma de saída. */
+function toOffer(r: {
+  offer_id: string; label: string | null; price_cents: string | number | null;
+  price_unit: string | null; concept_id: string | null;
+}): Omit<ProviderOffer, 'sourceKind' | 'windows'> {
+  return {
+    offerId: r.offer_id,
+    label: r.label,
+    priceCents: r.price_cents === null ? null : Number(r.price_cents),
+    priceUnit: r.price_unit,
+    conceptId: r.concept_id,
+  };
 }
 
 export const eventNeedSupplierDiscoveryService = new EventNeedSupplierDiscoveryService();

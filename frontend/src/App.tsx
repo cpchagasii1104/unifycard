@@ -32,6 +32,7 @@ import VitrineProfilePage from './pages/VitrineProfilePage';
 import EventDetailPage from './pages/EventDetailPage';
 import EventCreationPage from './pages/EventCreationPage';
 import MeusEventosPage from './pages/MeusEventosPage';
+import SupplierPage from './pages/SupplierPage';
 import EventosPage from './pages/EventosPage';
 import SharePage from './pages/SharePage';
 import SocialPage from './pages/SocialPage';
@@ -347,6 +348,10 @@ function AppContent() {
               descoberta pública — misturar as duas foi o que fez o organizador não ter onde ver os
               próprios rascunhos. */}
           <Route path="meus-eventos" element={<MeusEventosPage />} />
+          {/* A página do fornecedor (F-SUPPLIER-SHOWCASE) — modelo ÚNICO para todo fornecedor, um
+              nível abaixo do catálogo "Quem me ajuda". Chave = ACTOR do fornecedor, porque quem
+              fornece é o Actor (PF, empresa ou grupo, indistintamente), não o tipo de cadastro. */}
+          <Route path="fornecedores/:providerActorId" element={<SupplierPage />} />
           <Route path="assistant" element={<AssistantPage />} />
           <Route path="compromissos" element={<MeusCompromissosPage />} />
           <Route path="meus-compromissos" element={<MeusCompromissosPage />} />

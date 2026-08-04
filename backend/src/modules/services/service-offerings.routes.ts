@@ -56,6 +56,10 @@ const bookingSchema = z.object({
   // contratante (autoridade manage_attendees revalidada no service, server-side); configId é metadata SOFT.
   eventId: z.string().uuid().optional(),
   configId: z.string().uuid().optional(),
+  // 🔴 2026-08-04 — MENSAGEM do pedido. A coluna `bookings.notes` e `CreateUnifiedBookingInput.notes`
+  // já existiam; só este caminho a descartava, e o fornecedor recebia um pedido MUDO ("alguém quer
+  // esta janela", sem dizer para quê). Teto de 2000 para não virar campo livre sem limite.
+  notes: z.string().trim().min(1).max(2000).optional(),
 });
 
 // 🔴 FATIA 3 — CARDÁPIO DE CONFIGS com line-up opcional. Rótulo AUTORAL livre (não-governado);
@@ -229,7 +233,8 @@ const serviceOfferingsRoutes: FastifyPluginAsync = async (fastify) => {
         req.tenant!.id, req.params.offeringId, parsed.data.availabilityId as string,
         { subjectUserId: userId, requesterActorId },
         // 🔴 C3 EDGE C-1 — repassa o contexto (validado server-side no service). Ausente = comportamento antigo.
-        { eventId: parsed.data.eventId, configId: parsed.data.configId }
+        { eventId: parsed.data.eventId, configId: parsed.data.configId },
+        parsed.data.notes ?? null
       );
       return reply.status(201).send({ ok: true, data: result });
     } catch (err: any) {

@@ -516,7 +516,12 @@ export const serviceOfferingService = {
     // 🔴 C3 EDGE C-1 — CONTEXTO de contratação orquestrada (opcional). eventId amarra a reserva a um evento
     // do contratante (autoridade manage_attendees exigida ANTES de mutar); configId é metadata SOFT (∈ configs
     // desta oferta). Ambos são persistidos em bookings.metadata (JSONB já existente) para o BIND on-confirm (C-2).
-    context?: { eventId?: string; configId?: string }
+    context?: { eventId?: string; configId?: string },
+    // 🔴 2026-08-04 — MENSAGEM do pedido ("pedido de orçamento": para que serviço, quantas pessoas, onde).
+    // `bookings.notes` e CreateUnifiedBookingInput.notes JÁ existiam; este caminho era o único que os
+    // descartava, entregando ao fornecedor um pedido de janela sem dizer para quê. Texto livre do
+    // contratante — NÃO é vocabulário governado, NÃO decide nada, NÃO entra em roteamento financeiro.
+    notes?: string | null
   ): Promise<{ bookingId: string; status: string; autoConfirmed: boolean; gateReason: string }> {
     const offering = await this.findById(tenantId, offeringId);
     if (!offering || offering.status !== 'active') {
@@ -545,7 +550,9 @@ export const serviceOfferingService = {
     }
     // 1) SEMPRE cria 'requested' primeiro (core revalida oferta active + autoridade do subject — DECISION-0147/0148).
     const booking = await unifiedAvailabilityService.createBooking(
-      tenantId, subject, { availabilityId, requesterActorId: subject.requesterActorId, metadata: bookingMetadata } as any
+      // O `as any` que estava aqui era o cúmplice silencioso: escondia que `notes` (campo de primeira
+      // classe do input) nunca chegava. Tipado, o compilador passa a defender este contrato.
+      tenantId, subject, { availabilityId, requesterActorId: subject.requesterActorId, metadata: bookingMetadata, notes: notes ?? null }
     );
 
     // 2) NEGOCIA (manual) → fica requested; a banda decide depois pelo caminho owner-only (updateBooking).

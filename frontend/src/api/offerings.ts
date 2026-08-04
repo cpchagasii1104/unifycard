@@ -299,7 +299,10 @@ export async function declareOfferingAvailability(
 // opcionalmente amarrada a um evento SEU (eventId → autoridade manage_attendees revalidada
 // server-side) e a uma formação (configId → deve pertencer à oferta; metadata SOFT).
 // Body keys EXATAS do backend (service-offerings.routes.ts, bookingSchema linhas 52-59):
-//   { availabilityId, requesterActorId, eventId?, configId? }
+//   { availabilityId, requesterActorId, eventId?, configId?, notes? }
+// 🔴 2026-08-04 — `notes` é a MENSAGEM do pedido ("pedido de orçamento": para quê, quantas pessoas,
+// onde). A coluna `bookings.notes` sempre existiu; só este caminho a descartava, e o fornecedor
+// recebia um pedido de janela MUDO. Teto de 2000 no schema do backend.
 // POST /services/offerings/:offeringId/bookings → 201 { ok, data: { bookingId, status, autoConfirmed,
 // gateReason } }. status: 'confirmed' (aceita-direto within-reach) | 'requested' (negocia).
 // O modo (aceita-direto/negocia) e o gate de distância são do DONO — decididos server-side.
@@ -313,7 +316,7 @@ export interface OfferingBookingResult {
 
 export async function requestOfferingBooking(
   offeringId: string,
-  input: { availabilityId: string; requesterActorId: string; eventId?: string; configId?: string }
+  input: { availabilityId: string; requesterActorId: string; eventId?: string; configId?: string; notes?: string }
 ): Promise<OfferingBookingResult> {
   const res = await apiFetchJson<{ ok: boolean; data: OfferingBookingResult }>(
     `/services/offerings/${offeringId}/bookings`,

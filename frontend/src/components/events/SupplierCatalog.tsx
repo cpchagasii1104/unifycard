@@ -23,6 +23,7 @@
 // tivesse cortado o que interessa — e quem conhece o conjunto inteiro é o servidor.
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { getSupplierCatalog, type NeedWithSuppliers, type Event } from '../../api/events';
 import { formatCentsAsBRL } from '../../utils/money';
 import './EventSupplierBoard.css';
@@ -186,8 +187,17 @@ export default function SupplierCatalog({ eventos }: Props) {
             ) : (
               <ul className="supplier-offer-list">
                 {n.suppliers.map((s) => (
+                  // 🔴 O CLIQUE LEVA À PÁGINA DO FORNECEDOR (F-SUPPLIER-SHOWCASE, 2026-08-04).
+                  // Chave = providerActorId, não offerId: a página mostra TUDO que o fornecedor
+                  // oferece ("ver o que ele tem a oferecer"), e a oferta clicada é só a porta.
+                  // O evento de contexto viaja junto para o pedido já nascer amarrado a ele.
                   <li key={s.offerId} className="supplier-offer">
-                    <span className="supplier-offer-name">{s.providerDisplayName ?? 'Fornecedor'}</span>
+                    <Link
+                      className="supplier-offer-name"
+                      to={`/fornecedores/${s.providerActorId}${eventoContexto ? `?eventId=${eventoContexto}` : ''}`}
+                    >
+                      {s.providerDisplayName ?? 'Fornecedor'}
+                    </Link>
                     <span className="supplier-offer-what">{s.offerLabel ?? ''}</span>
                     <span className="supplier-offer-price">{precoLegivel(s.priceCents, s.priceUnit, s.sourceKind)}</span>
                   </li>

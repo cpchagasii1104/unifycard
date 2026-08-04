@@ -513,6 +513,39 @@ const eventRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   /**
+   * GET /events/suppliers/:providerActorId — F-SUPPLIER-SHOWCASE (2026-08-04).
+   *
+   * A PÁGINA DO FORNECEDOR: o que ele oferece + a agenda que publicou. Clayton: *"eu tenho que ir
+   * para uma página (padrão para este modelo) que eu consiga montar um pedido de orçamento, ver a
+   * disponibilidade de agenda, ver o que ele tem a oferecer"*.
+   *
+   * ⚠️ Vive sob `/events` porque é a continuação do `/events/supplier-catalog` (mesma vitrine, um
+   * nível abaixo) e reusa o MESMO leitor dos dois substratos. Não é organizer-gated: quem oferece
+   * serviço para evento é vitrine. Autenticação + tenant seguem obrigatórios.
+   *
+   * 🔴 NÃO CONTRATA. Devolve `availabilityId` porque é o que o pedido consome — a contratação é ato
+   * separado em `POST /offerings/:offeringId/bookings` (Δbank=0, autoridade revalidada server-side).
+   *
+   * READ-ONLY · Δbank=0 · PRÉ-PORTA-01.
+   */
+  fastify.get<{ Params: { providerActorId: string } }>('/suppliers/:providerActorId', async (req, reply) => {
+    if (!req.tenant) return reply.status(400).send({ ok: false, code: 'TENANT_REQUIRED' });
+    // uuid inválido vira 400 NOMEADO, nunca 500 do driver ao castar ::uuid.
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(req.params.providerActorId)) {
+      return reply.status(400).send({ ok: false, code: 'SUPPLIER_ACTOR_ID_INVALID' });
+    }
+    const { eventNeedSupplierDiscoveryService } = await import('./event-need-supplier-discovery.service');
+    const showcase = await eventNeedSupplierDiscoveryService.getProviderShowcase(
+      req.tenant.id,
+      req.params.providerActorId
+    );
+    // null = actor inexistente neste tenant. 404 é a resposta honesta; vitrine vazia diria "existe e
+    // não oferece nada", que é outra afirmação.
+    if (!showcase) return reply.status(404).send({ ok: false, code: 'SUPPLIER_NOT_FOUND' });
+    return reply.status(200).send({ supplier: showcase });
+  });
+
+  /**
    * GET /events/:id/need-suppliers — F-EVENT-SUPPLIER-BRIDGE (2026-08-04). As necessidades do evento
    * JÁ RESOLVIDAS contra os fornecedores reais (service_offerings + rentable_resources), pela
    * identidade CONCEPT. É o backend que faz a junção — o frontend não cruza need_concept_id com
