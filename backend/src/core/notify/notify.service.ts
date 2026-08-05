@@ -291,7 +291,9 @@ export class NotifyService {
           );
         } else {
           const retry = notif.retryCount + 1;
-          const fail = retry >= notif.maxRetries;
+          // Falha DEFINITIVA vai direto para `failed`, sem queimar tentativas. `retryable` ausente
+          // = retentável, preservando o comportamento de todo provider que não opina.
+          const fail = result.retryable === false || retry >= notif.maxRetries;
 
           await runQueryWithTenant<void>(
             tenantId,

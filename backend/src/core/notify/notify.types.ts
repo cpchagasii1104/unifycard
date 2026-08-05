@@ -92,6 +92,13 @@ export interface ProviderResult {
   success: boolean;
   error?: string;
   providerId?: string;
+  /**
+   * 🔴 2026-08-04 — `false` marca falha DEFINITIVA: tentar de novo não muda o resultado.
+   * Nasceu do provider de e-mail não configurado — gastar as 5 tentativas contra uma parede
+   * transforma um estado claro ("não configurado") em ruído ("falhou 5 vezes"), e é assim que
+   * causa-raiz vira mistério. Ausente = retentável (comportamento anterior preservado).
+   */
+  retryable?: boolean;
 }
 
 export interface EmailDetails {

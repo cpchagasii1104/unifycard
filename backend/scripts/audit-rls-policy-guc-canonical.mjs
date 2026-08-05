@@ -16,6 +16,11 @@ const SUPERSEDED = new Set([
   '20260428220000_create_webauthn_tables.sql',
   '20260428230000_create_audit_events.sql',
   '20260428240000_create_category_ai_logs.sql',
+  // 2026-08-04: nasci com o GUC errado (`app.current_tenant_id`) e ESTE GUARD ME PEGOU antes de
+  // qualquer leitura acontecer — que e o unico jeito, porque o sintoma (lista vazia) e indistinguivel
+  // do normal. Corrigida pela sucessora 20260804220500 (DROP+CREATE da policy com o GUC canonico);
+  // o arquivo original fica imutavel por forward-only, ja aplicado em unificard_dev.
+  '20260804220000_notify_queue_materialize.sql',
 ]);
 const failures = [];
 for (const f of readdirSync(DIR).filter((x) => x.endsWith('.sql') && !SUPERSEDED.has(x))) {
