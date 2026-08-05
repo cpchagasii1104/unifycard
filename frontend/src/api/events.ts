@@ -925,6 +925,18 @@ export interface NeedSupplier {
   // contrato da API; o contrato agora tem dois campos, e cada tipo de oferta preenche o seu.
   durationMinutes: number | null;
   pricingUnit: string | null;
+  /**
+   * 🔴 ESTÁ LIVRE DE VERDADE no período perguntado? Espelha o contrato (§7: o frontend NÃO cria
+   * alias nem renomeia). Resolvido em `core/availability/free-time.ts`, que é o leitor único.
+   *   `true`  = há tempo livre dentro do período pedido
+   *   `false` = tem agenda declarada, mas comprometida nesse período
+   *   `null`  = ninguém perguntou período, OU o cálculo não alcançou esta oferta
+   * ⚠️ `null` NUNCA é "ocupado" — desconhecido não é negativa, e a tela não renderiza nada.
+   */
+  freeInRange?: boolean | null;
+  /** A próxima janela livre que o fornecedor JÁ declarou — a alternativa quando a data não dá. */
+  nextFreeStartAt?: string | null;
+  nextFreeEndAt?: string | null;
 }
 
 export interface NeedWithSuppliers {

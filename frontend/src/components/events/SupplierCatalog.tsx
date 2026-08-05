@@ -39,6 +39,17 @@ function inicioDoEvento(ev: Event): string | null {
   return ev.startAt ?? ev.datetimeStart ?? null;
 }
 
+/**
+ * Dia legível de uma janela que o SERVIDOR resolveu. Aceita null porque o servidor pode não ter
+ * alternativa a oferecer — e nesse caso a tela não inventa uma: some.
+ */
+function formatarDia(iso: string | null): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+}
+
 export default function SupplierCatalog({ eventos }: Props) {
   const [tipos, setTipos] = useState<NeedWithSuppliers[] | null>(null);
   const [erro, setErro] = useState<string | null>(null);
@@ -189,6 +200,27 @@ export default function SupplierCatalog({ eventos }: Props) {
                     </Link>
                     <span className="supplier-offer-what">{s.offerLabel ?? ''}</span>
                     <span className="supplier-offer-price">{formatSupplierPrice(s)}</span>
+                    {/* 🔴 O ESTADO DE DISPONIBILIDADE (2026-08-05) — decisão de Clayton: *"ela
+                        aparece, mas se for por filtro de data e horário informa que naquela janela
+                        não está disponível, porém fica à disposição para outra janela já informada
+                        por ela; e esta outra janela informará a disponibilidade mais próxima"*.
+                        O servidor já resolvia `freeInRange`/`nextFreeStartAt` e NINGUÉM consumia —
+                        capacidade sem consumidor, o defeito que esta sessão inteira consertou.
+                        Três estados, e o terceiro é o que costuma sumir:
+                          true  → livre no período pedido
+                          false → não naquele período, e o servidor diz qual é a próxima
+                          null  → ninguém perguntou período (ou não se sabe) → NÃO renderiza nada.
+                        `null` NUNCA vira "indisponível": desconhecido não é negativa. */}
+                    {s.freeInRange === true && (
+                      <span className="supplier-offer-livre">livre no período</span>
+                    )}
+                    {s.freeInRange === false && (
+                      <span className="supplier-offer-ocupado">
+                        {s.nextFreeStartAt
+                          ? `sem vaga no período · próxima: ${formatarDia(s.nextFreeStartAt)}`
+                          : 'sem vaga no período'}
+                      </span>
+                    )}
                   </li>
                 ))}
               </ul>

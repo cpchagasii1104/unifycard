@@ -73,7 +73,9 @@
 
 .supplier-offer {
   display: grid;
-  grid-template-columns: minmax(140px, 1fr) minmax(120px, 2fr) auto;
+  /* 4ª coluna (2026-08-05): o estado de disponibilidade que o servidor resolve. `auto` porque ela
+     NÃO existe quando `freeInRange` é null — desconhecido não ocupa espaço nem vira "indisponível". */
+  grid-template-columns: minmax(140px, 1fr) minmax(120px, 2fr) auto auto;
   gap: 12px;
   align-items: baseline;
   font-size: 13px;
@@ -85,6 +87,9 @@
 .supplier-offer-name { font-weight: 600; color: #1f2937; }
 .supplier-offer-what { color: #6b7280; }
 .supplier-offer-price { font-weight: 600; color: #065f46; white-space: nowrap; }
+/* Livre é discreto: é o estado esperado. Sem vaga é que precisa ser lido — e vem com a saída. */
+.supplier-offer-livre { font-size: 12px; color: #16a34a; white-space: nowrap; }
+.supplier-offer-ocupado { font-size: 12px; color: #b45309; white-space: nowrap; }
 
 @media (max-width: 640px) {
   .supplier-offer { grid-template-columns: 1fr; gap: 2px; }
