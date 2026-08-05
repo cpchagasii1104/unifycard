@@ -17,17 +17,33 @@ export interface ActiveReferral {
 
 /**
  * Busca referral ATIVO para um usuário indicado e resolve o OWNER ECONÔMICO (actor).
- * Retorna o owner actor APENAS se o vínculo existe e está dentro da janela de 1 ano.
  *
- * DECISION-0119: lê a FONTE CANÔNICA `user_referral_links` (vínculo PURO A→B); a janela
- * de 1 ano é REGRA DE LEITURA (não coluna). DECISION-0139: devolve referrer_actor_id
- * (owner econômico). Compat: vínculo legado sem actor resolve o actor_human do referrer.
- * Se não houver owner actor resolvível, retorna null (NÃO inventa dono).
+ * DECISION-0119: lê a FONTE CANÔNICA `user_referral_links` (vínculo PURO A→B).
+ * DECISION-0139: devolve `referrer_actor_id` (owner econômico). Compat: vínculo legado sem actor
+ * resolve o actor_human do referrer. Sem owner resolvível, retorna `null` — NÃO inventa dono.
+ *
+ * 🔴 A JANELA DEIXOU DE SER UMA CONTA ESCRITA AQUI (2026-08-05, GO de Clayton).
+ *
+ * Até hoje esta função fazia `oneYearAgo.setFullYear(-1)` literal. Para mudar de 1 ano para 6
+ * meses, alguém precisaria editar código e republicar o sistema. Clayton: *"isso tem que ser
+ * ajustado pelo painel do administrador. Eu preciso ter controle sobre o sistema, não pode ser
+ * uma coisa que fique travada."*
+ *
+ * Agora a janela CHEGA de fora, em dias, vinda de `economic_policy_lines.eligibility_window_days`
+ * — a mesma linha onde mora o percentual, que foi exatamente o que ele pediu ("ajusta os dois no
+ * mesmo lugar"). Esta função aplica a regra que recebe; ela não escolhe mais nenhuma.
+ *
+ * ⚠️ OBRIGATÓRIO, sem default: quem chama TEM que decidir. Um default silencioso aqui reintroduz
+ * exatamente a doenca — a regra voltaria a morar no codigo, so que escondida numa assinatura.
+ * `windowDays = null` significa **SEM PRAZO** — o vínculo vale enquanto a política valer. NÃO
+ * significa "usa um ano por padrão": default implícito é como a regra se escondeu no código em
+ * primeiro lugar. Quem quer prazo, declara o prazo.
  */
 export async function getActiveReferral(
   tenantId: string,
   userId: string,
-  atDate: Date = new Date()
+  atDate: Date,
+  windowDays: number | null
 ): Promise<ActiveReferral | null> {
   let link: { referrer_actor_id: string | null; referrer_user_id: string; created_at: Date } | null = null;
   try {
@@ -58,13 +74,25 @@ export async function getActiveReferral(
     return null;
   }
 
-  // Janela de 1 ano aplicada na LEITURA (política), não materializada no vínculo.
-  const referralDate = new Date(link.created_at);
-  const oneYearAgo = new Date(atDate);
-  oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-  if (referralDate < oneYearAgo) {
-    // Após 1 ano, o vínculo não é mais ativo para fins de split.
-    return null;
+  // Janela aplicada na LEITURA (política), não materializada no vínculo — isso não mudou.
+  // O que mudou é DE ONDE vem o número: era `setFullYear(-1)` aqui dentro; agora é o prazo que o
+  // admin configurou na linha da política, em dias.
+  if (windowDays !== null) {
+    if (!Number.isInteger(windowDays) || windowDays < 1) {
+      // Prazo inválido NÃO vira "sem prazo": isso pagaria para sempre por um erro de configuração.
+      // Fail-closed — quem configurou errado descobre pelo erro, não pelo extrato.
+      throw new Error(
+        `REFERRAL_WINDOW_INVALID: janela de elegibilidade precisa ser inteiro >= 1 dia; ` +
+        `recebido: ${String(windowDays)}.`
+      );
+    }
+    const referralDate = new Date(link.created_at);
+    const limite = new Date(atDate);
+    limite.setDate(limite.getDate() - windowDays);
+    if (referralDate < limite) {
+      // Fora da janela: o vínculo existe, mas não é mais ativo para fins de split.
+      return null;
+    }
   }
 
   // DECISION-0139: owner econômico = referrer_actor_id. Compat: vínculo legado sem

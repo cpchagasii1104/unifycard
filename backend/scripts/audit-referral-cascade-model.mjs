@@ -24,8 +24,16 @@ if (eng === null) {
   if (calls !== 1) {
     failures.push(`${ENGINE}: getActiveReferral chamado ${calls}× (esperado 1 — single-level Modelo B; >1 = risco multinível).`);
   }
-  if (!/getActiveReferral\(\s*tenantId\s*,\s*fromUserId\s*\)/.test(eng)) {
-    failures.push(`${ENGINE}: referral não resolve por getActiveReferral(tenantId, fromUserId) — Modelo B exige resolução pelo user direto.`);
+  // 🔴 O INVARIANTE É QUEM RESOLVE, NÃO QUANTOS ARGUMENTOS (corrigido 2026-08-05).
+  // A versão anterior exigia a chamada com EXATAMENTE 2 argumentos. Quando a JANELA saiu do código
+  // e virou configuração de painel (GO de Clayton), a chamada ganhou `atDate` e `windowDays` — e
+  // este guard ficou vermelho apesar de o Modelo B seguir intacto: quem resolve continua sendo o
+  // user DIRETO (`fromUserId`), que é a única coisa que "single-level" significa.
+  // Agora casa os DOIS PRIMEIROS argumentos e ignora o que vier depois. Medir forma em vez de
+  // invariante transforma qualquer evolução legítima em falso vermelho — e falso vermelho ensina
+  // a desligar guard.
+  if (!/getActiveReferral\(\s*tenantId\s*,\s*fromUserId\s*[,)]/.test(eng)) {
+    failures.push(`${ENGINE}: referral não resolve por getActiveReferral(tenantId, fromUserId, ...) — Modelo B exige resolução pelo user direto.`);
   }
   // (2) cascade actor→owner-user (material FINANCEIRO) NÃO pode estar wired no engine.
   if (/resolveOwnerUserFromActor|actorToOwnerUser|ownerUserOfActor|cascadeReferral|referralCascade/i.test(eng)) {

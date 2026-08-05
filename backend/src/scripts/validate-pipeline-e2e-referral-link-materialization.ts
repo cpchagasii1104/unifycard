@@ -6,7 +6,7 @@
  *   T1 A nasce sem referral e recebe referral_code próprio.
  *   T2 B cadastra com código de A → 201.
  *   T3 vínculo persiste em user_referral_links (tenant/referrer=A/referred=B/code).
- *   T4 getActiveReferral(tenant, B) === A.
+ *   T4 getActiveReferral(tenant, B, new Date(), null) === A.
  *   T5 código inválido → 400; B não existe em users/identities/actors/profiles.
  *   T6 autoindicação falha e não cria vínculo.
  *   T7 cross-tenant não resolve o vínculo fora do tenant correto.
@@ -140,8 +140,12 @@ async function main(): Promise<void> {
 
     // T4 — getActiveReferral resolve A (DECISION-0139: devolve owner actor + breadcrumb user).
     const { getActiveReferral } = await import('../core/referral/referral-helper.service');
-    const active = await getActiveReferral(instId, bId);
-    record('T4 getActiveReferral(tenant, B).referrerUserId === A', active?.referrerUserId === aId, `got=${JSON.stringify(active)}`);
+    // janela NULL de proposito: estes E2E provam a RESOLUCAO do vinculo (quem indicou quem),
+
+    // nao o prazo. Prazo tem E2E proprio (validate-pipeline-e2e-policy-eligibility-window).
+
+    const active = await getActiveReferral(instId, bId, new Date(), null);
+    record('T4 getActiveReferral(tenant, B, new Date(), null).referrerUserId === A', active?.referrerUserId === aId, `got=${JSON.stringify(active)}`);
 
     // T5 — código inválido → 400, B2 não nasce.
     const emailB2 = `e2e-rl-b2-${base}@e2e.local`;
@@ -163,8 +167,8 @@ async function main(): Promise<void> {
     const otherTenantRow = await pool.query<{ id: string }>(
       `INSERT INTO tenants (name, slug) VALUES ('RL Other Tenant', $1) RETURNING id::text`, [`rl-other-${base}`]);
     const otherTenant = otherTenantRow.rows[0].id;
-    const activeOther = await getActiveReferral(otherTenant, bId);
-    record('T7 cross-tenant: getActiveReferral(outroTenant, B) === null (vínculo é tenant-safe)', activeOther === null, `got=${activeOther}`);
+    const activeOther = await getActiveReferral(otherTenant, bId, new Date(), null);
+    record('T7 cross-tenant: getActiveReferral(outroTenant, B, new Date(), null) === null (vínculo é tenant-safe)', activeOther === null, `got=${activeOther}`);
 
     // T8 — idempotência: reaplicar não duplica.
     const before8 = await count(`SELECT count(*)::text n FROM user_referral_links WHERE referred_user_id=$1`, [bId]);

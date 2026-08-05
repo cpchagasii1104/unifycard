@@ -119,8 +119,12 @@ async function main(): Promise<void> {
   record('T11 referred_actor_id = actor_human de B (server-side, não client)', link?.referred_actor_id === B.actorId, JSON.stringify(link));
 
   // T7 — getActiveReferral devolve owner econômico (banda) + breadcrumb user (A, dono do código).
-  const active = await getActiveReferral(tenantId, B.userId);
-  record('T7 getActiveReferral(B).referrerActorId = banda (owner econômico)', active?.referrerActorId === banda.actorId, JSON.stringify(active));
+  // janela NULL de proposito: estes E2E provam a RESOLUCAO do vinculo (quem indicou quem),
+
+  // nao o prazo. Prazo tem E2E proprio (validate-pipeline-e2e-policy-eligibility-window).
+
+  const active = await getActiveReferral(tenantId, B.userId, new Date(), null);
+  record('T7 getActiveReferral(B, new Date(), null).referrerActorId = banda (owner econômico)', active?.referrerActorId === banda.actorId, JSON.stringify(active));
 
   // T13/T14 — alvo do earning = actor_wallet do owner; a conta tem actor_id = owner (writer resolve target_actor_id).
   const wallet = await bankAccountService.ensureActorWalletAccount(tenantId, banda.actorId, 'BRL');

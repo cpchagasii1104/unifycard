@@ -170,7 +170,16 @@ class BankSplitEngineService {
     //    target_actor_id é resolvido pelo writer canônico a partir da conta destino
     //    (bank_accounts.actor_id da actor_wallet) — DECISION-0036. Sem alterar Bank Core.
     if (fromUserId && profitAmountCents > 0) {
-      const active = await getActiveReferral(tenantId, fromUserId);
+      // 🔴 365 DIAS AQUI É PRESERVAÇÃO DE COMPORTAMENTO, NÃO RATIFICAÇÃO (2026-08-05).
+      // Este motor é LEGADO CERCADO (zero chamadas vivas, medido). Antes, a janela de 1 ano vivia
+      // DENTRO de `getActiveReferral` como `setFullYear(-1)`; ela saiu de lá porque Clayton decidiu
+      // que o prazo é configurável no painel (`economic_policy_lines.eligibility_window_days`).
+      // O motor legado não resolve policy, então não tem de onde ler o prazo — passa o valor que
+      // reproduz o comportamento anterior, agora VISÍVEL em vez de escondido.
+      // ⚠️ Este 365 é da mesma família do `REFERRAL_PERCENTAGE = 0.05` logo acima: default de
+      // desenvolvedor NUNCA ratificado. O trilho canônico é a policy; aqui é só o legado não mudar
+      // de comportamento enquanto não morre.
+      const active = await getActiveReferral(tenantId, fromUserId, new Date(), 365);
 
       if (active) {
         const referralCents = Math.round(profitAmountCents * REFERRAL_PERCENTAGE);

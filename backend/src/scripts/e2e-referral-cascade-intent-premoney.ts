@@ -62,7 +62,11 @@ async function main(): Promise<void> {
     ok(link.rows[0]?.referrer_actor_id === A, `2. user_referral_links grava A→B (referrer_actor_id=A)`);
 
     // 3) getActiveReferral(B) resolve owner_actor_id de A (a resolução que o split-engine consome)
-    const active = await getActiveReferral(TENANT, bUser);
+    // janela NULL de proposito: estes E2E provam a RESOLUCAO do vinculo (quem indicou quem),
+
+    // nao o prazo. Prazo tem E2E proprio (validate-pipeline-e2e-policy-eligibility-window).
+
+    const active = await getActiveReferral(TENANT, bUser, new Date(), null);
     ok(active?.referrerActorId === A, `3. getActiveReferral(B) resolve owner_actor_id de A (${active?.referrerActorId === A})`);
 
     // 4) PRÉ-MONEY: zero escrita financeira (NÃO chamamos calculateSplits/createTransactionWithSplits)
