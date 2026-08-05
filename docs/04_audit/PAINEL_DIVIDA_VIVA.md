@@ -24,17 +24,18 @@
 > burocracia: é o que impede que a próxima instância meça o sistema por um número de 24 dias
 > atrás.
 
-## 📊 PLACAR — última medição **2026-07-30** (números dos tetos re-medidos em 2026-08-02: ver EM VOO), toda ela de 1ª mão pela direção
+## 📊 PLACAR — última medição **2026-08-05**, toda ela de 1ª mão pela direção
 
 | métrica | valor | como foi medido |
 |---|---|---|
-| `validate:regression-guards` | ✅ **232 COMMANDS OK** · drift **0** | `npm run`, banco `unificard_dev` |
+| `validate:regression-guards` | ✅ **246 COMMANDS OK** · drift **0** | `npm run`, banco `unificard_dev` |
 | `typecheck` backend + frontend | ✅ **0 erros** | `tsc --noEmit` nos dois |
 | Gate `schema-coherence` | ⚠️ **1188 chaves congeladas, gate VERDE** — antes `FAIL 1776`, fora do runner | agora **DENTRO do runner** via `audit-schema-coherence-ratchet.mjs` (`5feeb3de5`) |
-| `schema_migrations` (`unificard_dev`) | **550** aplicadas · 551 arquivos · 1 skip governado | query direta |
-| Banco oficial | **`unificard_dev`** · 334 tabelas · trava fail-closed viva | query direta |
-| `bank_ledger` · `bank_transactions` · `bank_splits` | **0 · 0 · 0** | query direta, 2026-07-31 |
-| Dado curado intacto | **75 bairros · 48 policies** | query direta, 2026-07-31 |
+| `schema_migrations` (`unificard_dev`) | **567** aplicadas | query direta, 2026-08-05 |
+| Banco oficial | **`unificard_dev`** · **338** tabelas · trava fail-closed viva | query direta, 2026-08-05 |
+| `bank_ledger` · `bank_transactions` · `bank_splits` | **16 · 8 · 0** | query direta, 2026-08-05 |
+| ⚠️ **o Bank deixou de ser zero — e é DE PROPÓSITO** | R$ 1.000,00 emitidos para teste (autorização de Clayton, 2026-08-04) pelo caminho real do Bank (`liquidity_issuance`, partida dobrada). **Não é dinheiro fictício**: o ledger recusa apagar, e por isso não se marca dinheiro como falso. Saída existe: `recolher-recursos-dev.ts`. **`bank_splits` segue 0 — nenhuma fatia de hoje moveu dinheiro (Δbank=0 em todas).** | `semear-recursos-dev.ts` |
+| Dado curado intacto | **75 bairros · 48 policies** | query direta, 2026-08-05 |
 
 ### 🔻 OS DOIS TETOS — a única métrica deste projeto que NÃO PODE SUBIR
 
@@ -226,6 +227,40 @@ Sem essa resposta, cada tabela vira pesquisa. Com ela, a cauda de 26 módulos é
 > 556 mede quanto o projeto já nomeou; 8 mede o que está quebrado agora.
 
 ## 🗓️ REGISTRO DE SESSÕES — o que cada fatia mudou no placar
+
+### 🟢 SESSÃO 2026-08-04/05 — FRICÇÃO DE USO DE CLAYTON · 21 commits · runner 238 → **246**
+
+**Se você é a direção e acabou de chegar:** árvore LIMPA (fora de `backend/estrutura-backend.txt`,
+untracked de outra instância) · HEAD `d5c31c771` · **Δbank = 0 em todas as fatias**.
+
+**Método desta sessão:** Clayton navegando e apontando defeito por defeito — *"vamos fazer fricção
+de uso (meu) pelo frontend"*. Rendeu mais que varredura: **cada apontamento dele descobriu um
+defeito estrutural que nenhum guard pegava.**
+
+| o que ele apontou | o que estava por baixo | commit |
+|---|---|---|
+| "falta filtrar por data específica" | fronteira devolvia **HTTP 500** com erro do Postgres vazado; `2026-02-31` virava 2 de março em silêncio | `47591cc05` |
+| "não tenho interação com o que ela oferece" | contrato dizia `request_quote enabled` com **3 de 3 ofertas não-pedíveis**; motivo `rental_has_no_request_path` era **FALSO** | `858e900fc` |
+| "'Ver todos' me joga para fora" | bloco já mostrava tudo (3 de 3, teto 10) e o link prometia mais | `858e900fc` |
+| "'para qual evento' é de quem solicita?" | era — mas em **locação o campo era descartado no envio** | `0d36ac617` |
+| "não preciso entrar empresa por empresa" | descoberta provava "tem janela", nunca "está livre"; subtração correta existia **ILHADA** | `cb3177fe9` |
+| "pense nos dois lados" | caixa de entrada **cega para locação** e **recusando empresa** com 404 | `d5c31c771` |
+
+**Guards novos (238 → 246):** `audit-date-query-param-boundary` (família de 13 rotas, várias no
+caminho do dinheiro) · `audit-free-time-single-reader` (casa a **assinatura**, não o nome) ·
+`audit-inbox-covers-every-owner-type` (lê o **enum vivo**, não lista paralela).
+
+**🔴 A LEI QUE SAIU DAQUI (Clayton):** *"pense nos DOIS lados — consumir e operar"*. **Quatro** dos
+defeitos acima são o mesmo erro: construído só do lado de quem age. Detalhe no cartório.
+
+**⚠️ RETRATAÇÃO DA DIREÇÃO (5ª do arco):** afirmei — inclusive num mandato para a instância de
+produto — que o filtro de meia-janela era *"ignorado em silêncio"*. **Era 400.** Derrubado por
+pinpoint, e o "conserto" que eu tinha feito em cima da premissa falsa foi **revertido**.
+
+**⛔ O QUE ESTA SESSÃO NÃO FECHOU (é de Clayton):** ratificar R1 (*"agenda é da unidade; empresa
+agrega"*) e R2 (mediação) · destravar `0146 §B` (compromisso composto de N agendas — trava clínica,
+trator+operador, guincho, obra e o carrinho) · reclassificar `quantity=10` · conceitos ausentes
+(`trator`·`escavadeira`·`implemento`) · elo `actor_assets → item canônico`.
 
 ### 🔴 EM VOO AGORA — atualizado 2026-08-02
 

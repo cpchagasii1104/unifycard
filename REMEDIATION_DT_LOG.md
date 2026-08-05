@@ -1,5 +1,140 @@
 # REMEDIATION DT LOG
 
+## 🧭 FRICÇÃO DE USO DE CLAYTON — 6 fatias, e a lei dos DOIS LADOS que saiu delas (2026-08-05)
+
+**Origem:** Clayton no navegador, apontando defeito por defeito: *"vamos fazer fricção de uso (meu)
+pelo frontend e focar nas correções que eu for te apontando"*. E, no fim: *"a gente está falhando
+porque quando a gente tem uma ideia, a gente só pensa do lado de quem está fazendo aquela situação,
+mas não pensa do outro lado. E a gente tem que começar a fazer isso a partir de agora."*
+
+**⚠️ ESTE REGISTRO CHEGOU ATRASADO.** `CLAUDE.md §7` manda escrever no cartório **durante** a fatia.
+Foram **17 commits** entre a última entrada (`5b8a4fb89`) e esta, e quem cobrou foi Clayton
+perguntando *"você está atualizando o cartório?"* — não a minha disciplina. Registrar depois não
+conserta a ordem; conserta a lacuna e deixa o próximo com o que eu deveria ter escrito antes.
+
+---
+
+### A LEI QUE SAIU DAQUI (Clayton, 2026-08-05) — vale mais que as 6 fatias
+
+> **"Pense nos DOIS lados — consumir e operar."**
+
+Não é conselho de UX. É o diagnóstico de causa-raiz de **quatro** dos defeitos abaixo, que são o
+mesmo erro repetido: **construído só do lado de quem age.**
+
+| defeito | lado construído | lado esquecido |
+|---|---|---|
+| `request_quote` aceso no contrato | quem pede | **zero ofertas pedíveis** do outro lado |
+| evento e detalhes coletados no diálogo | quem pede | **nunca entregues** a quem recebe |
+| pedido de locação nasce `201 requested` | quem pede | **invisível** na caixa de entrada do dono |
+| descoberta dizia "tem janela" | declaração do dono | **sem olhar os compromissos** dele |
+
+🔴 **Guard que materializa a lei:** `audit-inbox-covers-every-owner-type.mjs` — todo dono de agenda
+que pode RECEBER pedido tem que aparecer na caixa de entrada, ou estar declarado como "não recebe"
+com motivo. Ele lê o **enum vivo**, não uma lista paralela — foi justamente uma lista paralela que
+deixou `actor_asset` de fora.
+
+---
+
+### AS 6 FATIAS (todas com prova de 1ª mão contra `unificard_dev`, servidor vivo)
+
+**1. `47591cc05` — filtrar evento por um dia específico, e a fronteira que devolvia 500**
+O contrato já tinha `startAtFrom`/`startAtTo` e o repositório já filtrava; faltava a pergunta. Mas a
+fronteira não validava: `?startAtFrom=lixo` → **HTTP 500** com `22007` do Postgres vazado.
+`Invalid Date` satisfaz o tipo `Date` do TS — atravessou rota, service e repositório sem um aviso.
+🔴 **Dois achados que só a prova revelou:** `new Date('2026-02-31')` **NÃO** é Invalid Date no V8 —
+vira 2 de março, em silêncio (o arquivo chegou a AFIRMAR o contrário num comentário meu); e união
+discriminada `{ok:true}|{ok:false}` **não compila** aqui, porque `tsconfig.build.json` tem
+`strict:false`. Guard: `audit-date-query-param-boundary.mjs`, família de **13 arquivos de rota**,
+vários no caminho do dinheiro (ledger, invoicing, financial-agenda, regional-fee, reporting).
+
+**2. `858e900fc` — a página do fornecedor não deixava fazer nada com o que ele oferece**
+Contrato contradizia a tela em 3 pontos: `request_quote enabled=true` com **3 de 3 ofertas
+`requestable=false`** (duas verdades sobre a mesma pergunta); motivo `rental_has_no_request_path`
+**FALSO** — o caminho existe e é asset-first (`POST /rentable-resources/:id/book` exige
+`ownerType='actor_asset'`); e a query de janelas procurava `rentable_resource` enquanto o writer
+exige `actor_asset` — **as duas metades do mesmo caminho discordando do vocabulário**.
+`heroActions.slice(0,3)` engolia justamente a única ação acesa.
+
+**3. `0d36ac617` — o evento e os detalhes do pedido eram descartados em silêncio**
+Ao rotear o diálogo por origem (fatia 2), o ramo de **locação** não levava `eventId` nem `notes` —
+o writer nunca teve os campos. Campo coletado, nenhum leitor, tela dizendo "pedido enviado".
+A decisão de autoridade foi **extraída** para `@core/events/event-context-authority` para não haver
+duas regras de "posso amarrar a este evento?". O guard `audit-performer-event-binding` mordeu o
+refactor por medir **localização** em vez de invariante — ensinado a seguir a decisão e ficou **mais
+estrito** (confere a chave no módulo de destino).
+
+**4. `cb3177fe9` — "tem janela" não é "está livre"**
+A descoberta provava que a janela EXISTIA, nunca que estava LIVRE. A subtração correta já rodava,
+**ILHADA** em `rentable-resource.service.ts:578`. Promovida a leitor único em
+`core/availability/free-time.ts`, read-only, com a régua por espécie: locação disputa o **item**;
+serviço disputa o **provider** (0146 §A.3, rollup cross-oferta). Status bloqueantes **mapeados do
+schema vivo** (§A.4) — `requested` não bloqueia.
+Decisão de Clayton aplicada: o período **deixou de excluir e passou a anotar** — quem procurava
+dezembro recebia lista vazia; agora o fornecedor aparece com `freeInRange=false` e a **próxima
+janela que ele mesmo declarou**.
+🔴 **REVERTI UM CONSERTO DE PREMISSA FALSA.** Eu afirmei — inclusive num mandato para a instância de
+produto — que meia-janela era "ignorada em silêncio". **NÃO É**: `event.routes.ts:587` devolve 400
+`EVENT_AVAILABILITY_WINDOW_INCOMPLETE`. Quem me obrigou a conferir foi a instância de produto, que
+reportou a divergência **sem afirmar nenhum dos lados** e pediu pinpoint. Manter deixaria capacidade
+sem caller. Guard: `audit-free-time-single-reader.mjs` (casa a **assinatura**, não o nome — quem
+copia renomeia).
+
+**5. `d5c31c771` — o pedido nascia e ninguém do outro lado via**
+A caixa de entrada cobria `user`/`service_offering`/`group` e **ignorava `actor_asset`**. E pior:
+**recusava empresa** — 5 linhas exigiam `actor.user_id`, devolvendo `404 "Actor não é do tipo user"`;
+actor de empresa tem `user_id` NULL por desenho. A Rio Verde, dona de 3 itens, não via um pedido
+sequer. A trava era **vestigial**: `globalUserId` calculado e nunca lido; todas as consultas já
+filtram por `actor.actor_id`. Removê-la não amplia acesso — devolve o que `canRepresentActor` já
+havia concedido.
+
+**6. `8b042ef2d` — `ARQUITETURA/` fora da história**
+Pasta do sistema paralelo estava **untracked e não ignorada**, sem repositório próprio. Um
+`git add -A` levaria o sistema inteiro para dentro deste repo — o acidente já ocorreu 2× aqui.
+
+---
+
+### 🔬 O QUE FOI MEDIDO E VIROU INSUMO DE DECISÃO (read-only, sem tocar)
+
+| pergunta de Clayton | medido |
+|---|---|
+| a clínica/cadeira já foi pensada? | **SIM** — `DECISION-0146 §B` nomeia *"sala/cadeira/frota/inventário"* e adia: *"exige entidade própria — NÃO inventar agora"* |
+| um gerador × dez? | `RFC_ASSET D3` decide por **identidade**; dado vivo tem `quantity=10` em 3 de 4 itens |
+| produto tem agenda? | **SIM, rodando** — `owner_type='actor_asset'`, 4 janelas |
+| obra é evento? | `event_type` **morto** (8/8 NULL); identidade por concept, **23 formatos** governados, `mutirao` e `route` já lá; falta **fase/etapa/medição** (0 tabelas) |
+| "Coca 1L retornável" | `canonical_variants` **existe** com `gtin`·`net_content_value`·`is_returnable` — **0 linhas**; e `actor_assets` **não aponta** para o item canônico |
+| implemento (construção) | **0 tabelas** de compatibilidade/kit/composição |
+| reputação | 5 substratos, **todos 0 linhas** |
+| canal de negociação | `chat_rooms`/`messages`/`blocks`/`reports` existem, **0 linhas**; `chat_messages` tem `actor_id` **E** `contact_id` (2 eixos, DT registrada) |
+
+🔴 **ARMADILHA DOCUMENTAL:** `RFC_ASSET_MULTI_OFFER_FOUNDATION.md` diz na **linha 3** *"PROPOSTA —
+NENHUM código"* e, no **mesmo arquivo** (268-283), registra **4 fatias SELADAS**. Quem ler a linha 3
+e parar vai redesenhar o que está de pé.
+
+---
+
+### ⛔ PENDENTE DE CLAYTON (nada disto foi executado)
+
+1. Ratificar **R1** — *"a agenda é sempre uma só para o produto ou pessoa, mas a empresa pode ter
+   múltiplos produtos ou funcionários"*. **Não está em DECISION nem aqui até hoje.**
+2. Ratificar **R2** — mediação pela plataforma até um evento nomeado; e **qual** evento libera.
+3. **Destravar `0146 §B`** — o compromisso composto (N agendas num aceite atômico). Trava tudo:
+   clínica, trator+operador, guincho, obra e o **carrinho** que ele desenhou.
+4. `quantity=10` — quais são lote e quais são unidade (Clayton respondeu: **cada unidade com agenda
+   própria**, o que EMENDA o D3 para o caso fungível-em-massa e precisa de registro formal).
+5. Conceitos ausentes: `trator`, `escavadeira`, `implemento`.
+6. Elo `actor_assets → item canônico` (é o que destrava filtro por atributo/porte).
+
+### 🔧 O QUE EU ERREI HOJE (para o próximo não repetir)
+- **Crase dentro de template literal quebrou a compilação 3×** — comentário SQL com crase FECHA a string.
+- **Guard contando comentário 3×** — corrigido nos guards, nunca apagando a explicação.
+- **CRLF do Edit no Windows 2×** — diff de arquivo inteiro; `git ls-files --eol` antes de commitar.
+- **Um teste meu danificou `unified-availability.types.ts`** (levou comentário junto + converteu EOL);
+  restaurado com `git checkout` antes do commit.
+- **Afirmei "ignorado em silêncio" sem medir** — era 400. Derrubado por outra instância.
+
+**Estado:** HEAD `d5c31c771` · runner **246 COMMANDS OK** · typecheck BE 0 · FE 0 · **Δbank = 0 em
+todas as fatias** (`bank_ledger` 16 → 16).
+
 ## ⚖️ PROVA DE RASTREABILIDADE A POSTERIORI — e o eixo fundido que a conferência achou (2026-08-04)
 
 **Origem:** Clayton perguntou, sobre a fatia da página do fornecedor: *"tudo o que você fez
