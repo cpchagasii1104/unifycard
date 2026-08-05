@@ -323,6 +323,18 @@ export default function ActorPage() {
     }
   }
 
+  // 🔴 O CORTE ENGOLIA JUSTAMENTE A AÇÃO ACESA — achado na fricção de Clayton (2026-08-04).
+  // Era `heroActions.slice(0, 3)`. Na Rio Verde Estruturas a ordem de montagem produzia
+  // [Seguir, Solicitar conexão, Mensagem·em breve, Abrir chamado·…, Alugar·…, Solicitar orçamento]
+  // e o corte em 3 deixava DOIS botões desabilitados na tela e descartava o único que funcionava.
+  // Quatro linhas acima este arquivo diz: *"botão que o contrato manda acender e a tela engole é
+  // pior que botão ausente"* — e fazia exatamente isso logo abaixo.
+  // Ação habilitada NUNCA é cortada; as gated só preenchem o que sobra.
+  const heroActionsVisiveis = [
+    ...heroActions.filter((a) => !a.disabled),
+    ...heroActions.filter((a) => a.disabled),
+  ].slice(0, 3);
+
   const stats: EntityHeroStat[] = [
     ...(social ? [{ label: 'posts', value: social.postsCount }, { label: 'seguidores', value: social.followersCount }] : []),
     ...blocks.filter((b) => typeof b.data.count === 'number' && b.type !== 'posts')
@@ -332,6 +344,29 @@ export default function ActorPage() {
 
   const blocksForTab = (tabKey: string) =>
     tabKey === 'all' ? blocks : blocks.filter((b) => b.tab === tabKey);
+
+  /**
+   * A ação de UM item, projetada do contrato. Três estados, e o terceiro é o que costuma sumir:
+   *   true  → dá para pedir agora
+   *   false → NÃO dá, e o servidor disse por quê (motivo traduzido, nunca inventado aqui)
+   *   null  → o servidor não soube dizer. Não vira botão nem vira "indisponível": vira NADA.
+   *           Renderizar "indisponível" a partir de `null` seria a tela afirmando o que ninguém
+   *           mediu — o mesmo erro de reportar `0` quando a leitura falhou.
+   */
+  const renderItemAction = (requestable: boolean | null, reason: string | null) => {
+    if (requestable === null || requestable === undefined) return null;
+    if (requestable) {
+      return (
+        <button type="button" className="actor-item-action" onClick={() => setQuoteOpen(true)}>
+          Solicitar orçamento
+        </button>
+      );
+    }
+    // Motivo VERDADEIRO, do servidor. 'no_schedule' = o dono não publicou janela; quem resolve é
+    // ele, e dizer isso é mais útil que um "indisponível" que não ensina nada a ninguém.
+    const texto = reason === 'no_schedule' ? 'sem agenda publicada' : 'indisponível';
+    return <span className="actor-item-action-off" title="Estado resolvido pelo servidor">{texto}</span>;
+  };
 
   const renderBlock = (block: ActorPageContract['blocks'][number]) => {
     switch (block.type) {
@@ -431,11 +466,23 @@ export default function ActorPage() {
                     {/* durationMinutes null EXPLÍCITO: locação cobra por unidade de tempo, não tem duração fixa.
                           Os dois eixos são separados no contrato desde 2026-08-04 (§4.34). */}
                     <div className="actor-item-price">{formatSupplierPrice({ ...r, durationMinutes: null })}</div>
+                    {/* 🔴 A INTERAÇÃO POR ITEM — fricção de Clayton: *"quando chego na página dela
+                        eu não tenho interação com o que ela oferece"*. O estado vem do contrato
+                        (`requestable`/`requestableReason`), resolvido pela mesma autoridade que o
+                        diálogo obedece; a tela NÃO decide o que é pedível. */}
+                    {renderItemAction(r.requestable, r.requestableReason)}
                   </li>
                 ))}
               </ul>
             )}
-            {block.deeplink && <a className="actor-deeplink" href={block.deeplink}>Ver todos →</a>}
+            {/* O servidor só manda deeplink quando há MAIS do que o bloco mostrou (ele tem a contagem e o
+                            teto) — sem resto, não há link, e foi isso que resolveu a fricção do "Ver todos" que
+                            levava para fora sem ter mais nada. Quando há resto, o rótulo DIZ que sai da página:
+                            ⚠️ /locacoes ainda NÃO filtra por dono (medido: nenhum ownerActorId na rota nem na
+                            tela), então o destino é o catálogo geral. Enquanto for assim, o honesto é avisar. */}
+                        {block.deeplink && (
+                          <a className="actor-deeplink" href={block.deeplink}>Ver as demais no catálogo geral →</a>
+                        )}
           </section>
         );
       }
@@ -461,7 +508,14 @@ export default function ActorPage() {
                 ))}
               </ul>
             )}
-            {block.deeplink && <a className="actor-deeplink" href={block.deeplink}>Ver todos →</a>}
+            {/* O servidor só manda deeplink quando há MAIS do que o bloco mostrou (ele tem a contagem e o
+                            teto) — sem resto, não há link, e foi isso que resolveu a fricção do "Ver todos" que
+                            levava para fora sem ter mais nada. Quando há resto, o rótulo DIZ que sai da página:
+                            ⚠️ /locacoes ainda NÃO filtra por dono (medido: nenhum ownerActorId na rota nem na
+                            tela), então o destino é o catálogo geral. Enquanto for assim, o honesto é avisar. */}
+                        {block.deeplink && (
+                          <a className="actor-deeplink" href={block.deeplink}>Ver as demais no catálogo geral →</a>
+                        )}
           </section>
         );
       }
@@ -614,7 +668,7 @@ export default function ActorPage() {
         displayName={header.displayName}
         bio={header.headline ?? header.bio}
         stats={stats}
-        actions={heroActions.slice(0, 3)}
+        actions={heroActionsVisiveis}
       />
 
       {header.location && (header.location.cityName || header.location.stateCode) && (

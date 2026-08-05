@@ -57,6 +57,17 @@ export interface ActorPageRentalItem {
   pricingUnit: string | null;
   /** Sempre 'asset': a locação viva é asset-first e o guard asset-rental-convergence garante. */
   origem: 'asset';
+  /**
+   * 🔴 DÁ PARA PEDIR ESTE ITEM? Resolvido no servidor pela MESMA autoridade que o diálogo de
+   * orçamento obedece (getProviderShowcase) — a tela só projeta.
+   *
+   * `null` = o servidor não soube dizer (item ausente da vitrine). NÃO é `false`: `false`
+   * afirmaria "não dá", que é conclusão que ninguém mediu. Ver "zero é afirmação; desconhecido
+   * é a verdade" — a tela trata `null` como indefinido, nunca como negativa.
+   */
+  requestable: boolean | null;
+  /** Por que não dá. `null` quando dá, ou quando não se sabe. Vocabulário fechado do servidor. */
+  requestableReason: 'no_schedule' | null;
 }
 
 export interface ActorPageProductItem {

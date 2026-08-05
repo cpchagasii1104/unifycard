@@ -21,6 +21,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { getSupplierShowcase, listOrganizerEvents, type ProviderShowcase, type Event } from '../../api/events';
 import { requestOfferingBooking, type OfferingBookingResult } from '../../api/offerings';
+import { requestResourceBooking } from '../../api/rentals';
 import { useActiveActor } from '../../contexts/ActiveActorContext';
 import { formatSupplierPrice } from '../../utils/money';
 import './QuoteRequestDialog.css';
@@ -50,7 +51,11 @@ export default function QuoteRequestDialog({ providerActorId, providerName, onCl
   const [eventoId, setEventoId] = useState('');
   const [mensagem, setMensagem] = useState('');
   const [enviando, setEnviando] = useState(false);
-  const [resultado, setResultado] = useState<OfferingBookingResult | null>(null);
+  // O writer de LOCAÇÃO não devolve `gateReason` — e inventar um aqui seria a tela afirmando um
+  // critério que ninguém aplicou. Campo opcional: presente quando o servidor mandou, ausente
+  // quando não mandou, e a linha de detalhe some junto.
+  type ResultadoPedido = Pick<OfferingBookingResult, 'bookingId' | 'status'> & { gateReason?: string };
+  const [resultado, setResultado] = useState<ResultadoPedido | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -76,8 +81,10 @@ export default function QuoteRequestDialog({ providerActorId, providerName, onCl
   const ofertasPedíveis = (vitrine?.offers ?? []).filter((o) => o.requestable);
   // Motivo TRADUZIDO, não deduzido: o vocabulário é fechado e vem resolvido do backend.
   const MOTIVO: Record<string, string> = {
+    // Motivo único. 'rental_has_no_request_path' saiu do vocabulário: dizia que locação não tinha
+    // caminho de pedido, e tinha — POST /rentable-resources/:id/book, asset-first. Traduzir um
+    // motivo falso é propagar a mentira mais longe do que ela nasceu.
     no_schedule: 'sem agenda publicada',
-    rental_has_no_request_path: 'locação ainda não tem pedido por aqui',
   };
   const recusadas = (vitrine?.offers ?? []).filter((o) => !o.requestable);
 
@@ -85,18 +92,31 @@ export default function QuoteRequestDialog({ providerActorId, providerName, onCl
     if (!janelaId || !ofertaId || !activeActor?.actor_id) return;
     setEnviando(true); setErro(null);
     try {
-      setResultado(await requestOfferingBooking(ofertaId, {
-        availabilityId: janelaId,
-        requesterActorId: activeActor.actor_id,
-        eventId: eventoId || undefined,
-        notes: mensagem.trim() || undefined,
-      }));
+      // 🔴 DOIS WRITERS, UM POR ORIGEM — e a origem vem do CONTRATO (`sourceKind`), não de palpite.
+      // Serviço e locação têm caminhos de reserva DIFERENTES e sempre tiveram: `service_offerings`
+      // é escrito por `POST /services/offerings/:id/bookings`; asset locável, por
+      // `POST /rentable-resources/:id/book`, que valida `availability.ownerType === 'actor_asset'`.
+      // Enquanto locação era declarada "não pedível", este diálogo só via serviço e um writer
+      // bastava. Ao corrigir aquele motivo (era falso), mandar um asset para o writer de serviço
+      // daria 404/400 garantido — botão aceso com submit para o lugar errado.
+      const origem = vitrine?.offers.find((o) => o.offerId === ofertaId)?.sourceKind;
+      if (origem === 'rentable') {
+        const r = await requestResourceBooking(ofertaId, janelaId);
+        setResultado({ bookingId: r.bookingId, status: r.status });
+      } else {
+        setResultado(await requestOfferingBooking(ofertaId, {
+          availabilityId: janelaId,
+          requesterActorId: activeActor.actor_id,
+          eventId: eventoId || undefined,
+          notes: mensagem.trim() || undefined,
+        }));
+      }
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Não foi possível enviar o pedido.');
     } finally {
       setEnviando(false);
     }
-  }, [janelaId, ofertaId, activeActor?.actor_id, eventoId, mensagem]);
+  }, [janelaId, ofertaId, activeActor?.actor_id, eventoId, mensagem, vitrine]);
 
   return (
     <div className="qrd-overlay" onClick={onClose} role="presentation">
@@ -116,7 +136,10 @@ export default function QuoteRequestDialog({ providerActorId, providerName, onCl
             {resultado.status === 'confirmed'
               ? <p><strong>Reserva confirmada.</strong> Este fornecedor aceita direto nesta condição.</p>
               : <p><strong>Pedido enviado.</strong> Ficou aguardando resposta — o fornecedor decide se aceita.</p>}
-            <p className="qrd-detalhe">situação: <code>{resultado.status}</code> · critério: <code>{resultado.gateReason}</code></p>
+            <p className="qrd-detalhe">
+              situação: <code>{resultado.status}</code>
+              {resultado.gateReason && <> · critério: <code>{resultado.gateReason}</code></>}
+            </p>
             <button type="button" className="qrd-enviar" onClick={onClose}>Fechar</button>
           </div>
         ) : vitrine && (

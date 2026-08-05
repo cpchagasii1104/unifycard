@@ -254,6 +254,31 @@
   white-space: nowrap;
 }
 
+/* Ação POR ITEM (2026-08-04) — a lista era só nome + preço, sem nada para fazer com o que a
+   empresa oferece. Fica à direita do preço, sem competir com ele. */
+.actor-item-action {
+  margin-left: 12px;
+  padding: 6px 12px;
+  border: 1px solid #1877f2;
+  border-radius: 6px;
+  background: #fff;
+  color: #1877f2;
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.actor-item-action:hover { background: #1877f2; color: #fff; }
+/* Estado NEGADO pelo servidor: texto, não botão. Botão desabilitado convida ao clique e ensina
+   que a tela está quebrada; a frase diz o motivo verdadeiro e não promete nada. */
+.actor-item-action-off {
+  margin-left: 12px;
+  font-size: 0.8rem;
+  color: #999;
+  white-space: nowrap;
+}
+
 .actor-agenda-item {
   justify-content: space-between;
 }

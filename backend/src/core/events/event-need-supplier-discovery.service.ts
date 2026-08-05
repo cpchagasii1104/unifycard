@@ -136,7 +136,8 @@ export interface ProviderOffer {
    */
   requestable: boolean;
   /** Por que NÃO dá para pedir. `null` quando dá. Vocabulário fechado, resolvido no servidor. */
-  requestableReason: 'no_schedule' | 'rental_has_no_request_path' | null;
+  /** Único motivo vivo. 'rental_has_no_request_path' foi REMOVIDO em 2026-08-04: era falso. */
+  requestableReason: 'no_schedule' | null;
 }
 
 /**
@@ -614,8 +615,16 @@ class EventNeedSupplierDiscoveryService {
           WHERE tenant_id = $1::uuid
             AND status = 'active'
             AND end_datetime >= now()
-            AND ( (owner_type = 'service_offering'  AND owner_id = ANY($2::uuid[]))
-               OR (owner_type = 'rentable_resource' AND owner_id = ANY($3::uuid[])) )
+            -- 🔴 2026-08-04 — era 'rentable_resource' AQUI e 'actor_asset' no WRITER do pedido
+            -- (rentable-resource.service.ts:505 recusa availability cujo ownerType != 'actor_asset').
+            -- As duas metades do MESMO caminho discordavam do vocabulário: este leitor nunca acharia
+            -- a janela que aquele writer exige, então locação NUNCA teria agenda — em silêncio, sem
+            -- erro, para sempre. Sobra da migração asset-first: rentable_resources tem 0 linhas
+            -- medidas, e audit-asset-rental-convergence já governa a convergência.
+            -- (sem crase neste comentário DE PROPÓSITO: ele mora dentro de um template literal,
+            --  onde a crase FECHA a string — quebrou a compilação uma vez, aqui mesmo.)
+            AND ( (owner_type = 'service_offering' AND owner_id = ANY($2::uuid[]))
+               OR (owner_type = 'actor_asset'      AND owner_id = ANY($3::uuid[])) )
           ORDER BY start_datetime ASC`,
         [tenantId, serviceRows.map((r) => r.offer_id), rentableRows.map((r) => r.offer_id)]
       );
@@ -635,18 +644,20 @@ class EventNeedSupplierDiscoveryService {
     return {
       providerActorId,
       displayName: actorRows[0].display_name,
-      // 🔴 A DECISÃO "dá para pedir?" É RESOLVIDA AQUI, nunca na tela. Duas causas de recusa, e
-      // ambas são FATO do domínio, não preferência de interface:
-      //   · locação não tem caminho de pedido religado — `POST /services/offerings/:id/bookings`
-      //     é o writer de `service_offerings`; recurso alugável tem writer PRÓPRIO, ainda sem
-      //     superfície. Oferecer o botão produziria 404/400 garantido.
-      //   · sem janela publicada não há `availabilityId`, que é OBRIGATÓRIO no pedido.
+      // 🔴 A DECISÃO "dá para pedir?" É RESOLVIDA AQUI, nunca na tela. E a causa é UMA só, porque
+      // é a mesma para as duas origens: sem janela publicada não há `availabilityId`, que é
+      // OBRIGATÓRIO nos dois writers de pedido.
+      //
+      // ⚠️ 2026-08-04 — AQUI HAVIA UM BLOQUEIO VENCIDO, e do tipo mais caro: dizia que "locação não
+      // tem caminho de pedido religado". Tem. `POST /rentable-resources/:id/book` existe e é
+      // ASSET-FIRST — `rentable-resource.service.ts:505` exige `availability.ownerType ==
+      // 'actor_asset'`. O motivo falso não era só ruído: ele mandava o próximo CONSTRUIR um caminho
+      // que já existe, que é o "não existe" falso contra o qual este repositório inteiro é escrito.
+      // O que falta de verdade é o DONO publicar janela — medido: 0 linhas de `availability` com
+      // owner_type='actor_asset', contra 58 de 'service_offering'.
       offers: ofertas.map((o) => {
         const windows = windowsByOwner.get(o.offerId) ?? [];
-        const reason: ProviderOffer['requestableReason'] =
-          o.sourceKind !== 'service' ? 'rental_has_no_request_path'
-            : windows.length === 0 ? 'no_schedule'
-              : null;
+        const reason: ProviderOffer['requestableReason'] = windows.length === 0 ? 'no_schedule' : null;
         return { ...o, windows, requestable: reason === null, requestableReason: reason };
       }),
     };

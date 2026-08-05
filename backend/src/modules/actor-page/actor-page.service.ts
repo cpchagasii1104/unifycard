@@ -38,6 +38,8 @@ import { unifiedAvailabilityService } from '@core/availability/unified-availabil
 import { AvailabilityOwnerType, UnifiedAvailabilityStatus } from '@core/availability/unified-availability.types';
 import { resolveTemporalPurposeSlugById } from '@core/availability/temporal-purpose';
 import { operationalAddressHelper } from '@core/location/operational-address.helper';
+// Autoridade ÚNICA sobre "dá para pedir?" — consultada aqui, nunca reimplementada.
+import { eventNeedSupplierDiscoveryService } from '@core/events/event-need-supplier-discovery.service';
 import { getFullAddress } from '@core/location/address-helpers';
 import { supportTicketRepository } from '@modules/support-tickets/support-ticket.repository';
 import { purchaseOrderRepository } from '@modules/marketplace/purchase-order.repository';
@@ -148,7 +150,21 @@ class ActorPageService {
         const base: ActorPageBlock = { type: def.type, tab: def.tab, deeplink: def.deeplink(actorId), data: { count: counts[i] } };
         // F-ACTOR-PAGE-SHELL-SLICE-4: hidrata conteúdo rico só para os 3 blocos desta fatia
         // (Sobre já é rico; Locações/Programação seguem count-only, fora de escopo aqui).
-        blocks.push(await this.hydrateBlock(tenantId, actorId, actor, base));
+        const hidratado = await this.hydrateBlock(tenantId, actorId, actor, base);
+        // 🔴 "VER TODOS" QUE NÃO LEVA A NADA — fricção de Clayton (2026-08-04): *"se eu clicar em
+        // VER TODOS sou redirecionado para fora da página dela (mas eu já tinha buscado por ela
+        // antes)"*. Medido na Rio Verde: count=3, items=3, teto=10 — o bloco já mostrava TUDO, e o
+        // link ainda prometia mais e jogava o usuário no marketplace geral, perdendo o fornecedor
+        // que ele tinha acabado de encontrar.
+        //
+        // Quem sabe se há mais é o SERVIDOR (ele tem a contagem e o teto). Deixar a tela comparar
+        // seria ela decidindo o que existe. Sem resto, sem link: ausência de link é a verdade.
+        const itens = hidratado.data.items;
+        const total = hidratado.data.count;
+        if (Array.isArray(itens) && typeof total === 'number' && total <= itens.length) {
+          hidratado.deeplink = null;
+        }
+        blocks.push(hidratado);
         tabs.push({ key: def.tab, label: def.tabLabel });
       }
     }
@@ -319,7 +335,31 @@ class ActorPageService {
       // que diz à tela qual caminho de contratação existe para cada item.
       case 'rentals': {
         const itens = await actorPageRepository.listRentalItems(tenantId, actorId, BLOCK_ITEMS_LIMIT);
-        return { ...base, data: { ...base.data, items: itens } };
+        // 🔴 CADA ITEM DIZ O QUE ACEITA — fricção de Clayton (2026-08-04): *"quando chego na página
+        // dela eu não tenho interação com o que ela oferece"*. O bloco listava nome e preço e mais
+        // nada; a única ação da página era um botão de escopo do actor inteiro.
+        //
+        // `requestable` NÃO é recalculado aqui: vem de `getProviderShowcase`, a MESMA autoridade
+        // que o diálogo de orçamento obedece. Duas verdades sobre "dá para pedir?" já existiram
+        // neste contrato e discordaram (ação acesa, zero ofertas pedíveis) — uma só, e é esta.
+        const vitrine = await eventNeedSupplierDiscoveryService.getProviderShowcase(tenantId, actorId);
+        const porOferta = new Map((vitrine?.offers ?? []).map((o) => [o.offerId, o]));
+        return {
+          ...base,
+          data: {
+            ...base.data,
+            items: itens.map((it: { id: string }) => {
+              const o = porOferta.get(it.id);
+              return {
+                ...it,
+                // Ausente da vitrine = NÃO SEI, e não-sei nunca vira `false` silencioso: `false`
+                // afirmaria "não dá para pedir", que é conclusão que ninguém mediu.
+                requestable: o ? o.requestable : null,
+                requestableReason: o ? o.requestableReason : null,
+              };
+            }),
+          },
+        };
       }
       case 'services': {
         const services = await servicesRepository.findByActor(tenantId, actorId, { status: ServiceStatus.ACTIVE });
@@ -508,16 +548,31 @@ class ActorPageService {
       actions.push({ key: 'rent', label: 'Alugar', enabled: false, gatedBy: 'PORTA-1', deeplink: null });
     }
 
-    // 🔴 SOLICITAR ORÇAMENTO **NÃO** É GATED — e essa é a diferença que destrava o pré-dinheiro.
-    // Comprar/alugar/contratar movem dinheiro; PEDIR não move. Provado de 1ª mão em 2026-08-04:
-    // `POST /services/offerings/:id/bookings` → 201, status `requested`, Δbank medido 0 → 0. O
-    // pedido nasce como compromisso de agenda e o DONO decide; nenhuma porta soberana é tocada.
-    // Só acende quando há o que pedir — serviço ou locação publicados.
+    // 🔴 SOLICITAR ORÇAMENTO **NÃO** É GATED POR DINHEIRO — e essa é a diferença que destrava o
+    // pré-dinheiro. Comprar/alugar/contratar movem dinheiro; PEDIR não move. Provado de 1ª mão em
+    // 2026-08-04: `POST /services/offerings/:id/bookings` → 201, status `requested`, Δbank 0 → 0.
+    //
+    // ⚠️ MAS ACENDER POR "TEM SERVIÇO OU LOCAÇÃO" ERA UMA PROMESSA QUE O ACTOR NÃO PODIA CUMPRIR.
+    // Achado na fricção de Clayton (2026-08-04), medido no contrato vivo da Rio Verde Estruturas:
+    //     ACTOR   request_quote  enabled=TRUE
+    //     OFERTAS 3 de 3         requestable=FALSE
+    // Duas verdades sobre a MESMA pergunta ("dá para pedir?"), decididas em lugares diferentes e
+    // discordando. Quem clicasse abriria um diálogo sem nenhuma oferta pedível — beco sem saída
+    // com aparência de caminho.
+    //
+    // A autoridade sobre "dá para pedir" é UMA: `getProviderShowcase`, a mesma que o diálogo
+    // obedece. Aqui ela é CONSULTADA, não reimplementada — mesmo padrão do `support_ticket` logo
+    // acima, que reusa o resolver do módulo dono em vez de refazer a checagem.
     if ((lit.has('services') || lit.has('rentals')) && !isSelf) {
+      const vitrine = await eventNeedSupplierDiscoveryService.getProviderShowcase(tenantId, target.id);
+      const pedíveis = (vitrine?.offers ?? []).filter((o) => o.requestable).length;
       actions.push({
         key: 'request_quote',
         label: 'Solicitar orçamento',
-        enabled: true,
+        enabled: pedíveis > 0,
+        // Motivo VERDADEIRO do bloqueio: o dono não publicou janela. Não é "em breve" (nada falta
+        // construir) nem PORTA-1 (não há dinheiro nisto) — é agenda ausente, e quem resolve é ele.
+        gatedBy: pedíveis > 0 ? undefined : 'SEM_JANELA_PUBLICADA',
         deeplink: null, // in-page: a tela abre o formulário sobre a agenda já projetada no bloco
       });
     }

@@ -1089,7 +1089,8 @@ export interface ProviderOffer {
    * seguia em quase tudo, menos aqui. Agora o contrato responde e a tela obedece.
    */
   requestable: boolean;
-  requestableReason: 'no_schedule' | 'rental_has_no_request_path' | null;
+  /** 'rental_has_no_request_path' foi REMOVIDO em 2026-08-04: era falso — o caminho existe. */
+  requestableReason: 'no_schedule' | null;
 }
 
 export interface ProviderShowcase {
