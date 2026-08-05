@@ -84,6 +84,52 @@ function hasMetadata(x: unknown): x is { metadata: unknown } {
 }
 
 /**
+ * 🔒 A ÚNICA REGRA DE "QUEM PODE LER ESTE GRUPO" (2026-08-05).
+ *
+ * Nasceu do achado 16.2 da instância de `ARQUITETURA/`, e o defeito é da família **IRMÃOS**:
+ * rotas da mesma casa com gates diferentes. Medido antes de escrever:
+ *   · `GET /groups/:id`          → só `groupsAuthGate('groups:read')` — nada mais
+ *   · `GET /groups/:id/members`  → só `groupsAuthGate('groups:members:read')` — nada mais
+ *   · a rota de consulta da conta   → gate + **verificação de membership** com 403
+ * Um irmão coberto, dois abertos. Com o id em mãos, qualquer autenticado do tenant lia um grupo
+ * SECRETO inteiro e a lista de membros dele. Corrigir só a listagem (o outro achado, 16.1) teria
+ * sido meia obra: fecharia a vitrine e deixaria a porta.
+ *
+ * A regra NÃO é invenção minha — sai do próprio módulo: `joinGroup` exige **convite** para secreto
+ * e apenas **pedido de entrada** para privado. Logo privado precisa ser encontrável (senão ninguém
+ * pede entrada) e secreto **não pode ser legível** por quem não é membro.
+ *
+ * 🔴 E A RESPOSTA É 404, NÃO 403. Um 403 responde "existe, mas você não pode" — o que confirma a
+ * existência do grupo secreto para quem só chutou o id. Indistinguível de inexistente é a única
+ * resposta que não vaza.
+ *
+ * ⚠️ FICA NOMEADO, NÃO DECIDIDO: se a lista de membros de um grupo **privado** deve ser visível a
+ * não-membros, a lei não diz — e eu não invento política. Hoje segue como estava (visível).
+ */
+async function grupoLegivelPor(
+  tenantId: string,
+  userId: string,
+  groupId: string,
+  visibility: string | undefined
+): Promise<boolean> {
+  if (visibility !== 'secret') {
+    return true;
+  }
+  return ehMembroDoGrupo(tenantId, userId, groupId);
+}
+
+/**
+ * 🔒 Membership do PRINCIPAL AUTENTICADO — a régua estrita, para o que o `CONTRATO_GRUPOS_V2` §2.6
+ * fecha por padrão: *"não-membro não vê"*. Mesma forma já usada pela rota de consulta da conta e
+ * `/:id/impact-history` (verificadas equivalentes); existe como função para não haver uma quarta
+ * cópia — cópia de regra de autorização é como os irmãos divergem em primeiro lugar.
+ */
+async function ehMembroDoGrupo(tenantId: string, userId: string, groupId: string): Promise<boolean> {
+  const members = await groupsService.getGroupMembers(tenantId, groupId);
+  return members.some((m) => m.userId !== null && m.userId === userId);
+}
+
+/**
  * Helper: Verifica se o usuário é owner do grupo OU tem permission RBAC
  * Owner tem permissão implícita para gerenciar seu grupo
  */
@@ -635,6 +681,15 @@ const groupsRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(404).send({ error: 'Group not found' });
       }
 
+      // 🔒 Grupo secreto não é legível por não-membro — e responde 404, não 403 (ver
+      // `grupoLegivelPor`: 403 confirmaria a existência para quem chutou o id).
+      if (!req.user?.userId) {
+        return reply.status(401).send({ error: 'Não autenticado' });
+      }
+      if (!(await grupoLegivelPor(tenantId, req.user.userId, id, group.visibility))) {
+        return reply.status(404).send({ error: 'Group not found' });
+      }
+
       return group;
     }
   );
@@ -886,6 +941,20 @@ const groupsRoutes: FastifyPluginAsync = async (fastify) => {
       const tenantId = req.tenant!.id;
       const { id } = req.params;
 
+      // 🔒 MESMA regra do irmão `GET /groups/:id` — uma função só, não duas leituras da mesma lei.
+      // Antes, esta rota tinha APENAS o gate de permissão de tenant: qualquer autenticado listava
+      // os membros de qualquer grupo, inclusive secreto.
+      if (!req.user?.userId) {
+        return reply.status(401).send({ error: 'Não autenticado' });
+      }
+      const group = await groupsService.getGroup(tenantId, id);
+      if (!group) {
+        return reply.status(404).send({ error: 'Group not found' });
+      }
+      if (!(await grupoLegivelPor(tenantId, req.user.userId, id, group.visibility))) {
+        return reply.status(404).send({ error: 'Group not found' });
+      }
+
       const members = await groupsService.getGroupMembers(tenantId, id);
 
       return reply.status(200).send({ members });
@@ -1056,6 +1125,19 @@ const groupsRoutes: FastifyPluginAsync = async (fastify) => {
       const tenantId = req.tenant!.id;
       const { id: groupId } = req.params;
 
+      // 🔴 ESTA ROTA ERA A PORTA DOS FUNDOS DA IRMÃ QUE CONSULTA A CONTA (corrigido 2026-08-05).
+      // Aquela verifica membership e devolve 403; esta aqui tinha APENAS
+      // `groupsAuthGate('groups:read')` e devolvia os totais econômicos — a MESMA informação
+      // econômica — de qualquer grupo, para qualquer autenticado do tenant. Proteger um irmão e
+      // deixar o outro aberto não protege nada: só muda a rota que o curioso usa.
+      // `CONTRATO_GRUPOS_V2` §2.6 é explícito: **não-membro não vê por padrão**.
+      if (!req.user?.userId) {
+        return reply.status(401).send({ error: 'Não autenticado' });
+      }
+      if (!(await ehMembroDoGrupo(tenantId, req.user.userId, groupId))) {
+        return reply.status(403).send({ ok: false, message: 'Você não é membro deste grupo' });
+      }
+
       try {
         // Usar projector existente para calcular economia do grupo
         const { economicOverviewProjector } = await import('@modules/economy/economic-overview.projector');
@@ -1104,6 +1186,13 @@ const groupsRoutes: FastifyPluginAsync = async (fastify) => {
         // Verificar se grupo existe
         const group = await groupsService.getGroup(req.tenant.id, groupId);
         if (!group) {
+          return reply.status(404).send({ error: 'Grupo não encontrado' });
+        }
+
+        // 🔒 Irmão que estava sem gate NENHUM (só autenticação). Devolve contagens — membros,
+        // eventos, posts — logo a régua é a de legibilidade (secreto não é legível por não-membro),
+        // não a de membership estrita usada onde há informação econômica.
+        if (!(await grupoLegivelPor(req.tenant.id, req.user.userId, groupId, group.visibility))) {
           return reply.status(404).send({ error: 'Grupo não encontrado' });
         }
 

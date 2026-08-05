@@ -1,5 +1,76 @@
 # REMEDIATION DT LOG
 
+## 🔒 FATIA GRUPOS · PARTE 2 — os IRMÃOS: fechar a vitrine não adiantou, a porta estava aberta (2026-08-05, direção)
+
+**Continuação direta da parte 1.** Fechar `GET /groups?visibility=secret` era necessário e
+**insuficiente**: com o id em mãos, qualquer autenticado do tenant ainda lia o grupo secreto
+inteiro, a lista de membros e — o pior — os totais econômicos dele.
+
+Família **IRMÃOS** (rotas da mesma casa com gates diferentes). É insidiosa porque cada rota, lida
+sozinha, *parece* ter um gate. O defeito só aparece quando se lê o CONJUNTO, e ninguém lê o conjunto.
+
+### O conjunto, medido
+
+| rota | gate antes | veredito |
+|---|---|---|
+| `GET /:id` | só `groupsAuthGate('groups:read')` | 🔴 aberto |
+| `GET /:id/members` | só `groupsAuthGate('groups:members:read')` | 🔴 aberto (achado 16.2) |
+| `GET /:id/economy` | só `groupsAuthGate('groups:read')` | 🔴🔴 **aberto, e devolve totais econômicos** |
+| `GET /:id/dashboard` | **nenhum** preHandler | 🔴 aberto |
+| `GET /:id/balance` | gate + membership | ✅ coberto |
+| `GET /:id/impact-history` | gate + membership | ✅ coberto |
+| `GET /:id/invites` | `requireGroupOwnerOrPermission` | ✅ coberto (mais estrito) |
+
+🔴 **O achado que nem a auditoria da pasta tinha:** `/:id/economy` é a **porta dos fundos** da rota
+que consulta a conta. Aquela verifica membership e devolve 403; esta devolvia a MESMA informação
+econômica sem checagem nenhuma. **Proteger um irmão e deixar o outro aberto não protege nada — só
+muda a rota que o curioso usa.** Contradiz `CONTRATO_GRUPOS_V2` §2.6 (*"não-membro não vê por
+padrão"*) de forma direta.
+
+### O conserto — UMA regra, não quatro
+
+`grupoLegivelPor()` (secreto não é legível por não-membro) e `ehMembroDoGrupo()` (a régua estrita,
+onde há informação econômica). Duas funções, não quatro cópias — **cópia de regra de autorização é
+exatamente como os irmãos divergem em primeiro lugar**.
+
+🔴 **E a resposta para grupo secreto é 404, não 403.** Um 403 responde *"existe, mas você não
+pode"* — e isso **confirma a existência** do grupo secreto para quem só chutou o id.
+Indistinguível de inexistente é a única resposta que não vaza.
+
+⚠️ **Nomeado e NÃO decidido:** se a lista de membros de um grupo **privado** deve ser visível a
+não-membros, a lei não diz. Segue como estava. Não invento política.
+
+### 🛡️ O guard — e ele achou mais do que eu procurava
+
+`audit-group-read-siblings-same-gate.mjs` (runner 248 → **249**). Fatia cada handler `GET /:id...`
+e exige a regra compartilhada, membership explícito **ou** gate de dono.
+
+· **Nasceu vermelho com 3, não com 2.** Eu tinha ido atrás de `/members` (o achado); ele apontou
+  `/economy`, `/dashboard` e `/invites`. Dois eram defeito real — inclusive o pior de todos.
+· **`/invites` era falso positivo meu:** usa `requireGroupOwnerOrPermission`, que é
+  ESTRITAMENTE mais fechado que membership. Corrigi o guard, não o código certo. *Guard que ignora
+  a forma mais estrita transforma código correto em dívida falsa — e dívida falsa gasta a
+  confiança que o vermelho verdadeiro precisa ter.*
+· **Tem trava de cegueira:** se nenhuma rota `GET /:id...` for encontrada, ele **FALHA** em vez de
+  passar. Zero rotas não é "está tudo certo", é o guard tendo ficado cego.
+· **Prova vermelha forçada** removendo a checagem de `/members`: mordeu, mensagem correta,
+  restaurou verde.
+
+### 🔴 A lição operacional que eu já tinha aprendido hoje, e apliquei
+
+Desta vez desfiz a mutação da prova vermelha **restaurando do backup**, não com `git checkout` —
+que na parte 1 apagou meu conserto inteiro por o arquivo não estar commitado.
+
+E o teto de vocabulário financeiro subiu **3 vezes na mesma sessão**, sempre por comentário meu
+citando a rota pelo nome literal. Reescrito até **3881/3881**. Registro a reincidência porque a
+regra *"o lint LÊ COMENTÁRIO"* já estava escrita e mesmo assim caí — o que sugere que o problema
+não é lembrar, é o reflexo de citar caminhos literais ao explicar.
+
+### 📌 ESTADO
+
+`runner 249 COMMANDS OK` · `typecheck BE 0` · teto `3881/3881` · EOL `i/lf w/lf`.
+**Nenhuma operação de dinheiro** — as mudanças só FECHAM leitura; nada abriu caminho de escrita.
+
 ## 🔒 FATIA GRUPOS — vazamento de grupo secreto, 31 regras que eram HTTP 500, e a conta que NUNCA pôde existir (2026-08-05, direção)
 
 **Origem:** Clayton mandou usar o aprendizado de `ARQUITETURA/` para medir o legado. O inventário de
