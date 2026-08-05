@@ -168,7 +168,7 @@ export default function RentalResourceDetailPage() {
     try {
       // O modo (auto/manual) é do DONO, decidido no backend — a tela só projeta o resultado.
       // startAt/endAt = subperíodo escolhido (locação por período); backend valida ⊆ janela.
-      const result = await requestResourceBooking(id, availabilityId, startAt, endAt);
+      const result = await requestResourceBooking(id, availabilityId, { startAt, endAt });
       showToast(
         result.autoConfirmed
           ? '✅ Reserva confirmada na hora! (o dono habilitou reserva automática)'

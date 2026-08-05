@@ -173,16 +173,24 @@ function assertAudienceRange(p: AudienceRangeInput): void {
 // Reusa os PRIMITIVOS SELADOS (eventService.getEvent + authorizationService.canActAs) — não forka a decisão
 // (a função-wrapper assertEventExactAuthority é privada de event.routes; a decisão MATERIAL é canActAs). O
 // evento é carregado server-side (o eventId do body NUNCA é prova): inexistente → 404; sem a chave → 403.
+// ⚠️ 2026-08-05 — A DECISÃO SAIU DAQUI, o comportamento NÃO mudou. Quando o caminho de LOCAÇÃO
+// passou a aceitar contexto de evento (o campo era descartado em silêncio), escrever a mesma
+// checagem lá teria criado DUAS regras para "posso amarrar a este evento?". A decisão material
+// mora agora em `@core/events/event-context-authority` e os dois writers passam por ela; este
+// wrapper só traduz o erro neutro para o envelope desta superfície, preservando os códigos que
+// os consumidores já conhecem.
 async function assertEventContractingAuthority(tenantId: string, userId: string, eventId: string): Promise<void> {
-  const { eventService } = await import('@core/events/event.service');
-  const event = await eventService.getEvent(tenantId, eventId);
-  if (!event) {
-    throw new ServiceOfferingError(404, 'SERVICE_OFFERING_EVENT_NOT_FOUND', 'Evento inexistente neste tenant.');
-  }
-  const decision = await authorizationService.canActAs(tenantId, userId, event.actorId, 'manage_attendees');
-  if (!decision.allowed) {
-    throw new ServiceOfferingError(403, 'SERVICE_OFFERING_EVENT_NOT_MANAGEABLE',
-      'Sem a permissão exata manage_attendees sobre o dono do evento (mesma chave do POST /events/:id/v2/commitments).');
+  const { assertEventContextAuthority, EventContextAuthorityError } =
+    await import('@core/events/event-context-authority');
+  try {
+    await assertEventContextAuthority(tenantId, userId, eventId);
+  } catch (e) {
+    if (e instanceof EventContextAuthorityError) {
+      throw e.statusCode === 404
+        ? new ServiceOfferingError(404, 'SERVICE_OFFERING_EVENT_NOT_FOUND', e.message)
+        : new ServiceOfferingError(403, 'SERVICE_OFFERING_EVENT_NOT_MANAGEABLE', e.message);
+    }
+    throw e;
   }
 }
 

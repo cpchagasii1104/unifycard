@@ -272,6 +272,14 @@ class RentableResourceService {
         bookedEnd: p.bookedEnd?.toISOString() ?? null,
         requestedAt: p.requestedAt.toISOString(),
         estimate,
+        // 🔴 O CONTEXTO DO PEDIDO (2026-08-05). O solicitante escrevia os dois no diálogo e nenhum
+        // chegava ao dono: `notes` era gravado sem leitor, o evento nem gravado era. São a única
+        // informação que responde "para que isto vai" na hora de aceitar ou recusar.
+        notes: p.notes,
+        // eventTitle nulo com eventId presente = evento existe e não consegui ler o título.
+        // NÃO colapsar em "sem evento": ausência de título não é ausência de evento.
+        eventId: p.eventId,
+        eventTitle: p.eventTitle,
         trust: null, // reputação dormente — a tela mostra estado honesto, NÃO score inventado
       };
     }));
@@ -493,7 +501,14 @@ class RentableResourceService {
   async requestBooking(
     tenantId: string, resourceId: string, availabilityId: string,
     subject: { subjectUserId: string; requesterActorId: string },
-    period?: { start?: Date | null; end?: Date | null }
+    period?: { start?: Date | null; end?: Date | null },
+    // 🔴 CONTEXTO DO PEDIDO (2026-08-05). O diálogo pergunta "para qual evento" e "detalhes", e no
+    // caminho de locação as duas respostas eram DESCARTADAS: este writer não tinha os campos.
+    // Campo coletado sem leitor, com aparência de ter funcionado — a pior forma do defeito.
+    // Para o dono, este é o contexto que decide se ele aceita: para QUAL obra/evento o bem vai, e o
+    // que a pessoa precisa. `eventId` é validado server-side antes de chegar aqui (a rota chama a
+    // autoridade única); o que entra nesta função já é ponteiro provado.
+    context?: { eventId?: string | null; notes?: string | null }
   ): Promise<{ bookingId: string; status: string; autoConfirmed: boolean }> {
     const resource = await rentableResourceRepository.findById(tenantId, resourceId);
     if (!resource || resource.status !== 'active') {
@@ -521,8 +536,19 @@ class RentableResourceService {
       throw HttpError.badRequest(`RENTAL_BELOW_MINIMUM: período abaixo do mínimo de ${min.projection.qty} ${min.projection.unit}.`);
     }
     // Cria o pedido (subject prova autoridade do consumidor sobre o próprio actor — DECISION-0148).
+    // `notes` e `metadata` JÁ existiam em CreateUnifiedBookingInput — a canalização estava pronta e
+    // só o caminho de locação não a usava. `metadata.eventId` é a MESMA chave que o caminho de
+    // serviço grava (não inventar segundo lugar para a mesma amarração).
+    // ⚠️ Em locação isso NÃO vincula elenco: o bind de performer é gated por
+    // `ownerType === 'service_offering'` (unified-availability.service.ts:455) — conferido, não suposto.
+    const metadata = context?.eventId ? { eventId: context.eventId } : undefined;
     const booking = await unifiedAvailabilityService.createBooking(
-      tenantId, subject, { availabilityId, requesterActorId: subject.requesterActorId, bookedStartDatetime: bStart, bookedEndDatetime: bEnd } as any);
+      tenantId, subject, {
+        availabilityId, requesterActorId: subject.requesterActorId,
+        bookedStartDatetime: bStart, bookedEndDatetime: bEnd,
+        notes: context?.notes ?? null,
+        ...(metadata ? { metadata } : {}),
+      } as any);
 
     if (resource.bookingApprovalMode === 'automatic') {
       // Pré-autorização do dono → o backend confirma. Lock por recurso barra conflito NO SUBPERÍODO

@@ -582,7 +582,10 @@ const rentableResourceRoutes: FastifyPluginAsync = async (fastify) => {
    * autoridade sobre o próprio actor (req.user + actionContext). O modo (auto/manual) é do DONO —
    * decidido no backend, não na tela. 'automatic' confirma na hora; 'manual' fica pendente.
    */
-  fastify.post<{ Params: { id: string }; Body: { availabilityId?: string; startAt?: string; endAt?: string } }>('/:id/book', async (req, reply) => {
+  fastify.post<{
+    Params: { id: string };
+    Body: { availabilityId?: string; startAt?: string; endAt?: string; eventId?: string; notes?: string };
+  }>('/:id/book', async (req, reply) => {
     if (!req.tenant?.id) return reply.status(400).send({ error: 'Tenant não encontrado' });
     const userId = (req.user as { userId?: string } | undefined)?.userId;
     if (!userId) return reply.status(401).send({ error: 'Autenticação obrigatória' });
@@ -598,10 +601,31 @@ const rentableResourceRoutes: FastifyPluginAsync = async (fastify) => {
     let canRep = false;
     try { canRep = await authorizationService.canRepresentActor(req.tenant.id, userId, requesterActorId); } catch { canRep = false; }
     if (!canRep) return reply.status(403).send({ ok: false, error: 'Sem autoridade sobre o actor declarado (canRepresentActor)', code: 'RENTABLE_RESOURCE_BOOK_NOT_REPRESENTABLE' });
+    // 🔴 CONTEXTO DO EVENTO — o `eventId` do corpo é PONTEIRO, nunca prova. A decisão é a MESMA do
+    // caminho de serviço e mora em UM lugar só (`@core/events/event-context-authority`): sem esta
+    // checagem bastaria mandar o uuid do evento alheio, e o dono do bem leria um contexto falso
+    // justamente na hora de decidir se aceita.
+    const eventId = typeof req.body?.eventId === 'string' && req.body.eventId.trim() !== ''
+      ? req.body.eventId.trim() : null;
+    if (eventId) {
+      const { assertEventContextAuthority, EventContextAuthorityError } =
+        await import('@core/events/event-context-authority');
+      try {
+        await assertEventContextAuthority(req.tenant.id, userId, eventId);
+      } catch (e: any) {
+        if (e instanceof EventContextAuthorityError) {
+          return reply.status(e.statusCode).send({ ok: false, error: e.message, code: e.code });
+        }
+        throw e;
+      }
+    }
+    // Texto livre do solicitante — guardado como veio; quem decide o que fazer com ele é o dono.
+    const notes = typeof req.body?.notes === 'string' && req.body.notes.trim() !== ''
+      ? req.body.notes.trim() : null;
     try {
       const result = await rentableResourceService.requestBooking(req.tenant.id, req.params.id, availabilityId, {
         subjectUserId: userId, requesterActorId,
-      }, period);
+      }, period, { eventId, notes });
       return reply.status(201).send({ ok: true, data: result });
     } catch (err: any) {
       return reply.status(err?.statusCode ?? 500).send({ ok: false, error: err?.message ?? 'Erro ao reservar' });

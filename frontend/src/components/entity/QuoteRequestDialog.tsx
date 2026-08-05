@@ -101,7 +101,14 @@ export default function QuoteRequestDialog({ providerActorId, providerName, onCl
       // daria 404/400 garantido — botão aceso com submit para o lugar errado.
       const origem = vitrine?.offers.find((o) => o.offerId === ofertaId)?.sourceKind;
       if (origem === 'rentable') {
-        const r = await requestResourceBooking(ofertaId, janelaId);
+        // 🔴 2026-08-05 — o evento e os detalhes VIAJAM. Até ontem esta linha era
+        // `requestResourceBooking(ofertaId, janelaId)`: os dois campos que o usuário acabara de
+        // preencher morriam aqui, em silêncio, com a tela dizendo "pedido enviado". Eu escrevi essa
+        // linha ao rotear por origem e não levei o contexto junto — campo coletado, nenhum leitor.
+        const r = await requestResourceBooking(ofertaId, janelaId, {
+          eventId: eventoId || undefined,
+          notes: mensagem.trim() || undefined,
+        });
         setResultado({ bookingId: r.bookingId, status: r.status });
       } else {
         setResultado(await requestOfferingBooking(ofertaId, {

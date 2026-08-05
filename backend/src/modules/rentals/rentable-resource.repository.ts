@@ -496,16 +496,29 @@ class RentableResourceRepository {
 
   /** Reservas ATIVAS (requested + confirmed + checked_in) de um recurso, com status + subperíodo. Para o
    *  DONO ver pendentes E confirmadas (quem alugou). */
-  async findActiveRequests(tenantId: string, resourceId: string): Promise<Array<{ bookingId: string; requesterActorId: string; status: string; bookedStart: Date | null; bookedEnd: Date | null; requestedAt: Date }>> {
-    const rows = await runQueriesWithTenant<{ booking_id: string; requester_actor_id: string; status: string; booked_start_datetime: Date | null; booked_end_datetime: Date | null; requested_at: Date }>(tenantId,
-      `SELECT b.booking_id, b.requester_actor_id, b.status, b.booked_start_datetime, b.booked_end_datetime, b.requested_at
+  async findActiveRequests(tenantId: string, resourceId: string): Promise<Array<{ bookingId: string; requesterActorId: string; status: string; bookedStart: Date | null; bookedEnd: Date | null; requestedAt: Date; notes: string | null; eventId: string | null; eventTitle: string | null }>> {
+    // 🔴 2026-08-05 — `notes` e o EVENTO entram nesta projeção. O solicitante já escrevia os dois no
+    // diálogo; nenhum dos dois chegava aqui. `notes` era gravado e nunca lido; o evento nem gravado
+    // era. É o contexto que o dono usa para decidir — para QUAL obra/evento o bem vai e o que a
+    // pessoa precisa —, e ele decidia sem nada disso.
+    // O título vem por LEFT JOIN a partir de `metadata->>'eventId'`: evento apagado ou sem acesso
+    // devolve título nulo, e nulo é lido como "não sei", nunca como "sem evento".
+    const rows = await runQueriesWithTenant<{ booking_id: string; requester_actor_id: string; status: string; booked_start_datetime: Date | null; booked_end_datetime: Date | null; requested_at: Date; notes: string | null; event_id: string | null; event_title: string | null }>(tenantId,
+      `SELECT b.booking_id, b.requester_actor_id, b.status, b.booked_start_datetime, b.booked_end_datetime,
+              b.requested_at, b.notes,
+              (b.metadata->>'eventId') AS event_id,
+              e.title AS event_title
          FROM bookings b
          JOIN availability a ON a.availability_id = b.availability_id AND a.tenant_id = b.tenant_id
+         LEFT JOIN events e
+           ON e.tenant_id = b.tenant_id
+          AND (b.metadata->>'eventId') IS NOT NULL
+          AND e.id = (b.metadata->>'eventId')::uuid
         WHERE b.tenant_id = $1::uuid AND a.owner_type = 'actor_asset' AND a.owner_id = $2::uuid
           AND b.status IN ('requested','confirmed','checked_in')
         ORDER BY (b.status='requested') DESC, b.requested_at ASC`,
       [tenantId, resourceId]);
-    return rows.map((r) => ({ bookingId: r.booking_id, requesterActorId: r.requester_actor_id, status: r.status, bookedStart: r.booked_start_datetime, bookedEnd: r.booked_end_datetime, requestedAt: r.requested_at }));
+    return rows.map((r) => ({ bookingId: r.booking_id, requesterActorId: r.requester_actor_id, status: r.status, bookedStart: r.booked_start_datetime, bookedEnd: r.booked_end_datetime, requestedAt: r.requested_at, notes: r.notes, eventId: r.event_id, eventTitle: r.event_title }));
   }
 
   /** MINHAS reservas (do consumidor): bookings do requester com recurso + dono + subperíodo + status. */

@@ -92,8 +92,33 @@ const svc = read(SVC);
 if (svc === null) { failures.push(`arquivo ausente: ${SVC}`); }
 else {
   if (!/assertEventContractingAuthority\(/.test(svc)) failures.push(`${SVC}: EDGE C-1 sem autoridade de evento (assertEventContractingAuthority).`);
-  // reusa a decisão SELADA de autoridade (canActAs manage_attendees), não forka.
-  if (!/canActAs\([^)]*'manage_attendees'\)/.test(svc)) failures.push(`${SVC}: EDGE C-1 não reusa a decisão de autoridade canActAs('manage_attendees') (mesma chave do commitments).`);
+  // ── reusa a decisão SELADA (canActAs manage_attendees), não forka ──
+  // 🔴 2026-08-05 — ESTA CHECAGEM ERA POR LOCALIZAÇÃO E MORDEU UM REFACTOR LEGÍTIMO.
+  // Ela exigia o literal `canActAs('manage_attendees')` DENTRO deste arquivo. Quando o caminho de
+  // LOCAÇÃO passou a aceitar contexto de evento, escrever a mesma checagem lá criaria DUAS regras
+  // para a mesma pergunta — então a decisão foi EXTRAÍDA para um módulo canônico e os dois writers
+  // passaram a chamá-la. O invariante ("a decisão é canActAs('manage_attendees'), uma só") ficou
+  // MAIS forte; o guard, que media o texto e não o invariante, ficou vermelho.
+  //
+  // Agora ele aceita as duas formas — literal aqui, OU delegação ao módulo canônico — e no caso da
+  // delegação **vai conferir a chave no módulo de destino**. Isto é mais estrito que a versão
+  // anterior: antes, um segundo writer com a decisão duplicada passava despercebido; agora o lugar
+  // onde a decisão mora é verificado explicitamente.
+  const AUTH = 'src/core/events/event-context-authority.ts';
+  const delega = /assertEventContextAuthority\(/.test(svc) && /event-context-authority/.test(svc);
+  if (/canActAs\([^)]*'manage_attendees'\)/.test(svc)) {
+    // forma 1: a decisão mora aqui mesmo (comportamento histórico)
+  } else if (delega) {
+    // forma 2: delegada — a chave TEM que estar no módulo canônico, senão a delegação é oca
+    const auth = read(AUTH);
+    if (auth === null) {
+      failures.push(`${SVC}: delega a autoridade de evento para ${AUTH}, que NÃO EXISTE — delegação oca.`);
+    } else if (!/canActAs\([^)]*'manage_attendees'\)/.test(auth)) {
+      failures.push(`${AUTH}: é o dono da decisão de contexto de evento e NÃO contém canActAs('manage_attendees') — a chave selada sumiu ao mudar de casa.`);
+    }
+  } else {
+    failures.push(`${SVC}: EDGE C-1 não reusa a decisão de autoridade canActAs('manage_attendees') nem delega para ${AUTH}.`);
+  }
   // contexto é repassado como metadata no createBooking (persistência JSONB existente).
   if (!/metadata:\s*bookingMetadata/.test(svc)) failures.push(`${SVC}: EDGE C-1 não repassa o contexto como metadata no createBooking.`);
   // configId é SOFT (metadata-only), sem FK dura.

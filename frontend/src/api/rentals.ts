@@ -210,10 +210,16 @@ export async function getQuotePreview(id: string, startAt: string, endAt: string
 export interface BookingResult { bookingId: string; status: string; autoConfirmed: boolean }
 // startAt/endAt = SUBPERÍODO desejado dentro da janela (locação por período). Sem eles = janela inteira.
 // O backend valida que o período está contido na janela.
-export async function requestResourceBooking(resourceId: string, availabilityId: string, startAt?: string, endAt?: string): Promise<BookingResult> {
+// CONTEXTO (2026-08-05): `eventId` e `notes` viajam junto. O diálogo perguntava as duas coisas e
+// o caminho de locação DESCARTAVA as duas — o writer não tinha os campos. O servidor valida o
+// evento (não aceita o id como prova) e guarda em `metadata.eventId`, a mesma chave do serviço.
+export async function requestResourceBooking(
+  resourceId: string, availabilityId: string,
+  opts?: { startAt?: string; endAt?: string; eventId?: string; notes?: string }
+): Promise<BookingResult> {
   const res = await apiFetchJson<{ ok: boolean; data: BookingResult }>(`/rentable-resources/${resourceId}/book`, {
     method: 'POST',
-    body: JSON.stringify({ availabilityId, startAt, endAt }),
+    body: JSON.stringify({ availabilityId, ...opts }),
   });
   return res.data;
 }
