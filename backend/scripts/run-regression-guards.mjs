@@ -18,6 +18,7 @@ const CMDS = [
   "node scripts/audit-group-read-siblings-same-gate.mjs",
   "node scripts/audit-permissive-catch-ceiling.mjs",
   "node scripts/audit-expiry-door-has-trigger.mjs",
+  "node scripts/audit-worker-has-starter.mjs",
   "node scripts/audit-migration-runner-isolation.mjs",
   "node scripts/audit-official-database-lock.mjs",
   "node scripts/audit-auth-rate-limit-substrate.mjs",

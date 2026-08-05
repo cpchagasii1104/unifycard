@@ -1,5 +1,46 @@
 # REMEDIATION DT LOG
 
+## 🔁 FAMÍLIA 11 (partida sem ciclo) — ESTÁ FECHADA, e a afirmação contrária era MINHA (2026-08-05, direção)
+
+### 🔴 RETRATAÇÃO — "8 workers com zero callers" é FALSO
+
+A minha própria carta de transição, e antes dela o inventário de `ARQUITETURA/`, registravam
+*"8 workers do legado com **zero callers**"*. **Não é verdade, e a causa do erro é a mesma que eu
+tinha acabado de cometer hoje:** todos os greps eram escopados em `src/` — e **o boot mora em
+`backend/BOOT.ts`, FORA de `src/`**. Denominador errado, conclusão invertida.
+
+**Como caiu:** eu ia declarar que nenhum worker era iniciado, e o banco me desmentiu no meio da
+medição — `ledger_snapshots` ganhou **3 linhas novas enquanto eu contava** (957 → 960). O worker
+estava rodando na minha frente enquanto eu escrevia que ele estava morto.
+
+**Medição correta:** **26 de 26 workers citados no `BOOT.ts`**, cada um com portão explícito e log
+honesto do que fica desligado. A família **#11 está FECHADA** neste repositório.
+
+📌 Registro a retratação com o mesmo destaque que daria a um achado, porque **"defeito que não
+existe" custa igual**: manda a próxima instância consertar o que está certo, e gasta a confiança
+que o vermelho verdadeiro precisa ter.
+
+### 🛡️ O GUARD QUE TERIA ME IMPEDIDO — e agora impede
+
+`audit-worker-has-starter.mjs` (runner 251 → **252**). Para cada `src/workers/*.ts` que exporta
+`start*`/`run*`/`claim*`/`process*`, exige que o boot o alcance.
+
+· **Ele lê `BOOT.ts` FORA de `src/`** — escrito explicitamente no código, porque foi exatamente o
+  que me enganou. Varrer só `src/` faz todo worker parecer órfão.
+· ⚠️ **Não confunde "sem partida" com "desligado".** Vários são `default-off` de propósito
+  (`isFinancialWorkerEnabled`), e isso é decisão registrada, não dívida. O guard exige que o
+  CAMINHO exista, mesmo com a chave desligada. Confundir os dois transformaria contenção
+  deliberada em dívida falsa.
+· **Trava de cegueira dupla:** zero arquivo de boot encontrado **FALHA**; zero worker reconhecido
+  **FALHA**. Denominador vazio nunca é aprovação.
+· **Prova vermelha forçada** removendo um worker do boot: mordeu, nomeou o worker e a função,
+  restaurou verde. Restauração por **backup**, não `git checkout`.
+
+### 📌 ESTADO
+
+`runner 252 COMMANDS OK` · **nenhum código de produção alterado nesta fatia** — o resultado foi
+uma retratação e uma checagem. Δbank = 0.
+
 ## 💰 SSOT — o saldo paralelo do grupo foi ELIMINADO, e o caminho que sumiu com os 25 eventos foi ACHADO (2026-08-05, GO de Clayton)
 
 **GO textual:** *"O saldo paralelo do grupo, se tem coluna fora do bank, elimine isso. Temos que
