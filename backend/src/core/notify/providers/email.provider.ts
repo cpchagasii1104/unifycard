@@ -42,8 +42,20 @@ export const EMAIL_PROVIDER_FLAG = 'EMAIL_PROVIDER_ENABLED';
 export const EMAIL_NOT_CONFIGURED =
   'EMAIL_PROVIDER_NOT_CONFIGURED: nenhum provider de e-mail real está ligado, então NADA foi ' +
   'entregue. A mensagem está registrada em notify_queue (destinatário, assunto e payload) e pode ' +
-  `ser lida de lá. Para entregar de verdade: implemente o envio neste provider e ligue ${''}` +
-  'EMAIL_PROVIDER_ENABLED=true.';
+  'ser lida de lá. Para entregar de verdade são DUAS coisas, não uma: (1) implementar o envio ' +
+  'neste provider e ligar EMAIL_PROVIDER_ENABLED=true; (2) DAR PARTIDA no drenador da fila — ' +
+  '`runNotifyWorkerOnce` existe e hoje tem ZERO callers, como todos os 8 workers deste ' +
+  'repositório. Sem (2), a fila nunca esvazia sozinha mesmo com provider real.';
+
+// 🔴 A SEGUNDA METADE, ESCRITA PORQUE EU QUASE A OMITI (2026-08-04).
+// Ao materializar `notify_queue` eu declarei o pipeline funcionando — e a minha própria prova
+// chamou `processPendingForTenant` À MÃO. `runNotifyWorkerOnce` tem zero callers. É a armadilha #2
+// do fundamento de arquitetura ("presença de arquivo prova INTENÇÃO, nunca CAPACIDADE"), cometida
+// por mim uma hora depois de escrever um guard contra ela em outro módulo.
+//
+// Medido: os 8 workers de `src/workers/` têm ZERO callers cada. Não é defeito desta fatia — é
+// condição SISTÊMICA da camada de worker, e ligá-la é decisão de orquestração do dono, não conserto
+// de módulo. Fica NOMEADA aqui para que ninguém plugue um provider achando que basta.
 
 export class EmailProvider {
   constructor(private readonly config: EmailProviderConfig) {}
