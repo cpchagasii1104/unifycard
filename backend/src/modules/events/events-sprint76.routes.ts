@@ -242,7 +242,24 @@ const eventsSprint76Routes = async (fastify: FastifyInstance) => {
     if (req.query.status) {
       filters.status = req.query.status;
     }
+    // 🔴 MESMO VAZAMENTO DE `GET /groups`, achado pelo guard que nasceu daquele conserto
+    // (`audit-group-visibility-discovery-boundary.mjs`, 2026-08-05). Isto era
+    // `filters.visibility = req.query.visibility` cru: o cliente escolhia a visibilidade e o
+    // filtro obedecia. O vocabulário GOVERNADO de `events.visibility` é
+    // `public · connections · only_me` (CHECK físico, lido do banco antes de escrever esta linha)
+    // — ou seja, `?visibility=only_me` devolveria eventos que o dono marcou como só dele.
+    // Descoberta expõe APENAS `public`: `connections` exigiria checar relação, que esta rota não
+    // faz, e `only_me` não é descobrível por definição. Valor fora disso é 400 — nunca 500, nunca
+    // lista vazia em silêncio.
+    const VISIBILIDADE_DESCOBRIVEL_EVENTO = ['public'];
     if (req.query.visibility) {
+      if (!VISIBILIDADE_DESCOBRIVEL_EVENTO.includes(req.query.visibility)) {
+        return reply.status(400).send({
+          ok: false,
+          error: 'EVENT_VISIBILITY_NOT_DISCOVERABLE',
+          message: `Visibilidade inválida para descoberta: "${req.query.visibility}". Aceitas: ${VISIBILIDADE_DESCOBRIVEL_EVENTO.join(', ')}.`,
+        });
+      }
       filters.visibility = req.query.visibility;
     }
     // ── 2026-08-04 · F-EVENT-DISCOVERY-SPECIFIC-DATE ────────────────────────────────────────

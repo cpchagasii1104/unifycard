@@ -14,6 +14,7 @@ const CMDS = [
   "node scripts/audit-pj-human-to-company-closure.mjs",
   "node scripts/audit-canonical-catalog-closure.mjs",
   "node scripts/audit-availability-owner-authority.mjs",
+  "node scripts/audit-group-visibility-discovery-boundary.mjs",
   "node scripts/audit-migration-runner-isolation.mjs",
   "node scripts/audit-official-database-lock.mjs",
   "node scripts/audit-auth-rate-limit-substrate.mjs",

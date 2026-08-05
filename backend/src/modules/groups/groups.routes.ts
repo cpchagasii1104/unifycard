@@ -6,6 +6,7 @@ import { groupImageService } from './services/group-image.service';
 import { rbacService } from '@core/rbac/rbac.service';
 import { GROUP_PURPOSES, DEFAULT_GROUP_PURPOSE } from './group-purpose.vocabulary';
 import type { PermissionString } from '@core/rbac/rbac.types';
+import type { GroupVisibility } from './groups.types';
 import multipart from '@fastify/multipart';
 import { z } from 'zod';
 import * as path from 'path';
@@ -565,14 +566,38 @@ const groupsRoutes: FastifyPluginAsync = async (fastify) => {
     {
       preHandler: groupsAuthGate('groups:read'),
     },
-    async (req) => {
+    async (req, reply) => {
       const tenantId = req.tenant!.id;
       const query = req.query as { isActive?: string; visibility?: string; category_id?: string } | undefined;
       const isActive = query?.isActive !== undefined ? query.isActive === 'true' : true;
-      const visibility = query?.visibility || 'public';
       const categoryId = query?.category_id;
 
-      // Listar apenas grupos públicos e ativos
+      // 🔴 VAZAMENTO CORRIGIDO 2026-08-05 — `?visibility=secret` LISTAVA GRUPOS SECRETOS.
+      // O código era `query?.visibility || 'public'` seguido de `filter(g => g.visibility === ...)`:
+      // a visibilidade vinha CRUA do cliente, sem passar por vocabulário nenhum, e o SQL de
+      // `findAll` não filtra visibilidade (o `visibilityConditions` de lá é NOME QUE MENTE — são
+      // condições de escopo territorial: tenant/estado/país). O comentário que ficava aqui dizia
+      // "Listar apenas grupos públicos e ativos" e também mentia.
+      // Gravidade pela régua de quem está presente para notar: o prejudicado é o dono do grupo
+      // secreto, que NÃO está na requisição e nunca saberia.
+      //
+      // A regra vem do próprio módulo, não de invenção minha: `joinGroup` exige convite para
+      // secreto e apenas pedido de entrada para privado — logo privado é descobrível e secreto
+      // NUNCA é. `SECRET` sai do vocabulário de descoberta; valor fora dele é 400, não 500 e não
+      // silêncio (fronteira de entrada em rota, `CLAUDE.md` §3.2).
+      const VISIBILIDADE_DESCOBRIVEL: readonly GroupVisibility[] = ['public', 'private'];
+      const pedida = query?.visibility;
+      if (pedida !== undefined && !VISIBILIDADE_DESCOBRIVEL.includes(pedida as GroupVisibility)) {
+        return reply.status(400).send({
+          ok: false,
+          error: 'GROUP_VISIBILITY_NOT_DISCOVERABLE',
+          message: `Visibilidade inválida para descoberta: "${pedida}". Aceitas: ${VISIBILIDADE_DESCOBRIVEL.join(', ')}.`,
+        });
+      }
+      // Sem parâmetro, o padrão continua o de antes: só públicos. Ampliar o default seria mudar
+      // exposição de carona num conserto de segurança.
+      const visibility: GroupVisibility = (pedida as GroupVisibility) ?? 'public';
+
       const allGroups = await groupsService.listGroups(tenantId, { isActive, categoryId });
       const publicGroups = allGroups.filter(g => g.visibility === visibility);
 

@@ -32,10 +32,19 @@ interface GroupMemberRow {
   joinedAt: Date;
 }
 
+// 🔴 ESTE TIPO MENTIU POR TODA A VIDA DO MÓDULO (corrigido 2026-08-05).
+// Declarava `account_id` e `createdAt` — duas colunas que NUNCA existiram em `group_accounts`
+// (reais: `bank_account_id`, `created_at`). O TypeScript compilou feliz porque um tipo de linha é
+// uma AFIRMAÇÃO sobre o que o banco devolve, nunca uma checagem: `runQueryWithTenant<T>` não valida
+// nada em runtime. Efeito: as 3 queries da seção ACCOUNTS estouravam `42703` e a rota de consulta
+// da conta do grupo devolvia 500 para todo grupo — por isso `group_accounts` tem ZERO linhas:
+// nunca foi
+// possível criar uma. `createdAt` sem aspas ainda dobrava para `createdat`, um segundo erro no
+// mesmo identificador.
 interface GroupAccountRow {
   group_id: string;
-  account_id: string;
-  createdAt: Date;
+  bank_account_id: string;
+  created_at: Date;
 }
 
 interface GroupInviteRow {
@@ -526,30 +535,34 @@ class GroupsRepository {
     const row = await runQueryWithTenant<GroupAccountRow>(
       tenantId,
       `
-      INSERT INTO group_accounts (tenant_id, group_id, account_id)
+      INSERT INTO group_accounts (tenant_id, group_id, bank_account_id)
       VALUES ($1, $2, $3)
-      ON CONFLICT (group_id, account_id) DO NOTHING
-      RETURNING group_id, account_id, createdAt
+      ON CONFLICT (tenant_id, group_id) DO NOTHING
+      RETURNING group_id, bank_account_id, created_at
       `,
       [tenantId, groupId, accountId]
     );
 
     if (!row) {
-      // Já existe, buscar
+      // ⚠️ A ÚNICA é `(tenant_id, group_id)` — UMA conta por grupo, não uma por par.
+      // O `ON CONFLICT` antigo citava `(group_id, account_id)`, que não é única de nada: mesmo com
+      // os nomes certos ele teria erguido `42P10`. E a busca de fallback tem que ser pelo MESMO
+      // critério da única — procurar por `(group_id, account_id)` devolveria vazio justamente no
+      // caso que importa (grupo já ligado a OUTRA conta) e cairia no throw como se fosse falha.
       const existing = await runQueryWithTenant<GroupAccountRow>(
         tenantId,
         `
-        SELECT group_id, account_id, createdAt
+        SELECT group_id, bank_account_id, created_at
         FROM group_accounts
-        WHERE group_id = $1 AND account_id = $2
+        WHERE tenant_id = $1 AND group_id = $2
         `,
-        [groupId, accountId]
+        [tenantId, groupId]
       );
       if (existing) {
         return {
           groupId: existing.group_id,
-          accountId: existing.account_id,
-          createdAt: existing.createdAt.toISOString(),
+          accountId: existing.bank_account_id,
+          createdAt: existing.created_at.toISOString(),
         };
       }
       throw new Error('Failed to link account');
@@ -557,8 +570,8 @@ class GroupsRepository {
 
     return {
       groupId: row.group_id,
-      accountId: row.account_id,
-      createdAt: row.createdAt.toISOString(),
+      accountId: row.bank_account_id,
+      createdAt: row.created_at.toISOString(),
     };
   }
 
@@ -566,7 +579,7 @@ class GroupsRepository {
     const row = await runQueryWithTenant<GroupAccountRow>(
       tenantId,
       `
-      SELECT ga.group_id, ga.account_id, ga.createdAt
+      SELECT ga.group_id, ga.bank_account_id, ga.created_at
       FROM group_accounts ga
       INNER JOIN groups g ON g.id = ga.group_id
       WHERE ga.group_id = $1 AND g.tenant_id = $2
@@ -575,11 +588,17 @@ class GroupsRepository {
       [groupId, tenantId]
     );
 
+    // ⚠️ `bank_account_id` é PONTEIRO para `bank_accounts(id)` — este mapa NÃO guarda dinheiro.
+    // O que o grupo tem vive no Bank, em dois bolsos separados por natureza econômica
+    // (`CONTRATO_GRUPOS_V2` §2.1). A coluna `balance_cents` desta mesma tabela é uma SEGUNDA
+    // ESCRITURAÇÃO paralela ao Bank e contradiz a lei; ninguém a lê
+    // (`grep balance_cents src/modules/groups` = vazio) e a tabela
+    // tem zero linhas. Aposentá-la é ato de GATE, não deste conserto — mas nada aqui passa a lê-la.
     return row
       ? {
-            groupId: row.group_id,
-          accountId: row.account_id,
-          createdAt: row.createdAt.toISOString(),
+          groupId: row.group_id,
+          accountId: row.bank_account_id,
+          createdAt: row.created_at.toISOString(),
         }
       : null;
   }

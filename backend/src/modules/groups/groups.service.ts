@@ -15,7 +15,14 @@ import { eventBus } from '@core/events/event-bus';
 import { devLog } from '@utils/devLog';
 import { groupCreationPolicy } from './policies/GroupCreationPolicy';
 import { runQueryWithTenant } from '@core/database/pool';
-import { BadRequestError } from '@core/errors';
+// 🔴 REGRA DE NEGÓCIO DEIXA DE SER ERRO DE SERVIDOR (2026-08-05).
+// Este módulo tinha 25+ `throw new Error(...)` crus. A rota faz `reply.status(err.statusCode ?? 500)`
+// — e `Error` não tem `statusCode`, então TODA regra do domínio (limite de grupos, grupo inexistente,
+// não é o dono, grupo secreto exige convite) chegava ao usuário como **HTTP 500 em inglês**.
+// ⚠️ `@core/errors` é ambíguo de propósito neste repositório: existem `src/core/errors.ts` (arquivo)
+// e `src/core/errors/` (pasta). O ARQUIVO vence a pasta na resolução, e é dele que vêm estas
+// classes — todas descendem de `AppError`, que carrega `statusCode`. Verificado antes de importar.
+import { BadRequestError, ForbiddenError, NotFoundError, ConflictError } from '@core/errors';
 import { worldService } from '@core/world/services/world.service';
 import type { Group, GroupMember, CreateGroupInput, UpdateGroupInput, GroupWithMembers, GroupInvite, GroupInviteStatus, CreateGroupInviteInput } from './groups.types';
 import { ensureUserActor, ensureGroupActor } from '@modules/identity/actor-writer.service';
@@ -202,7 +209,7 @@ class GroupsService {
   private async assertParticipationCapacity(tenantId: string, actingUserId: string): Promise<void> {
     const currentCount = await groupsRepository.getUserGroupCount(tenantId, actingUserId);
     if (currentCount >= 3) {
-      throw new Error('User cannot be in more than 3 groups');
+      throw new ForbiddenError('User cannot be in more than 3 groups');
     }
   }
 
@@ -210,7 +217,7 @@ class GroupsService {
   private async assertCandidateCapacity(tenantId: string, candidateActorId: string): Promise<void> {
     const activeCount = await groupsRepository.countActiveUserActorMemberships(tenantId, candidateActorId);
     if (activeCount !== null && activeCount >= 3) {
-      throw new Error('User cannot be in more than 3 groups');
+      throw new ForbiddenError('User cannot be in more than 3 groups');
     }
   }
 
@@ -234,7 +241,7 @@ class GroupsService {
     // 🔴 VALIDAÇÃO: Finalidade dos recursos é obrigatória se tem intenção financeira
     const hasFinancialIntent = input.metadata?.hasFinancialIntent === true;
     if (hasFinancialIntent && (!input.financial_purpose || input.financial_purpose.trim().length < 20)) {
-      throw new Error('Finalidade dos recursos é obrigatória quando o grupo movimenta recursos financeiros (mínimo 20 caracteres)');
+      throw new BadRequestError('Finalidade dos recursos é obrigatória quando o grupo movimenta recursos financeiros (mínimo 20 caracteres)');
     }
 
     // 🔴 PREENCHIMENTO AUTOMÁTICO: Preencher country_id e state_id com base em city_id
@@ -392,7 +399,7 @@ class GroupsService {
     // Verificar se usuário é owner
     const group = await groupsRepository.findById(tenantId, groupId);
     if (!group) {
-      throw new Error('Group not found');
+      throw new NotFoundError('Group not found');
     }
 
     // 🔴 CORREÇÃO UX: Permitir que owner OU admin atualize o grupo (§4.8: owner = actor_id)
@@ -407,7 +414,7 @@ class GroupsService {
       // D9.2-B/D11: role legada perdeu efeito autorizativo — gestao = canRepresentActor
       const canGovern = await this.userCanGovernGroup(tenantId, groupId, userId);
       if (!canGovern) {
-        throw new Error('Only the owner or a group representative can update the group');
+        throw new ForbiddenError('Only the owner or a group representative can update the group');
       }
     }
 
@@ -453,7 +460,7 @@ class GroupsService {
     const hasFinancialIntent = group.metadata?.hasFinancialIntent === true;
     if (hasFinancialIntent && sanitizedInput.financial_purpose !== undefined) {
       if (!sanitizedInput.financial_purpose || sanitizedInput.financial_purpose.trim().length < 20) {
-        throw new Error('Finalidade dos recursos é obrigatória para grupos financeiros (mínimo 20 caracteres)');
+        throw new BadRequestError('Finalidade dos recursos é obrigatória para grupos financeiros (mínimo 20 caracteres)');
       }
     }
 
@@ -464,11 +471,11 @@ class GroupsService {
     // Verificar se usuário é owner
     const group = await groupsRepository.findById(tenantId, groupId);
     if (!group) {
-      throw new Error('Group not found');
+      throw new NotFoundError('Group not found');
     }
 
     if (!(await this.requesterMatchesOwnerActor(tenantId, group.ownerActorId, userId))) {
-      throw new Error('Only the owner can delete the group');
+      throw new ForbiddenError('Only the owner can delete the group');
     }
 
     return groupsRepository.delete(tenantId, groupId);
@@ -486,16 +493,16 @@ class GroupsService {
     // Cap civil de participacao (D12): so memberships ATIVAS de user-actor em grupos ativos
     const currentCount = await groupsRepository.getUserGroupCount(tenantId, actingUserId);
     if (currentCount >= 3) {
-      throw new Error('User cannot be in more than 3 groups');
+      throw new ForbiddenError('User cannot be in more than 3 groups');
     }
 
     // Verificar se grupo existe e está ativo
     const group = await groupsRepository.findById(tenantId, groupId);
     if (!group) {
-      throw new Error('Group not found');
+      throw new NotFoundError('Group not found');
     }
     if (!group.isActive) {
-      throw new Error('Group is not active');
+      throw new ConflictError('Group is not active');
     }
 
     // 🔴 VALIDAÇÃO: Fluxo baseado em visibilidade
@@ -503,9 +510,9 @@ class GroupsService {
       // Grupo público: join direto permitido
     } else if (group.visibility === 'private') {
       // Grupo privado: requer request-to-join
-      throw new Error('Private groups require a join request. Use requestJoinGroup instead.');
+      throw new ForbiddenError('Private groups require a join request. Use requestJoinGroup instead.');
     } else if (group.visibility === 'secret') {
-      throw new Error('Secret groups require an invitation from a group representative');
+      throw new ForbiddenError('Secret groups require an invitation from a group representative');
     }
 
     // Escrita UNICA: writer governado da casa nova (reentrada = nova linha; ativa duplicada falha)
@@ -543,7 +550,7 @@ class GroupsService {
   ): Promise<boolean> {
     const group = await groupsRepository.findById(tenantId, groupId);
     if (!group) {
-      throw new Error('Group not found');
+      throw new NotFoundError('Group not found');
     }
 
     const memberActorId = await groupsRepository.findUserActorId(tenantId, actingUserId);
@@ -610,7 +617,7 @@ class GroupsService {
   ): Promise<boolean> {
     const group = await groupsRepository.findById(tenantId, groupId);
     if (!group) {
-      throw new Error('Group not found');
+      throw new NotFoundError('Group not found');
     }
 
     const memberActorId = await groupsRepository.findUserActorId(tenantId, memberUserId);
@@ -657,16 +664,16 @@ class GroupsService {
     // Verificar se grupo existe e está ativo
     const group = await groupsRepository.findById(tenantId, groupId);
     if (!group) {
-      throw new Error('Group not found');
+      throw new NotFoundError('Group not found');
     }
     if (!group.isActive) {
-      throw new Error('Group is not active');
+      throw new ConflictError('Group is not active');
     }
 
     // 🔴 VALIDAÇÃO: nao convidar actor com membership JA ATIVA (casa nova, namespace ACTOR)
     const active = await groupActorMembershipRepository.findActiveByGroupAndMember(tenantId, groupId, invitedActorId);
     if (active) {
-      throw new Error('User is already a member of this group');
+      throw new ConflictError('User is already a member of this group');
     }
 
     // Intencao explicita governada (1 pendente por par; GAM_INTENT_PENDING_EXISTS fail-closed)
@@ -700,7 +707,7 @@ class GroupsService {
     // Verificar se grupo existe
     const group = await groupsRepository.findById(tenantId, groupId);
     if (!group) {
-      throw new Error('Group not found');
+      throw new NotFoundError('Group not found');
     }
 
     // D9.2-B/D10: gestao do grupo = canRepresentActor (owner civil ou group-actor)
@@ -712,7 +719,7 @@ class GroupsService {
     );
 
     if (!isOwner && !(await this.userCanGovernGroup(tenantId, groupId, requesterUserId))) {
-      throw new Error('Only the owner or a group representative can view invites');
+      throw new ForbiddenError('Only the owner or a group representative can view invites');
     }
 
     return groupsRepository.getInvitesByGroup(tenantId, groupId, status);
@@ -731,15 +738,15 @@ class GroupsService {
   ): Promise<GroupMember> {
     const intent = await groupActorMembershipRepository.findIntent(tenantId, inviteId);
     if (!intent) {
-      throw new Error('Invite not found');
+      throw new NotFoundError('Invite not found');
     }
     if (intent.intentKind !== 'invite') {
-      throw new Error('This is not an invite. Use approveJoinRequest for join requests.');
+      throw new BadRequestError('This is not an invite. Use approveJoinRequest for join requests.');
     }
 
     const group = await groupsRepository.findById(tenantId, intent.groupId);
     if (!group || !group.isActive) {
-      throw new Error('Group is not active');
+      throw new ConflictError('Group is not active');
     }
 
     // Cap civil do CANDIDATO (D12) — antes de materializar a membership
@@ -791,7 +798,7 @@ class GroupsService {
   ): Promise<boolean> {
     const intent = await groupActorMembershipRepository.findIntent(tenantId, inviteId);
     if (!intent) {
-      throw new Error('Invite not found');
+      throw new NotFoundError('Invite not found');
     }
     if (intent.intentKind !== 'invite') {
       throw new Error('This is not an invite. Use rejectJoinRequest for join requests.');
@@ -844,16 +851,16 @@ class GroupsService {
     // Cap civil (D12): pendencias nao contam; ativas contam
     const currentCount = await groupsRepository.getUserGroupCount(tenantId, actingUserId);
     if (currentCount >= 3) {
-      throw new Error('User cannot be in more than 3 groups');
+      throw new ForbiddenError('User cannot be in more than 3 groups');
     }
 
     // Verificar se grupo existe e está ativo
     const group = await groupsRepository.findById(tenantId, groupId);
     if (!group) {
-      throw new Error('Group not found');
+      throw new NotFoundError('Group not found');
     }
     if (!group.isActive) {
-      throw new Error('Group is not active');
+      throw new ConflictError('Group is not active');
     }
 
     // 🔴 VALIDAÇÃO: Apenas grupos privados permitem request-to-join
@@ -861,7 +868,7 @@ class GroupsService {
       throw new Error('Public groups allow direct join. Use joinGroup instead.');
     }
     if (group.visibility === 'secret') {
-      throw new Error('Secret groups require an invitation from a group representative');
+      throw new ForbiddenError('Secret groups require an invitation from a group representative');
     }
 
     const actingActor = await ensureUserActor(tenantId, actingUserId);
@@ -869,7 +876,7 @@ class GroupsService {
     // 🔴 VALIDAÇÃO: nao solicitar com membership JA ATIVA (namespace ACTOR)
     const active = await groupActorMembershipRepository.findActiveByGroupAndMember(tenantId, groupId, actingActor.actor_id);
     if (active) {
-      throw new Error('User is already a member of this group');
+      throw new ConflictError('User is already a member of this group');
     }
 
     // NOTA (residual documentado): expires_in_days do contrato legado nao e persistido pelo
@@ -910,10 +917,10 @@ class GroupsService {
 
     const group = await groupsRepository.findById(tenantId, intent.groupId);
     if (!group) {
-      throw new Error('Group not found');
+      throw new NotFoundError('Group not found');
     }
     if (!group.isActive) {
-      throw new Error('Group is not active');
+      throw new ConflictError('Group is not active');
     }
 
     // Cap civil do CANDIDATO (D12)

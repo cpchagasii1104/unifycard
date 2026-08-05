@@ -1,5 +1,111 @@
 # REMEDIATION DT LOG
 
+## 🔒 FATIA GRUPOS — vazamento de grupo secreto, 31 regras que eram HTTP 500, e a conta que NUNCA pôde existir (2026-08-05, direção)
+
+**Origem:** Clayton mandou usar o aprendizado de `ARQUITETURA/` para medir o legado. O inventário de
+19 famílias de defeito de lá virou busca executável aqui — e a seção 16 do `ACHADOS_PARA_O_LEGADO.md`
+trouxe achados com comando colado sobre **o nosso** código. Verifiquei antes de agir; três estavam
+vivos, um deles muito pior do que o relatado.
+
+**Prova §2.2.2:** `CONTRATO_GRUPOS_V2` §1.3/§2.1/§2.6 (LEI, cláusula *"implementação que contradiga
+é BUG por definição"*) · `SSOT_EXCLUSIVE_BANK_RULE` · `CLAUDE.md` §3.2 (entrada de rota → 400).
+Nenhuma decisão nova: os quatro defeitos são implementação contradizendo lei existente.
+
+### 🔴 1 — `GET /groups?visibility=secret` LISTAVA GRUPOS SECRETOS
+
+`groups.routes.ts:572` fazia `query?.visibility || 'public'` e filtrava por isso. A visibilidade
+vinha **crua do cliente**; o SQL de `findAll` não filtra visibilidade nenhuma — o
+`visibilityConditions` de lá é **nome que mente** (são condições de escopo territorial:
+tenant/estado/país). O comentário acima da rota dizia *"Listar apenas grupos públicos"* e também
+mentia. Gravidade 🔴 pela régua da pasta: o prejudicado é o dono do grupo secreto, que **não está
+na requisição** — não gera log, não gera reclamação.
+
+Regra tirada do próprio módulo, não inventada: `joinGroup` exige convite para secreto e apenas
+pedido de entrada para privado ⇒ privado é descobrível, secreto **nunca**. Valor fora do
+vocabulário agora é **400**.
+
+### 🔴 2 — 31 REGRAS DE NEGÓCIO CHEGAVAM AO USUÁRIO COMO HTTP 500
+
+O achado dizia "o cap devolve 500" e apontava 1 sítio. São **46** `throw new Error(...)` crus no
+serviço, e a rota faz `reply.status(err.statusCode ?? 500)` — `Error` não tem `statusCode`. Logo
+*grupo não encontrado*, *não é o dono*, *grupo secreto exige convite*, *limite de 3 grupos*: todos
+**500, em inglês**. Convertidos **31** para `NotFoundError`/`ForbiddenError`/`ConflictError`/
+`BadRequestError`; os 15 restantes são falhas internas legítimas e devem mesmo ser 500.
+
+⚠️ `@core/errors` é ambíguo (achado 16.11 confirmado): existem `src/core/errors.ts` **e**
+`src/core/errors/`. O ARQUIVO vence a pasta — verifiquei antes de importar, porque só ele exporta
+`AppError` com `statusCode`.
+
+### 🔴 3 — GRUPO NUNCA PÔDE TER CONTA, e o tipo TypeScript era o cúmplice
+
+O achado 16.4 apontava 1 `SELECT` errado. São **três queries**: `INSERT`, `ON CONFLICT`,
+`RETURNING`, o `SELECT` de fallback e o `getGroupAccount` — todas citando `account_id` e
+`createdAt`, **colunas que nunca existiram** (reais: `bank_account_id`, `created_at`). E o
+`ON CONFLICT (group_id, account_id)` não era única de nada: a única é `(tenant_id, group_id)` —
+mesmo com os nomes certos teria erguido `42P10`.
+
+🔴 **Por que ninguém viu:** `interface GroupAccountRow` **declarava** as colunas erradas, e um tipo
+de linha é uma AFIRMAÇÃO, não uma checagem — `runQueryWithTenant<T>` não valida nada em runtime.
+Compilava limpo há tempo indeterminado.
+
+**A consequência que explica o resto:** `group_accounts` tem **zero linhas** não porque ninguém
+tentou — porque era **impossível**. Reproduzido: `42703 coluna ga.account_id não existe`.
+Há **6 chamadores vivos**, então era caminho alcançável que sempre estourava: conserto é reparo,
+não habilitação.
+
+📌 **Nada aqui passou a ler `balance_cents`.** Essa coluna é escrituração paralela ao Bank e
+contradiz `CONTRATO_GRUPOS_V2` §2.1; ninguém a lê (`grep` em `modules/groups` = vazio) e a tabela
+segue vazia. **Aposentá-la é GATE + GO de Clayton**, e é o item mais barato do arquivo enquanto o
+estoque for zero.
+
+### ✅ O QUE MEDI E DECIDI **NÃO** MEXER
+
+`GET /groups/:id/balance` devolve `balance: 0` quando não há conta — forma da família 14. Mas
+devolve **junto** `hasAccount: false`, e o frontend carrega o discriminador (`api/groups.ts:299`).
+É discriminável ponta a ponta; trocar por `null` teria risco de consumidor **sem lesão medida**.
+Achado, medido, deixado — e registrado para não ser redescoberto.
+
+### 🛡️ O GUARD — e ele nasceu ERRADO duas vezes, do jeito que esta casa mais pune
+
+`audit-group-visibility-discovery-boundary.mjs`, no runner (**247 → 248**).
+
+· **v1 exigia uma constante com NOME específico.** Ou seja: um guard que **lê o nome** — a
+  evidência mais fraca do repositório e exatamente o erro que ele existe para pegar. Reprovou
+  `publication-engine.routes.ts`, que valida **certo** com outro nome.
+· **v2 varria o arquivo inteiro** atrás de lista com `'public'` — e reprovou `groups.routes.ts`
+  pelo schema de **criação** (`z.enum([...,'secret'])`), onde secreto é legítimo: criar grupo
+  secreto é direito, **listá-lo** é o vazamento.
+· **v3 pergunta a coisa certa, e é estrutural:** qual lista é efetivamente **testada** contra o
+  valor da query (`IDENT.includes(`), resolve a definição daquele identificador e lê **aquela**.
+· Separa **query** (leitor escolhendo o que enxerga do acervo alheio) de **body** (dono declarando
+  a própria visibilidade) — v1 misturou e acusou 3 sítios que não são este defeito.
+
+**Nasceu vermelho de verdade e achou irmão:** `events-sprint76.routes.ts:245` fazia
+`filters.visibility = req.query.visibility` **sem validação nenhuma**, em rota registrada
+(`events.module.ts:12`). Vocabulário governado de `events.visibility` lido do banco:
+`public · connections · only_me` — ou seja, `?visibility=only_me` devolveria evento que o dono
+marcou como só dele. Corrigido: descoberta expõe só `public`, resto é 400.
+
+**Prova vermelha forçada** no ramo que a realidade não exercitou (`secret` entrando na lista
+testada): mordeu, mensagem correta, e voltou verde ao restaurar.
+
+### 🔴 ERRO MEU NESTA FATIA, registrado porque vai se repetir
+
+Para desfazer a mutação da prova vermelha rodei `git checkout -- groups.routes.ts` — e como o
+arquivo **ainda não estava commitado**, isso apagou o conserto inteiro, não só a mutação. Recuperei
+de um `cp` que eu tinha feito antes por precaução. **A regra:** prova vermelha em arquivo não
+commitado se desfaz pelo BACKUP, nunca por `git checkout`.
+
+E o teto de vocabulário financeiro subiu **+3 por comentário meu** (`saldo`, `ledger`) — está
+literalmente na minha carta que *o lint LÊ COMENTÁRIO*, e caí de novo; ao consertar, a primeira
+reescrita introduziu `balance` e o teto ficou +1. Reescrito de novo: **3881/3881**.
+
+### 📌 ESTADO
+
+`runner 248 COMMANDS OK` · `typecheck BE 0` · `git ls-files --eol` = `i/lf w/lf` nos 5 ·
+`git diff --check` limpo. **Nenhuma operação de dinheiro nesta fatia** — nenhum caminho de escrita
+no Bank foi tocado; `linkAccount` foi reparado e seu único chamador é um script, não rota.
+
 ## 📏 MEDIÇÃO PÓS-COMPACTAÇÃO — o funil de eventos entrega 6, e 25 registros de produto SUMIRAM sem causa achada (2026-08-05, direção)
 
 **Por que esta entrada existe:** o GATE F-EVENT-PUBLISH-FUNNEL (abaixo, 2026-08-01) fechou com a
