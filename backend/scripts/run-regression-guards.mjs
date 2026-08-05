@@ -110,6 +110,8 @@ const CMDS = [
   "node scripts/audit-actor-type-vocabulary-ratchet.mjs",
   // F-DATE-QUERY-PARAM-BOUNDARY: new Date(entrada_do_usuario) e Invalid Date que so explode no SQL.
   "node scripts/audit-date-query-param-boundary.mjs",
+  // F-FREE-TIME-SINGLE-READER: "esta livre?" tem UMA resposta; copia da aritmetica morde.
+  "node scripts/audit-free-time-single-reader.mjs",
   "node scripts/audit-offering-audience-range.mjs",
   "node scripts/audit-event-staff-commitment-contract.mjs",
   "node scripts/audit-event-staff-single-writer.mjs",

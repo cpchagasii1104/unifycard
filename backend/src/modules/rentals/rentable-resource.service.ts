@@ -21,21 +21,11 @@ import type { RentalModality, CleaningFeePolicy, MinRentalUnit, AssetCondition }
 
 /** Subtrai intervalos ocupados de [winStart, winEnd), devolvendo os GAPS livres em ordem. Determinístico.
  *  Ex.: janela 08→31 menos reserva 10→17 = [08→10, 17→31]. Toca disponibilidade projetada (Clayton). */
-function subtractPeriods(winStart: Date, winEnd: Date, busy: Array<{ start: Date; end: Date }>): Array<{ start: Date; end: Date }> {
-  // só as reservas que tocam a janela, ordenadas e clampadas aos limites da janela
-  const overlaps = busy
-    .filter((b) => b.end > winStart && b.start < winEnd)
-    .map((b) => ({ start: new Date(Math.max(b.start.getTime(), winStart.getTime())), end: new Date(Math.min(b.end.getTime(), winEnd.getTime())) }))
-    .sort((a, b) => a.start.getTime() - b.start.getTime());
-  const gaps: Array<{ start: Date; end: Date }> = [];
-  let cursor = winStart;
-  for (const o of overlaps) {
-    if (o.start > cursor) gaps.push({ start: cursor, end: o.start });
-    if (o.end > cursor) cursor = o.end;
-  }
-  if (cursor < winEnd) gaps.push({ start: cursor, end: winEnd });
-  return gaps;
-}
+// 🔴 A ARITMÉTICA SAIU DAQUI (2026-08-05) — o comportamento não mudou. Esta função era privada, e
+// quando a DESCOBERTA precisou da mesma conta ("quanto sobra desta janela?"), copiar teria criado
+// duas verdades sobre disponibilidade: a busca diria "tem", a página diria "não tem". A conta agora
+// mora em @core/availability/free-time e as duas superfícies chamam a MESMA.
+import { subtrair as subtractPeriods } from '@core/availability/free-time';
 
 class RentableResourceService {
   /**

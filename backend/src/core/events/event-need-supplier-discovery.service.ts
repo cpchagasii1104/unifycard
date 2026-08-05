@@ -64,6 +64,17 @@ export interface NeedSupplierOption {
   durationMinutes: number | null;
   /** LOCAÇÃO: unidade de cobrança (`por_hora`·`por_dia`·`por_semana`·…). `null` em serviço. */
   pricingUnit: string | null;
+  /**
+   * 🔴 ESTÁ LIVRE DE VERDADE no período perguntado? (2026-08-05)
+   *   `true`  = há tempo livre dentro do que você pediu
+   *   `false` = tem agenda declarada, mas está comprometida nesse período
+   *   `null`  = ninguém perguntou período, OU o cálculo não alcançou esta oferta
+   * `null` NUNCA deve ser lido como "ocupado": desconhecido não é negativa.
+   */
+  freeInRange?: boolean | null;
+  /** A próxima janela livre que o fornecedor JÁ declarou — a saída quando a data pedida não dá. */
+  nextFreeFrom?: string | null;
+  nextFreeTo?: string | null;
 }
 
 export interface NeedWithSuppliers {
@@ -191,6 +202,16 @@ export interface ProviderShowcase {
 // `availability.owner_type` (lido, não deduzido: user·service·event·group·page·service_offering·
 // rentable_resource·actor_asset). O tipo estava mais estreito que o banco e o compilador pegou.
 function janelaDeclaradaExists(ownerType: 'service_offering' | 'rentable_resource' | 'actor_asset', idExpr: string): string {
+  // ⚠️ MEIA-JANELA NÃO CHEGA AQUI, E ISSO É DECISÃO DE ROTA, NÃO DESCUIDO. `event.routes.ts:587`
+  // devolve 400 EVENT_AVAILABILITY_WINDOW_INCOMPLETE com a justificativa escrita: "meia janela não
+  // filtra nada de forma útil e esconderia o engano do chamador".
+  //
+  // 🔴 EU REESCREVI ISTO PARA ACEITAR MEIA-JANELA E DESFIZ NO MESMO DIA (2026-08-05). A premissa
+  // era minha e era FALSA: eu afirmei, inclusive num mandato, que meia-janela era "ignorada em
+  // silêncio". Não é — a rota recusa com 400, e quem me obrigou a conferir foi uma instância que
+  // reportou a divergência sem afirmar nenhum dos lados. Manter a versão "corrigida" deixaria
+  // capacidade que nenhum caller alcança, que é exatamente o defeito que este arquivo passou o
+  // dia inteiro consertando. Se um dia a rota passar a aceitar meia-janela, é AQUI que se mexe.
   return `AND ($3::timestamptz IS NULL OR EXISTS (
             SELECT 1 FROM availability av
              WHERE av.tenant_id = $2::uuid
@@ -417,7 +438,18 @@ class EventNeedSupplierDiscoveryService {
   ): Promise<NeedWithSuppliers[]> {
     const janelaDe = opts.availableFrom ?? null;
     const janelaAte = opts.availableTo ?? null;
-    const filtrarPorJanela = !!janelaDe && !!janelaAte;
+    // 🔴 O PERÍODO DEIXOU DE EXCLUIR E PASSOU A ANOTAR — decisão de Clayton, 2026-08-05:
+    // *"ela aparece, mas se for por filtro de data e horário informa que naquela janela não está
+    // disponível, porém fica à disposição para outra janela já informada por ela"*.
+    //
+    // Antes, quem procurasse dezembro recebia lista VAZIA: o `EXISTS` de janela derrubava o
+    // fornecedor inteiro, e a pessoa concluía que não existia ninguém — quando existia, com agenda
+    // em outra data. Excluir esconde a alternativa; anotar mostra e deixa o usuário decidir.
+    //
+    // Por isso o SQL segue recebendo `null` nas duas pontas (sem recorte) e quem responde "livre?"
+    // é `computeFreeTime`, mais abaixo. `janelaDeclaradaExists` continua existindo e sendo usado
+    // pela OUTRA superfície (necessidades DENTRO de um evento), onde excluir ainda é o certo.
+    const naoRecortarPorJanela = null;
 
     // 1) Os TIPOS. DISTINCT ON porque o mesmo need aparece em vários formatos (segurança está no
     //    show E na festa); `bool_or(is_required)` porque "obrigatório em ALGUM formato" é a
@@ -470,7 +502,7 @@ class EventNeedSupplierDiscoveryService {
               WHERE cs.tenant_id IS NULL AND cs.concept_id = ANY($1::uuid[])
                 ${janelaDeclaradaExists('service_offering', 'so.id')}
               ORDER BY so.price_cents ASC NULLS LAST, so.created_at ASC`,
-            [serviceIds, tenantId, filtrarPorJanela ? janelaDe : null, filtrarPorJanela ? janelaAte : null]
+            [serviceIds, tenantId, naoRecortarPorJanela, naoRecortarPorJanela]
           )
         : Promise.resolve([]),
       rentableIds.length
@@ -491,7 +523,7 @@ class EventNeedSupplierDiscoveryService {
                 AND rr.concept_id = ANY($1::uuid[])
                 ${janelaDeclaradaExists('actor_asset', 'rr.id')}
               ORDER BY te.price_cents ASC NULLS LAST, rr.created_at ASC`,
-            [rentableIds, tenantId, filtrarPorJanela ? janelaDe : null, filtrarPorJanela ? janelaAte : null]
+            [rentableIds, tenantId, naoRecortarPorJanela, naoRecortarPorJanela]
           )
         : Promise.resolve([]),
     ]);
@@ -511,6 +543,30 @@ class EventNeedSupplierDiscoveryService {
     };
     for (const r of serviceRows) push(r, 'service');
     for (const r of rentableRows) push(r, 'rentable');
+
+    // 🔴 "TEM JANELA" ≠ "ESTÁ LIVRE" — decisão de Clayton, 2026-08-05: *"ela aparece, mas se for por
+    // filtro de data e horário informa que naquela janela não está disponível, porém fica à
+    // disposição para outra janela já informada por ela; e esta outra janela informará a
+    // disponibilidade mais próxima"*.
+    //
+    // Até aqui a descoberta provava só que a janela EXISTIA. Item com a agenda inteira reservada
+    // aparecia como disponível. A subtração correta já rodava, mas ILHADA na página de um recurso —
+    // duas respostas para a mesma pergunta. `computeFreeTime` é essa ilha promovida a leitor único,
+    // e é ele quem sabe a régua de cada espécie (item × provider, 0146 §A.3).
+    const { computeFreeTime } = await import('@core/availability/free-time');
+    const todasAsOfertas = Array.from(byNeed.values()).flat();
+    const livre = await computeFreeTime(
+      tenantId,
+      todasAsOfertas.map((s) => ({ offerId: s.offerId, kind: s.sourceKind, providerActorId: s.providerActorId })),
+      { from: janelaDe ? new Date(janelaDe) : null, to: janelaAte ? new Date(janelaAte) : null }
+    );
+    for (const s of todasAsOfertas) {
+      const f = livre.get(s.offerId);
+      // Ausente do cálculo = NÃO SEI. Não vira `false` (que afirmaria "ocupado") nem `true`.
+      s.freeInRange = f ? f.freeInRange : null;
+      s.nextFreeFrom = f?.nextFree ? f.nextFree.start.toISOString() : null;
+      s.nextFreeTo = f?.nextFree ? f.nextFree.end.toISOString() : null;
+    }
 
     return tipos.map((t) => {
       const suppliers = byNeed.get(t.need_concept_id) ?? [];

@@ -52,6 +52,22 @@ const FAMILY = [
   // createCommitment. Entra na FAMÍLIA para herdar as vigilâncias estruturais (no-as-never, no-actor-cure).
   // Guard próprio: audit-performer-event-binding.mjs.
   'core/availability/performer-event-binding.ts',
+  // F-FREE-TIME-SINGLE-READER (2026-08-05): a resposta ÚNICA de "está livre DE VERDADE?" — janela
+  // declarada MENOS compromissos confirmados. NÃO resolve owner-authority e NÃO decide autoridade
+  // de ninguém: é READ-ONLY puro (três SELECTs), não escreve em availability nem em bookings, não
+  // confirma nada e não toca dinheiro. Recebe os ids das ofertas JÁ resolvidos pelo caller.
+  // Entra na FAMÍLIA para herdar as vigilâncias estruturais (no-as-never, no-actor-cure).
+  //
+  // ⚠️ REVISÃO DE AUTORIDADE, explícita porque o guard exige: este arquivo LÊ compromissos de
+  // terceiros para dizer se um horário está ocupado. Ele NÃO expõe QUEM reservou, nem por quanto,
+  // nem para qual evento — só o intervalo ocupado, que é o mínimo necessário para responder
+  // "livre ou não". Ampliar essa projeção (nome do locatário, valor, contexto) seria vazamento de
+  // dado de terceiro numa superfície de descoberta pública, e exige decisão própria.
+  //
+  // A régua por espécie NÃO é duplicação: locação disputa o ITEM; serviço disputa o PROVIDER
+  // (DECISION-0146 §A.3, rollup cross-oferta). Status bloqueantes vêm do schema vivo (§A.4) —
+  // `requested` NÃO bloqueia. Guard próprio: audit-free-time-single-reader.mjs.
+  'core/availability/free-time.ts',
   'modules/services/service-offering.service.ts',
 ];
 
