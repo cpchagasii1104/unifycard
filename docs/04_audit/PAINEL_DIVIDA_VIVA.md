@@ -28,7 +28,7 @@
 
 | métrica | valor | como foi medido |
 |---|---|---|
-| `validate:regression-guards` | ✅ **253 COMMANDS OK** · drift **0** | `npm run`, banco `unificard_dev` — **+7 no dia** (246 → 253) |
+| `validate:regression-guards` | ✅ **257 COMMANDS OK** · drift **0** | `npm run`, banco `unificard_dev` — **+11 no dia** (246 → 257) |
 | `typecheck` backend + frontend | ✅ **0 erros** | `tsc --noEmit` nos dois |
 | Gate `schema-coherence` | ⚠️ **1174 chaves congeladas, gate VERDE**. `GHOST-WRITE-vivo` **252** (desceu 1 hoje) | `audit-schema-coherence-ratchet.mjs`, dentro do runner |
 | 🔴 **RLS — o denominador que ninguém calculava** | **239** tabelas com `tenant_id` · **128 SEM RLS** · 0 com RLS sem policy. E o app conecta como **`postgres` (superusuário, `bypassrls`)**, então as 111 conformes **não bloqueiam nada em runtime**. A role dedicada `unificard_app` existe e não é a usada. ⛔ **DECISÃO DE CLAYTON** — ligar as 128 antes de garantir contexto de tenant em cada query troca vazamento por **apagão silencioso** | query direta, 2026-08-05 |
@@ -230,7 +230,7 @@ Sem essa resposta, cada tabela vira pesquisa. Com ela, a cauda de 26 módulos é
 
 ## 🗓️ REGISTRO DE SESSÕES — o que cada fatia mudou no placar
 
-### 🟢 SESSÃO 2026-08-05 (tarde) — INVENTÁRIO DE `ARQUITETURA/` VIRA BUSCA · 12 commits · runner 246 → **253**
+### 🟢 SESSÃO 2026-08-05 (tarde) — INVENTÁRIO DE `ARQUITETURA/` VIRA BUSCA · 21 commits · runner 246 → **257**
 
 **Método:** Clayton mandou usar o aprendizado da pasta `ARQUITETURA/` para corrigir o sistema. O
 inventário de **19 famílias de defeito** de lá virou **busca executável** aqui. Medi **8 famílias**.
@@ -576,6 +576,91 @@ Mais: `DT-ACTOR-EFFECT-INBOX-PROJECTOR-UNSUBSCRIBED` · `DT-NOTIFY-SUBSTRATE-SCH
 Migration N1 `20260713140000` (`IGNORED_MIGRATIONS`) · `group_actor_memberships`/`group_institutional_bindings` (D9.2-A selada; cutover = D9.2-B) · **4e** `tax_reserve` (firewall OFF, caller 0) · `economic/v2` 501 (`DECISION-0190` selada) · **B-CITY-2** (aguarda GATE registrado) · `/cta` + `social_ledger` (hard-block por desenho) · semear saldo (Clayton: *"só mecanismo por ora"*) · L2.4 (adiada por Clayton) · `DECISION-0192/0193` (não-seladas — doutrina pendente, não dívida de código).
 
 ## ✅ JÁ RESOLVIDAS — não reabra
+
+**2026-08-05 · `DT-GROUP-PARALLEL-BALANCE-OUTSIDE-BANK`** (migration `20260805190000`, GO de
+Clayton) — `group_accounts.balance_cents` guardava valor **ao lado** de `bank_account_id`, que já
+aponta para a conta do Bank: dois lugares afirmando quanto um grupo tem. Contradizia
+`CONTRATO_GRUPOS_V2` §2.1 e `SSOT_EXCLUSIVE_BANK_RULE`. GATE antes de escrever: 0 linhas, 0 valores,
+**zero leitor e zero escritor**. A tabela **continua** existindo — é o MAPA grupo→Bank, formato
+certo. 🔒 **Não pode renascer:** `EVENT TRIGGER` recusa reintroduzir a coluna (testado no banco
+oficial após aplicar). Varredura completa: das 3 colunas de saldo fora de `bank_*`, só esta era
+violação — `ledger_snapshots` é **projeção** (`SUM(crédito−débito)` do `bank_ledger`, verificado na
+query do worker) e `impact_balances` é **pontuação derivada** (`Math.min(10, amountCents/1000)`).
+
+**2026-08-05 · `DT-SEED-MARKS-PRODUCTION-DATA-AS-DISPOSABLE`** — `seed-complete-draft-events.ts`
+**carimbava eventos que JÁ EXISTIAM** com `completed_by_seed`, e `cleanup-demo-event-supply.ts`
+apagava por esse carimbo. **Dado de produto virou descartável por ter sido TOCADO por um seed** — é
+a explicação estrutural dos 25 eventos sumidos entre 01 e 03/08. A distinção que faltava:
+`demo_seed` prova **CRIAÇÃO**, `completed_by_seed` prova apenas **EDIÇÃO**; apagar por prova de
+edição é apagar o alheio. O cleanup agora **RECUSA** remover o que não criou. ⚠️ Ele já tinha
+dry-run, alvo nomeado e trava de dinheiro — **nenhum protegia**, porque todos perguntavam *"você tem
+certeza?"* e nenhum perguntava *"isto é seu?"*.
+
+**2026-08-05 · `DT-GROUP-SECRET-VISIBILITY-LEAK`** + **`DT-GROUP-READ-SIBLINGS-UNGATED`** —
+`?visibility=secret` **listava grupos secretos** (visibilidade vinha crua do cliente; o SQL nunca
+filtrou visibilidade — o `visibilityConditions` de lá é **nome que mente**, são condições de
+território). E fechar a listagem **não bastou**: com o id, 4 das 7 rotas de leitura ainda entregavam
+tudo, incluindo `/:id/economy`, que era a **porta dos fundos** de `/:id/balance`. Resposta para
+secreto agora é **404, não 403** (403 confirma existência). Guards
+`audit-group-visibility-discovery-boundary` e `audit-group-read-siblings-same-gate`.
+
+**2026-08-05 · `DT-GROUP-BUSINESS-RULES-AS-HTTP-500`** — 46 `throw new Error` crus no serviço +
+rota com `err.statusCode ?? 500` = **toda** regra de negócio chegava como **500 em inglês**
+(*"você já está em 3 grupos"* virava erro de servidor). **31 convertidos** para erro tipado; os 15
+restantes são falha interna legítima.
+
+**2026-08-05 · `DT-GROUP-ACCOUNT-IMPOSSIBLE-COLUMNS`** — as 3 queries da seção ACCOUNTS citavam
+`account_id`/`createdAt`, **colunas que nunca existiram**; o `ON CONFLICT` nem era único de nada.
+🔴 **O tipo TS declarava as colunas erradas e por isso compilava** — tipo de linha é AFIRMAÇÃO, não
+checagem. `group_accounts` estava vazia porque **era impossível criar uma linha**, não porque
+ninguém tentou.
+
+**2026-08-05 · `DT-EVENT-PHASE-GATE-FAIL-OPEN-ON-READ-ERROR`** — `hasAgendaReservations` tinha
+`catch { return false }`; lá em cima `false` = *"não há reserva"* ⇒ pré-requisito não entra ⇒
+`canAdvance = true`. **Falha transitória de leitura LIBERAVA o avanço de fase que o portão existe
+para bloquear.** Os dois pré-requisitos irmãos não engoliam — o engolidor era o ímpar. Agora
+propaga. Teto `audit-permissive-catch-ceiling` (65 → **11**, e 8 sítios corrigidos de verdade).
+
+**2026-08-05 · `DT-EXPIRY-DOOR-WITHOUT-TRIGGER`** — `actor_active_location.expires_at` era
+**escrito** pelo INSERT do próprio repositório e **nenhuma** das duas leituras filtrava por ele.
+Prazo decorativo. Contido até então só porque nenhuma linha tinha prazo — **sorte, não desenho**.
+Guard `audit-expiry-door-has-trigger` (descobre as portas no código, sem lista fixa).
+
+**2026-08-05 · `DT-CULTURAL-FEED-ASSERTS-EMPTY-WHEN-BROKEN`** — `GET /cultural/events` engolia
+qualquer erro e respondia `200 { events: [] }`. Como `cultural_events` **não existe**, TODA chamada
+caía ali: a tela mostrava seção vazia **para sempre**, indistinguível de "sem conteúdo". Agora
+carrega `unavailable: true`. 📌 O frontend **já tinha** o conceito de feature indisponível — o ramo
+nunca disparava porque o backend mentia do outro lado.
+
+**2026-08-05 · `DT-AGREEMENTS-LIVE-ROUTES-LEAKING-42P01`** — 10 rotas **registradas e vivas**
+consultando tabela inexistente, **sem contenção**: toda chamada devolvia **500 com o erro cru do
+Postgres vazando**. Contido na **BORDA** (`onRequest` → 501 nomeado) — no service faria cada rota
+nova nascer descoberta. Guard + **E2E de runtime** (`validate:agreements-ghost-containment`), porque
+guard estático prova que a contenção está ESCRITA, não que DISPARA.
+
+**2026-08-05 · `DT-COMPANY-GHOST-INSERT-EVERY-BIRTH`** — `INSERT` em
+`company_opportunity_preferences` a cada empresa criada; a tabela não existe e **nenhuma migration a
+cria** (logo o comentário *"migration pode não ter rodado"* era falso). Zero leitores. Precedente no
+mesmo arquivo (`company_domains`, DECISION-0102). `GHOST-WRITE-vivo` 253 → **252**.
+
+**2026-08-05 · `DT-RENTAL-UNDO-ASYMMETRIC-STATE-GATE`** — quem pede só cancelava em
+`requested`/`confirmed`; **o dono não tinha trava nenhuma** e podia "recusar" reserva em
+`checked_in`, **com o item já entregue** — o histórico passava a dizer que a reserva nunca
+aconteceu. Uma regra para os dois lados. ⚠️ **NOMEADO e não decidido:** desfazer *durante* o uso não
+tem caminho (devolução antecipada, cobrança proporcional, quem arbitra) — decisão de produto.
+
+**2026-08-05 · `DT-POLICY-DESTINATION-PUBLISHABLE-BUT-UNPAYABLE`** — a validação de publicação
+conferia o destino contra o **CHECK físico** (11 valores), não contra o que o motor paga (6). Dava
+para publicar linha de indicação pelo painel, **e todo pagamento daquela política passava a falhar**
+(o erro derruba a transação inteira). **Configuração administrativa que quebra pagamento é a pior
+armadilha: quem configura não é quem descobre.** ⚠️ Havia migalha **prometendo** essa garantia via
+`REGIONAL_*_RESOLVABLE_MVP` — parcialmente falsa, aquelas listas nunca olharam destino.
+
+**2026-08-05 · `DT-NORMATIVE-POINTERS-CLAIM-NONEXISTENT-DOCS`** — 3 normas afirmavam que a regra
+estava escrita onde não está: ontologia dizia vertical construção *"Definido em"* arquivo
+inexistente · `CATEGORY_TREE_MAPPING` listava diagrama ausente com status **"Em uso"** ·
+`PUBLIC-API-CONTRACT` referenciava invariantes inexistentes. Marcados como AUSENTE, citação
+**riscada e não apagada** (a citação registra que alguém esperava o documento existir).
 
 **2026-07-30 · `DT-AUTH-RATE-LIMIT-FAIL-OPEN-SUBSTRATE-AUSENTE`** — `auth_rate_limit_logs`
 **nunca existiu**; o `catch` de `countByKey` engolia o 42P01 e devolvia 0 → `allowed:true`
