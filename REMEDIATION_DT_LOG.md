@@ -1,5 +1,53 @@
 # REMEDIATION DT LOG
 
+## 🧪 VERIFICAÇÃO DE 1ª MÃO — o rito pede, e eu não tinha feito hoje (2026-08-05, direção)
+
+Rodei guards e typechecks o dia inteiro, mas **não exercitei o produto**. O rito da casa manda
+*"verificação de 1ª mão da direção"*, e ela não é o runner: é confirmar que o que eu mexi **não
+quebrou o que Clayton usa**.
+
+### ✅ Nenhuma regressão possível pelos DADOS — medido, não presumido
+
+| o que mexi | dado real | veredito |
+|---|---|---|
+| trava de grupo secreto | **2 grupos, ambos `public`** · zero secretos | minha trava não muda nada para os atuais |
+| descoberta de evento só `public` | **8 eventos, todos `public`** | filtro não esconde nada |
+| filtro real do feed | **6 eventos chegam** | segue igual |
+| remoção do INSERT fantasma | **8 empresas**, zero leitores da tabela removida | nada ficou órfão |
+
+⚠️ **Limite honesto:** isso verifica a **forma do dado**, não o caminho HTTP. Estado do dado que não
+alcança a trava não prova que a trava funciona — prova que ela não estorva.
+
+### 🧪 E2E DE RUNTIME — porque "está escrito" ≠ "dispara"
+
+`validate-pipeline-e2e-agreements-ghost-containment.ts` (npm: `validate:agreements-ghost-containment`).
+
+O guard estático prova que o `onRequest` **está escrito**. **Não prova que ele DISPARA.** São coisas
+diferentes, e é a armadilha 2 do inventário (*presença ≠ capacidade*) aplicada ao meu próprio
+conserto — ainda mais depois de eu ter escrito, hoje, uma prova vermelha que não removia nada e
+passava com cara de sucesso.
+
+**9 asserções, 3 rotas, verbos diferentes, rota com parâmetro** — contenção que só pega um verbo é
+meia contenção. Sobe o Fastify em processo e injeta requisição de verdade.
+
+🔴 **A prova vermelha reproduziu o defeito ORIGINAL, literalmente.** Removendo o hook:
+
+```
+❌ A1 POST /agreements → 501 (recebido: 500)
+❌ A1 POST /agreements → código nomeado no corpo (recebido: 42P01)
+```
+
+**O cliente recebia `42P01` — o código de erro interno do Postgres — como se fosse o código de erro
+da API.** Era exatamente isso que estava em produção do lado do módulo de acordos, e agora existe um
+teste que reprova se voltar.
+
+📌 **Fora do runner, de propósito:** os 356 `validate-pipeline-e2e-*` desta casa ficam fora porque
+sobem substrato. Segui o padrão em vez de inventar exceção — script npm próprio.
+
+### 📌 ESTADO
+
+`runner 255 COMMANDS OK` · `typecheck BE 0` · E2E 9/9 com vermelha forçada. Δbank = 0.
+
 ## 🚪 `agreements` — 10 rotas vivas vazando `42P01` como 500, agora contidas na BORDA (2026-08-05, direção)
 
 Fechei uma ponta que **eu mesma tinha deixado nomeada** duas fatias atrás. Nomear e seguir em
