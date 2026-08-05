@@ -56,3 +56,8 @@ r8_recovered.json
 
 # backups locais (dumps de DB reais — fora do git)
 _backups_local/
+
+# ARQUITETURA/ — sistema paralelo, recriado do zero, com instancia arquiteta propria.
+# NAO e codigo do UnifiCard e NAO entra nesta historia. Ignorado porque um unico
+# "git add -A" de qualquer instancia arrastaria o sistema inteiro para dentro do repo.
+ARQUITETURA/
