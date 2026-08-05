@@ -42,12 +42,11 @@ class BankAccountRepository {
    * Converte row do banco (schema Genesis) para objeto BankAccount (API do módulo).
    */
   private toBankAccount(row: BankAccountRow): BankAccount {
-    const ownerType: BankAccountOwnerType =
-      row.owner_type === 'actor'
-        ? 'user'
-        : row.owner_type === 'escrow'
-          ? 'escrow'
-          : (row.owner_type as BankAccountOwnerType);
+    // 🔴 SEM INVENÇÃO (2026-08-04). Isto devolvia `'user'` para toda linha `'actor'` — inclusive
+    // as de empresa, que gravam `ownerId = company_id`. Agora devolve o que está gravado. Se o
+    // caller precisa saber se é pessoa ou empresa, resolve pelo ACTOR (`actors.actor_type`, o SSOT
+    // dessa distinção), nunca por um enum que o Bank colapsou na escrita.
+    const ownerType = row.owner_type as BankAccountOwnerType;
     return {
       accountId: row.id,
       tenantId: row.tenant_id,

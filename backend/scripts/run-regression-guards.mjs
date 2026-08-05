@@ -104,6 +104,8 @@ const CMDS = [
   "node scripts/audit-canonical-service-selfname-alias-at-birth.mjs",
   // F-NOTIFY-NO-FALSE-SUCCESS: sucesso falso e pior que falha — servidor ausente e honesto.
   "node scripts/audit-email-provider-no-false-success.mjs",
+  // F-BANK-OWNER-TYPE-TRUTH: tradutor que colapsa na ida nao desfaz o colapso na volta.
+  "node scripts/audit-bank-owner-type-no-lossy-translation.mjs",
   "node scripts/audit-offering-audience-range.mjs",
   "node scripts/audit-event-staff-commitment-contract.mjs",
   "node scripts/audit-event-staff-single-writer.mjs",

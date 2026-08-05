@@ -67,7 +67,11 @@ async function assertUserOwnsFromAccount(
     e.statusCode = 404;
     throw e;
   }
-  if (account.ownerType !== 'user' || account.ownerId !== userId) {
+  // 🔴 2026-08-04 — comparava com `'user'`, valor que o tradutor INVENTAVA para toda conta de
+  // actor. O banco guarda `'actor'`; agora a leitura devolve a verdade e a comparação acompanha.
+  // A semântica NÃO muda: carteira pessoal é a conta de actor cujo `ownerId` É o usuário — conta
+  // de empresa grava `ownerId = company_id` e continua (corretamente) recusada aqui.
+  if (account.ownerType !== 'actor' || account.ownerId !== userId) {
     const e = new Error('Forbidden: fromAccountId must belong to the authenticated user') as Error & {
       statusCode?: number;
     };

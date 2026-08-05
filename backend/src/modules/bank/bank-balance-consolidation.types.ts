@@ -1,3 +1,8 @@
+// 🔴 2026-08-04 — usa o vocabulário ÚNICO do Bank em vez de repetir a união à mão.
+// Repetir era exatamente como as definições divergiam entre si: nenhuma das cópias continha
+// `actor`, que é o único valor que o banco realmente guarda para carteira.
+import type { BankAccountOwnerType } from './bank-account.types';
+
 // backend/src/modules/bank/bank-balance-consolidation.types.ts
 // READ-MODEL: Balanço Financeiro Consolidado
 // Status: READ-MODEL PURO (não CORE, não fonte de verdade, não decisório)
@@ -14,7 +19,7 @@ export interface ConsolidatedBalanceFilters {
   /**
    * Filtrar por tipo de owner
    */
-  ownerType?: 'user' | 'company' | 'system' | 'escrow';
+  ownerType?: BankAccountOwnerType;
 
   /**
    * Incluir apenas contas ativas (com saldo != 0)
@@ -97,7 +102,7 @@ export interface AccountCountByType {
 export interface LargestAccount {
   accountId: string;
   ownerId: string;
-  ownerType: 'user' | 'company' | 'system' | 'escrow';
+  ownerType: BankAccountOwnerType;
   balanceCents: number;
   currency: string;
 }
@@ -108,7 +113,7 @@ export interface LargestAccount {
 export interface SmallestAccount {
   accountId: string;
   ownerId: string;
-  ownerType: 'user' | 'company' | 'system' | 'escrow';
+  ownerType: BankAccountOwnerType;
   balanceCents: number;
   currency: string;
 }

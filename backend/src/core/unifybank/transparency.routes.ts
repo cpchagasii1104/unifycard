@@ -198,9 +198,16 @@ const transparencyRoutes: FastifyPluginAsync = async (fastify) => {
       const { hasCompanyViewFinancialGrant } = await import('@core/authorization/financial-read-authority');
 
       let role: 'integral' | 'participant' | null = null;
-      if (origin.ownerType === 'user' && origin.ownerId === userId) {
+      // 🔴 2026-08-04 — `'user'` era invenção do tradutor. Carteira PESSOAL = conta de actor cujo
+      // `ownerId` é o próprio usuário.
+      if (origin.ownerType === 'actor' && origin.ownerId === userId) {
         role = 'integral';
-      } else if (origin.ownerType === 'company' && (await hasCompanyViewFinancialGrant(tenantId, userId, origin.ownerId))) {
+      // 🔴 ESTE RAMO ERA CÓDIGO MORTO. Nenhuma conta jamais lia `'company'` — o tradutor devolvia
+      // `'user'` para todas — então quem tinha grant financeiro LEGÍTIMO de empresa era negado, sem
+      // erro e sem explicação. O discriminador agora é o próprio grant: `hasCompanyViewFinancialGrant`
+      // já valida que `ownerId` é uma empresa sobre a qual este usuário tem autoridade. Se não for
+      // empresa, devolve false e o ramo não abre — auto-validante, sem adivinhar tipo por enum.
+      } else if (origin.ownerType === 'actor' && (await hasCompanyViewFinancialGrant(tenantId, userId, origin.ownerId))) {
         role = 'integral';
       }
 

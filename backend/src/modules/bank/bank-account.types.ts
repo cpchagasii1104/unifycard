@@ -7,7 +7,26 @@ import type { MoneyCents } from '@contracts/marketplace/canonical';
 /**
  * Tipo de owner da conta
  */
-export type BankAccountOwnerType = 'user' | 'company' | 'system' | 'escrow';
+/**
+ * 🔴 `actor` ENTROU, e é o valor que o banco REALMENTE guarda (2026-08-04).
+ *
+ * O CHECK físico de `bank_accounts.owner_type` é `('actor','system','escrow')`. A aplicação usava
+ * `'user' | 'company'`, e o tradutor colapsava OS DOIS em `'actor'` na ida — e na volta devolvia
+ * `'user'` SEMPRE. Gravava-se `company`, lia-se `user`.
+ *
+ * Consequência medida antes do conserto: em `transparency.routes.ts` o ramo `=== 'company'` era
+ * INALCANÇÁVEL — quem tinha grant financeiro legítimo de empresa era negado. Falso NEGATIVO, não
+ * vazamento (o `ownerId` de conta de empresa é o `company_id`, que nunca casa com `userId`) — o
+ * que não o torna aceitável: é código morto que parece vivo, num caminho de autoridade.
+ *
+ * A regra (armadilha #9 do fundamento de arquitetura): tradutor entre vocabulários ou é BIJETIVO,
+ * ou mente na volta. Como a ida colapsa, o tradutor não deve existir: os dois lados falam o
+ * vocabulário do banco. `'user'`/`'company'` seguem aceitos na ESCRITA (36 call sites) e viram
+ * `'actor'`; a LEITURA passa a devolver `'actor'`, que é a verdade.
+ *
+ * Quem é a pessoa por trás do actor NÃO é assunto do Bank — é `actors.actor_type`, o SSOT disso.
+ */
+export type BankAccountOwnerType = 'user' | 'company' | 'actor' | 'system' | 'escrow';
 
 /**
  * Moeda suportada pelo Unify Bank

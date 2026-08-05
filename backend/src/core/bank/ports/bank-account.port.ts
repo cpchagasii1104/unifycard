@@ -10,7 +10,13 @@ import type { MoneyCents } from '@contracts/marketplace/canonical';
  * Ver: ARCHITECTURAL_SOURCE_OF_TRUTH.md
  */
 
-export type BankAccountOwnerType = 'user' | 'company' | 'system';
+/**
+ * 🔴 2026-08-04 — alinhado ao vocabulário REAL. Esta definição não continha `'escrow'` (que o
+ * banco aceita) nem `'actor'` (o único valor que o banco guarda para carteira), e divergia da
+ * gêmea em `modules/bank/bank-account.types.ts`. Duas definições do mesmo tipo, ambas erradas,
+ * nenhuma contendo o valor real: exatamente a forma que o tradutor escondia.
+ */
+export type BankAccountOwnerType = 'user' | 'company' | 'actor' | 'system' | 'escrow';
 export type BankCurrency = 'BRL' | 'USD' | 'EUR' | 'TEST';
 export type SystemAccountName = 'fee' | 'regional_fund' | 'reserve' | 'escrow' | 'platform_ops';
 
