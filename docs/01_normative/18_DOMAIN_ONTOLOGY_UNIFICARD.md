@@ -584,7 +584,7 @@ Domínios que satisfazem parcialmente o critério N0 ou dependem de escopo estra
 
 | # | Domínio | Critério parcial | Barreira de ativação | Contrato de interface |
 |---|---------|-----------------|----------------------|----------------------|
-| 13 | `construcao-e-infraestrutura` | 2 (ART) + 3 (ciclo de obra) | Operação de obra civil com ART ou marketplace de insumos | Definido em `docs/01_normative/interfaces/construcao.md` |
+| 13 | `construcao-e-infraestrutura` | 2 (ART) + 3 (ciclo de obra) | Operação de obra civil com ART ou marketplace de insumos | ⚠️ **NÃO DEFINIDO** — esta célula dizia *"Definido em `docs/01_normative/interfaces/construcao.md`"* e **esse arquivo nunca existiu** (verificado em 2026-08-05: `find docs -iname "construcao.md"` = vazio). Afirmar que a regra está escrita em algum lugar quando não está é pior que admitir a lacuna: manda a próxima instância procurar, não achar, e **inventar**. A interface desta vertical está em aberto |
 
 *Nota: Passa em critérios 2 e 3, mas não em critério 1 (entidades redutíveis a `servicos` + `ativos-corporativos`). Status: elegível a N0, não ativado.*
 

@@ -1,5 +1,47 @@
 # REMEDIATION DT LOG
 
+## 🧭 PONTEIROS QUE NÃO RESOLVEM — 3 normas afirmavam que a regra estava escrita onde não está (2026-08-05, direção)
+
+Família **#16** do inventário de `ARQUITETURA/`: *"todo caminho citado existe"*. O dano é específico
+e caro: **ponteiro quebrado em norma manda a próxima instância procurar, não achar, e INVENTAR.**
+
+### A varredura, e o que ela NÃO conseguiu medir
+
+```
+node → 1.853 documentos varridos
+       ponteiros docs/*.md quebrados: 202  (32 em doc VIVO, 170 em relatório/arquivo)
+```
+
+⚠️ **Metade da varredura eu descartei**, pelo mesmo motivo da fatia anterior: detecção de
+`DECISION-NNNN` inexistente é **ambígua** — decisões aparecem como título em memórias e arquivo
+morto, e "não tem arquivo próprio" ≠ "não existe". Não transformo número ambíguo em achado.
+
+🔴 **E o filtro dos caminhos tem um falso positivo estrutural que eu só vi lendo:** ele não
+distingue *apontar para* de **declarar ausente**. O `00_AGENT_PROTOCOL.md` cita dois arquivos
+inexistentes **numa tabela cuja coluna é "Status", com o valor "ausente — documento não
+versionado"**. Ele está sendo **honesto** — é o comportamento CERTO, e meu filtro contou como
+defeito. Por isso li os candidatos um a um em vez de consertar em lote.
+
+### ✅ Os 3 GENUÍNOS — e um é o pior tipo
+
+| documento | o que dizia | realidade |
+|---|---|---|
+| `18_DOMAIN_ONTOLOGY_UNIFICARD.md` | vertical construção *"**Definido em** `interfaces/construcao.md`"* | 🔴 **o arquivo nunca existiu**. Afirmar que a regra está escrita em algum lugar quando não está é pior que admitir a lacuna |
+| `CATEGORY_TREE_MAPPING.md` | diagrama canônico com status **"Em uso"** | 🔴 ausente. **Tabela de status que declara "em uso" o que não está versionado é a forma mais silenciosa de mentir** — quem lê confia na coluna |
+| `contracts/PUBLIC-API-CONTRACT.md` | referência a `SYSTEM-CANONICAL-INVARIANTS.md` | ausente |
+
+**Conserto:** marcados como **AUSENTE**, seguindo o padrão honesto que o próprio `00_AGENT_PROTOCOL`
+já usa. No terceiro deixei o `EM VEZ:` — os invariantes que de fato mordem estão nos **guards do
+runner**; **código que falha vale mais que documento que não existe**.
+
+📌 **Não apaguei as citações**, risquei. A citação registra que alguém **esperava** aquele documento
+existir — apagar perde a intenção; riscar preserva a intenção e mata a mentira.
+
+### 📌 ESTADO
+
+3 arquivos, 3 linhas. **Nenhum código.** Os 170 ponteiros quebrados em relatório/arquivo ficam
+NOMEADOS e não tratados: documento morto que aponta para documento morto não misroteia ninguém.
+
 ## ✅ `impact_balances` — a suposição que eu deixei aberta, agora VERIFICADA (2026-08-05, direção)
 
 Na varredura de SSOT eu classifiquei `impact_balances.balance` como *"pontuação social, não

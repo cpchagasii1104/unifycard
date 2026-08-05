@@ -227,7 +227,7 @@
 |---------|------|--------|
 | `docs/01_normative/CATEGORY_TREE_ARCHITECTURAL_CLOSURE.md` | Documentação | SSOT estrutural (em uso) |
 | `docs/99_archive/to_review/category_tree_constitution.md` | Documentação | Arquivado (histórico) |
-| `docs/architecture/diagrams/CATEGORY-TREE-CANONICAL.md` | Diagrama | Em uso |
+| `docs/architecture/diagrams/CATEGORY-TREE-CANONICAL.md` | Diagrama | ⚠️ **AUSENTE** — esta linha dizia *"Em uso"* e o arquivo **não existe** (verificado 2026-08-05). Tabela de status que declara "em uso" o que não está versionado é a forma mais silenciosa de mentir: quem lê confia na coluna |
 | `docs/01_normative/CORE_CATEGORY_VALIDATION_MATRIX.md` | Validação | Em uso |
 | `docs/architecture/integration/CATEGORY-TREE-MODULE-MAP.md` | Integração | Em uso |
 

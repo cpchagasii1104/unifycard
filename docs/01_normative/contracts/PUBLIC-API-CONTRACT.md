@@ -863,7 +863,7 @@ Todas as respostas de erro seguem o formato:
 
 ## Referências
 
-- `docs/audit/SYSTEM-CANONICAL-INVARIANTS.md` - Invariantes canônicos
+- ⚠️ ~~`docs/audit/SYSTEM-CANONICAL-INVARIANTS.md`~~ — **AUSENTE, não versionado** (verificado 2026-08-05). Mantido riscado em vez de apagado: a citação registra que alguém esperava esse documento existir. **EM VEZ:** os invariantes que de fato mordem estão nos guards do runner (`npm run validate:regression-guards`) e em `docs/01_normative/` — código que falha vale mais que documento que não existe
 - `backend/src/core/auth/auth.routes.ts` - Implementação das rotas de autenticação (inclui `/auth/check-referral`)
 - `backend/src/core/rate-limiting/auth-rate-limit.service.ts` - Config do rate-limit `auth.check-referral`
 - `backend/src/core/referral/referral.routes.ts` - `/referral/validate` (logada/legada)
