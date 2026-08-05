@@ -83,6 +83,12 @@ function ehComentario(linha) {
 
 const failures = [];
 
+// Denominador do verde — ver a nota na mensagem de sucesso. Declarados fora do bloco para que a
+// saída consiga afirmar QUANTO foi examinado, e não só que nada falhou.
+let totalArquivos = 0;
+let totalSitios = 0;
+let detectadoGlobal = {};
+
 function walk(dir, out = []) {
   for (const e of fs.readdirSync(dir)) {
     if (e === 'node_modules') continue;
@@ -98,6 +104,7 @@ if (!fs.existsSync(SRC)) {
   failures.push('src/ ausente — o guard não conseguiu medir, e não-medido não é zero. Fail-closed.');
 } else {
   const arquivos = walk(SRC);
+  totalArquivos = arquivos.length;
   if (arquivos.length === 0) {
     failures.push('nenhum *.routes.ts encontrado — leitura suspeita, não conclusão. Fail-closed.');
   }
@@ -107,8 +114,10 @@ if (!fs.existsSync(SRC)) {
     const rel = path.relative(SRC, full).split(path.sep).join('/');
     const n = fs.readFileSync(full, 'utf-8').split('\n')
       .filter((l) => !ehComentario(l) && PADRAO.test(l)).length;
-    if (n > 0) detectado[rel] = n;
+    if (n > 0) { detectado[rel] = n; totalSitios += n; }
   }
+
+  detectadoGlobal = detectado;
 
   // ── 1. arquivo NOVO na família, ou arquivo conhecido que CRESCEU ──
   for (const [rel, n] of Object.entries(detectado)) {
@@ -147,8 +156,15 @@ if (failures.length > 0) {
   for (const f of failures) console.error('   - ' + f);
   process.exit(1);
 }
+// 🔴 O VERDE DECLARA O DENOMINADOR (2026-08-05) — aprendido lendo `ARQUITETURA/DOCS/00-fundamentos/
+// gate-de-granularidade.md`, que registra um guard do legado verde por MESES validando 131 de 551
+// arquivos (24%) e pulando o resto em silêncio, por um `return` antecipado.
+// "Verde" só é seguro de ler como "ok" se a saída disser **quantos** foram examinados. Sem isso,
+// um walk que quebra e devolve lista curta é indistinguível de um repositório limpo.
 console.log(
-  'GATE OK [date-query-param-boundary] — nenhuma rota NOVA converte data de query string sem ' +
-  'validar, e a família congelada não cresceu. `new Date(entrada_do_usuário)` devolve Invalid ' +
-  'Date, que satisfaz o tipo `Date` e só explode dentro do driver do Postgres, como 500.'
+  `GATE OK [date-query-param-boundary] — examinados ${totalArquivos} arquivos *.routes.ts; ` +
+  `${Object.keys(detectadoGlobal).length} com sítios de conversão, ${totalSitios} sítios no total, ` +
+  `contra ${Object.keys(TETO_POR_ARQUIVO).length} arquivos no teto. Nenhuma rota NOVA converte data ` +
+  'de query string sem validar, e a família congelada não cresceu. `new Date(entrada_do_usuário)` ' +
+  'devolve Invalid Date, que satisfaz o tipo `Date` e só explode dentro do driver, como 500.'
 );

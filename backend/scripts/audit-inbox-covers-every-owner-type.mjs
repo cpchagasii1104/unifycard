@@ -47,6 +47,11 @@ const NAO_RECEBE_PEDIDO = {
 };
 
 const failures = [];
+
+// Denominador do verde — enum lido por regex pode casar MENOS do que existe, e um verde silencioso
+// sobre 3 de 8 tipos seria indistinguivel de cobertura total. Ver a nota na mensagem de sucesso.
+let totalTipos = 0;
+let totalCobertos = 0;
 const read = (rel) => {
   const p = path.join(SRC, rel);
   return fs.existsSync(p) ? fs.readFileSync(p, 'utf-8') : null;
@@ -89,9 +94,11 @@ if (tipos && caixa) {
       failures.push(`${TIPOS}: enum lido e VAZIO — leitura suspeita, não conclusão. Fail-closed.`);
     }
 
+    totalTipos = valores.length;
     for (const v of valores) {
       const cobertoNaQuery = new RegExp(`owner_type\\s*=\\s*'${v}'`).test(caixa);
       const declaradoFora = Object.prototype.hasOwnProperty.call(NAO_RECEBE_PEDIDO, v);
+      if (cobertoNaQuery) totalCobertos += 1;
 
       if (!cobertoNaQuery && !declaradoFora) {
         failures.push(
@@ -125,8 +132,12 @@ if (failures.length > 0) {
   for (const f of failures) console.error('   - ' + f);
   process.exit(1);
 }
+// 🔴 O VERDE DECLARA O DENOMINADOR (2026-08-05) — aprendido em ARQUITETURA/DOCS/00-fundamentos/
+// gate-de-granularidade.md: um guard do legado ficou verde por MESES validando 131 de 551 arquivos.
 console.log(
-  'GATE OK [inbox-covers-every-owner-type] — todo dono de agenda que pode RECEBER pedido aparece na ' +
+  `GATE OK [inbox-covers-every-owner-type] — ${totalTipos} tipos de dono no enum: ${totalCobertos}` +
+  ` cobertos pela caixa de entrada, ${Object.keys(NAO_RECEBE_PEDIDO).length} declarados como 'nao recebe pedido'. ` +
+  'todo dono de agenda que pode RECEBER pedido aparece na ' +
   'caixa de entrada, e os que não recebem estão declarados com motivo. Pedido que ninguém vê é ' +
   'formulário escrevendo no vazio: foi assim que o pilar de locação ficou invisível ao próprio dono.'
 );

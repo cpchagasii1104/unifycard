@@ -34,6 +34,10 @@ const SRC = path.join(__dirname, '../src');
 const CANONICO = 'core/availability/free-time.ts';
 
 const failures = [];
+
+// Denominador do verde — um walk que quebra e devolve lista curta e indistinguivel de repositorio
+// limpo. Ver a nota na mensagem de sucesso.
+let totalArquivos = 0;
 const read = (rel) => {
   const p = path.join(SRC, rel);
   return fs.existsSync(p) ? fs.readFileSync(p, 'utf-8') : null;
@@ -81,6 +85,7 @@ if (!fs.existsSync(SRC)) {
   failures.push('src/ ausente — o guard não conseguiu medir. Fail-closed.');
 } else {
   const arquivos = walk(SRC);
+  totalArquivos = arquivos.length;
   if (arquivos.length === 0) failures.push('src/ sem .ts — leitura suspeita, não conclusão. Fail-closed.');
 
   for (const full of arquivos) {
@@ -107,8 +112,12 @@ if (failures.length > 0) {
   for (const f of failures) console.error('   - ' + f);
   process.exit(1);
 }
+// 🔴 O VERDE DECLARA O DENOMINADOR (2026-08-05) — aprendido em ARQUITETURA/DOCS/00-fundamentos/
+// gate-de-granularidade.md: um guard do legado ficou verde por MESES validando 131 de 551 arquivos.
 console.log(
-  'GATE OK [free-time-single-reader] — "está livre DE VERDADE?" tem UMA resposta: ' +
+  `GATE OK [free-time-single-reader] — ${totalArquivos} arquivos .ts varridos, zero copias da` +
+  ' aritmetica. ' +
+  '"está livre DE VERDADE?" tem UMA resposta: ' +
   'core/availability/free-time.ts, read-only, com a régua por espécie (item × provider, 0146 §A.3) ' +
   'e o status de compromisso mapeado do schema vivo (§A.4). Nenhuma cópia da aritmética no repositório.'
 );

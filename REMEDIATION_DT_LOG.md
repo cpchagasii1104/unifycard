@@ -1,5 +1,85 @@
 # REMEDIATION DT LOG
 
+## 🔎 INDICAÇÃO NÃO PAGA — o achado da instância ARQUITETURA está CERTO no efeito e ERRADO na causa (2026-08-05)
+
+**Origem:** Clayton mandou ler `ARQUITETURA/` (read-only) e ver o que se aprende. O arquivo
+`ACHADOS_PARA_O_LEGADO.md` classifica como **🔴🔴 MÁXIMO** o item 17.1: `getActiveReferral` engole
+`42P01` e devolve `null`, e o split segue **sem criar a linha de indicação**. O próprio arquivo
+deles manda: *"cada item tem o comando: rode antes de agir, não confie no meu relato"*. Rodei.
+
+### O que confirmei — o código é exatamente o que eles descreveram
+`referral-helper.service.ts:48-55` tem o `catch` que casa `relação .* não existe` e devolve `null`.
+Verdadeiro, sem ressalva.
+
+### O que a medição DERRUBA — a causa
+```
+user_referral_links ....... EXISTE em unificard_dev, 3 linhas  → o catch NUNCA dispara hoje
+getActiveReferral ......... 1 consumidor de produção: bank-split-engine.service.ts:173
+bank-split-engine ......... ZERO chamadas vivas (grep bankSplitEngine\. fora do próprio arquivo)
+economic_policy_lines ..... 83 linhas: revenue_share 45 · platform_fee 36 · reserve 1 ·
+                            regional_fund 1 · referral ....................... NENHUMA
+bank_splits ............... 0
+```
+
+🔴 **Ninguém deixa de pagar indicação por causa daquele `catch`.** Ninguém paga indicação **por
+caminho nenhum**, e por três motivos empilhados: a tabela existe (o engolimento não acontece), o
+motor que sabia calcular está **cercado e sem chamadas**, e o trilho canônico — o único vivo — não
+tem **uma linha de indicação sequer** entre 83 configuradas.
+
+**Consertar o `catch` não pagaria um centavo a ninguém.** É armadilha **ADORMECIDA**, não perda
+ativa. E a distinção importa: do jeito que o achado está escrito, a próxima instância conserta o
+`catch`, marca como resolvido, e o indicador continua sem receber.
+
+### O que a leitura deles REVELA e que eles não escreveram — e isso é real
+`'referral'` e `'referrer_actor_wallet'` existem no **vocabulário canônico** e passam pelo
+**validador de escrita** (`economic-policy-write-validation.ts:38,52`) — ou seja, a política PODE ser
+configurada pelo painel. Mas o grep por `referrer_actor_wallet` fora de tipos/validação/seed/E2E
+devolve **nada**: **não existe resolvedor que transforme esse destino num actor de verdade na hora
+de executar**.
+
+É a doença desta sessão inteira — capacidade sem quem a alcance — agora **no caminho do dinheiro**,
+esperando ser ligada. No dia em que a política de indicação for criada, ela é **aceita na escrita** e
+não tem quem a execute.
+
+### Por que NÃO consertei
+1. Mexer no motor econômico dispara a leitura obrigatória do **§8** e **GATE** próprio.
+2. **Qual política existe é decisão do dono** — `DECISION-0166` D6: *admin configura, admin NÃO move
+   dinheiro*. O que falta aqui não é código solto: é a política de indicação **nunca ter sido
+   promulgada**.
+3. `REFERRAL_PERCENTAGE = 0.05` no motor legado é **default de desenvolvedor, nunca ratificado**
+   (CLAUDE.md §4) — copiar esse número para o trilho canônico seria promover um palpite a norma.
+
+### ⛔ PENDENTE DE CLAYTON
+· A indicação deve existir como **linha de policy** no trilho canônico? Com qual base e qual bps?
+· Se sim, alguém precisa construir o **resolvedor de `referrer_actor_wallet`** — e aí o `catch`
+  adormecido passa a estar no caminho vivo, e vira conserto obrigatório **antes** de ligar.
+
+### 📌 A RÉGUA QUE EU TROUXE DE LÁ, E QUE VALE ALÉM DESTE CASO
+`ARQUITETURA/DOCS/00-fundamentos/armadilhas-recorrentes.md` propõe ordenar severidade por
+**"quem está presente para notar?"**:
+
+| grau | quem nota | exemplo |
+|---|---|---|
+| 🟡 recuperável | o próprio usuário, na tela dele | painel mostrando "0 bloqueios" lendo tabela inexistente |
+| 🟠 grave | um operador, depois | guard verde anunciando teto que nunca comparou |
+| 🔴 máximo | **ninguém** — o prejudicado não está na requisição | indicação não paga: o indicador não vê tela, não recebe erro, e conclui *"mudaram a regra"* |
+
+O agravante do grau máximo: **não gera log nem incidente**, então *"zero reclamações"* é
+indistinguível de *"funciona"*. Adotada como régua de classificação daqui para a frente.
+
+### 🔧 O QUE APLIQUEI DA LEITURA, NO MESMO ATO
+`gate-de-granularidade.md` registra um guard do legado **verde por meses validando 131 de 551
+arquivos (24%)**, pulando o resto em silêncio por um `return` antecipado. A regra que sai disso:
+**todo check declara o próprio denominador na saída, não só "passou"**.
+
+Os 3 guards que escrevi nesta sessão diziam só `GATE OK`. Agora dizem quanto examinaram:
+```
+date-query-param-boundary ...... 284 arquivos *.routes.ts · 34 sítios · 12 no teto
+free-time-single-reader ........ 2344 arquivos .ts varridos · zero cópias
+inbox-covers-every-owner-type .. 8 tipos no enum: 4 cobertos + 4 declarados fora  (fecha)
+```
+Os três foram forçados ao vermelho DEPOIS da mudança, para provar que ainda mordem.
+
 ## ⚖️ PROVA DE RASTREABILIDADE E GATE — A POSTERIORI, PELA SEGUNDA VEZ NO MESMO DIA (2026-08-05)
 
 **Origem:** Clayton: *"eu estou vendo você executando, mas eu quero saber se você está respeitando a
