@@ -1,5 +1,53 @@
 # REMEDIATION DT LOG
 
+## 🛑 TENTEI GENERALIZAR A VARREDURA DE LEITURA E **PAREI** — a ferramenta não chegou ao padrão (2026-08-05, direção)
+
+O método que funcionou nos grupos (*fatiar o conjunto: toda rota GET escopada a um recurso passa
+pela mesma regra?*) parecia generalizável para os outros módulos. **Não chegou lá, e o registro é
+do fracasso, não de um achado.**
+
+### As três tentativas, e por que cada uma caiu
+
+| versão | como media | resultado |
+|---|---|---|
+| v1 | padrão de NOMES que eu inventei (`can*`, `require*Permission`…) | **81 de 109** candidatos — e os 2 primeiros que li à mão eram **FALSOS** (`assertAccountReadAuthority`, `requireCompanyManage`) |
+| v2 | vocabulário **DERIVADO do código** (função é "de autorização" se o corpo chama `canRepresentActor`/`canActAs`/RBAC ou responde 401/403) | **44 de 109** — melhor, e **ainda marcava as rotas de conta que eu já tinha verificado guardadas** |
+| — | leitura à mão dos 4 de maior aposta | **4 de 4 SADIAS** |
+
+🔴 **É a terceira vez hoje que eu tento adivinhar um vocabulário em vez de derivá-lo** (as outras
+duas foram dentro de guards meus). E desta vez **nem derivar bastou**: o corpo do handler é fatiado
+por aproximação, e *conter* (`501`/`410`) também é tratamento legítimo que o filtro não distingue
+de ausência.
+
+### ✅ O que a leitura à mão devolveu — e isso é resultado
+
+| superfície | veredito |
+|---|---|
+| `GET /economy/accounts/:accountId` **e** `/:accountId/balance` | ✅ **os dois irmãos** com `assertAccountReadAuthority` |
+| `GET /companies/:companyId/members` (roster) | ✅ `requireCompanyManage` |
+| `GET /companies/:companyId/documents/:documentId/file` | ✅ **contido em 501** com decisão nomeada (DECISION-0087) |
+| grupos | ✅ consertado hoje |
+
+**Dinheiro e documento — as duas superfícies que mais importam — estão guardados.**
+
+### 📌 POR QUE PAREI, e por que isso não é desistir
+
+Apresentar 44 candidatos que eu não consigo sustentar teria dois efeitos, ambos ruins: **conserto de
+falso positivo** (mexer em código correto) e **erosão de confiança** — o próximo vermelho verdadeiro
+chega descrente. A regra da casa é explícita: *"achado extraído por ferramenta vale o que a
+ferramenta vale"*.
+
+⚠️ **Fica NOMEADO para quem vier:** a varredura genérica de "leitura escopada sem gate" **não é
+viável por regex** neste repositório, porque (a) o vocabulário de autorização não é enumerável,
+(b) contenção conta como tratamento, (c) o corpo do handler não se delimita por aproximação.
+**Se alguém for tentar de novo, tem que ser por AST** — que é o que o inventário de `ARQUITETURA/`
+já dizia, e eu tentei o atalho três vezes antes de aceitar.
+
+### 📌 ESTADO
+
+`runner 256 COMMANDS OK` · **nenhum código alterado**. O produto desta fatia é uma ferramenta
+descartada com o motivo escrito e quatro superfícies de alta aposta verificadas à mão.
+
 ## 🔁 AUDITEI OS MEUS PRÓPRIOS GUARDS — e um tinha a doença que eu acabara de diagnosticar (2026-08-05, direção)
 
 Na fatia anterior eu registrei o padrão da minha reincidência: **guard escrito DEPOIS do conserto
