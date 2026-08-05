@@ -1,5 +1,56 @@
 # REMEDIATION DT LOG
 
+## 🧠 `DT-AI-MEMORY-CORRUPT-READ-DESTROYS-HISTORY` — uma leitura com falha apagava todo o histórico (2026-08-05, direção)
+
+Voltei aos 11 `catch` que eu tinha congelado no teto, para **pagar mais** em vez de deixar
+congelado. Dos 11, **4 eu já tinha verificado como legítimos**; reli os outros.
+
+### ✅ Três eram legítimos e ficam — com o motivo escrito
+
+· `event-handler-failure.repository.ts` — checa **`42P01` TIPADO**, com log em modo estrito;
+· `event-outbox.processor.ts` — idem, `42P01` tipado;
+· `categories.model.ts` (×2) — `JSON.parse` de dado já gravado: **propagar derrubaria a listagem
+  inteira por causa de uma linha ruim**. Degradar por linha é a escolha certa aqui;
+· `product-demand.service.ts` — contagem de busca em "modo conservador", com log, sobre leitura de
+  arquivos de log. Baixa aposta.
+
+### 🔴 UM ERA PERDA DE DADO VIVA
+
+`core/ai/memory/memory.service.ts`. O `existsSync` logo acima **já trata "arquivo não existe"** —
+devolver `[]` ali é correto. Logo aquele `catch` só pegava **arquivo CORROMPIDO**, e `[]` não
+significava *"sem histórico"*: significava **"esqueci o histórico"**.
+
+**A cadeia completa, que é o que torna isto grave:**
+
+```
+loadMemory() → [] (corrompido)  →  addMessage acrescenta  →
+saveMemory faz writeFileSync do array INTEIRO  →  o arquivo corrompido é SOBRESCRITO
+```
+
+**Uma única leitura com falha apagava tudo.** Sem erro, sem log, sem chance de recuperar. E é
+alcançável: `ai.routes.ts` chama `addMessage`/`getHistory` — não é caminho morto.
+
+### O conserto — não escolher entre o dado e a funcionalidade
+
+**PRESERVA** o arquivo corrompido (renomeia com carimbo de tempo) e segue com `[]`. O chat continua
+funcionando, o dado fica no disco para quem quiser recuperar, e a falha vira **visível**.
+
+📌 **E o ramo que quase ninguém escreve:** se **preservar falhar**, o erro **PROPAGA**. Continuar ali
+sobrescreveria o original — *"não consegui salvar o backup, então vou destruir o arquivo"* é
+exatamente o caminho que uma implementação apressada tomaria.
+
+### ⚖️ O TETO NÃO DESCEU, E EU NÃO VOU FORÇAR
+
+Continua **11/11**: o guard conta a **FORMA** (`return []`), não a justificativa. O sítio ainda tem
+a forma — o que mudou é que agora **o arquivo é preservado antes**.
+
+**Poderia abrir uma exceção para o número descer. Não abri.** Exceção para melhorar métrica é como
+se ganha verde sem ganhar sistema — e o teto vale justamente por não aceitar argumento.
+
+### 📌 ESTADO
+
+`runner 257 COMMANDS OK` · `typecheck BE 0`. Δbank = 0.
+
 ## 🧭 PONTEIROS QUE NÃO RESOLVEM — 3 normas afirmavam que a regra estava escrita onde não está (2026-08-05, direção)
 
 Família **#16** do inventário de `ARQUITETURA/`: *"todo caminho citado existe"*. O dano é específico

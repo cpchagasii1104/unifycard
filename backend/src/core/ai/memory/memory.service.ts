@@ -22,7 +22,38 @@ const loadMemory = (): ChatHistory[] => {
   try {
     const content = fs.readFileSync(MEMORY_FILE, 'utf-8');
     return JSON.parse(content);
-  } catch {
+  } catch (err) {
+    // 🔴 AQUI SE PERDIA O HISTÓRICO INTEIRO, EM SILÊNCIO (corrigido 2026-08-05).
+    //
+    // O `existsSync` acima já trata "arquivo não existe" — devolver `[]` ali é correto. Logo este
+    // `catch` só pega **arquivo CORROMPIDO**, e devolver `[]` aqui não significava "sem histórico":
+    // significava "esqueci o histórico". A cadeia completa:
+    //   loadMemory() → [] (corrompido)  →  addMessage acrescenta  →  saveMemory faz
+    //   `writeFileSync` do array INTEIRO  →  o arquivo corrompido é SOBRESCRITO por uma mensagem.
+    // Uma única leitura com falha apagava tudo. Sem erro, sem log, sem chance de recuperar.
+    // Alcance real: `ai.routes.ts` chama `addMessage`/`getHistory` — não é caminho morto.
+    //
+    // Conserto que não escolhe entre dado e funcionalidade: PRESERVA o arquivo corrompido com
+    // carimbo de tempo e segue com `[]`. O chat continua funcionando, o dado fica no disco para
+    // quem quiser recuperar, e a falha vira VISÍVEL em vez de silenciosa.
+    const carimbo = new Date().toISOString().replace(/[:.]/g, '-');
+    const destino = `${MEMORY_FILE}.corrompido-${carimbo}`;
+    try {
+      fs.renameSync(MEMORY_FILE, destino);
+      console.error(
+        `[ai-memory] Arquivo de memória ILEGÍVEL. PRESERVADO em ${destino} — nada foi apagado. ` +
+        `Seguindo com histórico vazio para não derrubar o chat. Erro: ` +
+        `${err instanceof Error ? err.message : String(err)}`
+      );
+    } catch (errRename) {
+      // Não conseguir preservar é PIOR que o problema original: a próxima gravação sobrescreve.
+      // Aqui não há saída boa — então a falha PROPAGA, em vez de destruir o arquivo em silêncio.
+      console.error(
+        `[ai-memory] Arquivo ILEGÍVEL e NÃO foi possível preservá-lo (${String(errRename)}). ` +
+        `Propagando o erro: continuar aqui sobrescreveria o arquivo original.`
+      );
+      throw err;
+    }
     return [];
   }
 };

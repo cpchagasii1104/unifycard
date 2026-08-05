@@ -577,6 +577,8 @@ Migration N1 `20260713140000` (`IGNORED_MIGRATIONS`) · `group_actor_memberships
 
 ## ✅ JÁ RESOLVIDAS — não reabra
 
+**2026-08-05 · `DT-AI-MEMORY-CORRUPT-READ-DESTROYS-HISTORY`** — `loadMemory` devolvia `[]` em arquivo CORROMPIDO (o `existsSync` acima já tratava "não existe"), e `saveMemory` faz `writeFileSync` do array inteiro: **uma leitura com falha SOBRESCREVIA todo o histórico**, sem erro e sem log. Vivo via `ai.routes.ts`. Agora **preserva** o arquivo corrompido com carimbo e segue com `[]`; se preservar falhar, **propaga** — continuar ali destruiria o original. ⚖️ O teto de `catch` permissivo **não desceu (11/11)** de propósito: ele conta a FORMA, e abrir exceção para melhorar métrica é ganhar verde sem ganhar sistema.
+
 **2026-08-05 · `DT-GROUP-PARALLEL-BALANCE-OUTSIDE-BANK`** (migration `20260805190000`, GO de
 Clayton) — `group_accounts.balance_cents` guardava valor **ao lado** de `bank_account_id`, que já
 aponta para a conta do Bank: dois lugares afirmando quanto um grupo tem. Contradizia
