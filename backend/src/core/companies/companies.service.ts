@@ -764,22 +764,23 @@ class CompaniesService {
     //    de frontend — drift sem persistência. Domínio de atuação não é livre escolha: deriva de CONCEPT +
     //    evidência fiscal, governado pelo backend. `input.domains` deixou de ser lido (e foi removido do tipo).
 
-    // 3) Preferências de oportunidade — pós-commit, idempotente, tolerante a tabela ausente.
-    try {
-      await pool.query(
-        `
-        INSERT INTO company_opportunity_preferences (
-          company_id, tenant_id, receive_rfqs, receive_dispatches, matching_enabled
-        )
-        VALUES ($1::uuid, $2::uuid, false, false, false)
-        ON CONFLICT (company_id) DO NOTHING
-        `,
-        [companyId, finalTenantId]
-      );
-    } catch (err) {
-      // Não bloquear se tabela não existir ainda (migration pode não ter rodado)
-      console.warn('[CompaniesService] Erro ao criar preferências de oportunidade (não bloqueante):', err);
-    }
+    // 3) Preferências de oportunidade — bloco GHOST REMOVIDO em 2026-08-05, pelo MESMO motivo e
+    //    seguindo o MESMO precedente do bloco (2) logo acima (`company_domains`, DECISION-0102).
+    //
+    //    Medido antes de remover:
+    //      · `company_opportunity_preferences` NÃO EXISTE no banco oficial;
+    //      · NENHUMA migration a cria (`grep -rl` em migrations/ = vazio) — então o comentário que
+    //        estava aqui, *"migration pode não ter rodado"*, era falso: não há migration para rodar;
+    //      · ZERO leitores no código (só este INSERT e harnesses de teste).
+    //
+    //    Efeito real do bloco: a cada empresa criada, um INSERT que SEMPRE falhava com 42P01,
+    //    engolido, virando um `console.warn` — ruído que se apresentava como funcionalidade.
+    //    O sistema anunciava criar "preferências de oportunidade" e nunca criou nenhuma.
+    //
+    //    ⚠️ EM VEZ: se preferência de oportunidade voltar a ser desejada, ela nasce como QUALQUER
+    //    substrato desta casa — migration que cria a tabela COM RLS (guard
+    //    `audit-tenant-table-born-with-rls`), leitor nomeado, e só então o writer. Escrever antes
+    //    de existir a casa é o que produziu este bloco.
 
     // 4) F-PJ-CNAE-EVIDENCE-WRITER (DECISION-0103 D2/D3/D7/D8): persiste a evidência CNAE/atividade econômica
     //    retornada pelo fetch backend (ReceitaWS/BrasilAPI) na CASA FISCAL (fiscal_identity_economic_activities),

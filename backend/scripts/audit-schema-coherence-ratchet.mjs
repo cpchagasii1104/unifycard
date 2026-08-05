@@ -35,7 +35,11 @@ const CEILINGS = {
   // desde que os tetos existem: WRITE 260→259 (1 INSERT), READ 355→353 (2 FROM).
   // 258→253 em 2026-08-04 (F-NOTIFY-QUEUE-MATERIALIZE): `notify_queue` existia no CÓDIGO inteiro
   // (service/worker/processor) e NÃO no banco. Materializá-la matou 8 referências-fantasma de uma vez.
-  'GHOST-WRITE-vivo': 253,      // Cond.1 escrita em tabela ausente, código vivo — o que cai primeiro
+  'GHOST-WRITE-vivo': 252,      // Cond.1 escrita em tabela ausente, código vivo — o que cai primeiro
+                                // 253 → 252 em 2026-08-05: removido o INSERT em
+                                // `company_opportunity_preferences` (tabela sem migration, zero
+                                // leitores, falhava a cada empresa criada). Precedente no mesmo
+                                // arquivo: o bloco `company_domains` (DECISION-0102 D9/D10).
   'GHOST-WRITE-scripts': 5,
   // 345→344 em 2026-08-04 (F-EVENT-RSVP-RELINK): `event-rsvp.service.ts` lia `event_rsvp_counts`,
   // tabela que NUNCA existiu (pré-gênesis) — a contagem passou a sair da agregação de `event_rsvp`,

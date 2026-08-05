@@ -1,5 +1,56 @@
 # REMEDIATION DT LOG
 
+## 👻 TABELA FANTASMA — um INSERT que falhava a cada empresa criada, e o ratchet que já vigiava isso (2026-08-05, direção)
+
+### O que consertei
+
+`companies.service.ts` fazia, no nascimento de **toda** empresa, um `INSERT INTO
+company_opportunity_preferences` — tabela que **não existe**. Sempre `42P01`, sempre engolido,
+sempre virando `console.warn`. **O sistema anunciava criar "preferências de oportunidade" e nunca
+criou nenhuma.**
+
+Medido antes de remover:
+· a tabela **não existe** no banco oficial;
+· **nenhuma migration a cria** (`grep -rl` em `migrations/` = vazio) — logo o comentário que estava
+  lá, *"migration pode não ter rodado"*, **era falso**: não há migration para rodar;
+· **zero leitores** no código.
+
+📌 **Não inventei doutrina para remover:** o bloco **imediatamente acima**, no mesmo arquivo, já
+tinha sido removido pela mesma razão (`company_domains`, DECISION-0102 D9/D10, com a frase *"escrita
+pós-commit numa tabela INEXISTENTE, drift sem persistência"*). Segui o precedente da própria casa.
+E deixei o `EM VEZ:` escrito — se a preferência voltar a ser desejada, nasce migration→RLS→leitor→
+writer, nessa ordem. Escrever antes de existir a casa foi o que produziu o bloco.
+
+### 🔴 O RUNNER ME PEGOU — e foi a melhor forma de ser pego
+
+Já existe `audit-schema-coherence-ratchet.mjs`, que **conta escritas/leituras em tabela ausente com
+teto**. Minha remoção baixou `GHOST-WRITE-vivo` de **253 → 252**, e o guard **reprovou** exigindo
+que eu apertasse o teto **no mesmo commit** — senão a folga viraria permissão. Fiz o que ele mandou.
+
+⚠️ **Isto corrige uma suposição minha:** eu ia construir um guard de tabela-fantasma. **Já existia**,
+e mais completo (7 buckets: escrita/leitura × vivo/scripts, mais fronteira, metadata e coluna).
+*A pergunta certa deste repositório continua sendo "onde isso já existe?" — inclusive para guards.*
+
+### 📊 O mapa que sobrou, medido
+
+```
+node → tabelas citadas em SQL real: 497 · existem 316 · FANTASMAS 181
+```
+A maioria pertence a domínios **já contidos** (rides, human-mvp, regional-fund-governance,
+organization, cultural). O ratchet acima já as vigia em bloco: **252 escritas fantasma vivas**, teto
+que só desce. Este commit desceu 1.
+
+⚠️ **E registro dois erros meus na medição**, porque os dois são da mesma família:
+· **v1 do meu levantador contou palavra de comentário em PORTUGUÊS como tabela** (`update apenas…`,
+  `from this…`): eu removia comentário SQL (`--`) e esqueci o de JavaScript (`//`, `/* */`).
+  264 "fantasmas" viraram 181 ao corrigir.
+· mesmo corrigido, ele ainda conta **CTE** (`WITH new_addr AS …`) e **função** (`detect_…`) como
+  tabela. Por isso **não** transformei esse número em guard: número que eu não confio não vira teto.
+
+### 📌 ESTADO
+
+`runner 253 COMMANDS OK` · `typecheck BE 0` · `GHOST-WRITE-vivo 252/252`. Δbank = 0.
+
 ## 🔐 FAMÍLIA 2/3 (RLS) — o denominador que ninguém calculava, e por que NÃO consertei as 128 (2026-08-05, direção)
 
 ### 📊 A MEDIÇÃO — 128 de 239
