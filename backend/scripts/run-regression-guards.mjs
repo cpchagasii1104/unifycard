@@ -106,6 +106,8 @@ const CMDS = [
   "node scripts/audit-email-provider-no-false-success.mjs",
   // F-BANK-OWNER-TYPE-TRUTH: tradutor que colapsa na ida nao desfaz o colapso na volta.
   "node scripts/audit-bank-owner-type-no-lossy-translation.mjs",
+  // F-ACTOR-TYPE-VOCABULARY-RATCHET: vocabulario FECHADO que vazou — 3 geracoes no mesmo CHECK.
+  "node scripts/audit-actor-type-vocabulary-ratchet.mjs",
   "node scripts/audit-offering-audience-range.mjs",
   "node scripts/audit-event-staff-commitment-contract.mjs",
   "node scripts/audit-event-staff-single-writer.mjs",
