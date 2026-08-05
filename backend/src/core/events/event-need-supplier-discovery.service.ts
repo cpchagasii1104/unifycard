@@ -72,9 +72,16 @@ export interface NeedSupplierOption {
    * `null` NUNCA deve ser lido como "ocupado": desconhecido não é negativa.
    */
   freeInRange?: boolean | null;
-  /** A próxima janela livre que o fornecedor JÁ declarou — a saída quando a data pedida não dá. */
-  nextFreeFrom?: string | null;
-  nextFreeTo?: string | null;
+  /**
+   * A próxima janela livre que o fornecedor JÁ declarou — a saída quando a data pedida não dá.
+   *
+   * ⚠️ Nomeados `...StartAt`/`...EndAt` porque 07_NOMENCLATURA §4.6 reserva o sufixo `At` para
+   * instante, e os vizinhos DESTE MESMO contrato já usam `startAt`/`endAt`. A primeira versão saiu
+   * `nextFreeFrom`/`nextFreeTo` — corrigida enquanto tinha ZERO consumidores, que é a única hora em
+   * que renomear campo de contrato é de graça.
+   */
+  nextFreeStartAt?: string | null;
+  nextFreeEndAt?: string | null;
 }
 
 export interface NeedWithSuppliers {
@@ -564,8 +571,8 @@ class EventNeedSupplierDiscoveryService {
       const f = livre.get(s.offerId);
       // Ausente do cálculo = NÃO SEI. Não vira `false` (que afirmaria "ocupado") nem `true`.
       s.freeInRange = f ? f.freeInRange : null;
-      s.nextFreeFrom = f?.nextFree ? f.nextFree.start.toISOString() : null;
-      s.nextFreeTo = f?.nextFree ? f.nextFree.end.toISOString() : null;
+      s.nextFreeStartAt = f?.nextFree ? f.nextFree.start.toISOString() : null;
+      s.nextFreeEndAt = f?.nextFree ? f.nextFree.end.toISOString() : null;
     }
 
     return tipos.map((t) => {
