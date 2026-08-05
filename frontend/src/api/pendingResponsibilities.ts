@@ -54,6 +54,25 @@ export interface PendingBooking {
   startDatetime: string;
   endDatetime: string;
   requestedAt: string;
+  /**
+   * 🔴 O CONTEXTO PARA DECIDIR (2026-08-05). O dono via um intervalo de tempo e um id de actor, e
+   * tinha que aceitar ou recusar com isso. Tudo abaixo é RESOLVIDO NO SERVIDOR — a tela projeta.
+   */
+  /** O que a pessoa escreveu no pedido. Gravado em `bookings.notes` desde sempre; nunca era lido. */
+  notes: string | null;
+  eventId: string | null;
+  /** Título nulo com `eventId` presente = existe evento e o nome não foi lido. NÃO é "sem evento". */
+  eventTitle: string | null;
+  requester: {
+    actorId: string;
+    displayName: string | null;
+    /** Desde quando o actor existe. `null` = não sei — e não-sei não vira "recém-chegado". */
+    memberSince: string | null;
+    /** Compromissos REAIS já cumpridos (confirmed/checked_in/checked_out). Contagem, não score. */
+    completedCommitments: number;
+    /** Reputação DORMENTE: 5 substratos, 0 linhas. `null` honesto — nunca número inventado. */
+    trust: null;
+  };
 }
 
 export interface PendingResponsibilities {

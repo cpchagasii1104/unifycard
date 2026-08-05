@@ -14,6 +14,8 @@ import { useNavigate } from 'react-router-dom';
 import { getCommitments, type Commitments } from '../api/commitments';
 import { getPendingResponsibilities, type PendingResponsibilities } from '../api/pendingResponsibilities';
 import { getImpactOverview, type ImpactOverview } from '../api/impactOverview';
+import { confirmBooking, cancelBooking } from '../api/availability';
+import { showToast } from '../components/common/Toast';
 import './MeusCompromissosPage.css';
 
 export default function MeusCompromissosPage() {
@@ -23,6 +25,8 @@ export default function MeusCompromissosPage() {
   const [impactOverview, setImpactOverview] = useState<ImpactOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // qual pedido está sendo respondido — trava os dois botões daquele card, não da lista inteira
+  const [respondendo, setRespondendo] = useState<string | null>(null);
 
   useEffect(() => {
     loadCommitments();
@@ -45,6 +49,37 @@ export default function MeusCompromissosPage() {
       setError('Não foi possível carregar seus compromissos agora. Por favor, tente novamente em alguns instantes.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  /**
+   * 🔴 RESPONDER AO PEDIDO — as duas rotas já existiam e não tinham de onde ser chamadas (2026-08-05).
+   *
+   * `PUT /availability/bookings/:id` só aceita `confirmed` ou `cancelled` (o backend recusa status
+   * arbitrário) — a tela NÃO escolhe estado livre, escolhe entre os dois que o domínio permite.
+   *
+   * Quem decide de verdade é o servidor: o confirm passa pelo lock transacional por recurso/provider
+   * e pode devolver **409 RENTAL_RESOURCE_TIME_CONFLICT** se alguém confirmou o mesmo período antes.
+   * Por isso o erro é MOSTRADO, nunca engolido — e a lista é recarregada em qualquer desfecho, para
+   * a tela voltar a refletir o que o backend diz, e não o que ela achou que ia acontecer.
+   */
+  const responderPedido = async (bookingId: string, acao: 'aceitar' | 'recusar'): Promise<void> => {
+    setRespondendo(bookingId);
+    try {
+      if (acao === 'aceitar') await confirmBooking(bookingId);
+      else await cancelBooking(bookingId);
+      showToast(acao === 'aceitar' ? 'Pedido aceito.' : 'Pedido recusado.', 'success');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '';
+      showToast(
+        msg.includes('TIME_CONFLICT')
+          ? 'Este período acabou de ser confirmado para outra pessoa.'
+          : msg || 'Não foi possível responder ao pedido.',
+        'error'
+      );
+    } finally {
+      setRespondendo(null);
+      await loadCommitments();
     }
   };
 
@@ -443,20 +478,50 @@ export default function MeusCompromissosPage() {
             <div className="meus-compromissos-pending-subsection">
               <h3>Reservas ({pendingResponsibilities.pendingBookings.length})</h3>
               <div className="meus-compromissos-list">
+                {/* 🔴 2026-08-05 — ERA UM CARD MUDO, E O CLIQUE IA PARA LUGAR NENHUM.
+                    Mostrava "Reserva Pendente" + início + fim, e navegava para `/availability/:id`,
+                    ROTA QUE NÃO EXISTE (conferido em App.tsx). O dono tinha que aceitar ou recusar
+                    um pedido sem saber de quem era, para quê, nem o que a pessoa precisava — e o
+                    único caminho a mais levava a uma tela inexistente.
+                    Todo dado abaixo vem RESOLVIDO do servidor; a tela não deduz nada. */}
                 {pendingResponsibilities.pendingBookings.map((item) => (
-                  <div
-                    key={item.id}
-                    className="meus-compromissos-item"
-                    onClick={() => navigate(`/availability/${item.availabilityId}`)}
-                  >
+                  <div key={item.id} className="meus-compromissos-item">
                     <div className="meus-compromissos-item-header">
-                      <h4>Reserva Pendente</h4>
+                      <h4>{item.requester?.displayName ?? 'Solicitante'}</h4>
                       <span className={`meus-compromissos-badge status-${item.status}`}>{item.status}</span>
                     </div>
                     <div className="meus-compromissos-item-details">
-                      <p>Tipo: Reserva</p>
-                      <p>Início: {formatDateTime(item.startDatetime)}</p>
-                      <p>Fim: {formatDateTime(item.endDatetime)}</p>
+                      <p>{formatDateTime(item.startDatetime)} — {formatDateTime(item.endDatetime)}</p>
+                      {/* Evento: só aparece quando o servidor mandou. Ausente ≠ "sem evento". */}
+                      {item.eventTitle && <p>Para: <strong>{item.eventTitle}</strong></p>}
+                      {item.notes && <p className="mc-pedido-detalhe">“{item.notes}”</p>}
+                      {/* QUEM PEDE — os dois fatos que dá para medir hoje. Reputação segue fora:
+                          5 substratos com 0 linhas, e score inventado na hora do aceite é mentira
+                          justamente no momento em que ela custa mais caro. */}
+                      <p className="mc-pedido-quem">
+                        {item.requester?.completedCommitments ?? 0} compromisso(s) cumprido(s)
+                        {item.requester?.memberSince
+                          ? ` · no UnifiCard desde ${new Date(item.requester.memberSince).toLocaleDateString('pt-BR')}`
+                          : ''}
+                      </p>
+                    </div>
+                    <div className="mc-pedido-acoes">
+                      <button
+                        type="button"
+                        className="mc-pedido-aceitar"
+                        disabled={respondendo === item.id}
+                        onClick={() => void responderPedido(item.id, 'aceitar')}
+                      >
+                        {respondendo === item.id ? '…' : 'Aceitar'}
+                      </button>
+                      <button
+                        type="button"
+                        className="mc-pedido-recusar"
+                        disabled={respondendo === item.id}
+                        onClick={() => void responderPedido(item.id, 'recusar')}
+                      >
+                        Recusar
+                      </button>
                     </div>
                   </div>
                 ))}

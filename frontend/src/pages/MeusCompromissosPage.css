@@ -67,6 +67,41 @@
   margin: 0.25rem 0;
 }
 
+/* ── PEDIDO RECEBIDO (2026-08-05) — o card deixou de ser mudo ──────────────────
+   O que a pessoa escreveu vem em citação: é a fala dela, não um campo do sistema. */
+.mc-pedido-detalhe {
+  font-style: italic;
+  color: #444;
+  border-left: 3px solid #e5e7eb;
+  padding-left: 10px;
+  margin: 8px 0 !important;
+}
+/* Fatos medidos de quem pede. Discreto de propósito: informa a decisão, não a substitui. */
+.mc-pedido-quem {
+  font-size: 0.82rem;
+  color: #888;
+}
+.mc-pedido-acoes {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+.mc-pedido-acoes button {
+  padding: 7px 16px;
+  border-radius: 6px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+.mc-pedido-acoes button:disabled { opacity: 0.55; cursor: not-allowed; }
+.mc-pedido-aceitar { background: #16a34a; color: #fff; }
+.mc-pedido-aceitar:hover:not(:disabled) { background: #15803d; }
+/* Recusar é secundário DE PROPÓSITO: recusar é definitivo para quem esperava resposta. */
+.mc-pedido-recusar { background: #fff; color: #b91c1c; border-color: #fca5a5 !important; }
+.mc-pedido-recusar:hover:not(:disabled) { background: #fef2f2; }
+
 .meus-compromissos-badge {
   display: inline-block;
   padding: 0.25rem 0.75rem;
