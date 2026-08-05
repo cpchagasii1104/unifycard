@@ -11,7 +11,7 @@
  * do banco: `ledger_snapshots` ganhou 3 linhas novas ENQUANTO eu media — o worker estava rodando na
  * minha frente. A causa do erro: meus greps eram escopados em `src/`, e **o boot mora em
  * `backend/BOOT.ts`, FORA de `src/`**. Denominador errado, conclusão invertida.
- * Medição correta depois: **26 de 26 workers citados no BOOT**, cada um com portão explícito.
+ * Medição correta: **26 arquivos em src/workers/ · 25 são workers (exportam partida) e os 25 estão no BOOT · 1 e apoio** (financial-worker-gate, que so exporta isFinancialWorkerEnabled). ⚠️ O "26 de 26" que eu escrevi antes era IMPRECISO — a auditoria da YALA pegou, e o guard agora DECLARA o excluido em vez de descarta-lo em silencio.
  *
  * ⚠️ O QUE ESTE GUARD **NÃO** AFIRMA: que o worker está LIGADO. Vários são `default-off` de
  * propósito (`isFinancialWorkerEnabled`), e desligar worker financeiro é decisão registrada, não
@@ -44,6 +44,7 @@ const textoBoot = BOOTS.map((p) => readFileSync(p, 'utf8')).join('\n');
 
 const workers = readdirSync(DIR_WORKERS).filter((f) => f.endsWith('.ts') && !f.endsWith('.d.ts'));
 const semPartida = [];
+const semExportDePartida = []; // 🔴 EXCLUÍDOS — têm que APARECER, ver nota abaixo
 let comPartida = 0;
 
 for (const arquivo of workers) {
@@ -54,7 +55,17 @@ for (const arquivo of workers) {
   // Arquivo de apoio (ex.: o portão `financial-worker-gate`) não precisa de partida própria.
   const exportsDePartida = [...src.matchAll(/export\s+(?:async\s+)?function\s+((?:start|run|claim|process)[A-Z]\w*)/g)]
     .map((m) => m[1]);
-  if (exportsDePartida.length === 0) continue;
+  // 🔴 EXCLUSÃO SILENCIOSA — corrigida 2026-08-05 depois da auditoria da YALA.
+  // Antes isto era um `continue` mudo: o arquivo saía da conta sem aparecer em lugar nenhum.
+  // Efeito: `ls src/workers/*.ts` dava 26, o guard dizia 25, e os dois estavam certos — mas
+  // ninguém conseguia saber POR QUÊ sem ler o código do guard. A auditoria marcou como
+  // INDETERMINADO e recusou adivinhar, corretamente: ou havia um worker sem partida com o gate
+  // verde (grave), ou o guard excluía em silêncio (o caso). **Excluído que não aparece é
+  // denominador escondido**, e a regra da casa é que todo verde declara o seu.
+  if (exportsDePartida.length === 0) {
+    semExportDePartida.push(modulo);
+    continue;
+  }
 
   // Alcançável = o BOOT cita o MÓDULO (import dinâmico usa o caminho) ou a função de partida.
   const citado =
@@ -85,7 +96,12 @@ if (semPartida.length > 0) {
 }
 
 console.log(
-  `✅ GATE OK [${NOME}] — ${comPartida} worker(s) com partida alcançável a partir do boot ` +
-  `(${BOOTS.length} arquivo(s) de boot verificado(s), incluindo BOOT.ts FORA de src/). ` +
+  `✅ GATE OK [${NOME}] — ${workers.length} arquivo(s) em src/workers/: ` +
+  `${comPartida} com partida alcançável a partir do boot` +
+  (semExportDePartida.length > 0
+    ? `, ${semExportDePartida.length} sem export de partida e por isso FORA da conta ` +
+      `(${semExportDePartida.join(', ')}) — são apoio, não worker: não têm o que iniciar`
+    : '') +
+  `. Boot(s) verificado(s): ${BOOTS.length}, incluindo BOOT.ts FORA de src/. ` +
   `Estar default-off é decisão, não ausência de partida — o guard não confunde as duas.`
 );

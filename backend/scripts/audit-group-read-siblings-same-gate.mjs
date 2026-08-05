@@ -20,10 +20,16 @@
  *
  * ⚠️ Mede CÓDIGO, não comentário — senão a explicação acima faria o guard passar sozinha.
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
-const ARQUIVO = join(import.meta.dirname, '..', 'src', 'modules', 'groups', 'groups.routes.ts');
+// 🔴 ESCOPO AMPLIADO 2026-08-05 (achado 3 da auditoria independente da YALA).
+// As versões anteriores vigiavam **um arquivo só** (`groups.routes.ts`), porque foi lá que o
+// defeito apareceu. A auditoria mostrou o buraco: o módulo tem 6 arquivos de rota, e 3 leituras
+// escopadas a grupo viviam FORA do alcance (`closure-summary`, `state-history`, `insights`) — todas
+// com apenas permissão de TENANT. **Guard cujo escopo é o arquivo onde o defeito apareceu vigia a
+// cicatriz, não a regra.**
+const DIR_ROTAS = join(import.meta.dirname, '..', 'src', 'modules', 'groups');
 const NOME = 'group-read-siblings-same-gate';
 
 function semTexto(src) {
@@ -32,21 +38,31 @@ function semTexto(src) {
     .replace(/\/\/[^\n]*/g, ' ');
 }
 
-const bruto = readFileSync(ARQUIVO, 'utf8');
-const codigo = semTexto(bruto);
-
-// Cada `fastify.get(... '/:id...' ...)` abre um handler. Fatio do início de um até o início do
-// próximo registro de rota — aproximação suficiente e verificável, e o denominador denuncia se
-// o fatiamento deixar de encontrar as rotas.
-const aberturas = [...codigo.matchAll(/fastify\s*\.\s*get\s*(?:<[^>]*>)?\s*\(\s*(['"])(\/:id[^'"]*)\1/g)];
-const limites = [...codigo.matchAll(/fastify\s*\.\s*(?:get|post|put|patch|delete)\s*(?:<[^>]*>)?\s*\(/g)].map((m) => m.index);
-
+const arquivos = readdirSync(DIR_ROTAS).filter((f) => f.endsWith('.routes.ts'));
 const violacoes = [];
+let totalRotas = 0;
+
+for (const arquivo of arquivos) {
+  const codigo = semTexto(readFileSync(join(DIR_ROTAS, arquivo), 'utf8'));
+
+  // Cada `fastify.get(... '/:id...' ...)` abre um handler. Fatio do início de um até o início do
+  // próximo registro de rota — aproximação suficiente e verificável, e o denominador denuncia se
+  // o fatiamento deixar de encontrar as rotas.
+  // ⚠️ `/:id` E `/:groupId`: o módulo usa os dois nomes de parâmetro, e a v3 só conhecia `/:id` —
+  // era mais uma forma de escapar por escrita, não por substância.
+  const aberturas = [...codigo.matchAll(
+    /fastify\s*\.\s*get\s*(?:<[^>]*>)?\s*\(\s*(['"])(\/:(?:id|groupId)[^'"]*)\1/g
+  )];
+  const limites = [...codigo.matchAll(
+    /fastify\s*\.\s*(?:get|post|put|patch|delete)\s*(?:<[^>]*>)?\s*\(/g
+  )].map((m) => m.index);
+
 for (const abertura of aberturas) {
+  totalRotas += 1;
   const inicio = abertura.index;
   const fim = limites.find((i) => i > inicio) ?? codigo.length;
   const corpo = codigo.slice(inicio, fim);
-  const caminho = abertura[2];
+  const caminho = `${arquivo}  ${abertura[2]}`;
 
   // 🔴 FAMÍLIA DE FORMAS, NÃO LISTA DE NOMES (corrigido 2026-08-05, 3ª versão).
   //
@@ -62,29 +78,37 @@ for (const abertura of aberturas) {
   //   · membership    → …Membro… / isMember   (ehMembroDoGrupo, isMember, …)
   //   · representação → canRepresent… / canActAs…
   //   · gate de dono  → require…Permission / require…Owner…
+  // 🔴 PERMISSÃO DE TENANT NÃO CONTA (2026-08-05, achado 3 da YALA).
+  // A v3 aceitava `require\w*Permission`, o que casava com `fastify.requirePermission([...])` —
+  // permissão de MÓDULO, não autoridade sobre AQUELE grupo. Era assim que `closure-summary` passaria
+  // sem checar nada específico do grupo. Segue valendo `require…Owner…`
+  // (`requireGroupOwnerOrPermission`), que É escopado ao grupo.
   const FORMAS_DE_AUTORIZACAO =
-    /\b(?:\w*Legivel\w*|\w*Membro\w*|isMember|canRepresent\w*|canActAs\w*|require\w*(?:Permission|Owner\w*))\s*\(|\bisMember\b/;
+    /\b(?:\w*Legivel\w*|\w*Membro\w*|isMember|canRepresent\w*|canActAs\w*|require\w*Owner\w*)\s*\(|\bisMember\b/;
   const autorizado = FORMAS_DE_AUTORIZACAO.test(corpo);
 
   if (!autorizado) {
     violacoes.push(
       `GET '${caminho}': lê um grupo específico e NÃO passa por NENHUMA forma de autorização ` +
-      `reconhecida (legibilidade · membership · representação · gate de dono) — irmão descoberto`
+      `ESCOPADA AO GRUPO (legibilidade · membership · representação · dono). ` +
+      `⚠️ Permissão de tenant (\`requirePermission\`) prova acesso ao MÓDULO, não a este grupo`
     );
   }
 }
+}
 
-if (aberturas.length === 0) {
+if (totalRotas === 0) {
   console.error(
-    `\n❌ GATE FAIL [${NOME}] — nenhuma rota GET '/:id...' encontrada em groups.routes.ts.\n` +
-    `   Isso não é "está tudo certo": é o guard tendo ficado CEGO (o arquivo mudou de forma).\n` +
+    `\n❌ GATE FAIL [${NOME}] — nenhuma rota GET escopada a grupo encontrada em ` +
+    `${arquivos.length} arquivo(s) de ${DIR_ROTAS.replace(/\\/g, '/')}.\n` +
+    `   Isso não é "está tudo certo": é o guard tendo ficado CEGO (a forma das rotas mudou).\n` +
     `   Zero é uma afirmação; aqui a verdade é desconhecida, e desconhecido tem que aparecer.\n`
   );
   process.exit(1);
 }
 
 if (violacoes.length > 0) {
-  console.error(`\n❌ GATE FAIL [${NOME}] — ${violacoes.length} de ${aberturas.length} irmão(s) sem a regra:\n`);
+  console.error(`\n❌ GATE FAIL [${NOME}] — ${violacoes.length} de ${totalRotas} irmão(s) sem a regra:\n`);
   for (const v of violacoes) console.error(`   · ${v}`);
   console.error(
     `\n   EM VEZ: chame a regra compartilhada de legibilidade do módulo, ou faça verificação\n` +
@@ -98,8 +122,8 @@ if (violacoes.length > 0) {
 }
 
 console.log(
-  `✅ GATE OK [${NOME}] — ${aberturas.length} rota(s) GET escopada(s) a um grupo específico, ` +
-  `todas passando por alguma forma reconhecida de autorização ` +
-  `(legibilidade · membership · representação · gate de dono). O guard reconhece a FAMÍLIA de ` +
-  `formas, não uma lista fechada de nomes.`
+  `✅ GATE OK [${NOME}] — ${totalRotas} rota(s) GET escopada(s) a um grupo específico, em ` +
+  `${arquivos.length} arquivo(s) de rota do módulo, todas passando por autorização ESCOPADA AO ` +
+  `GRUPO (legibilidade · membership · representação · dono). O guard reconhece a FAMÍLIA de ` +
+  `formas, não uma lista de nomes — e vigia o MÓDULO, não o arquivo onde o defeito apareceu.`
 );

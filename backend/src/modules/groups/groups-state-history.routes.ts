@@ -6,6 +6,8 @@
 
 import { FastifyPluginAsync } from 'fastify';
 import { runQueryWithTenant } from '@core/database/pool';
+import { groupsService } from './groups.service';
+import { grupoLegivelPor } from './group-readability';
 
 const groupsStateHistoryRoutes: FastifyPluginAsync = async (fastify) => {
   /**
@@ -24,6 +26,19 @@ const groupsStateHistoryRoutes: FastifyPluginAsync = async (fastify) => {
     async (req, reply) => {
       const tenantId = req.tenant!.id;
       const { groupId } = req.params;
+
+      // 🔒 LEGIBILIDADE DO GRUPO — mesma regra do irmão `closure-summary` (achado 3 da YALA).
+      // Histórico de estado de grupo secreto era legível por qualquer autenticado com o id.
+      if (!req.user?.userId) {
+        return reply.status(401).send({ error: 'Não autenticado' });
+      }
+      const grupoAlvo = await groupsService.getGroup(tenantId, groupId);
+      if (!grupoAlvo) {
+        return reply.status(404).send({ error: 'Group not found' });
+      }
+      if (!(await grupoLegivelPor(tenantId, req.user.userId, groupId, grupoAlvo.visibility))) {
+        return reply.status(404).send({ error: 'Group not found' });
+      }
 
       try {
         // Verificar se grupo existe

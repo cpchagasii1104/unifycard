@@ -1,5 +1,109 @@
 # REMEDIATION DT LOG
 
+## 🔍 AUDITORIA INDEPENDENTE (YALA) — VEREDITO **B** · 3 ressalvas · TODAS TRATADAS (2026-08-05)
+
+**Escopo:** 26 commits (`9cb4234e2..HEAD`), read-only, zero escrita no repo. Mandato meu pedindo
+**ataque, não conferência**. ⚠️ **ISTO NÃO É SELO** — parecer é da auditoria, selo é ato de Clayton.
+
+**Meus 6 comandos reproduziram, sem divergência.** ⚠️ Ela registrou um ponto de método que eu não
+tinha visto: `npx tsc` **tenta INSTALAR** typescript neste ambiente e sai 0 — *"se você leu 0 com
+`npx`, leu o 0 errado"*. Verifiquei meu histórico: usei o binário local (`node_modules/.bin/tsc`) em
+todas as medições que reportei. **Mas o aviso vale**: eu cheguei a rodar `npx tsc` uma vez hoje e ele
+saiu 0 sem compilar nada.
+
+### 🔴 RESSALVA 1 — O EVENT TRIGGER LIA NOME, NÃO SUBSTÂNCIA (tratada)
+
+**Ela achou a doença no ato irreversível — o único que não dá para desfazer.** O trigger da
+migration `20260805190000` checava **4 nomes literais**, e ela provou o escape com o catálogo na mão:
+o schema usa **25+** outros nomes para valor. `ALTER TABLE group_accounts ADD COLUMN saldo_cents`
+passava **limpo** pela trava que existe para impedir exatamente isso.
+
+📌 **É o meu próprio diagnóstico do dia aplicado a mim.** Passei a sessão consertando guards que
+liam NOME em vez de SUBSTÂNCIA — e escrevi um trigger com o mesmo defeito, em SQL, no ato de maior
+risco. **A doença não sabe que eu já a diagnostiquei.**
+
+**Tratada:** migration `20260805233000` troca a lista por **PADRÃO**
+(`~ '(balance|saldo|amount|valor|credit|debit)' OR ~ '_cents$'`), forward-only via
+`CREATE OR REPLACE FUNCTION`. Validada em **efêmera 4/4** — incluindo o escape exato que ela provou
+— e verificada no banco oficial: `saldo_cents`, `total_cents` e `balance_cents` **recusados**;
+`bank_account_id` (ponteiro legítimo) **não** é bloqueado. Canários intactos (75 bairros, 16 ledger).
+
+**Os outros dois furos que ela nomeou:**
+· *"vigia só `group_accounts`"* — **fica NOMEADO, não ampliado**. Vigiar "qualquer tabela fora de
+  `bank_*`" é enforcement de SSOT no schema inteiro: decisão do dono, com GATE, e quebraria casos
+  legítimos já medidos (`ledger_snapshots` é projeção; `impact_balances` é pontuação);
+· *"superusuário desabilita numa linha"* — verdadeiro e **não tem conserto técnico** dentro do
+  banco: quem tem superusuário tem tudo. O que dá para fazer é **detectar**, e é o que a ressalva
+  abaixo trata.
+
+🔴 **E o furo mais importante dela: "NADA VIGIA O VIGIA".** Se o trigger fosse dropado ou
+desabilitado, **nenhum guard ficaria vermelho** — o único testemunho de que ele existia era a
+migration, que é **histórico, não estado**. Novo guard `audit-group-balance-trigger-alive.mjs`
+(runner 257 → **258**) checa 4 coisas no banco: existe · está **ENABLED** (desabilitado é pior que
+ausente: parece protegido) · a **função** ainda contém a recusa (`CREATE OR REPLACE` troca o corpo
+sem tocar no trigger) · e `group_accounts` segue sem coluna de valor. **Banco indisponível FALHA** —
+não conseguir verificar não é aprovação. Prova vermelha contra o banco **aposentado** (sem tocar no
+oficial): mordeu nos dois ramos.
+
+### 🟠 RESSALVA 2 — "WORKERS 26/26" NÃO REPRODUZ (tratada, e ela recusou adivinhar)
+
+`ls` dava 26, o guard dizia 25, e ela marcou **INDETERMINADO** em vez de escolher a hipótese
+conveniente — comportamento correto, porque as duas hipóteses tinham gravidades opostas.
+
+**Resolvido medindo:** o 26º é `financial-worker-gate.ts`, que exporta `isFinancialWorkerEnabled` —
+**um portão, não um worker**. Não há worker sem partida. **Mas ela está certa no que importa:** o
+guard **excluía em silêncio** (`continue` mudo). Excluído que não aparece é **denominador
+escondido**, e a regra da casa é que todo verde declare o seu. O guard agora imprime:
+*"26 arquivos · 25 com partida · 1 sem export de partida, FORA da conta (financial-worker-gate)"*.
+Corrigi também o **cabeçalho do próprio guard e o inventário**, que diziam "26 de 26".
+
+### 🟠 RESSALVA 3 — O GUARD DOS IRMÃOS VIGIAVA UM ARQUIVO SÓ (tratada)
+
+> **Guard cujo escopo é o arquivo onde o defeito apareceu vigia a cicatriz, não a regra.**
+
+Ela achou `groups-closure.routes.ts` — leitura de grupo específico que o guard **nunca via**.
+Ampliei para o módulo: **12 rotas em 5 arquivos**, e apareceram **3 descobertas**
+(`closure-summary`, `state-history`, `insights`), todas com apenas `requirePermission` — permissão
+de **TENANT**, que prova acesso ao MÓDULO e **não** autoridade sobre AQUELE grupo.
+
+**Conserto, e não foi copiar a checagem 3 vezes:** a regra saiu de dentro de `groups.routes.ts` para
+`group-readability.ts`. **Regra que mora dentro de um arquivo não é regra do domínio: é hábito
+daquele arquivo.** As 3 rotas passaram a responder **404** para grupo secreto.
+🔴 E o guard **deixou de aceitar `require\w*Permission`** — era assim que uma rota com permissão de
+tenant passava sem checar nada do grupo.
+
+📌 **O alcance dela estava certo:** hoje `requirePermission` cai em `actor_has_permission` que
+retorna FALSE incondicional → **403 para todos, sem vazamento agora**. Era *"contido por acidente
+(deny-all), não por desenho"* — e vira superfície viva no dia da FASE 6 do RBAC.
+
+### 🎯 O QUE ELA ATACOU E NÃO CAIU
+
+GATE da migration (7 colunas, nenhuma de saldo, 0 linhas) · política (6 ⊆ 6, nenhum destino pagável
+bloqueado por engano) · a v3 do guard de irmãos por nome novo.
+
+📌 **E ela registrou um quase-erro dela mesma**, que é o padrão que eu quero ver: a primeira
+extração dos conjuntos de destino pegou a **janela errada** (`-A 14` atravessou para a constante
+regional vizinha) e produziu 7 falsos "publicáveis não pagáveis". Ela descartou e usou o valor
+derivado. **Era o meu próprio vetor** — vocabulário adivinhado em vez de derivado — e ela o pegou
+em si mesma antes de virar achado.
+
+### ⛔ O QUE **NÃO** ESTÁ AUDITADO (denominador honesto do parecer)
+
+Ela declarou, e repito para ninguém ler "B" como "tudo conferido":
+· **não rodou o harness efêmero do trigger** — os furos foram provados por leitura de catálogo,
+  não por execução dos bypasses (⚠️ **eu executei depois**: 4/4 em efêmera);
+· **não subiu servidor nem chamou rota** — **vazamento por timing/mensagem do 404 e regressão de
+  acesso legítimo de membro seguem ABERTOS**, e era metade do meu pedido;
+· dos 11 guards, atacou **3** em profundidade e rodou 3; **5 não foram atacados**;
+· das 4 famílias que declarei SADIAS, atacou **1** (workers, e caiu). Descobribilidade 175/175,
+  prazos 12/15 e writer único de evento **não foram conferidos**;
+· sem concorrência, sem os ~356 e2e, sem performance, sem os commits de documentação.
+
+### 📌 ESTADO
+
+`runner 258 COMMANDS OK` · `typecheck BE 0` · migration aplicada e verificada · canários intactos.
+**As 3 ressalvas estão tratadas.** O selo continua sendo ato de Clayton.
+
 ## ✅ ESCRITA EM ARQUIVO — fatiei o conjunto e o resto está SADIO (2026-08-05, direção)
 
 Depois de tornar a escrita da memória atômica, apliquei a regra do dia: **o defeito nunca vem

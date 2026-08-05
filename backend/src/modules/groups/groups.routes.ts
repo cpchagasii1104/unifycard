@@ -7,6 +7,7 @@ import { rbacService } from '@core/rbac/rbac.service';
 import { GROUP_PURPOSES, DEFAULT_GROUP_PURPOSE } from './group-purpose.vocabulary';
 import type { PermissionString } from '@core/rbac/rbac.types';
 import type { GroupVisibility } from './groups.types';
+import { grupoLegivelPor, ehMembroDoGrupo } from './group-readability';
 import multipart from '@fastify/multipart';
 import { z } from 'zod';
 import * as path from 'path';
@@ -83,51 +84,11 @@ function hasMetadata(x: unknown): x is { metadata: unknown } {
   return typeof x === 'object' && x !== null && 'metadata' in x;
 }
 
-/**
- * 🔒 A ÚNICA REGRA DE "QUEM PODE LER ESTE GRUPO" (2026-08-05).
- *
- * Nasceu do achado 16.2 da instância de `ARQUITETURA/`, e o defeito é da família **IRMÃOS**:
- * rotas da mesma casa com gates diferentes. Medido antes de escrever:
- *   · `GET /groups/:id`          → só `groupsAuthGate('groups:read')` — nada mais
- *   · `GET /groups/:id/members`  → só `groupsAuthGate('groups:members:read')` — nada mais
- *   · a rota de consulta da conta   → gate + **verificação de membership** com 403
- * Um irmão coberto, dois abertos. Com o id em mãos, qualquer autenticado do tenant lia um grupo
- * SECRETO inteiro e a lista de membros dele. Corrigir só a listagem (o outro achado, 16.1) teria
- * sido meia obra: fecharia a vitrine e deixaria a porta.
- *
- * A regra NÃO é invenção minha — sai do próprio módulo: `joinGroup` exige **convite** para secreto
- * e apenas **pedido de entrada** para privado. Logo privado precisa ser encontrável (senão ninguém
- * pede entrada) e secreto **não pode ser legível** por quem não é membro.
- *
- * 🔴 E A RESPOSTA É 404, NÃO 403. Um 403 responde "existe, mas você não pode" — o que confirma a
- * existência do grupo secreto para quem só chutou o id. Indistinguível de inexistente é a única
- * resposta que não vaza.
- *
- * ⚠️ FICA NOMEADO, NÃO DECIDIDO: se a lista de membros de um grupo **privado** deve ser visível a
- * não-membros, a lei não diz — e eu não invento política. Hoje segue como estava (visível).
- */
-async function grupoLegivelPor(
-  tenantId: string,
-  userId: string,
-  groupId: string,
-  visibility: string | undefined
-): Promise<boolean> {
-  if (visibility !== 'secret') {
-    return true;
-  }
-  return ehMembroDoGrupo(tenantId, userId, groupId);
-}
-
-/**
- * 🔒 Membership do PRINCIPAL AUTENTICADO — a régua estrita, para o que o `CONTRATO_GRUPOS_V2` §2.6
- * fecha por padrão: *"não-membro não vê"*. Mesma forma já usada pela rota de consulta da conta e
- * `/:id/impact-history` (verificadas equivalentes); existe como função para não haver uma quarta
- * cópia — cópia de regra de autorização é como os irmãos divergem em primeiro lugar.
- */
-async function ehMembroDoGrupo(tenantId: string, userId: string, groupId: string): Promise<boolean> {
-  const members = await groupsService.getGroupMembers(tenantId, groupId);
-  return members.some((m) => m.userId !== null && m.userId === userId);
-}
+// 🔴 A regra de legibilidade de grupo MUDOU DE CASA em 2026-08-05, depois da auditoria da YALA.
+// Ela era função LOCAL deste arquivo — e por isso o guard vigiava um arquivo só, enquanto o módulo
+// tinha mais 3 rotas lendo grupo específico sem checagem escopada ao grupo.
+// Regra que mora dentro de um arquivo não é regra do domínio: é hábito daquele arquivo.
+// Agora: src/modules/groups/group-readability.ts (importada logo acima).
 
 /**
  * Helper: Verifica se o usuário é owner do grupo OU tem permission RBAC
