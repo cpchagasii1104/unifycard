@@ -98,6 +98,10 @@ const CMDS = [
   // (anti-hollow/trap F4 — sem outbox oco), sem spine/writer paralelo; EDGE C-1 carrega contexto com autoridade
   // de evento (canActAs manage_attendees) reusada; Bank-free (porta-01 FORA).
   "node scripts/audit-performer-event-binding.mjs",
+  // F-BOOKING-EXPIRY-MOTOR: vigia o CALLER, não a capacidade — estado sem motor foi o buraco.
+  "node scripts/audit-booking-expiry-has-caller.mjs",
+  // F-SELFNAME-ALIAS-AT-BIRTH: garantia que dispara no NASCIMENTO, não em varredura esquecível.
+  "node scripts/audit-canonical-service-selfname-alias-at-birth.mjs",
   "node scripts/audit-offering-audience-range.mjs",
   "node scripts/audit-event-staff-commitment-contract.mjs",
   "node scripts/audit-event-staff-single-writer.mjs",

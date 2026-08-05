@@ -40,6 +40,12 @@ const FAMILY = [
   // Entra na FAMÍLIA para herdar as vigilâncias estruturais (no-as-never, no-actor-cure).
   // Guard próprio: audit-booking-soft-conflict.mjs.
   'core/availability/booking-soft-conflict.ts',
+  // F-BOOKING-EXPIRY-MOTOR (2026-08-04): o MOTOR do estado `expired`, que existia sem quem o
+  // acionasse. NÃO resolve owner-authority — não tem owner a derivar: expira `requested` cuja
+  // JANELA JÁ COMEÇOU, que é aritmética sobre o tempo, não decisão sobre quem manda. NÃO toca
+  // `confirmed` (compromisso aceito caduca por regra própria) e é Δbank=0. Entra na FAMÍLIA para
+  // herdar as vigilâncias estruturais. Guard próprio: audit-booking-expiry-has-caller.mjs.
+  'core/availability/booking-expiry.service.ts',
   // C3 F-ORCHESTRATED-CONTRACTING (2026-07-23): BIND do performer ao elenco no confirm. NÃO resolve
   // owner-authority (recebe performerActorId JÁ derivado pelo resolver no chokepoint — owner.authorityActorId)
   // e NÃO escreve em availability/bookings — lê event_staff (idempotência) + compõe o writer SELADO

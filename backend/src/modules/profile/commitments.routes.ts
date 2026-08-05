@@ -167,6 +167,25 @@ const commitmentsRoutes: FastifyPluginAsync = async (fastify) => {
         createdAt: row.created_at,
       }));
 
+      // 🔴 O MOTOR DO `expired` (2026-08-04). O estado e a coluna `expired_at` existiam e NADA os
+      // acionava: pedido que o fornecedor nunca respondesse ficava `requested` para sempre — cliente
+      // esperando sem prazo, horário pendurado. Achado da instância de ARQUITETURA, confirmado por
+      // mim, e ele cai justamente sobre o fluxo de pedido que EU entreguei hoje.
+      //
+      // O caller é AQUI de propósito: este painel é onde os DOIS lados olham seus pedidos pendentes.
+      // Um worker novo seria mais uma peça sem quem lhe dê partida — `startIdempotencyCleanupWorker`
+      // já existe com zero callers, e é a mesma doença com outro nome.
+      //
+      // Não bloqueia a leitura: se expirar falhar, o painel ainda deve abrir. Mas o erro APARECE —
+      // catch silencioso aqui seria trocar um estado errado por um estado errado E invisível.
+      try {
+        const { expirePastDueBookings } = await import('@core/availability/booking-expiry.service');
+        const { expirados } = await expirePastDueBookings(tenantId);
+        if (expirados > 0) fastify.log.info({ tenantId, expirados }, 'pedidos vencidos expirados');
+      } catch (err) {
+        fastify.log.error({ err, tenantId }, 'falha ao expirar pedidos vencidos (painel segue)');
+      }
+
       // 4. Agenda (bookings) - próximos compromissos
       const bookingsRows = await runQueriesWithTenant<{
         booking_id: string;
