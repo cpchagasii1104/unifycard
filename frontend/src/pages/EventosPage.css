@@ -316,6 +316,19 @@
   cursor: pointer;
 }
 .eventos-filtro select:disabled { background: #f3f4f6; cursor: not-allowed; }
+/* Seletor de dia específico — mesma altura e mesma borda do select ao lado, senão o campo que
+   aparece condicionalmente denuncia que foi colado depois. `font: inherit` porque input[type=date]
+   herda a fonte do sistema, não a da página, e ficaria visivelmente menor que os vizinhos. */
+.eventos-filtro input[type='date'] {
+  padding: 8px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+  background: #fff;
+  cursor: pointer;
+  color: #111827;
+}
 .eventos-filtro-limpar { align-self: center; margin-bottom: 8px; }
 
 /* ── Seções: "de outros" primeiro, "seus" depois ─────────────────────────── */

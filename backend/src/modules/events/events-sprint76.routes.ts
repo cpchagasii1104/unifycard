@@ -3,6 +3,7 @@
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { eventRepository } from './event.repository';
+import { parseInstantQueryParam, assertInstantRangeCoherent } from '@core/http/query-instant';
 import { ticketService } from './ticket.service';
 import { checkInService } from './checkin.service';
 import { eventTicketRepository } from './event-ticket.repository';
@@ -244,11 +245,29 @@ const eventsSprint76Routes = async (fastify: FastifyInstance) => {
     if (req.query.visibility) {
       filters.visibility = req.query.visibility;
     }
-    if (req.query.startAtFrom) {
-      filters.startAtFrom = new Date(req.query.startAtFrom);
+    // ── 2026-08-04 · F-EVENT-DISCOVERY-SPECIFIC-DATE ────────────────────────────────────────
+    // 🔴 Isto era `new Date(req.query.startAtFrom)` cru. Medido com curl no servidor vivo antes
+    // de trocar: `?startAtFrom=lixo` devolvia **HTTP 500** com o erro do Postgres vazado
+    // (`22007 sintaxe de entrada é inválida para tipo timestamp with time zone: "0NaN-NaN-..."`).
+    // `Invalid Date` satisfaz o tipo `Date` do TypeScript, então atravessou rota, service e
+    // repositório sem um aviso — e só explodiu dentro do driver. Ver `@core/http/query-instant`.
+    if (req.query.startAtFrom !== undefined) {
+      const r = parseInstantQueryParam(req.query.startAtFrom, 'startAtFrom');
+      if (!r.ok) return reply.status(400).send({ error: r.message, code: r.code });
+      filters.startAtFrom = r.value;
     }
-    if (req.query.startAtTo) {
-      filters.startAtTo = new Date(req.query.startAtTo);
+    if (req.query.startAtTo !== undefined) {
+      const r = parseInstantQueryParam(req.query.startAtTo, 'startAtTo');
+      if (!r.ok) return reply.status(400).send({ error: r.message, code: r.code });
+      filters.startAtTo = r.value;
+    }
+    // O intervalo invertido não dá erro em lugar nenhum: gera `>= X AND <= Y` com X > Y, SQL
+    // válido, zero linhas, 200. É a metade MUDA do mesmo defeito, e a que ninguém reporta.
+    const intervaloIncoerente = assertInstantRangeCoherent(
+      filters.startAtFrom, filters.startAtTo, 'startAtFrom', 'startAtTo'
+    );
+    if (intervaloIncoerente) {
+      return reply.status(400).send({ error: intervaloIncoerente, code: 'QUERY_INSTANT_RANGE_INVERTED' });
     }
     if (req.query.limit) {
       filters.limit = req.query.limit;

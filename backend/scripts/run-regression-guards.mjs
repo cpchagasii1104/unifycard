@@ -108,6 +108,8 @@ const CMDS = [
   "node scripts/audit-bank-owner-type-no-lossy-translation.mjs",
   // F-ACTOR-TYPE-VOCABULARY-RATCHET: vocabulario FECHADO que vazou — 3 geracoes no mesmo CHECK.
   "node scripts/audit-actor-type-vocabulary-ratchet.mjs",
+  // F-DATE-QUERY-PARAM-BOUNDARY: new Date(entrada_do_usuario) e Invalid Date que so explode no SQL.
+  "node scripts/audit-date-query-param-boundary.mjs",
   "node scripts/audit-offering-audience-range.mjs",
   "node scripts/audit-event-staff-commitment-contract.mjs",
   "node scripts/audit-event-staff-single-writer.mjs",

@@ -52,7 +52,41 @@ const JANELAS: Array<{ chave: string; rotulo: string; dias: number | null }> = [
   { chave: 'qualquer', rotulo: 'Qualquer data', dias: null },
   { chave: 'semana', rotulo: 'Próximos 7 dias', dias: 7 },
   { chave: 'mes', rotulo: 'Próximos 30 dias', dias: 30 },
+  // 2026-08-04 — friccão de uso de Clayton: as três janelas acima respondem "o que tem por aí",
+  // e nenhuma responde "o que tem NO MEU DIA DE FOLGA". Quem tem uma data na cabeça — a folga, o
+  // encontro marcado — não consegue perguntar por ela. O contrato já sabia: `startAtFrom` e
+  // `startAtTo` existem em PublicEventFilters e o repositório já filtra pelos dois; faltava a
+  // pergunta. Não é campo novo no backend, é capacidade existente que a tela não usava.
+  { chave: 'especifica', rotulo: 'Escolher uma data…', dias: null },
 ];
+
+/** Hoje em `YYYY-MM-DD` LOCAL — piso do seletor: vitrine é o que dá para ir, não o que já passou. */
+function hojeLocalISO(): string {
+  const d = new Date();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${mm}-${dd}`;
+}
+
+/**
+ * O dia inteiro que o usuário escolheu, como par de instantes — 00:00:00.000 a 23:59:59.999.
+ *
+ * 🔴 O `new Date('2026-08-16')` do JS parseia como MEIA-NOITE UTC. No Brasil (UTC-3) isso é
+ * 21:00 do dia 15: o filtro do dia 16 começaria três horas antes, no dia anterior, e um evento
+ * das 22h do dia 15 apareceria como "dia 16". Por isso o parse é manual, pelo construtor de
+ * componentes, que é o único que significa "este dia no fuso de quem está olhando".
+ */
+function diaInteiroLocal(iso: string): { de: string; ate: string } | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (!m) return null;
+  const ano = Number(m[1]); const mes = Number(m[2]); const dia = Number(m[3]);
+  const de = new Date(ano, mes - 1, dia, 0, 0, 0, 0);
+  const ate = new Date(ano, mes - 1, dia, 23, 59, 59, 999);
+  // O navegador normaliza 31/02 para 03/03 em silêncio. Se o dia voltou diferente do pedido, a
+  // data não existe — e mandar isso ao servidor pediria eventos de um dia que ninguém escolheu.
+  if (de.getFullYear() !== ano || de.getMonth() !== mes - 1 || de.getDate() !== dia) return null;
+  return { de: de.toISOString(), ate: ate.toISOString() };
+}
 
 /** Data do evento na LISTA: o payload da rota de discovery manda `startAt` (não `datetimeStart`). */
 function inicioDoEvento(ev: Event): string | null {
@@ -78,6 +112,7 @@ export default function EventosPage() {
   const [categoria, setCategoria] = useState<string>('');
   const [faixaPreco, setFaixaPreco] = useState<string>('qualquer');
   const [janela, setJanela] = useState<string>('qualquer');
+  const [dataEspecifica, setDataEspecifica] = useState<string>('');
 
   useEffect(() => {
     let cancelled = false;
@@ -105,6 +140,23 @@ export default function EventosPage() {
         const ate = new Date();
         ate.setDate(ate.getDate() + j.dias);
         filtros.startAtTo = ate.toISOString();
+      } else if (janela === 'especifica' && dataEspecifica) {
+        // 🔴 "A verdade vive somente no backend" (Clayton). O que esta tela faz aqui NÃO é julgar a
+        // data — é ENQUADRAR a pergunta no único dado que o servidor não tem: o fuso de quem está
+        // olhando. "Dia 16" para quem está em UTC-3 é um intervalo diferente de "dia 16" em UTC, e
+        // só o navegador sabe qual. Traduzir dia→intervalo é compor a PERGUNTA, como já se faz com
+        // "Até R$ 30" → maxPriceCents: 3000. Quem responde continua sendo o servidor.
+        const dia = diaInteiroLocal(dataEspecifica);
+        if (dia) {
+          filtros.startAtFrom = dia.de;
+          filtros.startAtTo = dia.ate;
+        } else {
+          // E se a string NÃO é um dia que existe, a tela também não decide isso: repassa crua e
+          // deixa o servidor recusar com 400 nomeado (QUERY_INSTANT_INVALID), que o catch abaixo
+          // mostra. Engolir aqui devolveria a lista inteira sem filtro nenhum, e o usuário leria
+          // isso como resposta à pergunta dele — frontend afirmando o que nunca foi respondido.
+          filtros.startAtFrom = dataEspecifica;
+        }
       }
       try {
         const list = await listPublicEvents(50, filtros);
@@ -120,7 +172,7 @@ export default function EventosPage() {
     };
     void load();
     return () => { cancelled = true; };
-  }, [activeActor?.actor_id, formato, categoria, faixaPreco, janela]);
+  }, [activeActor?.actor_id, formato, categoria, faixaPreco, janela, dataEspecifica]);
 
   const ordenados = useMemo(() => {
     if (!events) return [];
@@ -144,8 +196,14 @@ export default function EventosPage() {
   );
   const deOutros = ordenados.filter((e) => !meusActorIds.has((e as Event & { organizerActorId?: string }).organizerActorId ?? ''));
   const meus = ordenados.filter((e) => meusActorIds.has((e as Event & { organizerActorId?: string }).organizerActorId ?? ''));
-  const temFiltroAtivo = !!formato || !!categoria || faixaPreco !== 'qualquer' || janela !== 'qualquer';
-  const limparFiltros = (): void => { setFormato(''); setCategoria(''); setFaixaPreco('qualquer'); setJanela('qualquer'); };
+  // "Escolher uma data" SEM dia escolhido não estreita nada — contar como filtro ativo faria a
+  // lista vazia dizer "nenhum evento com esses filtros" quando nenhum filtro de data foi aplicado.
+  const janelaEstreita = janela === 'especifica' ? !!dataEspecifica : janela !== 'qualquer';
+  const temFiltroAtivo = !!formato || !!categoria || faixaPreco !== 'qualquer' || janelaEstreita;
+  const limparFiltros = (): void => {
+    setFormato(''); setCategoria(''); setFaixaPreco('qualquer');
+    setJanela('qualquer'); setDataEspecifica('');
+  };
 
   // ══ MODO OPERAR — produzir ═══════════════════════════════════════════════
   if (mode === 'operar') {
@@ -230,10 +288,34 @@ export default function EventosPage() {
 
         <label className="eventos-filtro">
           <span className="eventos-filtro-rotulo">Quando</span>
-          <select value={janela} onChange={(e) => setJanela(e.target.value)}>
+          <select
+            value={janela}
+            onChange={(e) => {
+              const v = e.target.value;
+              setJanela(v);
+              // Sair de "escolher uma data" solta o dia junto: deixar a data pendurada faria o
+              // filtro seguinte carregar uma condição que sumiu da tela — invisível e ativa.
+              if (v !== 'especifica') setDataEspecifica('');
+            }}
+          >
             {JANELAS.map((j) => <option key={j.chave} value={j.chave}>{j.rotulo}</option>)}
           </select>
         </label>
+
+        {/* O seletor de dia só existe quando foi pedido — e com piso em hoje, porque a vitrine
+            responde "o que dá para ir", não "o que já aconteceu". */}
+        {janela === 'especifica' && (
+          <label className="eventos-filtro">
+            <span className="eventos-filtro-rotulo">Dia</span>
+            <input
+              type="date"
+              value={dataEspecifica}
+              min={hojeLocalISO()}
+              onChange={(e) => setDataEspecifica(e.target.value)}
+              aria-label="Ver eventos de um dia específico"
+            />
+          </label>
+        )}
 
         <label className="eventos-filtro">
           <span className="eventos-filtro-rotulo">Preço</span>
