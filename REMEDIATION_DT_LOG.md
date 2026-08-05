@@ -1,5 +1,30 @@
 # REMEDIATION DT LOG
 
+## ✅ `impact_balances` — a suposição que eu deixei aberta, agora VERIFICADA (2026-08-05, direção)
+
+Na varredura de SSOT eu classifiquei `impact_balances.balance` como *"pontuação social, não
+dinheiro"* — **pela semântica do nome**, que é exatamente a evidência que esta casa proíbe usar.
+Voltei e olhei.
+
+```
+event-feed.handlers.ts:211  →  const delta = Math.min(10, Math.round(amountCents / 1000));
+impact_ledger.impact_delta  →  numeric, 0 linhas
+impact_balances.balance     →  numeric, 0 linhas
+```
+
+**Confirmado: é pontuação DERIVADA de um valor, com teto 10** — não custódia, não movimentação, não
+segundo ledger. A suposição estava certa, e agora está **provada**. `SSOT_EXCLUSIVE_BANK_RULE` não é
+violada.
+
+🟡 **Fica NOMEADO o que sobra:** o tipo é `numeric` para um valor que o código sempre produz
+**inteiro** (`Math.round`, teto 10). Não é violação de dinheiro; é imprecisão de tipo. Ambas as
+tabelas estão vazias, então é o momento mais barato — mas trocar tipo é migration, e não há defeito
+vivo empurrando. Registro em vez de mexer.
+
+📌 **Por que esta entrada existe mesmo sendo "nada mudou":** *suposição verificada* é diferente de
+*suposição*. Eu tinha deixado uma classificação apoiada em nome, e nome é a evidência mais fraca
+deste repositório. Fechar a própria ponta vale a linha.
+
 ## 💸 A INDICAÇÃO — o painel deixava publicar uma linha que QUEBRARIA todo pagamento da política (2026-08-05, direção)
 
 Fui verificar uma ponta de PRODUTO que é decisão de Clayton: ele mandou que a indicação tivesse
