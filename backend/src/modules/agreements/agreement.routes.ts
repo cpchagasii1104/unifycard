@@ -12,7 +12,46 @@ import type {
   FinalizeAgreementInput,
 } from './agreement.types';
 
+// ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+// ║ STATUS:  CONTIDO (schema-ghost)
+// ║ NORMA:   docs/01_normative/00_AGENT_PROTOCOL.md §2.3.2 (GATE antes de alterar tabela/SSOT)
+// ║ NÃO:     religar estas rotas criando a tabela `agreements` por conta própria
+// ║ EM VEZ:  GATE + decisão de produto + migration com RLS, nessa ordem — e só então o writer
+// ╚════════════════════════════════════════════════════════════════
+//
+// 🔴 CONTENÇÃO 2026-08-05 — o substrato NÃO EXISTE e as rotas estavam VIVAS.
+//
+// Medido antes de conter:
+//   · `agreements` (e qualquer tabela `%agreement%`) **não existe** no banco oficial;
+//   · o módulo está REGISTRADO (`app.builder.ts:581`) — logo as 10 rotas respondiam de verdade;
+//   · o repositório consulta `FROM agreements` / `INSERT INTO agreements` sem probe nenhum;
+//   · não havia contenção: nenhum 501, nenhum `to_regclass`, nenhum guard.
+// Efeito: **qualquer chamada devolvia 500 com o erro cru do Postgres (`42P01`) vazando para fora.**
+//
+// Alcance pela TELA é zero — `ContextualThreadView`, único host do painel de acordos, não é
+// renderizado por ninguém, e as tabelas de thread contextual também não existem. Mas rota
+// registrada é superfície: quem tiver o token alcança por HTTP direto, e 500 com detalhe interno
+// é pior que 501 honesto.
+//
+// ⚠️ Isto NÃO decide o produto. O acordo assistido pode voltar — mas volta pela ordem desta casa:
+// GATE, decisão, migration com RLS (`audit-tenant-table-born-with-rls`), leitor, e só então writer.
+const AGREEMENTS_GHOST_BODY = {
+  error: 'AGREEMENTS_SCHEMA_GHOST_CONTAINED',
+  code: 'AGREEMENTS_SCHEMA_GHOST_CONTAINED',
+  message:
+    'Assisted agreements are disabled: the `agreements` substrate does not exist in the canonical ' +
+    'schema. Every route here queried a missing table and surfaced a raw Postgres error (42P01) as ' +
+    'a 500. Reopening requires a GATE, a product decision, and a migration that creates the table ' +
+    'WITH RLS — in that order. No money is moved and no state is written.',
+} as const;
+
 const agreementRoutes = async (fastify: FastifyInstance) => {
+  // Contenção na BORDA: recusa antes de qualquer handler tocar o service. Conter dentro do
+  // service deixaria cada rota nova nascer descoberta; aqui, rota nova já nasce contida.
+  fastify.addHook('onRequest', async (_req, reply) => {
+    return reply.status(501).send(AGREEMENTS_GHOST_BODY);
+  });
+
   /**
    * POST /agreements
    * Cria um novo Agreement Draft

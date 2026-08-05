@@ -1,5 +1,61 @@
 # REMEDIATION DT LOG
 
+## 🚪 `agreements` — 10 rotas vivas vazando `42P01` como 500, agora contidas na BORDA (2026-08-05, direção)
+
+Fechei uma ponta que **eu mesma tinha deixado nomeada** duas fatias atrás. Nomear e seguir em
+frente é como dívida vira paisagem.
+
+### O que estava acontecendo
+
+| medido | resultado |
+|---|---|
+| tabela `agreements` (e qualquer `%agreement%`) | **não existe** no banco oficial |
+| módulo registrado | **SIM** — `app.builder.ts:581`, **10 rotas** respondendo |
+| contenção | **NENHUMA** — sem 501, sem `to_regclass`, sem guard |
+| efeito | **toda chamada → 500 com o erro cru do Postgres vazando para fora** |
+
+**Alcance pela TELA é zero** (`ContextualThreadView`, único host do painel, não é renderizado por
+ninguém, e as tabelas de thread também não existem). **Mas rota registrada é superfície:** quem tem
+token alcança por HTTP direto, e **500 com detalhe interno é pior que 501 honesto**.
+
+### O conserto — contenção na BORDA, não no service
+
+`onRequest` no topo do plugin: recusa **antes** de qualquer handler tocar o service, com
+`501 AGREEMENTS_SCHEMA_GHOST_CONTAINED` e a razão escrita no corpo.
+
+📌 **Por que na borda:** conter dentro do service faria **cada rota nova nascer descoberta**. Na
+borda, rota nova já nasce contida. É a diferença entre tapar buracos e fechar a porta.
+
+⚠️ **Isto NÃO decide o produto.** Acordo assistido pode voltar — pela ordem da casa: GATE →
+decisão → migration **com RLS** (`audit-tenant-table-born-with-rls`) → leitor → writer. Deixei o
+`EM VEZ:` escrito no arquivo, e o guard morde se alguém pular a fila.
+
+### 🛡️ `audit-agreements-schema-ghost-containment.mjs` (runner 254 → **255**)
+
+Segue o padrão dos 6 irmãos contidos que já existem. Além do óbvio, ele tem **dois ramos que a
+maioria dos guards de contenção não tem**:
+
+· **se a migration passar a CRIAR a tabela** e a contenção continuar de pé → **FALHA**. Substrato
+  pronto com porta fechada é a pior das três combinações, e ninguém percebe sozinho;
+· **se o arquivo de rotas sumir** (remoção do módulo — desfecho legítimo e melhor que contido) →
+  **FALHA**, pedindo que o guard seja removido no mesmo commit. **Guard sem objeto não é aprovação:
+  é cegueira com aparência de verde.**
+
+### 🔴 A PROVA VERMELHA FALHOU NA PRIMEIRA TENTATIVA — e o motivo importa
+
+Removi o hook com `node -e`… e o guard **continuou verde**. Não porque o guard fosse ruim: porque a
+remoção **não removeu nada** (escape do `node -e` via bash, de novo). Refiz com script em arquivo, e
+aí **o script saiu com CRLF** (Write no Windows), então o literal multi-linha dentro dele carregava
+`\r\n` e nunca casaria com o alvo em LF.
+
+**Uma prova vermelha que não altera nada é prova de nada — e ela passa com a mesma cara de sucesso.**
+A versão final compara por LINHA, imune a CRLF, e **aborta se não achar o alvo**. Só então o guard
+mordeu, apontando os dois problemas certos.
+
+### 📌 ESTADO
+
+`runner 255 COMMANDS OK` · `typecheck BE 0`. Δbank = 0 — a contenção só FECHA superfície.
+
 ## 🧱 SUBSTRATO SEM CONSUMIDOR — e um SEGUNDO LEDGER dormente que precisa da palavra de Clayton (2026-08-05, direção)
 
 Famílias #10 e #19 do inventário de `ARQUITETURA/` (*"presença ≠ capacidade"* e *"cadeia
