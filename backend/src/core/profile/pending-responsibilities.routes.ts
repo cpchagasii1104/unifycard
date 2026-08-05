@@ -51,16 +51,24 @@ const pendingResponsibilitiesRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(404).send({ error: 'Actor não encontrado' });
       }
       
-      // Resolver userId e globalUserId a partir do actor (temporário, até queries migrarem para actorId)
-      const userId = actor.user_id;
-      if (!userId) {
-        return reply.status(404).send({ error: 'Actor não é do tipo user' });
-      }
-      const { resolveGlobalUserId } = await import('@core/identity/identity.utils');
-      const globalUserId = await resolveGlobalUserId(userId, tenantId);
-      if (!actor) {
-        return reply.status(404).send({ error: 'Actor não encontrado' });
-      }
+      // 🔴 A CAIXA DE ENTRADA RECUSAVA EMPRESA — e a trava não protegia nada (2026-08-05).
+      //
+      // Estas linhas exigiam `actor.user_id` e devolviam 404 "Actor não é do tipo user". Actor de
+      // empresa tem `user_id NULL` por desenho (a autoridade dele vem de `company_users`), então a
+      // Rio Verde — dona de 3 itens locáveis — não conseguia ver UM pedido sequer. Medido com curl
+      // antes de mexer: 404 para a empresa, 200 para a pessoa.
+      //
+      // A trava era vestigial: `globalUserId` era calculado e NUNCA lido, e `userId` não aparecia em
+      // consulta nenhuma depois daqui — TODAS já filtram por `actor.actor_id`. Ou seja, ela não
+      // defendia nada; só recortava metade dos donos possíveis.
+      //
+      // A autoridade continua exatamente onde estava: `canRepresentActor` acima, que já provou que
+      // este usuário representa este actor (e para empresa isso resolve por company_users). Remover
+      // a trava NÃO amplia acesso — devolve o acesso que a autoridade já havia concedido.
+      //
+      // Clayton, no mesmo dia: *"a gente só pensa do lado de quem está fazendo aquela situação, mas
+      // não pensa do outro lado"*. Esta rota é o caso exemplar: nasceu para as pendências de uma
+      // PESSOA e nunca foi olhada do lado de quem RECEBE — que é empresa quase sempre.
 
       // 1. Eventos pendentes (draft ou published que já passaram mas não foram finalizados)
       const pendingEventsRows = await runQueriesWithTenant<{
@@ -248,6 +256,12 @@ const pendingResponsibilitiesRoutes: FastifyPluginAsync = async (fastify) => {
         owner_id: string;
         start_datetime: Date;
         end_datetime: Date;
+        notes: string | null;
+        event_id: string | null;
+        event_title: string | null;
+        requester_display_name: string | null;
+        requester_since: Date | null;
+        requester_commitments: number;
       }>(
         tenantId,
         `
@@ -257,12 +271,28 @@ const pendingResponsibilitiesRoutes: FastifyPluginAsync = async (fastify) => {
           b.requester_actor_id,
           b.status,
           b.requested_at AS "requestedAt",
+          -- O CONTEXTO PARA DECIDIR: notes era gravado desde sempre e nunca lido; o evento passou a
+          -- viajar hoje. Juntos respondem "para que isto vai", que e a pergunta do lado que aceita.
+          b.notes,
+          (b.metadata->>'eventId') AS event_id,
+          ev.title AS event_title,
+          -- QUEM PEDE, no minimo honesto. Reputacao fica FORA: 5 substratos, 0 linhas medidas.
+          ra.display_name AS requester_display_name,
+          ra.created_at   AS requester_since,
+          (SELECT count(*)::int FROM bookings hb
+            WHERE hb.tenant_id = b.tenant_id
+              AND hb.requester_actor_id = b.requester_actor_id
+              AND hb.status IN ('confirmed','checked_in','checked_out')) AS requester_commitments,
           a.owner_type,
           a.owner_id,
           a.start_datetime,
           a.end_datetime
         FROM bookings b
         INNER JOIN availability a ON b.availability_id = a.availability_id
+        LEFT JOIN actors ra ON ra.id = b.requester_actor_id AND ra.tenant_id = b.tenant_id
+        LEFT JOIN events ev ON ev.tenant_id = b.tenant_id
+          AND (b.metadata->>'eventId') IS NOT NULL
+          AND ev.id = (b.metadata->>'eventId')::uuid
         WHERE b.tenant_id = $1
           AND b.status = 'requested'
           AND (
@@ -280,6 +310,20 @@ const pendingResponsibilitiesRoutes: FastifyPluginAsync = async (fastify) => {
               SELECT 1 FROM groups g
               WHERE g.id = a.owner_id
               AND g.owner_actor_id = $2
+            ))
+            -- 🔴 2026-08-05 — LOCAÇÃO ESTAVA FORA, e isso tornava o pilar inteiro invisível.
+            -- (sem crase neste comentario DE PROPOSITO: ele mora dentro de um template literal,
+            --  onde a crase FECHA a string. Quebrou a compilacao aqui, a terceira vez no mesmo dia.)
+            -- Medido: pedido de locacao nasce 201 requested e NUNCA aparecia para o dono decidir.
+            -- A caixa de entrada cobria user/service_offering/group e ignorava actor_asset — o
+            -- owner_type que a convergência asset-first tornou canônico para todo bem locável.
+            -- Nenhum erro em lugar nenhum: o pedido simplesmente não existia para quem devia
+            -- responder. Guard contra a reincidência: audit-inbox-covers-every-owner-type.mjs.
+            OR (a.owner_type = 'actor_asset' AND EXISTS (
+              SELECT 1 FROM actor_assets aa
+              WHERE aa.id = a.owner_id
+              AND aa.tenant_id = b.tenant_id
+              AND aa.owner_actor_id = $2
             ))
           )
         ORDER BY b.requested_at DESC
@@ -299,6 +343,24 @@ const pendingResponsibilitiesRoutes: FastifyPluginAsync = async (fastify) => {
         startDatetime: row.start_datetime.toISOString(),
         endDatetime: row.end_datetime.toISOString(),
         requestedAt: row.requestedAt.toISOString(),
+        // 🔴 O QUE O DONO PRECISA PARA DECIDIR (2026-08-05). Antes ele via um intervalo de tempo e
+        // um id de actor — e tinha que aceitar ou recusar com isso. O pedido carregava contexto
+        // desde hoje de manhã e ele não chegava até aqui.
+        notes: row.notes,
+        eventId: row.event_id,
+        // título nulo com id presente = existe evento e não consegui ler o nome. NÃO colapsar em
+        // "sem evento": ausência de título não é ausência de vínculo.
+        eventTitle: row.event_title,
+        requester: {
+          actorId: row.requester_actor_id,
+          displayName: row.requester_display_name,
+          // desde quando existe e quantos compromissos REAIS cumpriu — os dois fatos que dá para
+          // medir hoje. Reputação segue FORA: 5 substratos, 0 linhas. Score inventado na hora do
+          // aceite seria mentira institucional, e é a hora em que ela custa mais caro.
+          memberSince: row.requester_since ? row.requester_since.toISOString() : null,
+          completedCommitments: Number(row.requester_commitments ?? 0),
+          trust: null,
+        },
       }));
 
       return reply.send({
