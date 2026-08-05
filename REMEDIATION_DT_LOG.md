@@ -1,5 +1,62 @@
 # REMEDIATION DT LOG
 
+## 📏 MEDIÇÃO PÓS-COMPACTAÇÃO — o funil de eventos entrega 6, e 25 registros de produto SUMIRAM sem causa achada (2026-08-05, direção)
+
+**Por que esta entrada existe:** o GATE F-EVENT-PUBLISH-FUNNEL (abaixo, 2026-08-01) fechou com a
+frase *"a contagem em dado real continua **0**"*. **Não continua.** Medi de 1ª mão e a afirmação
+ficou vencida — mas o número novo **não** significa o que pareceria significar, e é por isso que
+vale registro em vez de comemoração.
+
+### ✅ O critério de aceite do plano foi atingido — por outro caminho
+
+```
+node → banco: unificard_dev
+       events: declared=2 (com_data 2) · published=6 (com_data 6) · total 8
+       SELECT count(*) FROM events
+        WHERE status IN ('published','active') AND datetime_start >= NOW()  → 6
+```
+
+O plano definia: *"hoje é 0; o número depois é o resultado da fatia — e 0 seria falha"*. **É 6.**
+O funil `criar → declarar → confirmar data → publicar → feed` está religado e **produz em dado
+real**, não só em efêmero. Os três artefatos do plano existem e os commits são ancestrais de HEAD
+(`e1a8a24d1`, `e4a25f14b`, `c95d7fc8d`; `32f000f14` e `a68192fe3` são gêmeos soltos pré-rebase).
+
+⚠️ **MAS os 6 são semente demo, não os 25 do GATE.** Vieram de `seed-demo-event-supply.ts`
+(`metadata {"demo_seed": true}`, todos criados 08-04 14:28, `INSERT ... 'published'` direto).
+**O que o cartório deixou aberto — "publicar sobre os 25 eventos reais exige a palavra dele" —
+continua aberto.** O funil provou que funciona; ele não foi exercido sobre o dado que motivou o GATE.
+
+### 🔴 E os 25 eventos reais NÃO EXISTEM MAIS — causa não encontrada
+
+```
+events: 8 linhas no total, a mais antiga criada 2026-08-03 20:12
+        (as 2 'declared' são a fricção do Clayton; as 6 'published' são a semente de 08-04)
+```
+
+O GATE mediu, em 2026-08-01, **25 eventos** (draft=12 · declared=13). Hoje não há **nenhuma** linha
+anterior a 08-03. Esgotei as hipóteses baratas antes de chamar de perda:
+
+| hipótese | verificação | resultado |
+|---|---|---|
+| banco recriado / wipe | 75 bairros · 48 policies · 83 linhas · 16 no ledger · 22 actors · 70 availability | ❌ **íntegro**, bate com o estado registrado |
+| soft-delete (linhas escondidas) | `information_schema` — colunas `%delet%`/`%archiv%` em `events` | ❌ **não existem**; `count(*)` bruto = 8 |
+| medição feita no banco aposentado | conectei em `unificard_local` | ❌ lá há **6** (declared=4·draft=2), não 25 |
+| rota de exclusão pela UI | `router.delete\|deleteEvent\|DELETE FROM events` em `modules/events` | ❌ **zero ocorrências** — não há caminho suportado |
+| script de limpeza | `DELETE FROM events\|TRUNCATE` em `backend/src`+`backend/scripts` | ❌ **zero arquivos** |
+| migration que re-materializou a tabela | `schema_migrations` entre 08-01 e 08-03 | ❌ nenhuma toca `events` (a de 08-04 é `event_rsvp`) |
+
+**Conclusão honesta: 25 linhas de produto desapareceram do banco OFICIAL entre 2026-08-01 e
+2026-08-03, e nada no repositório é capaz de tê-las apagado.** Não afirmo perda por acidente nem
+ato de ninguém — **afirmo que não sei**, que é a única coisa que a medição sustenta. Pela regra da
+casa (*zero é uma afirmação; desconhecido é a verdade*), fica **indeterminado e VISÍVEL**, não
+arredondado para "foi limpeza".
+
+⛔ **É de Clayton:** dizer se ele mesmo os removeu na fricção de 08-03 (o que encerra o assunto em
+uma frase) ou se ninguém removeu — caso em que existe um caminho de escrita no banco oficial que
+não está no código, e isso é maior que eventos.
+
+---
+
 ## 🔍 AUDITORIA INDEPENDENTE (YALA) — VEREDITO **B** · 3 ressalvas · e DUAS AFIRMAÇÕES MINHAS DERRUBADAS (2026-08-05)
 
 **Origem:** Clayton mandou a YALA (Fable 5) auditar 24 commits do arco, com mandato escrito por
