@@ -1,5 +1,56 @@
 # REMEDIATION DT LOG
 
+## ↩️ DESFAZER — o dono podia "recusar" reserva COM O ITEM JÁ ENTREGUE (2026-08-05, direção)
+
+Família **#19** do inventário de `ARQUITETURA/` — a lei que Clayton promulgou lá como *"pense nos
+dois lados"*. O inventário avisa: **o elo mais esquecido tem nome, e é *quem resolve quando dá
+errado***. Ele não aparece no fluxo feliz, então cada lado ganha a sua regra, escrita em momento
+diferente, por gente diferente.
+
+### 🔴 O defeito
+
+| lado | função | guarda de estado |
+|---|---|---|
+| quem PEDE | `cancelMyBooking` | ✅ exige `requested` ou `confirmed` |
+| o DONO | `declineRequest` | 🔴 **nenhuma** |
+
+O dono podia "recusar" reserva em **qualquer** estado — inclusive `checked_in`, ou seja, **com o
+item já entregue ao locatário**. O registro pulava para `cancelled` e o histórico passava a dizer
+que a reserva **nunca aconteceu**. Sem erro, sem log: o defeito mudo, na hora em que mais dói.
+
+### O conserto — uma regra para os dois lados
+
+`DESFAZIVEL_ANTES_DO_USO = ['requested', 'confirmed']`, o **mesmo conjunto** que o irmão já usava.
+Antes do uso, qualquer um dos dois desfaz.
+
+⚠️ **NOMEADO, NÃO DECIDIDO:** desfazer **durante** o uso não tem caminho neste sistema, e eu não
+invento um — envolve devolução antecipada, cobrança proporcional e **quem arbitra**. É decisão de
+produto. A recusa agora **diz isso ao usuário**: *"não tem caminho definido — é decisão de produto,
+não erro seu"*. Recusar explicando é diferente de reescrever o histórico em silêncio.
+
+### 🛡️ `audit-undo-siblings-same-state-gate.mjs` (runner 255 → **256**)
+
+Exige que todo caminho de desfazer consulte o **MESMO** conjunto de estados. **Não fixa o valor** —
+o produto pode mudar o conjunto; fixa a **simetria**, que é o defeito.
+
+### 🔴 E O GUARD REPROVOU O MEU PRÓPRIO CONSERTO — pelo motivo mais instrutivo do dia
+
+A 1ª versão só reconhecia array **inline** (`['requested','confirmed'].includes(...)`). Meu conserto
+usou **constante nomeada**. Resultado: **o guard rejeitou a escrita MELHOR por não ser a forma que
+ele esperava.**
+
+É o mesmo defeito que este projeto persegue — **ler FORMA em vez de SUBSTÂNCIA** — e é a **segunda
+vez hoje** que eu o cometo num guard (a 1ª foi o de visibilidade, que exigia um NOME de constante).
+A v2 resolve o identificador e aceita as duas escritas.
+
+📌 O padrão da minha reincidência ficou claro: **quando eu escrevo o guard depois do conserto, ele
+nasce descrevendo o conserto** em vez de descrever a regra. Guard bom descreve a REGRA, e por isso
+tem que aceitar mais de uma escrita correta.
+
+### 📌 ESTADO
+
+`runner 256 COMMANDS OK` · `typecheck BE 0` · prova vermelha forçada e revertida. Δbank = 0.
+
 ## 🧪 VERIFICAÇÃO DE 1ª MÃO — o rito pede, e eu não tinha feito hoje (2026-08-05, direção)
 
 Rodei guards e typechecks o dia inteiro, mas **não exercitei o produto**. O rito da casa manda

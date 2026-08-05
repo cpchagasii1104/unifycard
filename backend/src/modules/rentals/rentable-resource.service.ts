@@ -389,6 +389,31 @@ class RentableResourceService {
     if (!availability || availability.ownerType !== 'actor_asset' || availability.ownerId !== resourceId) {
       throw HttpError.badRequest('BOOKING_RESOURCE_MISMATCH: solicitação não é deste recurso.');
     }
+
+    // 🔴 GUARDA DE ESTADO ACRESCENTADA 2026-08-05 — os dois lados desfaziam com regras DIFERENTES.
+    //
+    // O irmão `cancelMyBooking` (lado de quem pede) já exigia `requested`/`confirmed`. Este lado
+    // (dono) não exigia NADA: dava para "recusar" reserva em QUALQUER estado, inclusive
+    // `checked_in` — ou seja, **com o item já entregue ao locatário**, o registro pulava para
+    // `cancelled` e o histórico passava a dizer que a reserva nunca aconteceu.
+    // É a família "irmãos" (rotas da mesma família com gates diferentes) dentro da própria cadeia
+    // de desfazer — e desfazer é justamente o elo que o inventário de `ARQUITETURA/` diz que todo
+    // domínio esquece: *quem resolve quando dá errado*.
+    //
+    // Uma regra para os dois lados: antes do uso, qualquer um dos dois desfaz.
+    const DESFAZIVEL_ANTES_DO_USO = ['requested', 'confirmed'];
+    if (!DESFAZIVEL_ANTES_DO_USO.includes(booking.status)) {
+      // ⚠️ NOMEADO, NÃO DECIDIDO: cancelar DURANTE o uso (`checked_in`) não tem caminho neste
+      // sistema, e não invento um. Envolve devolução antecipada, cobrança proporcional e quem
+      // arbitra — decisão de produto, não conserto de executora. Aqui a resposta é honesta:
+      // recusa explicando, em vez de reescrever o histórico em silêncio.
+      throw HttpError.badRequest(
+        `RENTAL_DECLINE_INVALID_STATE: só dá para recusar solicitação pendente ou reserva ` +
+        `confirmada ainda sem uso (estado atual: ${booking.status}). ` +
+        `Desfazer durante o uso não tem caminho definido — é decisão de produto, não erro seu.`
+      );
+    }
+
     await unifiedAvailabilityService.updateBooking(tenantId, bookingId, requestingUserId, { status: 'cancelled' as any });
     return { bookingId, status: 'cancelled' };
   }
