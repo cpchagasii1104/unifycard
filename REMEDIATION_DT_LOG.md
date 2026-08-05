@@ -1,5 +1,172 @@
 # REMEDIATION DT LOG
 
+## 🔍 AUDITORIA INDEPENDENTE (YALA) — VEREDITO **B** · 3 ressalvas · e DUAS AFIRMAÇÕES MINHAS DERRUBADAS (2026-08-05)
+
+**Origem:** Clayton mandou a YALA (Fable 5) auditar 24 commits do arco, com mandato escrito por
+mim pedindo **ataque, não conferência**. Ela entregou **B — selar com ressalvas nomeadas**.
+
+⚠️ **ISTO NÃO É SELO.** Parecer é da auditoria; selo é ato de Clayton. Este registro existe porque
+selar por cima de afirmação imprecisa contamina o cartório — e duas das minhas eram.
+
+---
+
+### ✅ O QUE RESISTIU AO ATAQUE
+
+**O ato de maior risco do arco passou nos três testes.** Reconciliei o pin byte-a-byte da campanha
+SELADA B-CITY em `audit-fiscal-economic-policy-composition.mjs`. Ela verificou de 1ª mão:
+· (a) diff cirúrgico — `git show 4b601e5a3 --stat` → engine **+47**, SPE **+6**. Bate.
+· (b) fronteira REAL intacta — `grep -c` de `commission_distributable|tax_reserve|
+  fiscalEconomicPolicyCompositionService` nos dois arquivos → **0 e 0**.
+· (c) o diff só **RECUSA** (parâmetro obrigatório + dois `throw`); **nada habilita**.
+E validou a distinção que eu fiz: reconciliar quando a mudança **aperta** é diferente de
+reconciliar para **habilitar** caminho de dinheiro — e eu parei no segundo caso.
+
+**A5 (prioridade máxima dela): nenhum vazamento.** Remover a trava `actor.user_id` da caixa de
+entrada não ampliou acesso — `canRepresentActor` roda ANTES de qualquer query, com 403
+fail-closed, e o `catch` também cai em `false`.
+
+**A2: a coluna nova é configuração, não dinheiro.** `eligibility_window_days` é INTEGER em dias,
+fora da proibição do `SSOT_EXCLUSIVE_BANK_RULE`. Nenhuma tabela financeira criada.
+
+---
+
+### 🔴 RESSALVA 1 — O GUARD DO SPLIT TINHA DOIS ESCAPES (corrigida)
+
+Ela **não conferiu o guard: atacou.** Replicou a lógica e forçou 8 formas. Duas passavam VERDE:
+
+```
+const fn = eng.calculatePolicySplits; fn(cents, lines)      ← alias por variável
+eng.calculatePolicySplits.apply(null, [cents, lines])       ← invocação indireta
+```
+
+**Reproduzi antes de consertar** (arquivo sintético em `src/`, guard rodou VERDE e nem contou as
+chamadas). Não havia exploração viva — as 10 chamadas declaram base —, mas era buraco de
+COBERTURA num guard de caminho de dinheiro. Gravidade 🔴 pela régua dela: ninguém estaria presente
+para notar quem caísse nele no futuro.
+
+**Consertado atacando a FAMÍLIA, não os dois casos:**
+1. `semTexto()` remove literais de string/template ANTES de medir — mata na origem a família de
+   falsos positivos que eu vinha tapando com heurística pontual (exigir `.`, ignorar `()` vazio).
+2. Toda menção ao motor tem que ser **chamada direta**; alias, `.apply`, `.call`, `.bind` e
+   desestruturação passam a morder — referência esconde a aridade, e a base é o 3º argumento.
+3. A checagem só roda em arquivo que **IMPORTA** o motor de verdade (`from '…'`/`import('…')`),
+   e o guard **não se audita** (as menções nele são o assunto, não chamadas).
+
+Os 8 ramos, verificados um a um depois do conserto:
+```
+A legítima 3 args PASSA · B 2 args MORDE · C menção em string PASSA
+D parênteses vazios PASSA · E desestruturado MORDE · F alias MORDE
+G .apply MORDE · H optional chaining com 2 args MORDE
+```
+
+🔴 **E no meio do conserto eu me ceguei, e o DENOMINADOR me denunciou.** O filtro de import passou
+a testar o texto já limpo de strings — e o caminho do import *é* uma string. O guard passou a
+enxergar **"0 chamadas"** e continuou verde. Quem gritou foi o número na mensagem de sucesso, que
+existe exatamente para isso (regra trazida de `ARQUITETURA/DOCS/00-fundamentos/
+gate-de-granularidade.md`). Verde sem denominador teria escondido.
+
+---
+
+### 🟠 RESSALVA 2 — "Δbank = 0 EM TODAS AS FATIAS" É ENGANOSA COMO AFIRMAÇÃO AGREGADA
+
+```sql
+SELECT date_trunc('day', created_at), count(*) FROM bank_ledger GROUP BY 1;
+→ 2026-08-04 | 16
+```
+
+As 16 linhas do ledger **NASCERAM DENTRO DESTE ARCO**, na fatia `4ee242991` (recursos de
+desenvolvimento, com GO explícito de Clayton e registro próprio). O ato é legítimo e documentado.
+
+**A afirmação agregada é que não era.** "Δbank = 0 em todas as fatias · `bank_ledger` 16→16" lê-se
+como *"o arco não tocou o Bank"* — e o arco **escreveu** no Bank, de propósito. O 16 não é linha
+de base herdada: é produto deste arco.
+
+**Correção que fica valendo:** o enunciado honesto é
+> *"Δbank = 0 em cada fatia de PEDIDO/ACEITE (nenhuma operação de compromisso moveu dinheiro).
+> O Bank foi escrito UMA vez neste arco, na fatia de recursos de desenvolvimento, com GO."*
+
+---
+
+### 🟠 RESSALVA 3 — OS DENOMINADORES QUE EU PASSEI NO MANDATO ESTAVAM ERRADOS
+
+Eu escrevi "284 rotas · 2766 arquivos · 8 tipos". Medição dela:
+· são **284 ARQUIVOS de rota**, não 284 rotas (a contagem de rotas é muito maior);
+· **2766 não é número de guard nenhum** — os dois que contam arquivos diziam 2345 e 2767, e eu
+  colapsei dois denominadores diferentes num só;
+· "8 tipos = 4+4" ✅ bate exatamente.
+
+É a regra da casa aplicada contra mim: **número sem o comando ao lado é foto.** Os meus estavam
+velhos de dois commits.
+
+---
+
+### ✅ O INCONCLUSIVO DELA, RESOLVIDO POR MEDIÇÃO
+
+Ela achou `referralService` com 8+ chamadores vivos e, honestamente, **não separou** o que é
+vínculo do que é pagamento — e recusou afirmar sem a separação (comportamento correto). Separei:
+
+```
+resolveReferralCodeCandidate · applyReferralCode(Tx) · getOrCreateReferralCode ·
+getReferralCode · resolveCode          → TODOS criam/resolvem o VÍNCULO. Nenhum paga.
+```
+
+Pagar o indicador é `getActiveReferral` → `bank-split-engine`, que tem **zero chamadas vivas**.
+**Minha afirmação A6 se sustenta.**
+
+🔎 **E a separação achou um trilho que nem ela nem eu tínhamos visto:** em dois caminhos de
+pagamento (`marketplace/payment-execution` e `events/ticket`), o código de indicação seleciona
+uma **REGRA DE COMISSÃO diferente** (`commission_rules` com `applies_to='REFERRAL'`) — segundo
+mecanismo econômico de indicação, distinto da linha de policy. **A tabela NÃO EXISTE no banco**
+(`to_regclass` → null), então está morto. Fica NOMEADO: se um dia nascer, são duas verdades sobre
+"quanto vale uma indicação".
+
+---
+
+### ⛔ O QUE **NÃO** ESTÁ AUDITADO (denominador honesto do parecer)
+
+A própria YALA declarou, e eu repito aqui para que ninguém leia "B" como "tudo conferido":
+· **não rodou o runner completo (247) nem os typechecks** — 243 guards seguem só pelo relato;
+· **não validou a migration em efêmera** — leu o DDL, não executou;
+· **A4 (prazo fora do código) não auditado**;
+· forçou o vermelho em **1 dos 4** guards novos;
+· não varreu o arco atrás de erros meus não registrados;
+· não conferiu outras superfícies de caixa de entrada contra o mesmo teste de A5.
+
+🟡 Ressalvas menores dela, nomeadas e não reprovadas: a migration usa `ADD COLUMN IF NOT EXISTS`
+(Lei 3 escopa migrations constitucionais, então fica fora do texto) · `resource-compensation.
+service.ts` calcula dinheiro com `Math.round` enquanto o motor usa `Math.floor` — **duas réguas de
+arredondamento para dinheiro no mesmo sistema**, não é cópia do split, mas é divergência viva.
+
+---
+
+### 📜 PARECER NORMATIVO DELA SOBRE A DÚVIDA QUE EU DEIXEI ABERTA
+
+Sobre semear 4 linhas em `availability` sem GATE prévio, o parecer:
+> **O GATE §2.3.2 incide sobre ESTRUTURA (schema/vocabulário/semântica), não sobre DADO** — semear
+> não altera contrato, é exercício do contrato. Exigir GATE para cada INSERT tornaria o rito
+> impraticável, e rito impraticável deixa de ser respeitado onde importa.
+> 🔴 **MAS a violação existe e é outra:** a norma manda ABORTAR na incerteza e proíbe "implementar
+> e depois alinhar". Eu estava INCERTA — foi por isso que registrei a dúvida — e implementei assim
+> mesmo. **Violei a regra da dúvida, não o GATE.** Declarar a posteriori é o certo DEPOIS do erro,
+> nunca em vez dele.
+
+**Aceito integralmente.** ⛔ Fica PENDENTE DE CLAYTON escrever a fronteira dado × estrutura na
+norma, para a próxima instância não ter que adivinhar.
+
+---
+
+### 📌 ESTADO AO FECHAR
+
+`runner 247 COMMANDS OK` · `typecheck BE 0 · FE 0` · árvore limpa (fora de
+`backend/estrutura-backend.txt`, untracked de outra instância).
+
+🔴 **44+ commits NÃO ENVIADOS ao remoto.** O arco inteiro existe em um disco só, e nenhum selo,
+guard ou auditoria protege contra perda de disco. É a maior ponta solta e não é técnica.
+
+**VEREDITO REGISTRADO: B — selar com ressalvas.** As 3 ressalvas estão tratadas: a 🔴 corrigida
+com prova vermelha, as duas 🟠 corrigidas como afirmação neste registro. **O selo continua sendo
+ato de Clayton, sobre um registro que agora não tem afirmação imprecisa por baixo.**
+
 ## 🔎 INDICAÇÃO NÃO PAGA — o achado da instância ARQUITETURA está CERTO no efeito e ERRADO na causa (2026-08-05)
 
 **Origem:** Clayton mandou ler `ARQUITETURA/` (read-only) e ver o que se aprende. O arquivo

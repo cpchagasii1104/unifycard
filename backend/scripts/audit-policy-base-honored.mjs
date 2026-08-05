@@ -60,6 +60,24 @@ function semComentarios(txt) {
   }).join('\n');
 }
 
+/**
+ * 🔴 TIRA O TEXTO QUE NÃO É CÓDIGO — literais de string e template.
+ *
+ * Origem: auditoria independente (YALA, 2026-08-05). A versão anterior tratava menção e chamada com
+ * heurísticas pontuais (exigir `.` antes, ignorar parênteses vazios) porque o nome aparecia em
+ * rótulo de teste e em mensagem de sucesso. Heurística pontual tapa o caso conhecido e deixa o
+ * próximo aberto. Remover o texto na origem resolve a família inteira de uma vez.
+ *
+ * ⚠️ LIMITE DECLARADO: uma chamada escrita DENTRO de `${...}` de um template literal seria removida
+ * junto e escaparia. É forma bizarra de invocar função de dinheiro; fica nomeada em vez de fingida.
+ */
+function semTexto(txt) {
+  return txt
+    .replace(/`(?:\\[\s\S]|[^\\`])*`/g, '``')
+    .replace(/'(?:\\[\s\S]|[^\\'])*'/g, "''")
+    .replace(/"(?:\\[\s\S]|[^\\"])*"/g, '""');
+}
+
 /** scripts/ tem .mjs (guards) alem de .ts — os dois podem chamar o motor. */
 function walkScripts(dir, out = []) {
   for (const e of fs.readdirSync(dir)) {
@@ -125,7 +143,25 @@ if (!fs.existsSync(SRC)) {
   for (const full of arquivos) {
     const rel = path.relative(path.join(__dirname, '..'), full).split(path.sep).join('/');
     if (rel === 'src/' + MOTOR) continue;
-    const txt = semComentarios(fs.readFileSync(full, 'utf-8'));
+    // Guard nao se audita: as mencoes ao nome AQUI sao o assunto dele (regex e mensagens), nunca
+    // chamadas. Nao e excecao de allowlist — e a diferenca entre o instrumento e o medido.
+    if (full === fileURLToPath(import.meta.url)) continue;
+    const bruto = fs.readFileSync(full, 'utf-8');
+    const txt = semTexto(semComentarios(bruto));
+
+    // 🔴 SÓ QUEM IMPORTA O MOTOR PODE CHAMÁ-LO — e essa é a fronteira certa, não uma exceção.
+    //
+    // A 1ª versão da trava anti-referência acusou o PRÓPRIO guard (que cita o nome na regex e nas
+    // mensagens) e outros guards que o mencionam em literais de expressão regular — que `semTexto`
+    // não remove, porque regex não é string. Eu ia carvar exceção por arquivo; isso é allowlist
+    // disfarçada e apodrece.
+    // A regra real é outra: um arquivo que NÃO importa o motor não consegue chamá-lo. Qualquer
+    // ocorrência ali é texto — regex, mensagem, documentação. Quem chama, importa.
+    // ⚠️ Testa no BRUTO, nunca no texto limpo: o caminho do import É UMA STRING, e `semTexto` a
+    // remove. A 1ª versão testava no limpo e o guard passou a enxergar ZERO chamadas — cegueira
+    // total, com verde. Quem denunciou foi o DENOMINADOR na mensagem de sucesso ("0 chamadas"),
+    // que existe exatamente para isso. Verde sem denominador teria escondido.
+    if (!/economic-policy-engine\.service/.test(bruto)) continue;
     // Chamada multi-linha é a forma comum aqui, então normaliza espaços antes de contar vírgulas
     // do primeiro nível. Regex sobre texto achatado; o gate-de-granularidade de ARQUITETURA/
     // recomenda AST — registrado como melhoria, não feito nesta fatia.
@@ -138,10 +174,26 @@ if (!fs.existsSync(SRC)) {
     // Chamada real aqui é sempre método: `economicPolicyEngineService.calculatePolicySplits(`.
     // ⚠️ LIMITE DECLARADO: import desestruturado (`const { calculatePolicySplits } = ...`) escaparia
     // desta forma — por isso a checagem logo abaixo proíbe desestruturar o motor.
-    if (/\{[^}]*\bcalculatePolicySplits\b[^}]*\}\s*=/.test(achatado)) {
+    // 🔴 TODA MENÇÃO TEM QUE SER CHAMADA DIRETA — fechado após auditoria independente (YALA).
+    //
+    // Ela não conferiu este guard: ATACOU. Replicou a lógica e forçou 8 formas. Duas passaram
+    // VERDE e não estavam declaradas:
+    //     const fn = eng.calculatePolicySplits;  fn(cents, lines)     ← alias por variável
+    //     eng.calculatePolicySplits.apply(null, [cents, lines])       ← invocação indireta
+    // Reproduzi as duas antes de consertar: o guard passou verde e nem contou as chamadas.
+    // Não havia exploração viva (as 10 chamadas declaram base) — era buraco de COBERTURA num
+    // guard de caminho de dinheiro, e ninguém estaria presente para notar quem caísse nele.
+    //
+    // A trava anterior (anti-desestruturação) cobria uma forma só. Esta cobre a família: qualquer
+    // ocorrência do nome que NÃO seja imediatamente seguida de `(` é referência — e referência
+    // esconde a aridade, que é a única coisa que este guard sabe medir.
+    for (const m of achatado.matchAll(/\bcalculatePolicySplits\b(.{0,12})/g)) {
+      const seguinte = m[1] ?? '';
+      if (/^\s*\(/.test(seguinte)) continue; // chamada direta — vai ser medida pela aridade abaixo
       failures.push(
-        `${rel}: desestrutura calculatePolicySplits do motor. Chame pelo objeto do serviço — ` +
-        'desestruturar esconde a chamada do guard que garante a declaração de base.'
+        `${rel}: referência a calculatePolicySplits que NÃO é chamada direta (\`${seguinte.trim().slice(0, 12)}\`). ` +
+        'Alias, .apply/.call/.bind ou desestruturação escondem quantos argumentos são passados — e a ' +
+        'declaração da BASE é justamente o 3º. Chame pelo objeto do serviço, com os 3 argumentos.'
       );
     }
     for (const m of achatado.matchAll(/\.calculatePolicySplits\s*\(([^()]*(?:\([^()]*\)[^()]*)*)\)/g)) {
