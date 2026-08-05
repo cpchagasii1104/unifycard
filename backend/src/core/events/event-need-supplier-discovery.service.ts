@@ -81,6 +81,23 @@ export interface NeedWithSuppliers {
 /** Teto de fornecedores devolvidos POR necessidade — a tela é um panorama, não o catálogo inteiro. */
 const SUPPLIERS_PER_NEED_LIMIT = 8;
 
+/**
+ * A CADEIA CANÔNICA DE LOCAÇÃO, escrita UMA vez e usada pelos três leitores desta casa.
+ *
+ * 🔴 CORREÇÃO 2026-08-04: os três liam `rentable_resources` — o substrato LEGADO. No dia em que
+ * os locáveis migraram para a cadeia canônica (mesma sessão), o catálogo de locação ZEROU: eu
+ * migrei o dado e não atualizei os meus próprios leitores. Identidade do item = `actor_assets`,
+ * ativação = `actor_asset_modes('rental')`, termos/preço = `actor_asset_rental_terms`.
+ *
+ * O alias `rr` foi preservado de propósito: o resto de cada consulta não precisou mudar, e o
+ * diff mostra o que realmente mudou — a FONTE, não a forma.
+ */
+const FROM_LOCACAO_CANONICA = `FROM actor_assets rr
+               JOIN actor_asset_modes mo
+                 ON mo.asset_id = rr.id AND mo.activation_mode = 'rental' AND mo.enabled = true
+               JOIN actor_asset_rental_terms te
+                 ON te.asset_id = rr.id AND te.is_active = true`;
+
 /** Teto de janelas de agenda devolvidas POR oferta na vitrine do fornecedor. */
 const WINDOWS_PER_OFFER_LIMIT = 20;
 
@@ -106,6 +123,20 @@ export interface ProviderOffer {
   /** Identidade semântica do que se oferece (Lei 7) — a tela lê o rótulo, roteia pelo concept. */
   conceptId: string | null;
   windows: ProviderOfferWindow[];
+  /**
+   * 🔴 QUEM DECIDE SE DÁ PARA PEDIR É O BACKEND (2026-08-04).
+   *
+   * A tela fazia `sourceKind === 'service' && windows.length > 0` — ou seja, o CLIENTE decidindo
+   * o que é contratável. Isso é regra de negócio, não apresentação, e viola a doutrina de Clayton
+   * ("o frontend nunca cria verdade — projeta verdade resolvida"). Ele perguntou, eu conferi, e
+   * era verdade: a regra estava do lado errado.
+   *
+   * Agora o servidor responde, e o cliente só obedece. `requestableReason` existe para a tela
+   * poder DIZER o motivo sem redescobri-lo — motivo ausente também seria o cliente inventando.
+   */
+  requestable: boolean;
+  /** Por que NÃO dá para pedir. `null` quando dá. Vocabulário fechado, resolvido no servidor. */
+  requestableReason: 'no_schedule' | 'rental_has_no_request_path' | null;
 }
 
 /**
@@ -155,7 +186,10 @@ export interface ProviderShowcase {
  * quando não há filtro. Montar string de query condicionalmente é como se erra índice de
  * parâmetro — e erro de índice aqui compararia data contra tenant_id.
  */
-function janelaDeclaradaExists(ownerType: 'service_offering' | 'rentable_resource', idExpr: string): string {
+// `actor_asset` entrou porque a locação é asset-first — e o valor está no CHECK físico de
+// `availability.owner_type` (lido, não deduzido: user·service·event·group·page·service_offering·
+// rentable_resource·actor_asset). O tipo estava mais estreito que o banco e o compilador pegou.
+function janelaDeclaradaExists(ownerType: 'service_offering' | 'rentable_resource' | 'actor_asset', idExpr: string): string {
   return `AND ($3::timestamptz IS NULL OR EXISTS (
             SELECT 1 FROM availability av
              WHERE av.tenant_id = $2::uuid
@@ -303,17 +337,15 @@ class EventNeedSupplierDiscoveryService {
                     rr.owner_actor_id::text      AS provider_actor_id,
                     a.display_name               AS provider_display_name,
                     rr.label                     AS offer_label,
-                    rr.price_cents               AS price_cents,
+                    te.price_cents               AS price_cents,
                     NULL::int                    AS duration_minutes,
-                    rr.pricing_unit              AS pricing_unit
-               FROM rentable_resources rr
+                    te.pricing_unit              AS pricing_unit
+               ${FROM_LOCACAO_CANONICA}
                LEFT JOIN actors a ON a.id = rr.owner_actor_id AND a.tenant_id = $2::uuid
               WHERE rr.tenant_id = $2::uuid
-                AND rr.is_active = true
-                AND rr.status = 'active'
                 AND rr.concept_id = ANY($1::uuid[])
-                ${janelaDeclaradaExists('rentable_resource', 'rr.id')}
-              ORDER BY rr.price_cents ASC NULLS LAST, rr.created_at ASC`,
+                ${janelaDeclaradaExists('actor_asset', 'rr.id')}
+              ORDER BY te.price_cents ASC NULLS LAST, rr.created_at ASC`,
             [rentableNeedIds, tenantId, filtrarPorJanela ? janelaDe : null, filtrarPorJanela ? janelaAte : null]
           )
         : Promise.resolve([]),
@@ -450,14 +482,14 @@ class EventNeedSupplierDiscoveryService {
             tenantId,
             `SELECT rr.concept_id::text AS need_concept_id, rr.id::text AS offer_id,
                     rr.owner_actor_id::text AS provider_actor_id, a.display_name AS provider_display_name,
-                    rr.label AS offer_label, rr.price_cents,
-                    NULL::int AS duration_minutes, rr.pricing_unit AS pricing_unit
-               FROM rentable_resources rr
+                    rr.label AS offer_label, te.price_cents,
+                    NULL::int AS duration_minutes, te.pricing_unit AS pricing_unit
+               ${FROM_LOCACAO_CANONICA}
                LEFT JOIN actors a ON a.id = rr.owner_actor_id AND a.tenant_id = $2::uuid
-              WHERE rr.tenant_id = $2::uuid AND rr.is_active = true AND rr.status = 'active'
+              WHERE rr.tenant_id = $2::uuid
                 AND rr.concept_id = ANY($1::uuid[])
-                ${janelaDeclaradaExists('rentable_resource', 'rr.id')}
-              ORDER BY rr.price_cents ASC NULLS LAST, rr.created_at ASC`,
+                ${janelaDeclaradaExists('actor_asset', 'rr.id')}
+              ORDER BY te.price_cents ASC NULLS LAST, rr.created_at ASC`,
             [rentableIds, tenantId, filtrarPorJanela ? janelaDe : null, filtrarPorJanela ? janelaAte : null]
           )
         : Promise.resolve([]),
@@ -543,12 +575,12 @@ class EventNeedSupplierDiscoveryService {
         duration_minutes: number | null; pricing_unit: string | null; concept_id: string | null;
       }>(
         tenantId,
-        `SELECT rr.id::text AS offer_id, rr.label, rr.price_cents,
-                NULL::int AS duration_minutes, rr.pricing_unit AS pricing_unit,
+        // Locação asset-first — mesma cadeia dos leitores irmãos (ver a nota no primeiro).
+        `SELECT rr.id::text AS offer_id, rr.label, te.price_cents,
+                NULL::int AS duration_minutes, te.pricing_unit AS pricing_unit,
                 rr.concept_id::text AS concept_id
-           FROM rentable_resources rr
+           ${FROM_LOCACAO_CANONICA}
           WHERE rr.tenant_id = $2::uuid AND rr.owner_actor_id = $1::uuid
-            AND rr.is_active = true AND rr.status = 'active'
           ORDER BY rr.created_at ASC`,
         [providerActorId, tenantId]
       ),
@@ -558,9 +590,10 @@ class EventNeedSupplierDiscoveryService {
     // não oferece nada", que é afirmação diferente e falsa.
     if (actorRows.length === 0) return null;
 
-    // Sem `windows` ainda — a agenda entra logo abaixo, numa query só. O tipo diz isso em vez de um
-    // cast: `Omit` mantém o compilador defendendo o contrato até a montagem final.
-    const ofertas: Array<Omit<ProviderOffer, 'windows'>> = [
+    // Sem `windows` nem o veredito de contratabilidade ainda — a agenda entra logo abaixo (numa
+    // query só) e `requestable` é DERIVADO dela. O tipo diz isso em vez de um cast: `Omit` mantém
+    // o compilador defendendo o contrato até a montagem final.
+    const ofertas: Array<Omit<ProviderOffer, 'windows' | 'requestable' | 'requestableReason'>> = [
       ...serviceRows.map((r) => ({ ...toOffer(r), sourceKind: 'service' as const })),
       ...rentableRows.map((r) => ({ ...toOffer(r), sourceKind: 'rentable' as const })),
     ];
@@ -602,7 +635,20 @@ class EventNeedSupplierDiscoveryService {
     return {
       providerActorId,
       displayName: actorRows[0].display_name,
-      offers: ofertas.map((o) => ({ ...o, windows: windowsByOwner.get(o.offerId) ?? [] })),
+      // 🔴 A DECISÃO "dá para pedir?" É RESOLVIDA AQUI, nunca na tela. Duas causas de recusa, e
+      // ambas são FATO do domínio, não preferência de interface:
+      //   · locação não tem caminho de pedido religado — `POST /services/offerings/:id/bookings`
+      //     é o writer de `service_offerings`; recurso alugável tem writer PRÓPRIO, ainda sem
+      //     superfície. Oferecer o botão produziria 404/400 garantido.
+      //   · sem janela publicada não há `availabilityId`, que é OBRIGATÓRIO no pedido.
+      offers: ofertas.map((o) => {
+        const windows = windowsByOwner.get(o.offerId) ?? [];
+        const reason: ProviderOffer['requestableReason'] =
+          o.sourceKind !== 'service' ? 'rental_has_no_request_path'
+            : windows.length === 0 ? 'no_schedule'
+              : null;
+        return { ...o, windows, requestable: reason === null, requestableReason: reason };
+      }),
     };
   }
 }
@@ -611,7 +657,7 @@ class EventNeedSupplierDiscoveryService {
 function toOffer(r: {
   offer_id: string; label: string | null; price_cents: string | number | null;
   duration_minutes: number | null; pricing_unit: string | null; concept_id: string | null;
-}): Omit<ProviderOffer, 'sourceKind' | 'windows'> {
+}): Omit<ProviderOffer, 'sourceKind' | 'windows' | 'requestable' | 'requestableReason'> {
   return {
     offerId: r.offer_id,
     label: r.label,

@@ -1082,6 +1082,14 @@ export interface ProviderOffer {
   pricingUnit: string | null;
   conceptId: string | null;
   windows: ProviderOfferWindow[];
+  /**
+   * 🔴 QUEM DECIDE SE DÁ PARA PEDIR É O SERVIDOR. A tela fazia
+   * `sourceKind === 'service' && windows.length > 0` — o cliente decidindo o que é contratável,
+   * que é regra de negócio, não apresentação. Clayton perguntou se a verdade seguia no backend;
+   * seguia em quase tudo, menos aqui. Agora o contrato responde e a tela obedece.
+   */
+  requestable: boolean;
+  requestableReason: 'no_schedule' | 'rental_has_no_request_path' | null;
 }
 
 export interface ProviderShowcase {

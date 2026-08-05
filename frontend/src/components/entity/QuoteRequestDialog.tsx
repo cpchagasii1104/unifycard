@@ -71,9 +71,15 @@ export default function QuoteRequestDialog({ providerActorId, providerName, onCl
   }, [activeActor?.actor_id]);
 
   const oferta = vitrine?.offers.find((o) => o.offerId === ofertaId);
-  // 🔴 Só SERVIÇO tem caminho de pedido religado. Locação usa outro writer, ainda sem superfície —
-  // e os locáveis vivos não têm agenda publicada, então nem janela haveria para escolher.
-  const ofertasPedíveis = (vitrine?.offers ?? []).filter((o) => o.sourceKind === 'service' && o.windows.length > 0);
+  // 🔴 OBEDECE, NÃO DECIDE. Isto era `sourceKind === 'service' && windows.length > 0` — o cliente
+  // aplicando regra de negócio. Quem sabe se dá para pedir é o servidor, e ele agora diz.
+  const ofertasPedíveis = (vitrine?.offers ?? []).filter((o) => o.requestable);
+  // Motivo TRADUZIDO, não deduzido: o vocabulário é fechado e vem resolvido do backend.
+  const MOTIVO: Record<string, string> = {
+    no_schedule: 'sem agenda publicada',
+    rental_has_no_request_path: 'locação ainda não tem pedido por aqui',
+  };
+  const recusadas = (vitrine?.offers ?? []).filter((o) => !o.requestable);
 
   const enviar = useCallback(async (): Promise<void> => {
     if (!janelaId || !ofertaId || !activeActor?.actor_id) return;
@@ -116,11 +122,19 @@ export default function QuoteRequestDialog({ providerActorId, providerName, onCl
         ) : vitrine && (
           <>
             {ofertasPedíveis.length === 0 ? (
-              <p className="qrd-muted">
-                {/* Zero MEDIDO, com o motivo verdadeiro. */}
-                Este fornecedor ainda não publicou agenda para nenhuma oferta contratável, então não
-                há horário para pedir.
-              </p>
+              <div className="qrd-muted">
+                {/* Zero MEDIDO, e o motivo vem do servidor — a tela não redescobre por que não dá. */}
+                <p>Nenhuma oferta deste fornecedor pode ser pedida agora.</p>
+                {recusadas.length > 0 && (
+                  <ul>
+                    {recusadas.map((o) => (
+                      <li key={o.offerId}>
+                        {o.label ?? 'Oferta'} — {MOTIVO[o.requestableReason ?? ''] ?? 'indisponível'}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             ) : (
               <div className="qrd-form">
                 <label className="qrd-campo">
