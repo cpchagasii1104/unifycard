@@ -577,6 +577,8 @@ Migration N1 `20260713140000` (`IGNORED_MIGRATIONS`) · `group_actor_memberships
 
 ## ✅ JÁ RESOLVIDAS — não reabra
 
+**2026-08-05 · `DT-AI-MEMORY-NON-ATOMIC-WRITE`** — `saveMemory` fazia `writeFileSync` **direto no arquivo final**: processo morto no meio deixava JSON **truncado**, e o leitor encontrava corrupção que a própria escrita produzia. **Sobreviver ao corrompido sem parar de produzi-lo é meio conserto** — alguém acabaria investigando infraestrutura por defeito de código. Agora grava em temporário e **renomeia** (atômico: ou o antigo inteiro, ou o novo inteiro). Falha limpa o temporário e **propaga**. Prova de 1ª mão 5/5 no par leitor+escritor.
+
 **2026-08-05 · `DT-AI-MEMORY-CORRUPT-READ-DESTROYS-HISTORY`** — `loadMemory` devolvia `[]` em arquivo CORROMPIDO (o `existsSync` acima já tratava "não existe"), e `saveMemory` faz `writeFileSync` do array inteiro: **uma leitura com falha SOBRESCREVIA todo o histórico**, sem erro e sem log. Vivo via `ai.routes.ts`. Agora **preserva** o arquivo corrompido com carimbo e segue com `[]`; se preservar falhar, **propaga** — continuar ali destruiria o original. ⚖️ O teto de `catch` permissivo **não desceu (11/11)** de propósito: ele conta a FORMA, e abrir exceção para melhorar métrica é ganhar verde sem ganhar sistema.
 
 **2026-08-05 · `DT-GROUP-PARALLEL-BALANCE-OUTSIDE-BANK`** (migration `20260805190000`, GO de

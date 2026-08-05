@@ -1,5 +1,46 @@
 # REMEDIATION DT LOG
 
+## 🔒 `DT-AI-MEMORY-NON-ATOMIC-WRITE` — consertei o sintoma, faltava a CAUSA (2026-08-05, direção)
+
+Na fatia anterior ensinei o **leitor** da memória do assistente a sobreviver a arquivo corrompido
+(preservando em vez de sobrescrever). Faltava perguntar **de onde vinha o corrompido**.
+
+### A causa estava a três linhas de distância
+
+`saveMemory` fazia `writeFileSync` **direto no arquivo final**. Isso não é atômico: se o processo
+morrer no meio (deploy, kill, disco cheio), o arquivo fica **truncado pela metade** — JSON inválido.
+**O leitor então encontrava corrupção que a própria escrita produzia.**
+
+> **Sobreviver ao corrompido sem parar de PRODUZIR corrompido é meio conserto.** O leitor ficaria
+> preservando arquivo atrás de arquivo, e alguém concluiria que *"o disco está com problema"* —
+> investigando infraestrutura por um defeito de código.
+
+### O conserto
+
+Grava num temporário e **renomeia**. `rename` no mesmo sistema de arquivos é atômico: ou o arquivo
+final é o antigo **inteiro**, ou é o novo **inteiro** — nunca um meio-termo. Em caso de falha, o
+temporário é limpo (para não acumular lixo a cada erro) e **o erro PROPAGA**: *"salvou"* que não
+salvou é a mentira que este repositório mais persegue.
+
+### ✅ Prova de comportamento — o par leitor/escritor, exercitado
+
+Não confiei na leitura do código: montei o cenário real num diretório descartável.
+
+```
+✅ A  o arquivo corrompido foi PRESERVADO intacto (byte a byte)
+✅ B  o original saiu do caminho — não será sobrescrito
+✅ C  o chat segue com histórico vazio — não derrubou a funcionalidade
+✅ D  o temporário não ficou para trás
+✅ E  o arquivo final é JSON INTEIRO e válido
+```
+
+📌 **O par é o que importa.** Leitor que sobrevive + escritor que não corrompe fecham o ciclo;
+qualquer um dos dois sozinho deixa a outra metade sangrando.
+
+### 📌 ESTADO
+
+`runner 257 COMMANDS OK` · `typecheck BE 0` · prova de 1ª mão 5/5. Δbank = 0.
+
 ## 🧠 `DT-AI-MEMORY-CORRUPT-READ-DESTROYS-HISTORY` — uma leitura com falha apagava todo o histórico (2026-08-05, direção)
 
 Voltei aos 11 `catch` que eu tinha congelado no teto, para **pagar mais** em vez de deixar

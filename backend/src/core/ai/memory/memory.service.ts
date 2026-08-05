@@ -58,10 +58,31 @@ const loadMemory = (): ChatHistory[] => {
   }
 };
 
-// Salvar memória no arquivo
+// Salvar memória no arquivo — ESCRITA ATÔMICA.
+//
+// 🔴 FECHANDO O LAÇO (2026-08-05). Na mesma sessão eu ensinei o LEITOR a sobreviver a arquivo
+// corrompido (preservando-o em vez de sobrescrever). Isto aqui trata a CAUSA daquele estado:
+// `writeFileSync` direto no arquivo final não é atômico — se o processo morrer no meio (deploy,
+// kill, falta de espaço), o arquivo fica **truncado pela metade**, que é JSON inválido. O leitor
+// então encontra corrupção que a própria escrita produziu.
+//
+// Sobreviver ao corrompido sem parar de PRODUZIR corrompido é meio conserto: o leitor ficaria
+// preservando arquivo atrás de arquivo, e alguém concluiria que "o disco está com problema".
+//
+// Escrita atômica: grava num temporário e RENOMEIA. `rename` no mesmo sistema de arquivos é
+// atômico — ou o arquivo final é o antigo inteiro, ou é o novo inteiro. **Nunca um meio-termo.**
 const saveMemory = (memory: ChatHistory[]) => {
   ensureDataDir();
-  fs.writeFileSync(MEMORY_FILE, JSON.stringify(memory, null, 2), 'utf-8');
+  const temporario = `${MEMORY_FILE}.tmp-${process.pid}-${Date.now()}`;
+  try {
+    fs.writeFileSync(temporario, JSON.stringify(memory, null, 2), 'utf-8');
+    fs.renameSync(temporario, MEMORY_FILE);
+  } catch (err) {
+    // Limpar o temporário para não deixar lixo acumulando a cada falha. A falha em si PROPAGA:
+    // "salvou" que não salvou é a mentira que este repositório mais persegue.
+    try { if (fs.existsSync(temporario)) fs.unlinkSync(temporario); } catch { /* já era */ }
+    throw err;
+  }
 };
 
 class MemoryService {
