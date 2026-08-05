@@ -1,5 +1,54 @@
 # REMEDIATION DT LOG
 
+## 🧪 A METADE QUE A AUDITORIA DEIXOU ABERTA — regressão de acesso legítimo (2026-08-05, direção)
+
+Clayton perguntou se estava *"cem por cento seguro para commitar"*. Não estava — e o buraco não era
+desconhecido: **a YALA o nomeou e eu não tinha fechado.** Ela escreveu que não subiu servidor, e que
+*"não testei regressão de acesso legítimo de membro, que você disse importar tanto quanto o
+vazamento"*.
+
+**Ela estava certa, e é o risco mais real da sessão:** eu mexi em autorização de leitura em **4
+arquivos** e nunca exercitei alguém legítimo lendo um grupo. **Trava nova é tão capaz de bloquear
+quem pode quanto de liberar quem não pode — e a segunda falha grita, enquanto a primeira só some da
+tela.**
+
+### ✅ Resultado — 10/10, sem regressão
+
+`validate:group-read-no-regression` (npm). Sobe cada plugin em processo, contra o banco real,
+leitura pura, e exercita **não-membro** e **membro** nas 5 rotas.
+
+### 🔴 E EU QUASE REGISTREI DUAS REGRESSÕES QUE NÃO SÃO MINHAS — duas vezes
+
+**1ª — fixture irreal.** A primeira versão injetava `actorId: randomUUID()`. Duas rotas deram 403 e
+eu quase escrevi "regressão". **Atribuí antes:** o corpo era *"Sem autoridade para representar este
+actor"* com `permissionHint: groups:read` — o `groupsAuthGate`, que é **preHandler e anterior ao meu
+conserto**. Minha checagem responderia `"Group not found"` e nem chega a rodar.
+
+**2ª — asserção medindo a coisa errada.** Mesmo com actor real, as duas seguem 403: é o RBAC em
+**deny-all conhecido** (`actor_has_permission` retorna FALSE incondicional). Eu exigia `!== 403`, o
+que transformava **estado documentado do sistema** em falha desta fatia.
+
+**A asserção honesta é `!== 404`** — porque **404 é o único status que a minha trava produz**.
+Atribuir causa é escolher a asserção que só a SUA mudança pode quebrar.
+
+📌 **Fixture irreal produz vermelho verdadeiro sobre defeito inexistente.** É a mesma família do
+*"achado extraído por ferramenta vale o que a ferramenta vale"*, aplicada a teste em vez de guard.
+
+### 🔴 E O RATCHET ME PEGOU DENTRO DO PRÓPRIO TESTE
+
+Escrevi `actor_type IN ('user','person','actor_human')` copiando de código legado. O
+`audit-actor-type-vocabulary-ratchet` reprovou: *"código NOVO adotando geração morta"*. Estava
+certo — o vivo aqui é `user` (medido: user 12 · page 8 · group 2).
+
+**Copiar de código legado propaga o legado — inclusive dentro de um teste escrito para impedir
+regressão.** O teto subiu de 17 para 18 por minha causa, e voltou a 17 ao corrigir.
+
+### 📌 ESTADO
+
+`runner 258 COMMANDS OK` · `typecheck BE 0` · E2E 10/10.
+⚠️ **Segue ABERTO** (a outra metade do que a YALA não auditou): vazamento por **timing** ou por
+**mensagem** do 404 em grupo secreto. Não medi, e não afirmo.
+
 ## 🔍 AUDITORIA INDEPENDENTE (YALA) — VEREDITO **B** · 3 ressalvas · TODAS TRATADAS (2026-08-05)
 
 **Escopo:** 26 commits (`9cb4234e2..HEAD`), read-only, zero escrita no repo. Mandato meu pedindo

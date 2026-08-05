@@ -148,7 +148,8 @@
     "validate:schema-coherence:fallback": "node ../scripts/validate-schema-code-coherence.mjs --mode=fallback",
     "validate:c1-human-journey": "node scripts/audit-c1-human-journey-closure.mjs",
     "import:vehicle-catalog": "tsx src/scripts/import-vehicle-catalog.ts",
-    "validate:agreements-ghost-containment": "tsx src/scripts/validate-pipeline-e2e-agreements-ghost-containment.ts"
+    "validate:agreements-ghost-containment": "tsx src/scripts/validate-pipeline-e2e-agreements-ghost-containment.ts",
+    "validate:group-read-no-regression": "tsx src/scripts/validate-pipeline-e2e-group-read-no-regression.ts"
   },
   "dependencies": {
     "@fastify/cors": "^8.5.0",
