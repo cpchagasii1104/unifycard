@@ -1,5 +1,70 @@
 # REMEDIATION DT LOG
 
+## 🧱 SUBSTRATO SEM CONSUMIDOR — e um SEGUNDO LEDGER dormente que precisa da palavra de Clayton (2026-08-05, direção)
+
+Famílias #10 e #19 do inventário de `ARQUITETURA/` (*"presença ≠ capacidade"* e *"cadeia
+completa"*). O caso que ela nomeou é literal aqui: **fila sem produtor E sem drenador**.
+
+### 📊 A medição — e o sistema está SADIO neste ponto
+
+```
+banco:      336 tabelas · 10 SEM nenhuma referência em código vivo · TODAS com 0 linhas
+migrations: 337 criadas  · 20 sem consumidor (inclui migration NUNCA aplicada, ex.: família
+                            `neighborhood_*`, dormente de propósito na frente N1)
+```
+
+📌 **Os dois números estão certos** — são perguntas diferentes (materializado × declarado). Escrevo
+os dois lado a lado porque a diferença quase me fez ajustar o teto "para bater" com o outro.
+**Teto que se ajusta para bater com outro número não mede nada.**
+
+📌 **E quem veio antes fez a coisa certa:** `product_concept_resolution_queue` — o caso que a pasta
+nomeia — já está renomeada `_deprecated_*`. Renomear diz a verdade **sem apagar a intenção**.
+O guard exclui `_deprecated_*` de propósito: continuar apontando o que já foi tratado é confundir
+dívida com trabalho feito.
+
+### 🔴 O QUE ACHEI NO MEIO — `execution_fund_movements` é um SEGUNDO LEDGER dormente
+
+```
+execution_fund_movements: movement_type · amount_cents · source_account_id ·
+                          approved_by_user_id · approved_at        →  0 linhas, 0 código
+execution_fund_rules:     max_percentage_of_reserve · allowed_uses ·
+                          requires_committee_approval_above_cents  →  0 linhas, 0 código
+```
+
+**Pela FORMA, é registro de movimentação de dinheiro fora do Bank** — a mesma classe do
+`group_accounts.balance_cents` que Clayton mandou eliminar hoje, e a mesma regra: *o Bank é a única
+verdade sobre dinheiro*.
+
+⛔ **NÃO ELIMINEI, e a razão não é cautela genérica.** O GO de Clayton nomeou *"o saldo paralelo do
+grupo"*; estas são alvo NOVO. E há uma diferença material: `balance_cents` era coluna **vazia de
+significado** ao lado de um ponteiro para o Bank; estas duas tabelas **codificam um desenho de
+produto** (fundo de execução com regras de uso, percentual máximo da reserva, limite acima do qual
+exige aprovação de comitê). **Apagar isso apaga uma decisão de produto registrada em schema**, e
+essa é exatamente a autorização que a norma reserva ao dono.
+
+**Fica pronto para o GO:** 0 linhas, 0 referências, mesma migration de uma linha, mesma trava de
+`EVENT TRIGGER` se ele quiser.
+
+### 🛡️ O GUARD — `audit-substrate-has-consumer.mjs` (runner 253 → **254**)
+
+Não existia vigilância para "substrato sem consumidor" (procurei antes de construir, que é a lição
+da fatia anterior). Mede a **migration**, não o banco, porque o runner roda sem banco.
+**Limite declarado no próprio arquivo:** mede referência **textual**; acesso montado por
+concatenação escapa. Por isso o veredito é *"candidato a morto"* e o teto existe para impedir
+**crescimento**, não para sentenciar os 20 de hoje.
+
+### 🔴 ERRO MEU — e é o erro que ABRE o `CLAUDE.md`
+
+Escrevi o teto como **19** porque **truncei a saída** (`head -20`) e contei as linhas que
+apareceram na tela. São **20**. É exatamente o `Select-Object -First 10` que virou *"nenhum caller"*
+— cometido por mim **no mesmo dia em que li o aviso**. A regra que fica: **contagem sai de
+`grep -c`, nunca de olhar a tela.** O guard me pegou porque o ramo "desceu e o teto não acompanhou"
+existe.
+
+### 📌 ESTADO
+
+`runner 254 COMMANDS OK` · prova vermelha forçada e revertida. Δbank = 0.
+
 ## 👻 TABELA FANTASMA — um INSERT que falhava a cada empresa criada, e o ratchet que já vigiava isso (2026-08-05, direção)
 
 ### O que consertei

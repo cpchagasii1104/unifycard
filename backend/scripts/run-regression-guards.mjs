@@ -20,6 +20,7 @@ const CMDS = [
   "node scripts/audit-expiry-door-has-trigger.mjs",
   "node scripts/audit-worker-has-starter.mjs",
   "node scripts/audit-tenant-table-born-with-rls.mjs",
+  "node scripts/audit-substrate-has-consumer.mjs",
   "node scripts/audit-migration-runner-isolation.mjs",
   "node scripts/audit-official-database-lock.mjs",
   "node scripts/audit-auth-rate-limit-substrate.mjs",
