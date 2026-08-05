@@ -1,5 +1,49 @@
 # REMEDIATION DT LOG
 
+## 🎭 FEED CULTURAL — a seção que dizia "não há" quando na verdade estava quebrada (2026-08-05, direção)
+
+`GET /cultural/events` capturava **qualquer** erro e respondia `200 { events: [], next_cursor: null }`,
+com o comentário *"🔴 NUNCA retornar 500 — isso previne que feed quebre"*.
+
+**A intenção estava certa e a execução mentia.** `cultural_events` **não existe no banco** (medido:
+*relação não existe*), então **toda** chamada caía no `catch` — e `events: []` não é "deu erro", é a
+**afirmação "não há eventos culturais"**. `FeaturedToday` e `SmartEmptyState` consomem isso e
+acreditam. A seção fica vazia para sempre, e nem usuário nem operador tem como saber que ela está
+**quebrada** e não apenas sem conteúdo. Defeito mudo, do tipo que só some.
+
+### O conserto — manter o 200, parar de afirmar
+
+Continua `200`: não quebrar o feed segue valendo. O que muda é o payload passar a carregar
+`unavailable: true` quando o substrato falha. Campo **novo e opcional** — quem já lê
+`events`/`next_cursor` não muda.
+
+🔎 **E o frontend JÁ TINHA o conceito**: `api/cultural.ts` trata `FEATURE_UNAVAILABLE`/404 como
+"feature indisponível". Esse ramo **nunca disparava**, porque o backend respondia 200 mesmo
+falhando. A capacidade existia e estava desligada por uma mentira do outro lado — o padrão desta
+casa: *a capacidade quase sempre já existe; falta religar*.
+
+📌 A verdade sobre *"vazio × quebrado"* é decidida no **backend** e apenas **transportada** pelo
+cliente. O frontend não infere isso por lista vazia e não cria a distinção sozinho.
+
+### O que eu MEDI e decidi NÃO fazer (para não inventar trabalho)
+
+Antes de chegar aqui, varri a família *"literal que o frontend compara e o banco não tem"*:
+· **`EventStatusBadge` já está CORRETO** — os 6 valores governados (`draft·declared·published·
+  active·ended·cancelled`), rótulo e fallback. Foi remediado em arco anterior; não toquei.
+· **`StatusBadge` do marketplace** tem vocabulário MAIÚSCULO divergente, mas **zero renderizadores**
+  — código morto, não defeito vivo.
+· **`agreements`**: módulo registrado em `app.builder.ts:581`, consultando tabela **inexistente**,
+  **sem contenção**. Mas `ContextualThreadView` (único host do painel) tem **zero renderizadores** e
+  as tabelas de thread também não existem. Alcance pela tela = **0**; sobra o endpoint HTTP vazando
+  `42P01`. Fica NOMEADO como schema-ghost sem contenção — a casa já tem 6 contenções iguais, e
+  criar a tabela seria decisão de produto, não conserto.
+
+### 📌 ESTADO
+
+`runner 251 COMMANDS OK` · `typecheck BE 0 · FE 0` · `git diff --check` limpo.
+⚠️ `api/cultural.ts` estava `w/crlf` com índice `i/lf` — alinhado antes do commit (3ª vez no dia).
+**Nenhuma operação de dinheiro.**
+
 ## ✅ FAMÍLIA 14 — PAGAR a dívida em vez de congelar: 8 sítios corrigidos, e o teto virou 11 (2026-08-05, direção)
 
 **Correção de rumo de Clayton, e ela estava certa:** *"Espero que já esteja corrigindo ao invés de

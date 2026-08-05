@@ -201,22 +201,26 @@ export async function getCulturalEvent(eventId: string): Promise<CulturalEvent> 
 export async function listPublicCulturalEvents(params?: {
   limit?: number;
   cursor?: string;
-}): Promise<{ events: CulturalEvent[]; next_cursor: string | null }> {
+}): Promise<{ events: CulturalEvent[]; next_cursor: string | null; unavailable?: boolean }> {
   const queryParams = new URLSearchParams();
   if (params?.limit) queryParams.set('limit', params.limit.toString());
   if (params?.cursor) queryParams.set('cursor', params.cursor);
 
   const query = queryParams.toString();
   try {
-    return await apiFetchJson<{ events: CulturalEvent[]; next_cursor: string | null }>(
-      `/cultural/events${query ? `?${query}` : ''}`,
-      {},
-      { silent404: true }
-    );
+    // `unavailable` vem do backend quando o substrato está ausente. A verdade sobre "a seção está
+    // vazia" × "a seção está quebrada" é decidida no BACKEND e apenas TRANSPORTADA aqui — o
+    // frontend não infere isso, não deduz por lista vazia, e não cria a distinção sozinho.
+    return await apiFetchJson<{
+      events: CulturalEvent[];
+      next_cursor: string | null;
+      unavailable?: boolean;
+    }>(`/cultural/events${query ? `?${query}` : ''}`, {}, { silent404: true });
   } catch (error: any) {
-    // Se 404, tratar como feature indisponível (não erro)
+    // 404 = feature indisponível. Este ramo existia e NUNCA disparava: o backend respondia 200
+    // com lista vazia mesmo quando falhava, então "indisponível" era inalcançável por aqui.
     if (error?.code === 'FEATURE_UNAVAILABLE' || error?.status === 404) {
-      return { events: [], next_cursor: null };
+      return { events: [], next_cursor: null, unavailable: true };
     }
     throw error;
   }

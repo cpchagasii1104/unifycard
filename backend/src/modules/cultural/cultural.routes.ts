@@ -445,10 +445,20 @@ const culturalRoutes: FastifyPluginAsync = async (fastify) => {
       // ✅ Sempre retornar 200, mesmo se não houver eventos (não é erro)
       return reply.send(result || { events: [], next_cursor: null });
     } catch (error) {
-      fastify.log.error({ err: error }, 'Erro ao listar eventos');
-      // 🔴 NUNCA retornar 500 - sempre retornar 200 com payload vazio
-      // Isso previne que feed quebre
-      return reply.send({ events: [], next_cursor: null });
+      fastify.log.error({ err: error }, 'Erro ao listar eventos culturais');
+      // 🔴 CONTINUA 200 — não quebrar o feed segue valendo. O que muda é PARAR DE AFIRMAR VAZIO.
+      //
+      // `cultural_events` NÃO EXISTE no banco (medido 2026-08-05: relação não existe). Logo TODA
+      // chamada caía aqui e o cliente recebia `events: []` — que não é "deu erro", é a afirmação
+      // **"não há eventos culturais"**. A tela então mostra uma seção vazia, para sempre, e nem o
+      // usuário nem o operador tem como saber que a seção está QUEBRADA e não apenas sem conteúdo.
+      // Zero é uma afirmação; desconhecido é a verdade — e desconhecido tem que aparecer.
+      //
+      // `unavailable` é campo NOVO e opcional: quem já consome `events`/`next_cursor` não muda.
+      // Quem quiser distinguir agora consegue — e o frontend já tem o conceito de feature
+      // indisponível (`FEATURE_UNAVAILABLE` em `api/cultural.ts`), que até hoje só era alcançável
+      // por 404 e por isso nunca disparava.
+      return reply.send({ events: [], next_cursor: null, unavailable: true });
     }
   });
 
