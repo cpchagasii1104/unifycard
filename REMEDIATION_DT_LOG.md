@@ -1,5 +1,43 @@
 # REMEDIATION DT LOG
 
+## ✅ ESCRITA EM ARQUIVO — fatiei o conjunto e o resto está SADIO (2026-08-05, direção)
+
+Depois de tornar a escrita da memória atômica, apliquei a regra do dia: **o defeito nunca vem
+sozinho**. Quem mais grava direto em arquivo que importa?
+
+```
+grep writeFileSync em src/ (fora de scripts e testes) → 9 sítios
+```
+
+### O inventário completo — e por que cada um está resolvido
+
+| sítio | veredito |
+|---|---|
+| `ai/memory/memory.service.ts` (3) | ✅ **corrigido nesta sessão** — temporário + rename atômico |
+| `ai/patch/patch-apply.service.ts` (2) | ⚪ **DORMENTE — zero chamador vivo.** ⚠️ Vale nomear: é um aplicador de patch que **escreve arquivo de CÓDIGO-FONTE** (`writeFileSync(filePath, newContent)`), não-atômico. Enquanto tiver zero chamador é inofensivo; **no dia em que alguém religar, escrita não-atômica em fonte é corrupção de código** — e ele já grava backup antes (`:75`), o que mostra que quem escreveu sabia do risco |
+| `groups/services/group-image.service.ts` (4) | ✅ **SEGURO POR DESENHO** — ver abaixo |
+
+### Por que o upload de imagem já está certo — duas coisas, e as duas importam
+
+**1. Nome único por upload:** `baseId = avatar_${randomUUID()}`. Cada upload escreve em arquivo
+**novo**. Falha no meio deixa um órfão truncado, e o registro segue apontando para o avatar
+**anterior, intacto**. Sobrescrever no mesmo caminho é que teria produzido "avatar quebrado para
+sempre".
+
+**2. A ORDEM está certa:** grava o arquivo **e só depois** atualiza o registro
+(`groups.routes.ts:515` → `processImage` → `updateGroup`). Falha entre os dois deixa **arquivo
+órfão** (inofensivo). A ordem inversa deixaria **registro apontando para o vazio** — que é o defeito
+de verdade.
+
+📌 **Registro isto com o mesmo cuidado de um achado.** Alguém lendo "4 `writeFileSync` não-atômicos"
+numa varredura futura vai querer "consertar" — e o conserto tornaria mais complexo um código que
+**já resolveu o problema por outro caminho**, provavelmente introduzindo o defeito ao mexer.
+
+### 📌 ESTADO
+
+Nenhuma alteração. O produto desta fatia é um conjunto fatiado, 1 de 9 corrigido (na fatia
+anterior), 2 nomeados como dormentes com o risco descrito, e 4 **provados sadios**.
+
 ## 🔒 `DT-AI-MEMORY-NON-ATOMIC-WRITE` — consertei o sintoma, faltava a CAUSA (2026-08-05, direção)
 
 Na fatia anterior ensinei o **leitor** da memória do assistente a sobreviver a arquivo corrompido
