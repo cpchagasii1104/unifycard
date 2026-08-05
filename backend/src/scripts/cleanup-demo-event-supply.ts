@@ -144,10 +144,41 @@ async function main(): Promise<void> {
     await client.query('BEGIN');
 
     if (ALVO_EVENTOS_TESTE) {
-      for (const t of DEPENDENTES_SEM_CASCADE) {
-        await client.query(`DELETE FROM ${t} WHERE event_id = ANY($1::uuid[])`, [idsClayton]);
+      // 🔴 TRAVA DE PROCEDÊNCIA (2026-08-05, a pedido de Clayton: "verifique se não existe caminho
+      // paralelo"). Um script de limpeza só pode apagar o que ELE CRIOU.
+      //
+      // O QUE ACONTECEU: `seed-complete-draft-events.ts:112` faz
+      //   UPDATE events SET metadata = metadata || '{"completed_by_seed":true}'
+      // ou seja, ele CARIMBA eventos que JÁ EXISTIAM — rascunhos reais do dono. Este cleanup então
+      // apagava por esse carimbo. Resultado: **dado de produto virou descartável por ter sido
+      // TOCADO por um seed.** É a explicação estrutural mais provável para os 25 eventos que
+      // sumiram do banco oficial entre 01 e 03/08 e cuja causa eu não tinha achado.
+      //
+      // A distinção que faltava: `demo_seed` prova CRIAÇÃO (o seed inseriu a linha);
+      // `completed_by_seed` prova apenas EDIÇÃO. Apagar por prova de edição é apagar o alheio.
+      const criadosPeloSeed = await client.query<{ id: string }>(
+        `SELECT id::text FROM events
+          WHERE id = ANY($1::uuid[]) AND metadata->>'demo_seed' = 'true'`,
+        [idsClayton]
+      );
+      const podemSair = criadosPeloSeed.rows.map((r) => r.id);
+      const preexistentes = idsClayton.length - podemSair.length;
+
+      if (preexistentes > 0) {
+        console.log(
+          `\n🛑 RECUSADO: ${preexistentes} evento(s) marcados com \`completed_by_seed\` NÃO foram\n` +
+          `   criados por seed — são registros pré-existentes que um seed apenas completou.\n` +
+          `   Marca de EDIÇÃO não autoriza apagar. Se a intenção é desfazer a conclusão, reverta o\n` +
+          `   campo (ex.: \`datetime_start\`), NUNCA remova a linha.`
+        );
       }
-      await client.query(`DELETE FROM events WHERE id = ANY($1::uuid[])`, [idsClayton]);
+
+      if (podemSair.length > 0) {
+        for (const t of DEPENDENTES_SEM_CASCADE) {
+          await client.query(`DELETE FROM ${t} WHERE event_id = ANY($1::uuid[])`, [podemSair]);
+        }
+        await client.query(`DELETE FROM events WHERE id = ANY($1::uuid[])`, [podemSair]);
+      }
     }
 
     if (ALVO_DEMO) {

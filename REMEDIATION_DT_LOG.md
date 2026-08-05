@@ -1,5 +1,71 @@
 # REMEDIATION DT LOG
 
+## 💰 SSOT — o saldo paralelo do grupo foi ELIMINADO, e o caminho que sumiu com os 25 eventos foi ACHADO (2026-08-05, GO de Clayton)
+
+**GO textual:** *"O saldo paralelo do grupo, se tem coluna fora do bank, elimine isso. Temos que
+manter sempre a regra SSOT de fonte única de verdade."* + *"verifique se não existe caminho paralelo"*.
+
+### ✅ ELIMINADO — `group_accounts.balance_cents`
+
+Migration `20260805190000_drop_group_accounts_parallel_balance.sql`, **aplicada em `unificard_dev`**.
+Guardava valor ao lado de `bank_account_id`, que já aponta para a conta do Bank: dois lugares
+afirmando quanto um grupo tem. Contradiz `CONTRATO_GRUPOS_V2` §2.1 e `SSOT_EXCLUSIVE_BANK_RULE`.
+
+**GATE antes de escrever:** 0 linhas na tabela · 0 valores na coluna · **zero leitor e zero escritor
+em código** (o único `grep` que retornava era o meu próprio comentário). Nada se perdeu.
+
+📌 **A tabela CONTINUA existindo** — ela é o MAPA `grupo → bank_accounts(id)`, que é o formato
+CERTO (o mesmo de `fiscal_reserve_accounts`, que já vive aqui sem coluna de saldo). Eliminar o
+saldo paralelo não podia eliminar o vínculo.
+
+🔒 **E não pode renascer:** a migration instala um `EVENT TRIGGER` que **recusa** qualquer
+`ALTER TABLE` que reintroduza `balance_cents`/`balance`/`saldo`/`amount_cents` nessa tabela.
+Testado no banco oficial depois de aplicar: erro `SSOT_VIOLATION`. Sem isso, "eliminar" seria
+apagar uma vez — e o próximo que precisar de um número rápido recria, porque o nome parece óbvio.
+
+Harness `run-group-parallel-balance-drop-ephemeral.ps1`: **5/5 em banco efêmero**, incluindo a
+prova vermelha da trava. ⚠️ O guard `environment-rule-enforcement` **reprovou meu harness** na 1ª
+execução por criar banco sem declarar `EXPECTED_DATABASE_NAME` — estava certo, e corrigi.
+
+### 🔎 A VARREDURA QUE O "SEMPRE SSOT" PEDIA — 3 colunas, e só 1 era violação
+
+| coluna | linhas | veredito |
+|---|---|---|
+| `group_accounts.balance_cents` | 0 | 🔴 **segundo ledger — ELIMINADA** |
+| `ledger_snapshots.balance_cents` | 957 | ✅ **LEGÍTIMA.** Não é segundo ledger, é **projeção**: o worker calcula `SUM(crédito − débito) FROM bank_ledger` e grava o resultado. O Bank segue sendo a fonte. **Verificado na QUERY do worker, não no comentário do arquivo** |
+| `impact_balances.balance` | 0 | 🟡 fora de escopo: é **impacto social** (pontuação), não dinheiro. Fica NOMEADO — o tipo `numeric` sem sufixo `_cents` merece decisão própria, e apagar por semelhança de nome seria o erro que esta casa mais pune |
+
+### 🔴 O CAMINHO PARALELO EXISTE — e explica os 25 eventos
+
+Clayton mandou verificar. **Achei, e é estrutural:**
+
+```
+seed-complete-draft-events.ts:112
+  UPDATE events SET metadata = metadata || '{"completed_by_seed":true}'   ← CARIMBA o que JÁ EXISTIA
+cleanup-demo-event-supply.ts   --eventos-teste
+  DELETE FROM events WHERE metadata->>'completed_by_seed'                 ← APAGA por esse carimbo
+```
+
+**Dado de produto virou descartável por ter sido TOCADO por um seed.** Os 25 eventos (12 draft +
+13 declared, medidos no GATE de 01/08) eram rascunhos reais; um seed os completou e os carimbou; o
+cleanup os removeu. É a explicação que faltava — e ela não estava no código de produto, estava na
+ferramenta.
+
+**Conserto — a distinção que faltava:** `demo_seed` prova **CRIAÇÃO** (o seed inseriu a linha);
+`completed_by_seed` prova apenas **EDIÇÃO**. **Apagar por prova de edição é apagar o alheio.**
+O cleanup agora **RECUSA** remover evento que ele não criou, e diz o que fazer em vez disso
+(reverter o campo, nunca remover a linha).
+
+⚠️ O cleanup já tinha bons trilhos — dry-run por padrão, alvo nomeado obrigatório, amostra impressa,
+trava de dinheiro antes de escrever. **Nenhum deles protegia contra este defeito**, porque todos
+perguntam *"você tem certeza?"* e nenhum perguntava *"isto é seu?"*.
+
+### 📌 ESTADO
+
+`runner 251 COMMANDS OK` · `typecheck BE 0` · migration aplicada · canários intactos
+(75 bairros · 16 no ledger). **Δbank = 0**: nenhuma linha financeira tocada — a coluna eliminada
+estava vazia e fora do Bank.
+
 ## 🎭 FEED CULTURAL — a seção que dizia "não há" quando na verdade estava quebrada (2026-08-05, direção)
 
 `GET /cultural/events` capturava **qualquer** erro e respondia `200 { events: [], next_cursor: null }`,
