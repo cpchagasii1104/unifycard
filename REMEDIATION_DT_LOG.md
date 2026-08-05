@@ -1,5 +1,44 @@
 # REMEDIATION DT LOG
 
+## 🔁 AUDITEI OS MEUS PRÓPRIOS GUARDS — e um tinha a doença que eu acabara de diagnosticar (2026-08-05, direção)
+
+Na fatia anterior eu registrei o padrão da minha reincidência: **guard escrito DEPOIS do conserto
+nasce descrevendo o conserto, não a regra.** A consequência óbvia é que os outros **9 guards que
+escrevi hoje** podem ter o mesmo defeito. Fui conferir em vez de esperar que alguém tropeçasse.
+
+### O resultado da auto-auditoria
+
+**7 de 9 medem FORMA ESTRUTURAL** e estão sadios — casamento de chaves, lista de colunas do
+`INSERT`, presença no boot, criação em migration. Forma estrutural não depende de como alguém
+escolheu nomear.
+
+**1 é de contenção** (`agreements`) e ali o nome **é o contrato**: o código de erro nomeado é o que
+o cliente lê. Nome literal é correto nesse caso.
+
+🔴 **1 tinha a doença: `audit-group-read-siblings-same-gate`.** Ele exigia **quatro nomes literais**
+de função. Consequência: reprova código **correto** escrito com outro nome — e o conserto tentador
+vira **acrescentar uma chamada só para satisfazer o guard**, que é pior que o defeito original,
+porque deixa o vermelho verde sem fechar nada e a próxima pessoa confia no verde.
+
+### O conserto — família de formas, não lista de nomes
+
+Agora reconhece o **vocabulário de autorização** da casa, aberto a escritas novas: legibilidade
+(`…Legivel…`) · membership (`…Membro…`/`isMember`) · representação (`canRepresent…`/`canActAs…`) ·
+gate de dono (`require…Permission`/`require…Owner…`).
+
+📌 **E a mensagem de falha passou a dizer como estender HONESTAMENTE:** se você já autoriza e o
+guard não reconheceu, **estenda o vocabulário do guard — nunca fabrique uma chamada para agradá-lo.**
+Sem essa frase, o caminho mais curto para o verde é mentir, e guard que premia mentira é pior que
+guard nenhum.
+
+⚠️ Prova vermelha refeita depois da generalização (retirando a autorização de `/members`): mordeu,
+com a mensagem nova, e voltou verde ao restaurar.
+
+### 📌 ESTADO
+
+`runner 256 COMMANDS OK`. **Nenhum código de produção alterado** — a fatia inteira foi conserto de
+ferramenta minha. Δbank = 0.
+
 ## ↩️ DESFAZER — o dono podia "recusar" reserva COM O ITEM JÁ ENTREGUE (2026-08-05, direção)
 
 Família **#19** do inventário de `ARQUITETURA/` — a lei que Clayton promulgou lá como *"pense nos

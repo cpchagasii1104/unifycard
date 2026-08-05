@@ -48,19 +48,28 @@ for (const abertura of aberturas) {
   const corpo = codigo.slice(inicio, fim);
   const caminho = abertura[2];
 
-  const usaRegraCompartilhada = /\bgrupoLegivelPor\s*\(/.test(corpo);
-  const verificaMembership = /\bisMember\b|\behMembroDoGrupo\s*\(/.test(corpo);
-  // ⚠️ Gate de DONO/REPRESENTANTE também cobre, e cobre MAIS: `requireGroupOwnerOrPermission`
-  // exige representar o actor do grupo ou ter permissão RBAC sobre ele — estritamente mais
-  // fechado que ser membro. A 1ª versão deste guard não conhecia essa forma e acusou
-  // `GET /:id/invites`, que está CERTO. Guard que ignora a forma mais estrita transforma código
-  // correto em dívida falsa, e dívida falsa gasta a confiança que o vermelho verdadeiro precisa.
-  const gateDeDono = /\brequireGroupOwnerOrPermission\s*\(/.test(corpo);
+  // 🔴 FAMÍLIA DE FORMAS, NÃO LISTA DE NOMES (corrigido 2026-08-05, 3ª versão).
+  //
+  // A v2 exigia QUATRO nomes literais (`grupoLegivelPor`, `isMember`, `ehMembroDoGrupo`,
+  // `requireGroupOwnerOrPermission`). Isso reprova código CORRETO escrito com outro nome — e o
+  // conserto tentador vira **acrescentar uma chamada só para satisfazer o guard**, que é pior que
+  // o defeito original. É a mesma doença que este projeto persegue: ler NOME em vez de SUBSTÂNCIA.
+  // Aconteceu duas vezes em guards meus no mesmo dia (aqui e no de desfazer), sempre pelo mesmo
+  // motivo: **guard escrito DEPOIS do conserto nasce descrevendo o conserto, não a regra.**
+  //
+  // Agora reconheço o VOCABULÁRIO de autorização desta casa, aberto a escritas novas:
+  //   · legibilidade  → …Legivel…            (grupoLegivelPor, ehLegivelPara, …)
+  //   · membership    → …Membro… / isMember   (ehMembroDoGrupo, isMember, …)
+  //   · representação → canRepresent… / canActAs…
+  //   · gate de dono  → require…Permission / require…Owner…
+  const FORMAS_DE_AUTORIZACAO =
+    /\b(?:\w*Legivel\w*|\w*Membro\w*|isMember|canRepresent\w*|canActAs\w*|require\w*(?:Permission|Owner\w*))\s*\(|\bisMember\b/;
+  const autorizado = FORMAS_DE_AUTORIZACAO.test(corpo);
 
-  if (!usaRegraCompartilhada && !verificaMembership && !gateDeDono) {
+  if (!autorizado) {
     violacoes.push(
-      `GET '${caminho}': lê um grupo específico e NÃO passa por grupoLegivelPor() nem por ` +
-      `verificação de membership — irmão descoberto`
+      `GET '${caminho}': lê um grupo específico e NÃO passa por NENHUMA forma de autorização ` +
+      `reconhecida (legibilidade · membership · representação · gate de dono) — irmão descoberto`
     );
   }
 }
@@ -77,11 +86,20 @@ if (aberturas.length === 0) {
 if (violacoes.length > 0) {
   console.error(`\n❌ GATE FAIL [${NOME}] — ${violacoes.length} de ${aberturas.length} irmão(s) sem a regra:\n`);
   for (const v of violacoes) console.error(`   · ${v}`);
-  console.error('');
+  console.error(
+    `\n   EM VEZ: chame a regra compartilhada de legibilidade do módulo, ou faça verificação\n` +
+    `   explícita de membership/representação antes de ler o grupo.\n\n` +
+    `   ⚠️ SE VOCÊ JÁ AUTORIZA e o guard não reconheceu, o conserto é ESTENDER O VOCABULÁRIO\n` +
+    `   deste guard (a constante FORMAS_DE_AUTORIZACAO) — NUNCA acrescentar uma chamada só para\n` +
+    `   satisfazê-lo. Chamada fabricada para agradar guard é pior que o defeito original: deixa\n` +
+    `   o vermelho verde sem fechar nada, e a próxima pessoa confia no verde.\n`
+  );
   process.exit(1);
 }
 
 console.log(
   `✅ GATE OK [${NOME}] — ${aberturas.length} rota(s) GET escopada(s) a um grupo específico, ` +
-  `todas passando pela mesma regra de legibilidade (grupoLegivelPor ou membership explícito).`
+  `todas passando por alguma forma reconhecida de autorização ` +
+  `(legibilidade · membership · representação · gate de dono). O guard reconhece a FAMÍLIA de ` +
+  `formas, não uma lista fechada de nomes.`
 );
