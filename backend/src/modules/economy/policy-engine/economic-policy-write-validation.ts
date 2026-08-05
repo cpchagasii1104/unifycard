@@ -61,7 +61,11 @@ const DESTINATION_TYPES: readonly EconomicPolicyDestinationType[] = [
 // ║ NORMA:   economic-policy.types.ts (REGIONAL_*_RESOLVABLE_MVP, guard-policiada); resolver
 // ║          byte-pinned continua a autoridade de comportamento
 // ║ NÃO:     tratar os 7/5 valores abaixo como "publicáveis" — é só o CHECK físico do Postgres
-// ║ EM VEZ:  assertLineShapeValid abaixo já rejeita no publish via REGIONAL_*_RESOLVABLE_MVP
+// ║ EM VEZ:  assertLineShapeValid rejeita no publish: REGIONAL_*_RESOLVABLE_MVP para os campos
+// ║          REGIONAIS, e DESTINOS_PAGAVEIS (espelho do executor) para destinationType.
+// ║          ⚠️ Corrigido 2026-08-05: esta linha dizia que REGIONAL_*_RESOLVABLE_MVP cobria o
+// ║          não-resolvível em geral. Era PARCIALMENTE FALSO — aquelas listas nunca olharam
+// ║          destino, e por isso `referrer_actor_wallet` era publicável e impagável ao mesmo tempo.
 // ╚════════════════════════════════════════════════════════════════
 /** Enum canônico DECISION-0049 (migration 20260530567000). */
 const REGIONAL_ORIGIN_BASIS_VALUES: readonly RegionalOriginBasis[] = [
@@ -247,6 +251,41 @@ function assertLineShapeValid(line: PolicyLineRequestBody, idx: number): void {
   ) {
     throw HttpError.badRequest(
       `economic_policy: linha ${idx} — destinationType inválido: ${String(line.destinationType)}.`
+    );
+  }
+  // 🔴 O ESCRITOR ACEITAVA O QUE O EXECUTOR RECUSA (corrigido 2026-08-05).
+  //
+  // `DESTINATION_TYPES` acima é o CHECK FÍSICO do Postgres — o que a coluna aceita, não o que o
+  // sistema sabe PAGAR. A execução (`service-payment-execution`) tem um conjunto MENOR e lança
+  // `POLICY_DESTINATION_UNSUPPORTED` fora dele. Resultado antes desta trava: dava para publicar uma
+  // linha com destino `referrer_actor_wallet` pelo painel de admin, a publicação aceitava, **e todo
+  // pagamento daquela política passava a falhar** — porque o erro derruba a transação inteira, não
+  // só a linha. Configuração administrativa que quebra pagamento é o pior tipo de armadilha: quem
+  // configura não é quem descobre.
+  //
+  // ⚠️ A migalha no topo deste arquivo dizia que `assertLineShapeValid` já rejeitava o não-resolvível
+  // "via REGIONAL_*_RESOLVABLE_MVP". **Era parcialmente falso**: aquelas listas cobrem campos
+  // REGIONAIS (basis e nível), nunca destino. Comentário que promete garantia inexistente é pior que
+  // comentário ausente — corrigi a migalha junto.
+  //
+  // Este conjunto é ESPELHO do executor. Ele encolhe o publicável, nunca amplia: só entra aqui o que
+  // o motor já sabe transformar em conta. Habilitar `referral` é frente própria (o resolvedor de
+  // `referrer_actor_wallet` não existe), e o dono decide quando.
+  const DESTINOS_PAGAVEIS: readonly string[] = [
+    'receiver_actor',
+    'actor_wallet',
+    'platform_fees',
+    'risk_reserve',
+    'escrow_payments',
+    'regional_fund',
+  ];
+  if (!DESTINOS_PAGAVEIS.includes(line.destinationType)) {
+    throw HttpError.badRequest(
+      `economic_policy: linha ${idx} — destinationType '${line.destinationType}' é aceito pela ` +
+        `coluna mas o motor de pagamento AINDA NÃO sabe resolvê-lo em conta. Publicar assim faria ` +
+        `todo pagamento desta política falhar (POLICY_DESTINATION_UNSUPPORTED). ` +
+        `Pagáveis hoje: ${DESTINOS_PAGAVEIS.join(', ')}. ` +
+        `Habilitar referral/group_allocation/channel_commission exige a frente que cria o resolvedor.`
     );
   }
   if (

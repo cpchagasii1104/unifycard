@@ -23,6 +23,7 @@ const CMDS = [
   "node scripts/audit-substrate-has-consumer.mjs",
   "node scripts/audit-agreements-schema-ghost-containment.mjs",
   "node scripts/audit-undo-siblings-same-state-gate.mjs",
+  "node scripts/audit-policy-destination-writer-matches-executor.mjs",
   "node scripts/audit-migration-runner-isolation.mjs",
   "node scripts/audit-official-database-lock.mjs",
   "node scripts/audit-auth-rate-limit-substrate.mjs",

@@ -1,5 +1,73 @@
 # REMEDIATION DT LOG
 
+## 💸 A INDICAÇÃO — o painel deixava publicar uma linha que QUEBRARIA todo pagamento da política (2026-08-05, direção)
+
+Fui verificar uma ponta de PRODUTO que é decisão de Clayton: ele mandou que a indicação tivesse
+percentual e prazo **ajustáveis no painel**. Eu já tinha feito o motor honrar a base e o prazo sair
+do código. **Ela paga hoje?**
+
+### 📊 A medição
+
+```
+node → economic_policy_lines por tipo: revenue_share 45 · platform_fee 36 · reserve 1 · regional_fund 1
+       linhas de indicação: ZERO (de 83)
+       user_referral_links: 3 vínculos REAIS
+```
+
+**A indicação continua não pagando**, com 3 pessoas que já indicaram alguém.
+
+### ✅ O trilho está meio pronto — e o pagamento é FAIL-CLOSED
+
+· o CHECK do banco **aceita** `line_type='referral'` e `destination_type='referrer_actor_wallet'` ✅
+· o prazo é configurável por linha (fatia de hoje cedo) ✅
+· o motor honra a base declarada (0194 D2/D4) ✅
+· 🔴 **mas NADA resolve `referrer_actor_wallet` em conta** — não existe resolvedor;
+· ✅ **e a execução é fail-closed**: destino não suportado lança `POLICY_DESTINATION_UNSUPPORTED`.
+  **A indicação não paga, mas também não paga errado.**
+
+### 🔴 O DEFEITO — o escritor aceitava o que o executor recusa
+
+A validação de publicação conferia o destino contra o **CHECK físico do Postgres** (11 valores) —
+não contra o que o motor sabe pagar (6). Consequência: **dava para publicar, pelo painel de admin,
+uma linha de indicação. A publicação aceitava. E todo pagamento daquela política passava a falhar**
+— porque `POLICY_DESTINATION_UNSUPPORTED` derruba a **transação inteira**, não só a linha.
+
+> **Configuração administrativa que quebra pagamento é o pior tipo de armadilha: quem configura não
+> é quem descobre.** O admin vê *"salvo com sucesso"*; o defeito aparece no primeiro pagamento real,
+> longe dali, sem ninguém ligar uma coisa à outra.
+
+⚠️ **E havia uma migalha PROMETENDO a garantia que não existia.** O cabeçalho do arquivo dizia que
+`assertLineShapeValid` já rejeitava o não-resolvível *"via REGIONAL_*_RESOLVABLE_MVP"*. **Parcialmente
+falso:** aquelas listas cobrem campos **regionais** (basis e nível) e **nunca olharam destino**.
+Comentário que promete garantia inexistente é pior que comentário ausente — corrigi os dois.
+
+### O conserto — espelho do executor, que só encolhe
+
+`DESTINOS_PAGAVEIS` na validação de escrita, espelhando o conjunto do executor. Recusa no publish,
+com mensagem dizendo **por quê** e **o que falta** (o resolvedor). ⚠️ O arquivo do executor é
+**byte-pinned** — só LI, não toquei.
+
+### 🛡️ `audit-policy-destination-writer-matches-executor.mjs` (runner 256 → **257**)
+
+Invariante: **publicável ⊆ pagável**. Encolher o publicável é sempre seguro; ampliar sem resolvedor
+é armar a bomba. A ordem correta fica escrita na mensagem de falha: **primeiro o resolvedor no
+executor, depois o destino entra no publicável** — a ordem inversa entrega ao admin um botão que
+quebra pagamento.
+
+📌 Ele também reporta a assimetria **segura** (executor sabe pagar mais do que o painel deixa
+configurar) em vez de tratá-la como erro — e **falha se não conseguir LER** qualquer um dos dois
+conjuntos: não conseguir medir não é aprovação.
+
+### ⛔ O QUE CONTINUA SENDO DE CLAYTON
+
+**Habilitar a indicação de fato** exige o resolvedor de `referrer_actor_wallet` — e ele nasceria no
+arquivo **byte-pinned** da campanha B-CITY. É frente própria, com GATE. O que mudou hoje: antes,
+tentar configurar quebrava pagamento em silêncio; **agora o sistema recusa na hora, explicando.**
+
+### 📌 ESTADO
+
+`runner 257 COMMANDS OK` · `typecheck BE 0` · prova vermelha forçada. Δbank = 0.
+
 ## 🛑 TENTEI GENERALIZAR A VARREDURA DE LEITURA E **PAREI** — a ferramenta não chegou ao padrão (2026-08-05, direção)
 
 O método que funcionou nos grupos (*fatiar o conjunto: toda rota GET escopada a um recurso passa
