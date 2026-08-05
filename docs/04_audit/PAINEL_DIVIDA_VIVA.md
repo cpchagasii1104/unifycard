@@ -28,12 +28,14 @@
 
 | métrica | valor | como foi medido |
 |---|---|---|
-| `validate:regression-guards` | ✅ **246 COMMANDS OK** · drift **0** | `npm run`, banco `unificard_dev` |
+| `validate:regression-guards` | ✅ **253 COMMANDS OK** · drift **0** | `npm run`, banco `unificard_dev` — **+7 no dia** (246 → 253) |
 | `typecheck` backend + frontend | ✅ **0 erros** | `tsc --noEmit` nos dois |
-| Gate `schema-coherence` | ⚠️ **1188 chaves congeladas, gate VERDE** — antes `FAIL 1776`, fora do runner | agora **DENTRO do runner** via `audit-schema-coherence-ratchet.mjs` (`5feeb3de5`) |
-| `schema_migrations` (`unificard_dev`) | **567** aplicadas | query direta, 2026-08-05 |
+| Gate `schema-coherence` | ⚠️ **1174 chaves congeladas, gate VERDE**. `GHOST-WRITE-vivo` **252** (desceu 1 hoje) | `audit-schema-coherence-ratchet.mjs`, dentro do runner |
+| 🔴 **RLS — o denominador que ninguém calculava** | **239** tabelas com `tenant_id` · **128 SEM RLS** · 0 com RLS sem policy. E o app conecta como **`postgres` (superusuário, `bypassrls`)**, então as 111 conformes **não bloqueiam nada em runtime**. A role dedicada `unificard_app` existe e não é a usada. ⛔ **DECISÃO DE CLAYTON** — ligar as 128 antes de garantir contexto de tenant em cada query troca vazamento por **apagão silencioso** | query direta, 2026-08-05 |
+| `schema_migrations` (`unificard_dev`) | **569** aplicadas | query direta, 2026-08-05 |
 | Banco oficial | **`unificard_dev`** · **338** tabelas · trava fail-closed viva | query direta, 2026-08-05 |
 | `bank_ledger` · `bank_transactions` · `bank_splits` | **16 · 8 · 0** | query direta, 2026-08-05 |
+| ✅ **SSOT do dinheiro de grupo** | `group_accounts.balance_cents` **ELIMINADA** (GO de Clayton) + `EVENT TRIGGER` que **recusa** recriá-la. Varredura completa: 3 colunas de saldo fora de `bank_*`, só 1 era violação — `ledger_snapshots` é **projeção** do `bank_ledger` (verificada na query do worker), `impact_balances` é pontuação social | migration `20260805190000`, verificada no banco |
 | ⚠️ **o Bank deixou de ser zero — e é DE PROPÓSITO** | R$ 1.000,00 emitidos para teste (autorização de Clayton, 2026-08-04) pelo caminho real do Bank (`liquidity_issuance`, partida dobrada). **Não é dinheiro fictício**: o ledger recusa apagar, e por isso não se marca dinheiro como falso. Saída existe: `recolher-recursos-dev.ts`. **`bank_splits` segue 0 — nenhuma fatia de hoje moveu dinheiro (Δbank=0 em todas).** | `semear-recursos-dev.ts` |
 | Dado curado intacto | **75 bairros · 48 policies** | query direta, 2026-08-05 |
 
@@ -227,6 +229,48 @@ Sem essa resposta, cada tabela vira pesquisa. Com ela, a cauda de 26 módulos é
 > 556 mede quanto o projeto já nomeou; 8 mede o que está quebrado agora.
 
 ## 🗓️ REGISTRO DE SESSÕES — o que cada fatia mudou no placar
+
+### 🟢 SESSÃO 2026-08-05 (tarde) — INVENTÁRIO DE `ARQUITETURA/` VIRA BUSCA · 12 commits · runner 246 → **253**
+
+**Método:** Clayton mandou usar o aprendizado da pasta `ARQUITETURA/` para corrigir o sistema. O
+inventário de **19 famílias de defeito** de lá virou **busca executável** aqui. Medi **8 famílias**.
+
+**Correção de rumo dele no meio da sessão, e ela mudou o trabalho:** *"Espero que já esteja
+corrigindo ao invés de ficar registrando como dívida técnica."* Eu tinha congelado 65 `catch`
+permissivos num teto e chamado de "dívida com saída". **Teto é adiamento com data melhor.** Fui pagar.
+
+**🔧 CONSERTADO (produto, não documento):**
+· `GET /groups?visibility=secret` **listava grupos secretos** — e fechar a vitrine não bastou: com o
+  id, ainda se lia o grupo inteiro, os membros e **os totais econômicos**. `/economy` era a **porta
+  dos fundos** de `/balance`. Resposta para secreto agora é **404, não 403** (403 confirma existência)
+· **31 regras de negócio** que chegavam como **HTTP 500 em inglês** → erro tipado
+· **conta de grupo nunca pôde existir**: 3 queries citando colunas inexistentes; o tipo TS
+  **declarava as colunas erradas** e por isso compilava — tipo é afirmação, não checagem
+· um `catch { return false }` **abria o portão da fase econômica** (falha de leitura ⇒ "não há
+  reserva" ⇒ avança). Os dois pré-requisitos irmãos não engoliam: o engolidor era o ímpar
+· `actor_active_location`: prazo **escrito** e **nunca honrado** na leitura
+· feed cultural dizia *"não há"* quando estava **quebrado** (tabela ausente ⇒ 200 com lista vazia)
+· **8 `catch`** que afirmavam ausência (fornecedor, estoque, coluna de schema) → propagam
+· `INSERT` em tabela fantasma a **cada empresa criada**, com comentário mentindo (*"migration pode
+  não ter rodado"* — não existe migration)
+
+**🛡️ 5 guards novos**, todos com prova vermelha nos DOIS sentidos: visibilidade de descoberta ·
+irmãos de leitura · teto de `catch` permissivo · porta de saída com gatilho · worker com partida ·
+tabela com `tenant_id` nasce com RLS.
+
+**🔴 RETRATAÇÕES — defeito que não existe custa igual:**
+· *"8 workers com zero callers"* (estava na minha carta E no inventário) é **FALSO**: greps escopados
+  em `src/`, e o boot mora em `BOOT.ts` **fora de `src/`**. São **26 de 26 com partida**. Caiu porque
+  o banco me desmentiu no meio da medição — `ledger_snapshots` ganhou 3 linhas **enquanto eu contava**
+· *"Δbank = 0 em todas as fatias"* lê-se como "o arco não tocou o Bank": ele **escreveu**, uma vez,
+  com GO
+· eu ia construir guard de tabela-fantasma — **já existia**, mais completo. A pergunta *"onde isso já
+  existe?"* vale para **guards** também
+
+**⚖️ O que NÃO fiz, de propósito:** 4 famílias estavam **sadias ou já vigiadas** (descobribilidade
+175/175 · partida de workers 26/26 · prazos 12/15 · writer único de evento). Registrar isso é metade
+do valor: impede a próxima instância de "consertar" o que funciona.
+
 
 ### 🟢 SESSÃO 2026-08-04/05 — FRICÇÃO DE USO DE CLAYTON · 21 commits · runner 238 → **246**
 
