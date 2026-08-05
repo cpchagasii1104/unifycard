@@ -71,7 +71,9 @@ class PilotEventsService {
       return await pilotEventsRepository.list(tenantId, options);
     } catch (error) {
       console.warn('[PilotEvents] Erro ao listar eventos:', error);
-      return [];
+      // Antes: return []  ("nao ha eventos"). Erro de leitura virava afirmacao de ausencia — some sem alarme.
+      // Zero e uma afirmacao; desconhecido e a verdade, e desconhecido tem que APARECER.
+      throw error;
     }
   }
 
@@ -90,7 +92,9 @@ class PilotEventsService {
       return await pilotEventsRepository.count(tenantId, eventType);
     } catch (error) {
       console.warn('[PilotEvents] Erro ao contar eventos:', error);
-      return 0;
+      // Antes: return 0  ("zero eventos"). Erro de leitura virava afirmacao de ausencia — some sem alarme.
+      // Zero e uma afirmacao; desconhecido e a verdade, e desconhecido tem que APARECER.
+      throw error;
     }
   }
 }

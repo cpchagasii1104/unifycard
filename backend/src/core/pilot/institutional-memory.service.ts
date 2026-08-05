@@ -46,7 +46,9 @@ class InstitutionalMemoryService {
       return await institutionalMemoryRepository.list(tenantId, options);
     } catch (error) {
       console.warn('[InstitutionalMemory] Erro ao listar declarações:', error);
-      return [];
+      // Antes: return []  ("nao ha declaracoes"). Erro de leitura virava afirmacao de ausencia — some sem alarme.
+      // Zero e uma afirmacao; desconhecido e a verdade, e desconhecido tem que APARECER.
+      throw error;
     }
   }
 
@@ -85,7 +87,9 @@ class InstitutionalMemoryService {
       return await institutionalMemoryRepository.softDelete(tenantId, declarationId);
     } catch (error) {
       console.warn('[InstitutionalMemory] Erro ao deletar declaração:', error);
-      return false;
+      // Antes: return false — falha de escrita virava "nao apagou/nao existia", indistinguiveis.
+      // A irma updateDeclaration deste mesmo arquivo JA propaga: uma regra, nao duas.
+      throw error;
     }
   }
 }

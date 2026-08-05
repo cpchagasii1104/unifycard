@@ -480,7 +480,9 @@ class DecisionSimulationService {
       return balance.quantity;
     } catch (error) {
       console.warn(`[Simulation] Erro ao buscar estoque:`, error);
-      return 0;
+      // 🔴 Antes: return 0 — "estoque zerado". A simulacao decide compra e reposicao a partir
+      // disso: falha de leitura viraria recomendacao de comprar. Desconhecido nao e zero.
+      throw error;
     }
   }
 
@@ -515,7 +517,9 @@ class DecisionSimulationService {
       return stockQuantity * unitCost * averageAgingDays * dailyHoldingRate;
     } catch (error) {
       console.warn(`[Simulation] Erro ao estimar holding cost:`, error);
-      return 0;
+      // 🔴 Antes: return 0 — custo de carregar estoque sairia "de graca" em caso de erro, o que
+      // enviesa toda comparacao de cenario para o lado de estocar mais.
+      throw error;
     }
   }
 

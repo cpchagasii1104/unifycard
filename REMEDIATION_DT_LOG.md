@@ -1,5 +1,68 @@
 # REMEDIATION DT LOG
 
+## ✅ FAMÍLIA 14 — PAGAR a dívida em vez de congelar: 8 sítios corrigidos, e o teto virou 11 (2026-08-05, direção)
+
+**Correção de rumo de Clayton, e ela estava certa:** *"Espero que já esteja corrigindo ao invés de
+ficar registrando como dívida técnica."* Eu havia congelado 65 `catch` permissivos num teto e
+chamado de *"dívida com saída"*. **Teto é adiamento com data melhor, não conserto.** Fui pagar.
+
+### O que foi CORRIGIDO (8 sítios, todos propagando o erro agora)
+
+| sítio | o que o valor permissivo afirmava |
+|---|---|
+| `event-rfq-matching.service.ts` | `[]` ⇒ **"NENHUMA empresa compatível"** — quem procura fornecedor via tela vazia e conclui que não existe fornecedor |
+| `schema-validator.ts` | `false` ⇒ *"a coluna não existe"*. Falso: o que houve foi **não conseguir olhar**. O chamador desligava funcionalidade por engano, e o erro nem entrava no cache |
+| `decision-simulation.service.ts` (estoque) | `0` ⇒ **"estoque zerado"** — a simulação decide compra e reposição a partir disso; falha de leitura viraria recomendação de comprar |
+| `decision-simulation.service.ts` (holding cost) | `0` ⇒ custo de estocar sai **de graça**, enviesando toda comparação de cenário |
+| `pilot-events.service.ts` ×2 | `[]` e `0` ⇒ "não há eventos" |
+| `institutional-memory.service.ts` ×2 | `[]` ⇒ "não há declarações"; `false` ⇒ "não apagou/não existia", indistinguíveis. ⚠️ A **irmã** `updateDeclaration` do mesmo arquivo **já propagava** — uma regra, não duas |
+
+### 🔴 O ACHADO QUE MUDOU O ALVO — e ignorá-lo teria PIORADO o sistema
+
+Ao ir consertar os `return false` restantes, descobri que a maioria está em **checagem de
+autorização** (`canRepresentActor`, `userCanActOn`, `represents`). **Ali `false` significa NEGAR —
+é fail-CLOSED, a resposta segura.** "Consertá-los" transformaria negação em permissão.
+
+**Eu teria melhorado a métrica piorando o sistema** — o vício exato que este repositório cataloga.
+O guard foi corrigido: o teto persegue **só `[]` e `0`**, que não têm ambiguidade (são sempre
+afirmação de ausência), e `return false` sai para uma linha **informativa** com a razão escrita.
+`src/scripts/` também saiu: harness monta fixture de propósito.
+
+### 📊 O número honesto, e ele não vai a zero
+
+```
+65 (contagem antiga, misturando três coisas)
+→ 8 CORRIGIDOS
+→ teto agora = 11 (só `[]`/`0`, fora de src/scripts/) + 16 fail-closed informativos
+```
+
+**Dos 11 que restam, 4 são verificadamente CORRETOS** e não devem mudar: `migrate.ts` checa
+`ENOENT` **tipado** · `event-outbox.processor.ts` checa `42P01` **tipado** · `auth-rate-limit` é
+fail-open **decidido**, com DT nomeada e guard próprio · `user-group-allocation` é módulo revogado
+e contido, com guard próprio. **Dívida real restante ≈ 7.**
+
+⚠️ **Digo isto explicitamente para ninguém perseguir o zero:** um `catch` específico e tipado é
+tratamento correto de erro, não dívida. O que a família condena é o `catch` **cego** que responde
+com o valor permissivo.
+
+### 🔴 DOIS ERROS MEUS NESTA FATIA
+
+**1. Meu listador reportava LINHAS ERRADAS.** O `semTexto` trocava comentário multi-linha por UM
+espaço, colapsando linhas e deslocando toda a numeração seguinte. **Eu quase editei arquivo com
+base em linha errada.** Corrigido: cada caractere removido vira espaço, cada `\n` é mantido.
+
+**2. CRLF, de novo — e a variante inversa.** `marketplace-search.service.ts` é **nativamente CRLF
+no índice** (`i/crlf`). Normalizar para LF gerou diff de **1071 linhas** à toa. Devolvi o CRLF, e
+aí `git diff --check` passou a acusar QUALQUER linha adicionada — propriedade do arquivo, não do
+código (a verificação autoritativa é `git ls-files --eol`). Como era a menor melhoria do lote
+(um log numa migalha de navegação), **revertі por edição** — e não com `git checkout`, que foi
+justamente o que apagou meu trabalho hoje de manhã.
+
+### 📌 ESTADO
+
+`runner 251 COMMANDS OK` · `typecheck BE 0` · `git diff --check` limpo · 6 arquivos, diff cirúrgico.
+**Nenhuma operação de dinheiro.**
+
 ## ⏳ FAMÍLIA 12 — porta de saída SEM GATILHO: o prazo que ninguém honrava (2026-08-05, direção)
 
 Família #12 do inventário de `ARQUITETURA/`: *"estado terminal / `expires_at` sem worker que o

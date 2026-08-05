@@ -135,10 +135,12 @@ class EventRFQMatchingService {
       // ⚠️ NOTA: runQueriesWithTenant retorna T[], não precisa verificar result.rows
       return results;
     } catch (error: any) {
-      // Se a query falhar (ex: tabela não existe), retornar lista vazia
-      // ⚠️ NOTA: Isso permite que o sistema continue funcionando mesmo sem matching
-      console.warn('[EventRFQMatching] Erro ao buscar empresas compatíveis (não bloqueante):', error.message);
-      return [];
+      // 🔴 Antes: return [] — falha de query virava "NENHUMA empresa compativel".
+      // Quem procura fornecedor ve tela vazia e conclui que nao existe fornecedor. O sistema
+      // "continuava funcionando" no sentido de nao quebrar, e no sentido que importa (achar
+      // fornecedor) estava quebrado em silencio — que e a pior forma de estar quebrado.
+      console.error('[EventRFQMatching] Erro ao buscar empresas compatíveis:', error.message);
+      throw error;
     }
   }
 

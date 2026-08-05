@@ -51,9 +51,11 @@ export async function columnExists(
     
     return exists;
   } catch (error) {
-    // Em caso de erro, não cachear e retornar false
+    // 🔴 Antes: return false — ou seja, "a coluna nao existe". Falso: o que houve foi NAO
+    // CONSEGUIR OLHAR. Um probe de schema que responde "nao existe" quando falha faz o chamador
+    // desligar funcionalidade por engano, e como o erro nem entra no cache, some a cada chamada.
     console.error(`Erro ao verificar coluna ${schema}.${tableName}.${columnName}:`, error);
-    return false;
+    throw error;
   }
 }
 

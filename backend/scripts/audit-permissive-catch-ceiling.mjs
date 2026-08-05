@@ -33,14 +33,25 @@ const RAIZ = join(import.meta.dirname, '..', 'src');
 const NOME = 'permissive-catch-ceiling';
 
 /**
- * 🔴 Teto MEDIDO em 2026-08-05, depois de corrigir os 3 sítios da fatia. Só pode DESCER.
+ * 🔴 O TETO MEDE `return []` e `return 0` — NÃO `return false`. A distinção não é detalhe: é a
+ * diferença entre apertar o sistema e afrouxá-lo.
  *
- * ⚠️ Este número foi medido, não estimado — e a diferença apareceu na primeira execução. Eu havia
- * escrito `106` de cabeça; o guard reprovou dizendo "65 < 106, baixe o teto". **Teto inventado é
- * folga**: teria deixado 41 regressões entrarem de graça antes do primeiro vermelho. O ramo que me
- * pegou é o mesmo que impede alguém de consertar sítios e esquecer de apertar o teto.
+ * A 1ª versão contava os três juntos e chegou a 65. Ao ir consertar, descobri que a maioria dos
+ * `return false` restantes está em **checagem de autorização** — `canRepresentActor`,
+ * `userCanActOn`, `represents`. Ali `false` significa **NEGAR**, que é fail-CLOSED: a resposta
+ * segura. "Consertar" aqueles transformaria negação em permissão, ou seja, **eu teria melhorado a
+ * métrica piorando o sistema** — que é exatamente o vício que este repositório cataloga.
+ *
+ * `[]` e `0` não têm essa ambiguidade: são sempre AFIRMAÇÃO DE AUSÊNCIA ("não há", "zero"), e
+ * quem lê não distingue de um resultado real. Esses o teto persegue.
+ *
+ * ⚠️ `src/scripts/` fora: harness E2E monta e derruba fixture de propósito.
+ *
+ * 📌 Teto MEDIDO, nunca estimado. Na 1ª execução eu havia escrito `106` de cabeça e o guard
+ * respondeu "65 < 106, baixe o teto" — teto inventado é folga, e teria deixado 41 regressões
+ * entrarem de graça antes do primeiro vermelho.
  */
-const TETO = 65;
+const TETO = 11;
 
 function semTexto(src) {
   return src
@@ -75,8 +86,11 @@ function fimDoBloco(src, abre) {
 
 const lista = arquivos(RAIZ);
 const sitios = [];
+let failClosed = 0; // `return false` — informativo, NÃO entra no teto (ver comentário do TETO)
 
 for (const arquivo of lista) {
+  const curto = arquivo.split(sep).join('/');
+  if (curto.includes('/src/scripts/')) continue;
   const codigo = semTexto(readFileSync(arquivo, 'utf8'));
   const re = /\bcatch\s*(?:\([^)]*\))?\s*\{/g;
   let m;
@@ -85,9 +99,11 @@ for (const arquivo of lista) {
     const fecha = fimDoBloco(codigo, abre);
     if (fecha === -1) continue;
     const bloco = codigo.slice(abre, fecha);
-    if (/\breturn\s+(?:false|\[\s*\]|0)\s*;/.test(bloco)) {
+    if (/\breturn\s+(?:\[\s*\]|0)\s*;/.test(bloco)) {
       const linha = codigo.slice(0, m.index).split('\n').length;
-      sitios.push(`${arquivo.split(sep).join('/')}:${linha}`);
+      sitios.push(`${curto}:${linha}`);
+    } else if (/\breturn\s+false\s*;/.test(bloco)) {
+      failClosed += 1;
     }
   }
 }
@@ -125,6 +141,9 @@ if (total < TETO) {
 }
 
 console.log(
-  `✅ GATE OK [${NOME}] — ${total} \`catch\` permissivo(s) (false/[]/0), exatamente no teto ${TETO}, ` +
-  `medidos por casamento de chaves em ${lista.length} arquivo(s) .ts de src/. O número só pode DESCER.`
+  `✅ GATE OK [${NOME}] — ${total} \`catch\` que AFIRMAM ausência (return []/0), exatamente no ` +
+  `teto ${TETO}; só pode DESCER. Medidos por casamento de chaves, fora de src/scripts/, em ` +
+  `${lista.length} arquivo(s) .ts.\n   ℹ️  ${failClosed} \`catch\` com \`return false\` NÃO entram ` +
+  `no teto: a maioria é checagem de autorização, onde false significa NEGAR (fail-closed, a ` +
+  `resposta segura). Persegui-los transformaria negação em permissão.`
 );
