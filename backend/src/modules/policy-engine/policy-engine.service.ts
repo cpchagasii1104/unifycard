@@ -127,13 +127,15 @@ class PolicyEngineService {
 
     // Buscar perfil de risco do actor
     const { riskDashboardService } = await import('../risk-command-center/risk-dashboard.service');
-    let riskProfile;
-    try {
-      riskProfile = await riskDashboardService.getActorRiskProfile(tenantId, actorId);
-    } catch (err) {
-      // Se não encontrar perfil, retornar avaliações vazias
-      return [];
-    }
+    // 🔴 ANTES: `catch { return [] }` com o comentário "se não encontrar perfil, retornar
+    // avaliações vazias". Num motor de política, lista vazia é **"nenhuma política se aplica"** —
+    // a resposta PERMISSIVA. Qualquer erro de leitura do perfil de risco (não só "não encontrou")
+    // virava liberação silenciosa. E o `catch` não distinguia as duas coisas: ausência de perfil e
+    // falha ao ler o perfil chegavam ao mesmo `[]`.
+    //
+    // ALCANCE (medido 2026-08-05, `grep -rn "policyEngineService\." src`): **zero chamador vivo**.
+    // Gravidade CONTIDA hoje; corrigido porque o motor é candidato natural a religamento.
+    const riskProfile = await riskDashboardService.getActorRiskProfile(tenantId, actorId);
 
     // Buscar trust profile
     const { trustRepository } = await import('../trust/trust.repository');

@@ -1,5 +1,66 @@
 # REMEDIATION DT LOG
 
+## 🕳️ FAMÍLIA 14 — o `catch` que ABRIA um portão de fase econômica (2026-08-05, direção)
+
+A instância de `ARQUITETURA/` ranqueou esta família em **2º lugar** de 19 (*"tira dinheiro de quem
+nem está na requisição"*). Medi no nosso código e o pior caso é mais direto do que "dinheiro":
+**um `catch` que abre um gate.**
+
+### 🔴 O sítio que importa — e o que custou provar
+
+```
+event.routes.ts:2843 → advanceToEconomicPhase → checkCanAdvanceToEconomicPhase
+                     → hasAgendaReservations → catch { return false }
+```
+
+Lá em cima, `false` significa *"não há reserva"* ⇒ o pré-requisito **não** entra em
+`missingPrerequisites` ⇒ `canAdvance = true`. Ou seja: **uma falha transitória de leitura LIBERAVA
+o avanço de fase que o portão existe para bloquear.** Fail-**open**, e mudo — sem exceção, sem 500,
+sem log. O comentário confessava: *"Se serviço não disponível, assumir que não há reservas"*.
+
+🔎 **Os dois pré-requisitos IRMÃOS do mesmo portão** (`hasEconomicPhaseHandoff`,
+`hasInitiatedPayments`) **não têm `catch`** — deixam o erro propagar. O engolidor era o ímpar.
+Conserto: propagar, como os irmãos. **Não** troquei por `return true` (fail-closed cego): a verdade
+não é "há reservas", é **desconhecida**, e desconhecido tem que APARECER.
+
+### 🟠 Os outros dois — gravidade CONTIDA, e digo por quê
+
+Aplicando a regra `ALCANCE:` que este cartório promulgou, em vez de inflar:
+
+| sítio | o que o valor permissivo significava | alcance medido | veredito |
+|---|---|---|---|
+| `social-votes.service.ts` `hasVoted` | falha de leitura ⇒ **"não votou"** | `grep -rn "socialVotesService\."` → **zero chamador** de `hasVoted`; o `hasVoted` que TEM chamador é outro (`votes.repository.ts:367`) e **não engole** | contido |
+| `policy-engine.service.ts` | erro ⇒ **"nenhuma política se aplica"** (a resposta permissiva) | `grep -rn "policyEngineService\."` → **zero chamador** | contido |
+
+Corrigidos assim mesmo: **predicado permissivo em erro é armadilha armada** — nasce inofensivo e
+explode no dia em que alguém o religa. ⚠️ E os dois nomes de `hasVoted` são a armadilha do NOME:
+os chamadores que o `grep` devolve são de outra função homônima.
+
+### 🛡️ O guard — teto que só desce, e ele me pegou inventando o número
+
+`audit-permissive-catch-ceiling.mjs` (runner 249 → **250**). Conta `catch` que devolve
+`false`/`[]`/`0` e congela a contagem.
+
+· **Por que teto e não proibição:** nem todo `catch` permissivo é defeito — `ENOENT` ao ler
+  diretório opcional devolvendo `[]` é correto. Distinguir exige **ler o sítio**, e guard não lê.
+  Então o guard não julga: obriga a descer. Teto que pode subir é permissão; que só desce é dívida
+  com saída.
+· **Por que casamento de chaves e não janela fixa:** a 1ª medição usou janela de 2500 caracteres à
+  frente do nome da função e atribuiu `catch` de uma função a outra — apontou `isPilotMode` quatro
+  vezes, e ela não tem `catch` nenhum. **Contagem por janela mente quando o arquivo é grande.**
+· 🔴 **Ele reprovou o próprio autor na 1ª execução.** Eu escrevi `TETO = 106` de cabeça; o guard
+  respondeu *"65 < 106, baixe o teto"*. **Teto inventado é folga** — teria deixado 41 regressões
+  entrarem de graça antes do primeiro vermelho. O número agora é medido: **65**.
+· **Dois ramos com prova vermelha:** contagem que SOBE (introduzi um `catch` permissivo sintético →
+  mordeu) e contagem que DESCE sem atualizar o teto (foi o que me pegou). Restauração por
+  **backup**, nunca `git checkout`.
+· **Trava de cegueira:** zero arquivo varrido **FALHA**. Denominador vazio nunca é aprovação.
+
+### 📌 ESTADO
+
+`runner 250 COMMANDS OK` · `typecheck BE 0` · teto permissivo `65/65`.
+**Nenhuma operação de dinheiro** — as três mudanças só fazem erro APARECER onde ele sumia.
+
 ## 🔒 FATIA GRUPOS · PARTE 2 — os IRMÃOS: fechar a vitrine não adiantou, a porta estava aberta (2026-08-05, direção)
 
 **Continuação direta da parte 1.** Fechar `GET /groups?visibility=secret` era necessário e

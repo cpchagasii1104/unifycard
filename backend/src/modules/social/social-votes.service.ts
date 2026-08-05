@@ -281,8 +281,16 @@ export class SocialVotesService {
 
       return !!vote;
     } catch (error) {
-      console.error('Erro ao verificar voto:', error);
-      return false;
+      // 🔴 ANTES: `console.error` + `return false` — falha de leitura virava **"não votou"**.
+      // Num predicado que existe para impedir voto repetido, o valor permissivo é `false`, então
+      // o erro liberava exatamente o que a função deveria barrar. Mudo: sem exceção, sem 500.
+      //
+      // ALCANCE (medido 2026-08-05, `grep -rn "socialVotesService\." src`): **zero chamador vivo**
+      // de `hasVoted` — o serviço é usado só por `castVote` e `getVoteResults`, e o `hasVoted` que
+      // TEM chamador é outro (`votes.repository.ts:367`, que não engole). Logo a gravidade hoje é
+      // CONTIDA, não máxima. Corrigido mesmo assim porque predicado permissivo em erro é armadilha
+      // armada: nasce inofensivo e explode no dia em que alguém o religa.
+      throw error;
     }
   }
 }

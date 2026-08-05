@@ -213,21 +213,30 @@ class EventEconomicPhaseService {
     tenantId: string,
     eventId: string
   ): Promise<boolean> {
-    // Verificar se há availabilities criadas/reservadas para o evento
-    try {
-      const { unifiedAvailabilityService } = await import('@core/availability/unified-availability.service');
-      const { AvailabilityOwnerType } = await import('@core/availability/unified-availability.types');
-      
-      const availabilities = await unifiedAvailabilityService.listAvailabilities(tenantId, {
-        ownerType: AvailabilityOwnerType.EVENT,
-        ownerId: eventId,
-      });
+    // 🔴 O `catch` QUE ABRIA O PORTÃO (corrigido 2026-08-05).
+    //
+    // Havia aqui um `catch` devolvendo `false` com o comentário *"Se serviço não disponível,
+    // assumir que não há reservas"*. Ler a cadeia inteira mostra o que essa suposição fazia:
+    //   `event.routes.ts:2843` → `advanceToEconomicPhase` → `checkCanAdvanceToEconomicPhase`
+    //   → aqui. E lá em cima, `false` significa "não há reserva" ⇒ o pré-requisito NÃO entra em
+    //   `missingPrerequisites` ⇒ `canAdvance = true`.
+    // Ou seja: **uma falha transitória de leitura LIBERAVA o avanço de fase que o portão existe
+    // para bloquear.** Fail-open num gate, e mudo — sem erro, sem log, sem ninguém para notar,
+    // porque o prejudicado (quem tinha a reserva) não está na requisição.
+    //
+    // Não troquei por `return true` (fail-closed cego): a verdade não é "há reservas", é
+    // **desconhecida**, e desconhecido tem que APARECER. Deixar o erro propagar é também o que os
+    // dois pré-requisitos IRMÃOS deste mesmo portão já fazem (`hasEconomicPhaseHandoff` e
+    // `hasInitiatedPayments` não têm `catch`) — uma regra para os três, não duas.
+    const { unifiedAvailabilityService } = await import('@core/availability/unified-availability.service');
+    const { AvailabilityOwnerType } = await import('@core/availability/unified-availability.types');
 
-      return availabilities && availabilities.length > 0;
-    } catch (error) {
-      // Se serviço não disponível, assumir que não há reservas
-      return false;
-    }
+    const availabilities = await unifiedAvailabilityService.listAvailabilities(tenantId, {
+      ownerType: AvailabilityOwnerType.EVENT,
+      ownerId: eventId,
+    });
+
+    return availabilities != null && availabilities.length > 0;
   }
 
   /**
