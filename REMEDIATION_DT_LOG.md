@@ -1,5 +1,66 @@
 # REMEDIATION DT LOG
 
+## ⏳ FAMÍLIA 12 — porta de saída SEM GATILHO: o prazo que ninguém honrava (2026-08-05, direção)
+
+Família #12 do inventário de `ARQUITETURA/`: *"estado terminal / `expires_at` sem worker que o
+dispare"* — **writer pronto, nada dispara**.
+
+### O mapa completo, medido — e a maioria está SADIA
+
+```
+node → 15 tabelas com coluna expires_at/expired_at no banco oficial
+     → 12 têm gatilho · 3 dormentes (zero linha com prazo)
+```
+
+🔎 **Resultado negativo é resultado, e registro os dois bons exemplos:** `actor_delegations` e
+`group_invites` fazem expiração **preguiçosa** correta. Em `group_invites`, as três funções que
+marcam vencido **são as próprias leituras** (`getInviteById`, `getInvitesByGroup`,
+`getInvitesByUser`) — a porta não precisa de worker porque o gatilho está no caminho de leitura.
+**Worker dedicado NÃO é requisito da família; gatilho é.**
+
+### 🔴 O defeito real — `actor_active_location`
+
+`expires_at` é **escrito** pelo `INSERT` do próprio repositório (parâmetro `$8`, valor real do
+caller). As **duas** leituras (`getActive` e `getActiveHydrated`) filtravam **só** `is_active =
+true`. Quem definisse um prazo teria a localização servida **para sempre** depois de vencida.
+
+**ALCANCE:** contido até hoje apenas porque nenhuma linha tem prazo (1 linha, 0 com prazo). **Isso
+é sorte, não desenho** — o writer já aceita a data. Corrigido com gatilho preguiçoso nas duas
+leituras, o mesmo padrão que `actor_delegations` já usa certo neste repositório.
+
+### 🛡️ O guard — e ele descobre as portas sozinho
+
+`audit-expiry-door-has-trigger.mjs` (runner 250 → **251**). **Sem lista fixa de tabelas**: lista
+escrita à mão apodrece em silêncio, e a porta NOVA é justamente a que ninguém lembraria de
+acrescentar. Ele descobre no código quem ESCREVE prazo e exige gatilho só desses.
+
+· **A assimetria é o desenho:** porta que ninguém escreve é coluna dormente e fica de fora; porta
+  que alguém escreve precisa de gatilho — preguiçoso (leitura contra `NOW()`) **ou** varredor.
+· 🔴 **A 1ª versão usou janela de 900 caracteres e acusou `bank_ledger` e `bank_transactions`, que
+  não têm coluna de prazo** — a janela alcançou texto vizinho. **É a MESMA doença que eu tinha
+  acabado de corrigir no guard anterior**, cometida de novo no guard seguinte. Agora a pergunta é
+  estrutural: a coluna está na LISTA DE COLUNAS do `INSERT` ou no `SET` do `UPDATE`?
+· **Harness E2E (`src/scripts/`) fora:** monta fixture de propósito; contá-lo transformava teste em
+  dívida — 4 dos 5 falsos positivos iniciais.
+· **4 contidas por AUSÊNCIA, com a medição colada:** `opportunity_dispatches`, `loyalty_vouchers`,
+  `policy_decisions`, `rides_vehicle_documents` escrevem prazo em tabela que **não existe no
+  banco** (`relação não existe`, 4 de 4) — schema-ghost, dívida de outra família. A lista **só
+  encolhe**: o guard REPROVA entrada que deixou de ser violação, senão viraria permissão.
+· **Trava de cegueira:** zero escrita de prazo encontrada **FALHA**.
+· **Prova vermelha forçada** removendo o gatilho que acabei de pôr: mordeu, restaurou verde.
+
+### 🔴 QUARTA reincidência da mesma armadilha, e ela merece nome
+
+**Crase dentro de template literal.** Meus comentários SQL usavam `` ` `` para citar colunas — e a
+crase **FECHA** a string. Três vezes ontem, uma hoje, com a regra escrita na minha própria carta.
+O bloco agora é sem crase e sem acento, **de propósito e dito no comentário**.
+📌 O padrão da reincidência é claro: **acontece quando eu explico bem.** Quanto mais cuidadosa a
+explicação dentro de SQL, maior a chance de citar um identificador — e citar é crasear.
+
+### 📌 ESTADO
+
+`runner 251 COMMANDS OK` · `typecheck BE 0` · EOL `i/lf w/lf`. **Nenhuma operação de dinheiro.**
+
 ## 🕳️ FAMÍLIA 14 — o `catch` que ABRIA um portão de fase econômica (2026-08-05, direção)
 
 A instância de `ARQUITETURA/` ranqueou esta família em **2º lugar** de 19 (*"tira dinheiro de quem

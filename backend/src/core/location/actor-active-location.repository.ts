@@ -83,7 +83,17 @@ class ActorActiveLocationRepository {
       SELECT id, tenant_id, actor_id, address_id, lat::text AS lat, lng::text AS lng,
              source, scope_level, activated_at, expires_at, is_active, metadata, created_at
       FROM actor_active_location
+      -- PORTA DE SAIDA SEM GATILHO (corrigido 2026-08-05).
+      -- expires_at e ESCRITO pelo INSERT desta mesma classe (parametro $8, valor real do caller)
+      -- e NENHUMA das duas leituras filtrava por ele: so is_active = true. Quem definisse um
+      -- prazo teria a localizacao servida para SEMPRE depois de vencido: prazo decorativo.
+      -- Contido ate hoje so porque nenhuma linha tem prazo definido (medido: 1 linha, 0 com prazo),
+      -- o que e sorte, nao desenho: o writer ja aceita a data.
+      -- Gatilho preguicoso, o mesmo padrao que actor_delegations ja usa certo neste repositorio.
+      -- (Sem crase nem acento neste bloco de proposito: crase FECHA o template literal, e acento
+      --  em comentario SQL ja bastou para quebrar compilacao antes.)
       WHERE tenant_id = $1 AND actor_id = $2 AND is_active = true
+        AND (expires_at IS NULL OR expires_at > NOW())
       LIMIT 1
       `,
       [tenantId, actorId]
@@ -112,7 +122,10 @@ class ActorActiveLocationRepository {
              a.city_id, a.state_id, a.country_id
       FROM actor_active_location aal
       LEFT JOIN addresses a ON a.address_id = aal.address_id
+      -- Mesmo gatilho da leitura irma acima: uma regra, nao duas. Ler a localizacao hidratada e a
+      -- crua com criterios diferentes seria a familia "irmaos" nascendo dentro de um arquivo so.
       WHERE aal.tenant_id = $1 AND aal.actor_id = $2 AND aal.is_active = true
+        AND (aal.expires_at IS NULL OR aal.expires_at > NOW())
       LIMIT 1
       `,
       [tenantId, actorId]
