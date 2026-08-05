@@ -20,6 +20,7 @@
 
 import { economicPolicyRepository } from './economic-policy.repository';
 import type {
+  EconomicPolicyLineAppliesTo,
   EconomicPolicy,
   EconomicPolicyLine,
   PolicyResolutionInput,
@@ -230,13 +231,57 @@ class EconomicPolicyEngineService {
    */
   calculatePolicySplits(
     amountCents: number,
-    lines: EconomicPolicyLine[]
+    lines: EconomicPolicyLine[],
+    /**
+     * 🔴 QUE BASE É ESTE `amountCents`? — OBRIGATÓRIO desde 2026-08-05 (GO de Clayton).
+     *
+     * Até aqui o motor **ignorava `applies_to`** (medido: zero ocorrências neste arquivo) e
+     * aplicava todo bps sobre o valor recebido, fosse ele qual fosse. `DECISION-0194` já
+     * nomeava isso como *"arma carregada para a primeira policy que use outra base"*.
+     *
+     * A primeira chegou: Clayton decidiu que a INDICAÇÃO incide sobre `commission_gross` —
+     * percentual sobre a COMISSÃO, não sobre o bruto. Com o motor cego, uma linha de 10%
+     * pagaria 10% do **valor total** em vez de 10% dos 20% de comissão: **cinco vezes mais**,
+     * sem erro nenhum aparecendo. Não estava acontecendo porque as travas de runtime
+     * financeiro estão OFF — o erro nasceria no dia de ligar, que é o dia em que ninguém
+     * lembraria deste aviso.
+     *
+     * Este parâmetro é o que fecha o buraco: quem chama DECLARA o que está passando, e o
+     * motor recusa calcular se a declaração divergir da base da policy (D4: divergência é
+     * **fail-closed**, nunca correção silenciosa).
+     */
+    baseOfAmount: EconomicPolicyLineAppliesTo
   ): PolicyCalculationResult {
     if (!Number.isInteger(amountCents) || amountCents <= 0) {
       throw new Error('calculatePolicySplits: amountCents deve ser inteiro positivo');
     }
     if (lines.length === 0) {
       throw new Error('calculatePolicySplits: nenhuma linha fornecida');
+    }
+
+    // ── D2: UMA BASE POR POLICY. MISTURAR É PROIBIDO. ──
+    // Com base única, `sum(bps) = 10000` volta a significar conservação REAL de UM valor, e o
+    // drift residual volta a ser o que foi desenhado para ser: centavo de arredondamento. Sem
+    // esta trava, o drift confunde "parcela de outra régua" com "sobra de centavo" e corrompe
+    // dinheiro SEM LANÇAR ERRO — que é a pior forma possível.
+    const basesDeclaradas = Array.from(new Set(lines.map((l) => l.appliesTo)));
+    if (basesDeclaradas.length > 1) {
+      throw new Error(
+        `POLICY_MIXED_BASE: a policy mistura bases (${basesDeclaradas.join(', ')}). ` +
+        'DECISION-0194 D2 proíbe: uma base por policy. O desenho correto para o que parece ' +
+        'exigir mistura é DUAS ETAPAS ENCADEADAS (D3), cada uma fechando 100% do próprio bolo.'
+      );
+    }
+
+    // ── D4: a base declarada tem que ser a base do valor recebido ──
+    const baseDaPolicy = basesDeclaradas[0];
+    if (baseDaPolicy !== baseOfAmount) {
+      throw new Error(
+        `POLICY_BASE_MISMATCH: a policy mede '${baseDaPolicy}' e o valor entregue foi declarado ` +
+        `como '${baseOfAmount}'. Calcular assim mesmo aplicaria o percentual sobre a régua errada ` +
+        '— exatamente o defeito que DECISION-0194 D4 manda tratar como fail-closed, nunca como ' +
+        'correção silenciosa.'
+      );
     }
 
     const sortedLines = [...lines].sort((a, b) => a.priority - b.priority);

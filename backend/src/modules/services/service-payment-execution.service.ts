@@ -609,9 +609,13 @@ class ServicePaymentExecutionService {
         );
       }
 
+      // Base DECLARADA: amountCents do payment request é o BRUTO do pagamento do serviço. A policy
+      // viva deste contexto (legacy_baseline_service_execution) mede gross_transaction — medido
+      // no banco, nao deduzido. Divergencia futura vira erro, nunca calculo sobre regua errada.
       const calc = economicPolicyEngineService.calculatePolicySplits(
         paymentRequest.amountCents,
-        policyResult.lines
+        policyResult.lines,
+        'gross_transaction'
       );
 
       splitRecipients = [];

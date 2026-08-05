@@ -58,7 +58,14 @@ export async function resolveMarketplaceFeeViaPolicy(
     if (result.status !== 'resolved' || !result.policy) {
       return empty(grossAmountCents);
     }
-    const calc = economicPolicyEngineService.calculatePolicySplits(grossAmountCents, result.lines);
+        // Base DECLARADA: o valor passado e o BRUTO da transacao de marketplace (o nome da variavel
+    // ja diz, e a policy viva deste contexto usa gross_transaction — medido, nao suposto).
+    // Se um dia esta policy passar a medir outra base, o motor RECUSA em vez de calcular errado.
+    const calc = economicPolicyEngineService.calculatePolicySplits(
+      grossAmountCents,
+      result.lines,
+      'gross_transaction'
+    );
     const feeSplits = calc.splits.filter((s) => s.lineType !== 'revenue_share');
     const feeAmountCents = feeSplits.reduce((a, s) => a + s.amountCents, 0);
     const feeRateBps = feeSplits.reduce((a, s) => a + (s.bps ?? 0), 0);

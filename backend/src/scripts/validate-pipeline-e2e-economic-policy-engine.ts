@@ -356,7 +356,9 @@ async function main() {
   // ============================================================
   console.log('\n=== T8 — cálculo BPS determinístico ===');
   const baseLines = await economicPolicyRepository.findPolicyLines(TENANT_ID, baseId);
-  const calc = economicPolicyEngineService.calculatePolicySplits(10000, baseLines);
+  // Base declarada = gross: as policies semeadas por ESTE e2e usam a base legada gross (medido no
+  // banco). Nao e gross_transaction — declarar a errada aqui faria o motor recusar, que e o ponto.
+  const calc = economicPolicyEngineService.calculatePolicySplits(10000, baseLines, 'gross');
   assertOk('T8.1 — totalAmountCents preservado', {
     ok: calc.totalAmountCents === 10000,
     reason: 'total alterado',
@@ -415,7 +417,7 @@ async function main() {
       createdAt: new Date().toISOString(),
     },
   ];
-  const driftCalc = economicPolicyEngineService.calculatePolicySplits(333, driftLines);
+  const driftCalc = economicPolicyEngineService.calculatePolicySplits(333, driftLines, 'gross');
   const revShare = driftCalc.splits.find((s) => s.lineType === 'revenue_share')!;
   const platFee = driftCalc.splits.find((s) => s.lineType === 'platform_fee')!;
   assertOk('T9.1 — Σ = total mesmo com drift', {
@@ -433,7 +435,7 @@ async function main() {
   // T10 — soma final exata (já provada em T8.2/T9.1)
   // ============================================================
   console.log('\n=== T10 — invariante soma exata (re-asserção em valor diferente) ===');
-  const calc100 = economicPolicyEngineService.calculatePolicySplits(99_777, baseLines);
+  const calc100 = economicPolicyEngineService.calculatePolicySplits(99_777, baseLines, 'gross');
   assertOk('T10.1 — Σ = 99777 (cents arbitrários)', {
     ok: calc100.splits.reduce((s, x) => s + x.amountCents, 0) === 99_777,
     reason: 'soma diverge para 99777',
@@ -488,7 +490,7 @@ async function main() {
     reason: 'override não aplicado',
     detail: feeLine,
   });
-  const calcWithPass = economicPolicyEngineService.calculatePolicySplits(10000, r11.lines);
+  const calcWithPass = economicPolicyEngineService.calculatePolicySplits(10000, r11.lines, 'gross');
   const revLineWithPass = calcWithPass.splits.find((s) => s.lineType === 'revenue_share')!;
   assertOk('T11.3 — revenue_share absorveu 100% do pagamento (drift via revenue_share)', {
     ok: revLineWithPass.amountCents === 10000,
@@ -559,7 +561,7 @@ async function main() {
     moduleContext: MODULE,
     vertical: 'promo_zero',
   });
-  const calc13 = economicPolicyEngineService.calculatePolicySplits(50_000, r13.lines);
+  const calc13 = economicPolicyEngineService.calculatePolicySplits(50_000, r13.lines, 'gross');
   assertOk('T13.1 — ZERO_FEE: revenue_share 100% (50000 todo)', {
     ok:
       calc13.splits.length === 1 &&

@@ -114,6 +114,8 @@ const CMDS = [
   "node scripts/audit-free-time-single-reader.mjs",
   // F-INBOX-TWO-SIDED: pedido que ninguem ve e formulario escrevendo no vazio (Clayton: pense nos dois lados).
   "node scripts/audit-inbox-covers-every-owner-type.mjs",
+  // F-POLICY-BASE-HONORED: o motor ignorava applies_to — arma carregada para a 1a policy de outra base.
+  "node scripts/audit-policy-base-honored.mjs",
   "node scripts/audit-offering-audience-range.mjs",
   "node scripts/audit-event-staff-commitment-contract.mjs",
   "node scripts/audit-event-staff-single-writer.mjs",

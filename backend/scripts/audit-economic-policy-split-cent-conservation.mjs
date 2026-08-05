@@ -296,7 +296,11 @@ async function main({ forceRed = false } = {}) {
       total += 1;
       const caseLabel = `${cfg.name} × amountCents=${amountCents}`;
       try {
-        const result = economicPolicyEngineService.calculatePolicySplits(amountCents, lines);
+        // Base DECLARADA: as linhas hostis deste guard sao montadas com appliesTo gross_transaction
+        // (linha 82). Passar a base e obrigatorio desde 2026-08-05 — o motor recusa calcular sobre
+        // regua nao declarada (DECISION-0194 D4). Declarar a MESMA base das linhas mantem o teste
+        // medindo conservacao de centavo, que e o que ele existe para medir.
+        const result = economicPolicyEngineService.calculatePolicySplits(amountCents, lines, 'gross_transaction');
 
         // Checks 1-3: guaranteed once the engine returns without throwing (structural — o motor
         // já não deixaria sum!==amountCents, negativo ou overshoot passar sem lançar). Mantidos
@@ -350,7 +354,7 @@ async function main({ forceRed = false } = {}) {
       let thrownMessage = null;
       let result = null;
       try {
-        result = economicPolicyEngineService.calculatePolicySplits(amountCents, cfg.lines);
+        result = economicPolicyEngineService.calculatePolicySplits(amountCents, cfg.lines, 'gross_transaction');
       } catch (e) {
         threw = true;
         thrownMessage = e?.message ?? String(e);

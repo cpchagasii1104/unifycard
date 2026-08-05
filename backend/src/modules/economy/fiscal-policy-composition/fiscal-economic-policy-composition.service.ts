@@ -226,7 +226,11 @@ class FiscalEconomicPolicyCompositionService {
 
     // Reusa calculatePolicySplits (D12: não duplicar motor) por grupo de base positiva.
     for (const { cents, base, group } of positiveGroups.values()) {
-      const result = economicPolicyEngineService.calculatePolicySplits(cents, group);
+      // 🔴 A BASE VIAJA (2026-08-05). Este agrupador SEMPRE soube qual base cada grupo mede — é a
+      // chave do próprio agrupamento (`sel.base`) — e não a passava ao motor, que calculava cego.
+      // Agora passa: se um grupo for montado com base divergente da das suas linhas, o motor
+      // RECUSA (POLICY_BASE_MISMATCH) em vez de aplicar o percentual sobre a régua errada.
+      const result = economicPolicyEngineService.calculatePolicySplits(cents, group, base);
       // calculatePolicySplits reordena por priority; casa split↔linha por id do CalculatedEconomicSplit
       // não existe, então mapeamos pela MESMA ordenação determinística (priority asc, estável).
       const sortedGroup = [...group].sort((a, b) => a.priority - b.priority);

@@ -156,8 +156,30 @@ const BYTE_INTACT = {
   // ocorrência de commission_distributable/tax_reserve/fiscalEconomicPolicyCompositionService no
   // engine (o check B4 abaixo, defesa em profundidade, continua verde por conta própria).
   // B1 é tripwire de mudança, não a fronteira; a fronteira é B4. Hash abaixo = pós-FATIA 0.
-  [F.ENGINE]: 'fbc3a108979124543499ed47f6b678645f50d0a27d3376db9e1e39d756206ee3',
-  [F.SPE]: 'bb3f3fe6b494aac69a9642881f1d929aae9e0787e4f131fb30f88c069ff21050',
+  //
+  // ── 2ª RECONCILIAÇÃO AUTORIZADA PELA DIREÇÃO (2026-08-05, F-POLICY-BASE-HONORED) ──
+  // O tripwire B1 disparou de novo, e de novo CORRETAMENTE: o motor passou a exigir a BASE do
+  // valor (3º parâmetro) e a recusar cálculo quando ela diverge — `DECISION-0194` D2/D4, sob GO
+  // explícito de Clayton, que decidiu que a INDICAÇÃO incide sobre `commission_gross`.
+  //
+  // O motivo material: o motor IGNORAVA `applies_to` e aplicava todo bps sobre o valor recebido.
+  // Com a decisão de Clayton, uma linha de indicação de 10% pagaria 10% do BRUTO em vez de 10%
+  // da comissão — cinco vezes mais, sem erro nenhum aparecendo.
+  //
+  // 🔴 VERIFICAÇÃO DE 1ª MÃO ANTES DE RECONCILIAR, no mesmo método da reconciliação anterior:
+  //   (a) o diff é CIRÚRGICO — 47 linhas no engine (parâmetro + duas travas + nota) e 6 no SPE
+  //       (declarar a base na chamada). Nenhuma outra mudança de comportamento.
+  //   (b) a FRONTEIRA FISCAL que este guard realmente protege segue INTACTA: zero ocorrência de
+  //       `commission_distributable` / `tax_reserve` / `fiscalEconomicPolicyCompositionService`
+  //       nos dois arquivos — medido, não presumido. O check B2 (defesa em profundidade) e o B4
+  //       continuam verdes por conta própria.
+  //   (c) a mudança é ESTRITAMENTE MAIS fail-closed: o motor passou a RECUSAR casos que antes
+  //       calculava calados. Nada foi habilitado; o que havia de permissivo foi fechado.
+  //
+  // Reconciliar pin é ato da DIREÇÃO (CLAUDE.md §5) e foi feito com a verificação acima; o
+  // registro fica aqui para que a próxima instância veja o critério, não só o número novo.
+  [F.ENGINE]: '48d30a9b26f9102243830a8275beae919d85d4d2dcc0d7cedc91f007976da5de',
+  [F.SPE]: '0bd70c07e86addc157db7087bb69793043bddb907a3010fbfdbd79896c5f39b6',
   [F.GUARD_BCITY]: 'd359f18db345137e91d06db1276475250f97e18c1bd4498ad5fab2cbc60387f9',
 };
 for (const [p, expected] of Object.entries(BYTE_INTACT)) {

@@ -155,6 +155,27 @@ export function assertPolicyLinesValid(lines: PolicyLineRequestBody[]): void {
     throw HttpError.badRequest('economic_policy: ao menos uma linha (lines) é obrigatória.');
   }
 
+  // 🔴 D2 — UMA BASE POR POLICY, BARRADA NA ESCRITA (2026-08-05, GO de Clayton).
+  //
+  // O cabeçalho da própria DECISION-0194 registrava a lacuna: *"D2 (base única) é regra — e
+  // `assertPolicyLinesValid` NÃO tem trava de base única"*. Sem ela, o painel aceitava gravar uma
+  // policy com linhas medindo réguas diferentes, e `sum(bps) = 10000` deixava de significar
+  // conservação: o mecanismo de drift — desenhado SÓ para resíduo de centavo — absorveria em
+  // silêncio a fatia pertencente a outra base.
+  //
+  // Barrar aqui é melhor que barrar no cálculo: o admin descobre ao SALVAR, com 400 e mensagem,
+  // e não meses depois quando o dinheiro sair errado. O motor mantém a mesma trava (defesa em
+  // profundidade) — quem grava direto no banco não passa pelo painel.
+  const bases = Array.from(new Set(lines.map((l) => l.appliesTo).filter(Boolean)));
+  if (bases.length > 1) {
+    throw HttpError.badRequest(
+      `economic_policy: a policy mistura bases (${bases.join(', ')}). DECISION-0194 D2: uma base ` +
+      'por policy. O que parece exigir mistura se resolve em DUAS ETAPAS ENCADEADAS (D3) — uma ' +
+      'policy para repartir a venda, outra para distribuir a comissão —, cada uma fechando 100% ' +
+      'do próprio bolo.'
+    );
+  }
+
   let bpsSum = 0;
   let hasBpsLine = false;
   let hasRevenueShare = false;
