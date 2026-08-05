@@ -1,5 +1,65 @@
 # REMEDIATION DT LOG
 
+## 🔐 FAMÍLIA 2/3 (RLS) — o denominador que ninguém calculava, e por que NÃO consertei as 128 (2026-08-05, direção)
+
+### 📊 A MEDIÇÃO — 128 de 239
+
+```
+node → tabelas com tenant_id .......... 239
+       SEM RLS ligada ................. 128
+       RLS ligada SEM policy ..........   0
+       conformes ...................... 111
+```
+
+Existem **8 guards de RLS** neste repositório e **4 no runner** — todos vigiando **grupos
+nomeados** (payout, aprovação/recovery, financeiras/identidade, assets, catálogo). **Nenhum olhava
+a população inteira**, então o buraco crescia por fora da vigilância. Este é o número que faltava.
+
+### 🔴 E O QUE TORNA A MEDIÇÃO PIOR — a role de runtime
+
+```
+node → app conecta como: postgres   (rolsuper=true, rolbypassrls=true)
+       roles disponíveis: unificard_app (NOBYPASSRLS) · unificard_infra · app_role · e2e_rls_probe
+```
+
+**A role dedicada existe e não é a que está em uso.** Enquanto o app conectar como superusuário,
+**as políticas das 111 tabelas conformes não bloqueiam nada** — RLS é decorativa em runtime.
+📌 Isto **já estava nomeado** pelo guard `audit-rls-tenant-context` (*"hoje o app conecta como
+postgres (superuser) que MASCARA o bug"*). Confirmei de 1ª mão em vez de repetir de ouvido.
+
+### ⛔ POR QUE NÃO LIGUEI RLS NAS 128 — e isto não é adiamento
+
+Ligar RLS em massa hoje **armaria** uma bomba em vez de desarmar. Com o app em superusuário, nada
+muda no ato; **no dia em que a role virar `unificard_app`**, toda query sem contexto de tenant passa
+a devolver **zero linhas em silêncio** — o "apagão silencioso" que o guard vizinho já nomeia.
+**Trocaria "vazamento possível" por "apagão silencioso", e o mudo é sempre pior.**
+
+O caminho correto tem ordem: (1) garantir contexto de tenant em cada query · (2) virar a role ·
+(3) ligar RLS. Inverter a ordem quebra o sistema. **É decisão do dono, com GATE — não conserto de
+executora.** Registro o número e o custo para que a decisão seja tomada com os dois na mão.
+
+### ✅ O QUE EU FIZ — estancar o crescimento
+
+`audit-tenant-table-born-with-rls.mjs` (runner 252 → **253**). Tabela nova com `tenant_id` tem que
+habilitar RLS **no mesmo arquivo que a cria**.
+
+· **Mede a MIGRATION, não o banco** — e a razão é do próprio inventário de `ARQUITETURA/`: RLS é
+  `ALTER` posterior ao `CREATE`, e o Postgres **não tem gatilho de COMMIT**. A checagem possível é
+  onde as duas coisas cabem juntas: o arquivo.
+· **Teto medido: 203** criações históricas sem RLS, de 570 migrations (66 nasceram conformes).
+  Não é aprovação das 203 — é a fronteira que impede a **204ª**.
+· **Comentário não conta**: um `-- CREATE TABLE` explicativo não vira criação, e um
+  `-- ENABLE ROW LEVEL SECURITY` prometido em comentário não vira cumprimento.
+· **A mensagem de falha traz o SQL pronto** (ENABLE + FORCE + POLICY). Guard que diz "não" sem
+  dizer "faça isto" é o que faz a próxima IA inventar um terceiro caminho.
+· **Prova vermelha forçada**: criei migration sintética com `tenant_id` sem RLS → **204 > 203**,
+  mordeu; removida, voltou verde. Trava de cegueira: denominador vazio **FALHA**.
+
+### 📌 ESTADO
+
+`runner 253 COMMANDS OK`. **Nenhum código de produção alterado** — a fatia entregou um número que
+não existia, uma trava de nascimento, e uma decisão nomeada com o custo dos dois lados. Δbank = 0.
+
 ## 🔁 FAMÍLIA 11 (partida sem ciclo) — ESTÁ FECHADA, e a afirmação contrária era MINHA (2026-08-05, direção)
 
 ### 🔴 RETRATAÇÃO — "8 workers com zero callers" é FALSO
