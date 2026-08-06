@@ -1,5 +1,57 @@
 # REMEDIATION DT LOG
 
+## 🧹 VARREDURA DE PONTAS SOLTAS — 2026-08-06, fim da jornada (*"ficou alguma pendência?"*)
+
+Clayton perguntou se sobrou pendência do dia. **Sobrou, e a maior parte eu não tinha nomeado.**
+`runner 265 COMMANDS OK` · `tsc` 0/0 · Δbank 0.
+
+### 🔴 O `0` DE BUSCA QUE QUASE VIROU DÍVIDA PAGA POR ENGANO — no mesmo dia da regra
+
+Fui verificar se o gatilho do `DT-RFQ-JSONB-QUOTE-TRAIL-SUPERSEDED` (*"`grep FEATURE_RFQ_ENABLED`
+= 0, ao fim da F4"*) tinha disparado. O comando deu **0**:
+```powershell
+Select-String -Path "src\**\*.ts" -Pattern "FEATURE_RFQ_ENABLED"   # → 0 · FALSO
+```
+**Era falso: o glob `**` do PowerShell NÃO recursa.** Com filtro largo e **sem teto**, a flag está
+**VIVA**: `core/features/feature-flags.ts:15,41` · `events.module.ts:34`, e as **10 rotas** seguem
+registradas.
+⇒ **O gatilho NÃO disparou; a dívida segue contida, não paga.** Se eu tivesse acreditado no `0`,
+teria carimbado como resolvida uma dívida viva — *o oposto exato do erro do `suppliers`, no mesmo
+dia, com a mesma assinatura: **ferramenta configurada de um jeito, resultado lido como de outro***.
+📌 A regra que eu mesma escrevi horas antes valeu: **para NEGAR existência, filtro largo e sem
+teto**. Ela me pegou desta vez.
+
+### As pendências que eram MINHAS e foram fechadas agora
+
+1. **Afordância falsa:** `hasScheduleConflict` ganhou um `client?: PoolClient` que **ninguém
+   passava** — os dois callers chamam o aviso ANTES da transação, que é onde ele serve. Parâmetro
+   que existe e ninguém usa **parece** que dá para rodar dentro da transação. **Removido**, com a
+   razão no lugar.
+2. 🔴 **O PLANO ESTAVA MENTINDO** — e é o pior tipo de pendência, porque `§1` é o **primeiro
+   comando** que a próxima instância roda: dizia `260 COMMANDS OK` (são **265**) e `573 migrations`
+   (são **575**). Uma instância nova leria "quebrou algo". Corrigido, **com a data ao lado do
+   número** e a instrução de medir antes de concluir — *plano que mente é a doença que este arquivo
+   existe para não repetir*.
+3. `§2` listava **9 commits** de um dia que teve **16**; `§5` ainda pedia GOs **já dados**; os
+   guards novos não estavam listados; os harnesses novos não estavam no bloco de comandos.
+   Tudo reconciliado.
+4. ✅ **`DT-DEMAND-AGENDA-MIRROR` marcada como PAGA** no plano — a prova `F1` da F2 já satisfazia o
+   gatilho contável do `§J` e o resíduo continuava listado como aberto.
+5. 🟡 **Três dívidas que eu havia nomeado só no cartório entraram na tabela de resíduos do plano**:
+   `DT-SEED-DEMO-SUPPLY-NOT-GATE-COMPLIANT` · `DT-CRM-CONTACTS-PARALLEL-IDENTITY-RISK` (gatilho
+   novo) · e a maior, **`DT-RLS-DEV-RUNTIME-BYPASSES-POLICIES`**, que estava **só no cartório** e é
+   a única fora desta frente que Clayton mandou tratar antes de GO financeiro novo.
+
+### O que fica PENDENTE de propósito, e de quem é
+
+| pendência | de quem | por quê |
+|---|---|---|
+| **selo da F2 (`§I.2`) e da F4 (`§G.3`)** | **Clayton** | exige NAVEGAR. Construção pronta e provada; *código confirmado ≠ jornada confirmada* |
+| `DT-RLS-DEV-RUNTIME-BYPASSES-POLICIES` | fatia própria | medido: **4 impedimentos**, não "uma linha" |
+| `DT-SEED-DEMO-SUPPLY-NOT-GATE-COMPLIANT` | fatia própria | os builders são **HTTP**; o seed é script de `pool` |
+| `DT-FUNGIBLE-CAPACITY-…` · `DT-DECLARATION-DRIFTS-…` · `DT-DB-GUARANTEE-SWEEP-…` | fatia própria | com gatilho por query, contidas |
+| `DT-RFQ-JSONB-…` | fim da aposentadoria das 10 rotas | **gatilho medido hoje: NÃO disparou** |
+
 ## 🧭 "DE ONDE VÊM OS PROFISSIONAIS" — auditoria, DUAS ERRATAS MINHAS, e as 3 decisões (2026-08-06)
 
 Pergunta de Clayton: *"as profissões/profissionais que atenderão os fluxos de criação de eventos

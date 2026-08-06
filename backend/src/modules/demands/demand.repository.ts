@@ -251,8 +251,13 @@ class DemandRepository {
    * segunda verdade porque as duas leem a MESMA fonte com a MESMA régua — o que a regra proíbe é
    * duas FONTES, não duas leituras. Sem este aviso, o usuário só descobriria o conflito no fim.
    */
+  // ⚠️ SEM parâmetro `client` de propósito. A 1ª versão desta assinatura tinha um `client?:
+  // PoolClient` que NINGUÉM passava — os dois callers (`respond` e `choose`) chamam este aviso
+  // ANTES de abrir a transação do aceite, que é onde ele é útil. Parâmetro que existe e ninguém usa
+  // é afordância falsa: parece que dá para rodar isto dentro da transação, e a leitura seria a
+  // mesma. Se um dia precisar rodar dentro, o lugar certo é o confirm — que já é a AUTORIDADE.
   async hasScheduleConflict(
-    tenantId: string, providerActorId: string, d: ServiceDemand, client?: PoolClient
+    tenantId: string, providerActorId: string, d: ServiceDemand
   ): Promise<boolean> {
     // vocabulário GOVERNADO, não literal copiado (o manifest morde quem enumera à mão)
     if (!vinculoHasSingleWindow(d.vinculo)) return false;
@@ -265,7 +270,7 @@ class DemandRepository {
       return false;
     }
     const row = await one<{ conflict: boolean }>(
-      tenantId, client,
+      tenantId, undefined,
       `SELECT EXISTS (
          SELECT 1
            FROM bookings b

@@ -28,7 +28,7 @@ Isto é normal e é o desenho. Leia, **nesta ordem**, e não pule:
 ## §1 · CONFIRME O ESTADO — rode, não acredite
 
 ```bash
-cd backend && npm run validate:regression-guards        # espera: 260 COMMANDS OK
+cd backend && npm run validate:regression-guards        # espera: 265 COMMANDS OK
 cd backend && node_modules/.bin/tsc -p tsconfig.build.json --noEmit   # 0
 cd frontend && npm run typecheck                        # 0
 ```
@@ -37,7 +37,12 @@ cd frontend && npm run typecheck                        # 0
 declarado; validação é em **efêmera**.
 
 **Canários (devem estar intactos):** `75` bairros · `48` policies · `3` grants · `16` `bank_ledger`
-· `0` `bank_splits` · `573` migrations.
+· `0` `bank_splits` · `575` migrations.
+
+> 📌 Estes números são de **2026-08-06, fim do dia**. Eram `260` e `573` de manhã — este bloco foi
+> corrigido ao fim da jornada. **Se o seu runner der outro número, meça antes de concluir que algo
+> quebrou:** número de plano envelhece, e plano que mente é a doença que este arquivo existe para
+> não repetir.
 
 **Harnesses desta frente** (todos criam e destroem banco efêmero):
 ```bash
@@ -45,15 +50,32 @@ npm run validate:quote-lifecycle-substrate          # 16 provas — substrato + 
 npm run validate:personal-agenda-exclusivity-race   # a CORRIDA (0146 §A.8/G7)
 npm run validate:confirm-third-branch-stop          # o STOP do 3º ramo
 npm run validate:rental-exclusivity-guarantee       # a garantia de locação
+npm run validate:commitment-layer-db-constraint     # a trava forte do COMPROMISSO (16 provas)
+npm run validate:demand-need-event-key              # a chave evento↔demanda (8)
+npm run validate:demand-atomic-accept               # o ACEITE ATÔMICO + corrida (11)
+npm run validate:directed-demand                    # o pedido DIRIGIDO (10)
+npm run validate:professional-source-union          # a união das 2 metades do gate (5)
 ```
 
 ---
 
 ## §2 · O QUE JÁ ESTÁ FEITO — ⛔ NÃO REFAÇA
 
-9 commits em 2026-08-06, todos enviados (`0 commits à frente do remoto`):
+**16 commits em 2026-08-06**, todos enviados. Os 9 da manhã estão na tabela; os **7 da tarde**
+fecharam a frente inteira (construção terminada; só os selos esperam a navegação):
 
-| commit | o que fechou |
+| commit (tarde) | o que fechou |
+|---|---|
+| `270996b3a` | 🔒 `DT-COMMITMENT-LAYER-HAS-NO-DB-CONSTRAINT` — a trava forte do COMPROMISSO no banco |
+| `a451b94a3` | cartório: o `.env` do RLS **não é uma linha** (4 impedimentos medidos) + o campo pendente sob a trava |
+| `61fc255ae` | GATE da F2 fechado + a regra **"não pode existir segunda verdade"** |
+| `087a4dedb` | GATE da F3 fechado — a FK `need_id` atravessa fronteira de isolamento |
+| `c5a9be136` | 🔑 **F3 substrato** — `need_id` com a trava no WRITER |
+| `b20969a86` | ⚛️ **F2 aceite atômico** — os dois verbos, `hasScheduleConflict` convergido |
+| `f0419e438` | 🔤 **F4 dois verbos** — `request_quote` abre demanda dirigida |
+| `fda531e52` | 🧭 auditoria "de onde vêm os profissionais" — união no matching · seed consulta o gate |
+
+| commit (manhã) | o que fechou |
 |---|---|
 | `bb6ac8e73` | garantia de exclusividade da locação seguiu o substrato vivo; o bloqueio de DECLARAÇÃO saiu (Art. II) |
 | `3f36b9dce` | 3º ramo do confirm **PARA** com `501 STOP_DECISION_REQUIRED` (`0146 G10`) |
@@ -66,10 +88,14 @@ npm run validate:rental-exclusivity-guarantee       # a garantia de locação
 | `c473d62b0` | **ADENDO 1** (dois verbos · `need_id` · GATE da F2 · veto de selo) + `live_presence` minúsculo + tombstone do barril de erros |
 
 **A F1 está FECHADA NO BACKEND:** substrato ✅ · writer ✅ · validade com leitor único ✅.
+**F2, F3 e F4 estão CONSTRUÍDAS e PROVADAS** — ⛔ **não seladas**: falta a navegação de Clayton
+(`§I.2` e `§G.3`). *Código confirmado ≠ jornada confirmada.*
 
 **Guards desta frente, no runner:** `audit-quote-validity-single-reader` ·
 `audit-window-render-truthful-extent` · `audit-booking-provider-conflict` (estendido) ·
-`audit-rental-hardening-constraints` (v2, dinâmico).
+`audit-rental-hardening-constraints` (v2, dinâmico) · **`audit-commitment-layer-db-constraint`** ·
+**`audit-demand-need-tenant-coherence`** · **`audit-demand-atomic-accept`** ·
+**`audit-directed-demand-two-verbs`** · **`audit-professional-source-single-truth`**.
 
 ---
 
@@ -238,18 +264,27 @@ não regride**. Se a cláusula sumir do reader, pedido dirigido vira broadcast *
 
 | resíduo | gatilho |
 |---|---|
-| `DT-RFQ-JSONB-QUOTE-TRAIL-SUPERSEDED` | `grep FEATURE_RFQ_ENABLED` = 0 e rotas removidas — ao **fim da F4** |
-| `DT-DEMAND-AGENDA-MIRROR-…` | `SELECT` contável: booking aceito de demanda aparece na agenda unificada do provider |
+| `DT-RFQ-JSONB-QUOTE-TRAIL-SUPERSEDED` | `grep FEATURE_RFQ_ENABLED` = 0 e rotas removidas — ao **fim da F4**. ⚠️ **MEDIDO em 06/08, fim da F4: NÃO disparou** — a flag segue VIVA (`core/features/feature-flags.ts:15,41` · `events.module.ts:34`) e as 10 rotas registradas. Contida com destino, **não paga**. 📌 Um `Select-String -Path "src\**\*.ts"` me deu `0` aqui e era falso (o glob do PowerShell não recursa) — **para NEGAR, filtro largo e sem teto** |
+| ✅ ~~`DT-DEMAND-AGENDA-MIRROR-…`~~ | **PAGA na F2** — prova `F1` do harness `validate:demand-atomic-accept`: `SELECT count(*) FROM bookings WHERE metadata->>'source'='demand_accept' AND status='confirmed'` > 0 |
 | `DT-AVAILABILITY-OVERLAP-ALERT-MISSING` | selo da F2. Hoje `findOverlapping` **dormente está certo** — é a semente do alerta, **não limpe** |
 | `DT-DB-GUARANTEE-SWEEP-INCOMPLETE` | antes da **próxima migração de substrato** (triggers/FKs/índices parciais não varridos: **`?`, não `0`**). ⚠️ **Parcialmente pago em 06/08 para `bookings`+`availability`**: constraints (sem filtro de `contype`), índices, triggers (com `tgisinternal`) e rules foram varridos e estão no cartório. O resto do banco segue **`?`** |
 | `DT-FUNGIBLE-CAPACITY-HAS-NO-DB-GUARANTEE` | `SELECT count(*) FROM actor_asset_rental_terms WHERE resource_type='equipment' AND quantity > 1` (hoje **3**) |
 | `DT-DECLARATION-DRIFTS-FROM-COMMITMENT` | janela editada depois do confirm passa a divergir do intervalo comprometido — query no cartório |
+| `DT-SEED-DEMO-SUPPLY-NOT-GATE-COMPLIANT` | `SELECT count(*) FROM service_offerings WHERE status='draft'` > 0 depois do próximo seed. O seed já **consulta** o gate; falta **preencher** as pré-condições pelos writers governados (que são HTTP) |
+| `DT-CRM-CONTACTS-PARALLEL-IDENTITY-RISK` | (existia desde 2026-07-03; **ganhou gatilho** em 06/08) `SELECT count(*) FROM suppliers WHERE owner_actor_id IS NULL AND actor_id IS NULL` — ficha de fornecedor desacoplada do actor |
+| 🔴 `DT-RLS-DEV-RUNTIME-BYPASSES-POLICIES` | **NOVA, e a maior fora desta frente.** O `.env` de dev conecta como `postgres` (superuser + BYPASSRLS): **218 tabelas sem RLS · 118 com · 166 policies**, e o runtime passa por fora de todas. ⚠️ **NÃO é uma linha** — medido: `unificard_app` não tem CREATE no schema nem no banco (migrate para), `rolcreatedb=f` (os **120** harnesses efêmeros param), `neighborhood_writer_authorizations` sem grant de SELECT, e não existe variável separada de admin. **Fatia própria, antes de qualquer GO financeiro novo** |
 
 ---
 
 ## §5 · O QUE É DE CLAYTON — não decida por ele
 
-- **GO da fatia `DT-COMMITMENT-LAYER-…`** e **GO da F2** (esta com GATE antes).
+> ✅ **Os GOs desta lista já foram dados e executados em 2026-08-06** (`DT-COMMITMENT-LAYER`, F2, F3,
+> F4 e as três decisões da auditoria "de onde vêm os profissionais"). **O que sobrou para ele é a
+> NAVEGAÇÃO** — e ela trava os dois selos.
+
+- ⛔ **A navegação** (`§I.2` da F2 + `§G.3` da F4) — é ele quem clica. **Sem ela, F2 e F4 não selam.**
+- ⚠️ **Aviso já dado, para não ser surpresa:** no próximo `seed-demo-event-supply` a **vitrine
+  esvazia e repovoa** — os 7 fornecedores atuais nunca passariam pelo gate da `0147`.
 - A **navegação** da `§G.3` — é ele quem clica.
 - `501` de **`page`**: ⛔ **NÃO é dívida.** É fail-closed pela **R1** dele (*"a empresa não tem
   agenda: ela AGREGA"*). Só reabre com decisão de **resolução para unidade**.
