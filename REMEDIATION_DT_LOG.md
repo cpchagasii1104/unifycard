@@ -1,5 +1,88 @@
 # REMEDIATION DT LOG
 
+## 🛑 F-CONFIRM-THIRD-BRANCH-STOP — o terceiro ramo PARA, como a G10 sempre mandou (2026-08-06, direção · GO Clayton)
+
+**MODO EXECUTOR. Reversão pura ao promulgado — zero migration, zero decisão nova.**
+`runner 258 COMMANDS OK` · `tsc BE 0` · `tsc FE 0` · **Δbank 0**. Fatia própria, separada da
+`F-RENTAL-EXCLUSIVITY-GUARANTEE` (commit `bb6ac8e73`), da qual **não depende**.
+
+### O que estava errado — e não era um esquecimento
+
+`unified-availability.service.ts` tinha, no bloco de confirm, **dois ramos com trava e um terceiro
+que caía fora**:
+```
+if (ownerType === SERVICE_OFFERING) → confirmBookingWithProviderLock  (advisory lock)  → return
+if (ownerType === ACTOR_ASSET)      → confirmBookingWithResourceLock  (advisory lock)  → return
+↓ caía fora
+updateBooking(...)   ← UPDATE simples. Zero lock, zero checagem.
+```
+E o comentário acima dizia: *"**G10**: owner_type ≠ service_offering → fora do guard cross-oferta
+(não adivinhar recurso); **confirma normal**."*
+
+🔴 **A G10 diz o CONTRÁRIO, literalmente:** *"Resolução ambígua/ausente →
+**STOP_DECISION_REQUIRED** […] **para** (não adivinhar o recurso)."*
+**A norma manda PARAR. O código PASSAVA. E o guard carimbava a passagem citando a norma** — a
+migalha que corrigi na fatia anterior. Três artefatos concordando entre si e discordando da lei.
+
+### O conserto
+
+```ts
+throw new AppError(501, 'BOOKING_CONFIRM_STOP_DECISION_REQUIRED: … exigiria adivinhar qual recurso
+  travar. DECISION-0146 G10 manda PARAR … Travas existentes: service_offering→provider ·
+  actor_asset→resource. Este owner_type ainda não tem a sua.', 'BOOKING_CONFIRM_STOP_DECISION_REQUIRED')
+```
+`501` é o padrão da casa para **contenção honesta**: o caminho existe, a **decisão** não foi tomada.
+
+⚠️ **CONSEQUÊNCIA DECLARADA, não escondida:** a agenda de `user`/`page` **deixa de ser contratável**
+até se decidir qual é o recurso de exclusividade dela. **Custo hoje = ZERO** (0 bookings sobre
+availability de `user`/`page`, medido) — e é exatamente por isso que a reversão é barata **agora**.
+**Destravar não é remover o STOP:** é decidir o recurso e dar a esse owner_type a sua trava.
+
+📌 **E o alcance é maior do que "page, 8 janelas":** `PUT /availability/weekly-template` aceita
+`{user, page}` e tem **`user` como DEFAULT** (`routes.ts:80` e `:672`). O terceiro ramo era o
+comportamento **padrão** da agenda pessoal, não uma borda.
+
+### O guard — por SUBSTÂNCIA, não por string
+
+`audit-booking-provider-conflict.mjs` ganhou a checagem do 3º ramo. **Não basta o código do STOP
+aparecer no arquivo** — o que a G10 exige é que **não exista caminho de saída sem trava**. Então o
+guard recorta o bloco de confirm por **balanceamento de chaves** e confere que **o último `throw`
+vem depois do último `return`**. Pôr o STOP dentro de um `if`, ou acrescentar um 4º ramo que retorna
+depois dele, **morde**.
+
+**PROVA VERMELHA 2/2, desfeita por BACKUP (nunca `git checkout`), restauração byte a byte:**
+· `R1` STOP removido → **FALHA** com *"terceiro ramo do confirm sem STOP"*;
+· `R2` `return` acrescentado **depois** do STOP → **FALHA** com *"caminho de saída DEPOIS do STOP"*.
+A prova **ABORTA** se não achar o STOP no arquivo — alvo ausente invalida a prova.
+
+### 🔴 E a prova de COMPORTAMENTO, porque guard estático não basta
+
+*"Guard estático prova que a contenção está ESCRITA, não que DISPARA"* — a lição de 05/08 aplicada
+antes de alguém precisar cobrá-la. `npm run validate:confirm-third-branch-stop`, em efêmera, **3/3**:
+· `A1` confirm de `owner_type='user'` → **PAROU com 501 `BOOKING_CONFIRM_STOP_DECISION_REQUIRED`**;
+· `B1` o booking **permanece `requested`**, `confirmed_at` NULL — fail-closed de verdade, sem
+  meia-escrita;
+· `C1` 🔴 **o ramo `actor_asset` CONTINUA confirmando** — *trava nova é tão capaz de bloquear quem
+  pode quanto de liberar quem não pode, e a segunda falha grita enquanto a primeira só some da tela.*
+  Esta asserção é o outro lado da moeda, e é a que eu quase não escreveria.
+
+### 🧹 Dois achados de carona, ambos registrados e nenhum "consertado" de afogadilho
+
+1. **`@core/errors` tem DUAS casas:** `src/core/errors.ts` (arquivo) e `src/core/errors/` (pasta),
+   e **o arquivo vence a resolução**. O `HttpError` que eu importei existe **na pasta**, que ninguém
+   alcança por esse specifier — `tsc` me pegou. A base viva é `AppError(statusCode, message, code)`.
+   Deixei a migalha no import. **Duas casas para o mesmo nome é dívida** — não abri frente aqui.
+2. **O header do harness novo nasceu mentindo:** criei o `.ps1` a partir do da fatia anterior e o
+   cabeçalho descrevia as provas de locação. Corrigido antes de rodar. *Copiar harness propaga
+   descrição, não só código* — mesma família do *"copiar de código legado propaga o legado"*.
+
+### 📌 ESTADO
+
+`runner 258 OK` · `tsc BE 0 / FE 0` · Δbank 0 · **nenhuma migration** · **nenhuma decisão nova**.
+`DT-CONFIRM-THIRD-BRANCH-NO-LOCK` **FECHADA** (viva desde 2026-06-21; 0 bookings alcançados).
+Aberta e nomeada: **decidir o recurso de exclusividade de `user`/`page`** — é o que destrava a
+agenda pessoal como contratável, e é decisão de produto, não de código.
+
 ## 🔧 F-RENTAL-EXCLUSIVITY-GUARANTEE — a garantia seguiu o substrato, e o bloqueio errado saiu (2026-08-06, direção · GO Clayton)
 
 **MODO EXECUTOR.** Migration `20260806010000` aplicada em `unificard_dev` com

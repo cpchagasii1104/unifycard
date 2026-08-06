@@ -230,6 +230,39 @@ Sem essa resposta, cada tabela vira pesquisa. Com ela, a cauda de 26 módulos é
 
 ## 🗓️ REGISTRO DE SESSÕES — o que cada fatia mudou no placar
 
+### 🟢 SESSÃO 2026-08-06 — `F-CONFIRM-THIRD-BRANCH-STOP` · **EXECUTADA (GO de Clayton)** · reversão pura
+
+`runner 258 OK` · `tsc BE 0 / FE 0` · **Δbank 0** · **zero migration, zero decisão nova**.
+
+**✅ FECHADA — `DT-CONFIRM-THIRD-BRANCH-NO-LOCK`** (viva desde 2026-06-21). O bloco de confirm tinha
+2 ramos com advisory lock e um **terceiro que caía fora e confirmava com `UPDATE` simples**. O
+comentário dizia *"G10 […] confirma normal"*; a **G10 diz `STOP_DECISION_REQUIRED`** — *"para (não
+adivinhar o recurso)"*. **Norma mandava parar, código passava, guard carimbava.** Agora lança
+`501 BOOKING_CONFIRM_STOP_DECISION_REQUIRED`.
+
+⚠️ **Consequência declarada:** agenda de `user`/`page` **deixa de ser contratável** até se decidir
+qual é o recurso de exclusividade dela. **Custo hoje = 0** (0 bookings alcançados) — por isso a
+reversão foi barata agora. **Destravar não é remover o STOP: é decidir o recurso.**
+📌 **E o alcance era maior que "page, 8 janelas":** `PUT /availability/weekly-template` aceita
+`{user, page}` com **`user` como DEFAULT** — o terceiro ramo era o comportamento **padrão** da
+agenda pessoal.
+
+**Guard por SUBSTÂNCIA:** `audit-booking-provider-conflict.mjs` recorta o bloco de confirm por
+**balanceamento de chaves** e exige que **o último `throw` venha depois do último `return`** — pôr o
+STOP dentro de um `if`, ou acrescentar um 4º ramo que escapa, **morde**. Não é presença de string.
+**Vermelha 2/2**, desfeita por **BACKUP** (nunca `git checkout`), restauração byte a byte.
+
+**🔴 E prova de COMPORTAMENTO, porque guard estático não basta** (`validate:confirm-third-branch-stop`,
+efêmera, **3/3**): o STOP **dispara** (501) · o booking **permanece `requested`** (fail-closed sem
+meia-escrita) · **`actor_asset` CONTINUA confirmando** — *trava nova é tão capaz de bloquear quem
+pode quanto de liberar quem não pode, e só a segunda falha grita.*
+
+**🧹 Achados de carona, nomeados e não consertados de afogadilho:** `@core/errors` tem **duas casas**
+(`errors.ts` e `errors/`) e **o arquivo vence** — o `HttpError` da pasta é inalcançável por esse
+specifier; `tsc` me pegou, deixei migalha no import · o header do harness novo **nasceu mentindo**
+(copiado da fatia anterior), corrigido antes de rodar — *copiar harness propaga descrição, não só
+código*.
+
 ### 🟢 SESSÃO 2026-08-06 — `F-RENTAL-EXCLUSIVITY-GUARANTEE` · **EXECUTADA (GO de Clayton)**
 
 `runner 258 OK` · `tsc BE 0` · `tsc FE 0` · **Δbank 0** · canários **75·48·3** intactos ·

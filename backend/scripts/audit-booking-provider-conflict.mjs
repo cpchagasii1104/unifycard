@@ -67,6 +67,40 @@ else {
   if (!/resolveAvailabilityOwner\(/.test(svc)) failures.push(`${SVC}: provider não é derivado server-side (resolveAvailabilityOwner — G9).`);
   if (!/AvailabilityOwnerType\.SERVICE_OFFERING/.test(svc)) failures.push(`${SVC}: sem gate owner_type=service_offering — este guard cobre SOMENTE service_offering. ⚠️ owner_type≠service_offering está FORA da cobertura deste guard, e isso NÃO é conformidade com a G10: a G10 manda STOP_DECISION_REQUIRED, e o código hoje CONFIRMA SEM TRAVA (ver GATE_F0 §1(a)).`);
   if (/providerActorId:\s*input\./.test(svc) || /input\.providerActorId/.test(svc)) failures.push(`${SVC}: provider_actor_id NÃO pode vir do body (G9).`);
+
+  // ── F-CONFIRM-THIRD-BRANCH-STOP (G10) — o TERCEIRO RAMO tem de PARAR, não cair fora ──────────
+  // 🔴 SUBSTÂNCIA, não string: não basta o código do STOP aparecer no arquivo. O que a G10 exige é
+  // que NÃO EXISTA caminho de saída do bloco de confirm sem trava. Então: recorta o bloco por
+  // BALANCEAMENTO DE CHAVES e confere que a ÚLTIMA instrução dele é um `throw`. Se alguém puser o
+  // STOP dentro de um `if`, ou acrescentar um 4º ramo depois dele, o bloco deixa de terminar em
+  // throw e este guard MORDE — que é exatamente o defeito que existiu de 2026-06-21 a 2026-08-06.
+  const CONFIRM_HEAD = 'if (input.status === UnifiedBookingStatus.CONFIRMED) {';
+  const head = svc.indexOf(CONFIRM_HEAD);
+  if (head < 0) {
+    failures.push(`${SVC}: bloco de confirm não localizado para auditar o terceiro ramo (G10).`);
+  } else {
+    let i = head + CONFIRM_HEAD.length - 1; // na '{' de abertura
+    let depth = 0;
+    let end = -1;
+    for (; i < svc.length; i++) {
+      const ch = svc[i];
+      if (ch === '{') depth++;
+      else if (ch === '}') { depth--; if (depth === 0) { end = i; break; } }
+    }
+    if (end < 0) {
+      failures.push(`${SVC}: não foi possível fechar o bloco de confirm (chaves desbalanceadas?) — auditoria do G10 indeterminada.`);
+    } else {
+      const block = svc.slice(head, end);
+      if (!/BOOKING_CONFIRM_STOP_DECISION_REQUIRED/.test(block)) {
+        failures.push(`${SVC}: terceiro ramo do confirm sem STOP — owner_type fora de {service_offering, actor_asset} confirmaria SEM TRAVA. A G10 manda STOP_DECISION_REQUIRED, não "confirma normal".`);
+      }
+      // Nada pode escapar POR BAIXO dos ramos travados: o STOP tem de vir DEPOIS do último `return`
+      // de ramo. Se alguém acrescentar um 4º ramo que retorna após o STOP, isto morde.
+      if (block.lastIndexOf('throw ') < block.lastIndexOf('return ')) {
+        failures.push(`${SVC}: há caminho de saída do confirm DEPOIS do STOP — o último ramo do bloco retorna em vez de parar (G10).`);
+      }
+    }
+  }
 }
 
 if (failures.length > 0) {
@@ -74,4 +108,4 @@ if (failures.length > 0) {
   for (const f of failures) console.error('   - ' + f);
   process.exit(1);
 }
-console.log('GATE OK [booking-provider-conflict] — F-OFFER-5/6: confirm recusa 2º compromisso do mesmo provider (status {confirmed,checked_in,checked_out}, intervalo [start,end), self excluído, rollup por provider, advisory-lock transacional); provider derivado server-side; availability declarativa não bloqueada. DECISION-0146 blindada.');
+console.log('GATE OK [booking-provider-conflict] — F-OFFER-5/6: confirm recusa 2º compromisso do mesmo provider (status {confirmed,checked_in,checked_out}, intervalo [start,end), self excluído, rollup por provider, advisory-lock transacional); provider derivado server-side; availability declarativa não bloqueada. 🔴 TERCEIRO RAMO PARA (G10): owner_type fora de {service_offering, actor_asset} lança BOOKING_CONFIRM_STOP_DECISION_REQUIRED — conferido por BALANCEAMENTO DE CHAVES do bloco de confirm (nada escapa por baixo dos ramos travados), não por presença de string. DECISION-0146 blindada.');

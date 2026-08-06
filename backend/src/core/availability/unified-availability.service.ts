@@ -14,7 +14,9 @@ import { detectAndEmitCrossMembershipSoftConflict } from './booking-soft-conflic
 import { resolveAvailabilityOwner, assertAvailabilityOwnerAuthorityActive } from './availability-owner-authority';
 import { socialPortsRegistry } from '@core/social/ports-registry';
 import { authorizationService } from '@core/authorization/authorization.service';
-import { BadRequestError, NotFoundError, ForbiddenError, ConflictError } from '@core/errors';
+// ⚠️ `@core/errors` resolve para `src/core/errors.ts` (o ARQUIVO), não para `src/core/errors/` (a
+// PASTA) — as duas existem e o arquivo vence. A base aqui é `AppError(statusCode, message, code)`.
+import { BadRequestError, NotFoundError, ForbiddenError, ConflictError, AppError } from '@core/errors';
 import { getProtectedPurposeConceptIds } from './temporal-purpose';
 import { ActorEffect } from '@core/social/ports';
 import type {
@@ -445,7 +447,12 @@ class UnifiedAvailabilityService {
       if (!availability) {
         throw new NotFoundError('Disponibilidade do booking não encontrada');
       }
-      // G10: owner_type ≠ service_offering → fora do guard cross-oferta (não adivinhar recurso); confirma normal.
+      // 🔴 F-CONFIRM-THIRD-BRANCH-STOP (GO Clayton 2026-08-06) — reversão ao promulgado.
+      // Até hoje este bloco tinha DOIS ramos com trava e um TERCEIRO que caía fora e confirmava SEM
+      // LOCK NENHUM. O comentário antigo dizia "G10: […] confirma normal" — e a G10 diz o CONTRÁRIO:
+      // "Resolução ambígua/ausente → STOP_DECISION_REQUIRED […] para (não adivinhar o recurso)".
+      // Norma manda PARAR; o código passava; e o guard carimbava a passagem citando a norma.
+      // Agora PARA. Ver o STOP explícito no fim deste bloco.
       if (availability.ownerType === AvailabilityOwnerType.SERVICE_OFFERING) {
         // G9: provider DERIVADO server-side (availability(service_offering).owner_id → service_offerings.provider_actor_id);
         //     NUNCA do body. Intervalo vem da availability ligada ao booking, NUNCA do body.
@@ -521,6 +528,26 @@ class UnifiedAvailabilityService {
           endIso
         );
       }
+
+      // 🔴 STOP_DECISION_REQUIRED (DECISION-0146 §B-bis G10) — o TERCEIRO RAMO.
+      // Chegar aqui = owner_type fora de {service_offering, actor_asset}. Hoje isso inclui `user` e
+      // `page`, que NÃO são casos de borda: `PUT /availability/weekly-template` aceita os dois e tem
+      // `user` como DEFAULT (unified-availability.routes.ts:80 e :672) — é a agenda pessoal do perfil,
+      // frente selada (DECISION-0072 B1 / SELO_AGENDA_UNIFIED_AVAILABILITY).
+      // Confirmar aqui exigiria ADIVINHAR qual recurso proteger, e a G10 proíbe adivinhar: manda PARAR.
+      // Fail-closed, 501 (contenção honesta, padrão da casa): o caminho existe, a DECISÃO não foi tomada.
+      // ⚠️ CONSEQUÊNCIA DECLARADA: agenda de `user`/`page` deixa de ser CONTRATÁVEL até a decisão de
+      // qual é o recurso de exclusividade dela. Custo hoje = ZERO (0 bookings sobre availability de
+      // user/page, medido em 2026-08-06), e é por isso que a reversão é barata AGORA.
+      // Destravar NÃO é remover este STOP: é decidir o recurso e dar a este owner_type a sua trava,
+      // como service_offering (provider) e actor_asset (resource) já têm.
+      throw new AppError(
+        501,
+        `BOOKING_CONFIRM_STOP_DECISION_REQUIRED: confirmar booking de availability com owner_type='${availability.ownerType}' ` +
+        `exigiria adivinhar qual recurso travar. DECISION-0146 G10 manda PARAR (STOP_DECISION_REQUIRED), não confirmar. ` +
+        `Travas existentes: service_offering→provider · actor_asset→resource. Este owner_type ainda não tem a sua.`,
+        'BOOKING_CONFIRM_STOP_DECISION_REQUIRED'
+      );
     }
 
     // 🔴 BLINDAGEM: Atualizar booking (NÃO executa pagamento)
