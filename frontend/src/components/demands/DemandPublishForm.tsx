@@ -200,7 +200,7 @@ export default function DemandPublishForm({ onPublished, onCancel, initialAudien
             ))}
           </div>
         )}
-        <input placeholder="Digite pra buscar: garçom, pedreiro, manicure…" value={conceptSearch}
+        <input placeholder="Digite o que você busca" value={conceptSearch}
           onChange={(e) => setConceptSearch(e.target.value)} />
         {/* 🔴 LISTA ROLÁVEL, não mural de botões. Clayton: *"se o fornecedor tiver inúmeros itens
             não pode virar uma bagunça na hora de procurar"* — um grid de chips cresce sem limite e
