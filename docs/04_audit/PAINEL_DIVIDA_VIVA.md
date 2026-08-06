@@ -230,6 +230,137 @@ Sem essa resposta, cada tabela vira pesquisa. Com ela, a cauda de 26 módulos é
 
 ## 🗓️ REGISTRO DE SESSÕES — o que cada fatia mudou no placar
 
+### 🟢 SESSÃO 2026-08-06 — `F-RENTAL-EXCLUSIVITY-GUARANTEE` · **EXECUTADA (GO de Clayton)**
+
+`runner 258 OK` · `tsc BE 0` · `tsc FE 0` · **Δbank 0** · canários **75·48·3** intactos ·
+`schema_migrations` **570 → 571**.
+
+**✅ RESOLVIDA — `DT-DB-GUARANTEE-LEFT-BEHIND-BY-SUBSTRATE-MIGRATION`.** A regra
+`resource_type='equipment' OR quantity=1` **passou a viver em `actor_asset_rental_terms`**
+(migration `20260806010000`), que é de onde `confirmBookingWithResourceLock` lê a capacidade.
+Sem backfill — o dado já conformava. Prova em efêmera **7/7 nos dois sentidos**
+(`npm run validate:rental-exclusivity-guarantee`).
+
+**✅ RESOLVIDA — `DT-AVAILABILITY-DECLARATION-HARD-BLOCK-VS-ART-II`.** Saíram **as duas metades**: a
+`EXCLUDE availability_rental_no_overlap` (banco) e o 409 de aplicação em
+`createAvailability`/`updateAvailability`. Cumpre `ART. II` · `0146 §A.1/§A.7/G1` **sem emenda
+constitucional** — o GATE-pequeno provou que a trava do COMPROMISSO é **15 dias anterior** e cobre a
+impossibilidade física.
+
+**✅ RESOLVIDA — `DT-GUARD-PINS-GUARANTEE-TO-DEAD-VOCABULARY-AND-BLOCKS-FIX`.**
+`audit-rental-hardening-constraints.mjs` v2: **dinâmico** (confere no catálogo do banco, por
+**substância**, não por nome) · **banco indisponível = FAIL** · morde ao **INTRODUZIR** EXCLUDE
+(o sentido que a `G1` pede), não ao remover · **declara o alcance real** na mensagem de sucesso.
+**Prova vermelha 4/4** nos dois ramos novos.
+
+> ### 🔴 ESTA FATIA NÃO CONSERTA EXPOSIÇÃO — ELA RESTAURA PROFUNDIDADE
+> Eu disse *"`quantity=10` num `vehicle` faz o confirm aceitar 10 reservas do mesmo carro"*.
+> Verdadeiro sobre o **banco**; medido depois no **código**: os **dois** caminhos de escrita validam
+> (`service.ts:92-96` e `:780-786`) e o seed usa o writer canônico. **Não havia superfície
+> alcançável.**
+> **Quem for medir o risco depois precisa desta distinção:** lido como *"fechamos um buraco"*,
+> conclui-se que o sistema esteve exposto de 08/07 até agora — **e não esteve**. Lido como
+> *"restauramos profundidade"*, chega-se ao certo: o sistema dependia de **uma** camada onde o
+> desenho previa **duas**.
+> 📌 O achado já estava publicado quando fui medir o código. `referência não é alcance` desceu sobre
+> o meu próprio achado e o **rebaixou** — achado grande costuma ganhar peso, este perdeu, e perdeu
+> porque foi remedido.
+
+**🔴 O RUNNER ME PEGOU TRÊS VEZES, e as três valeram:** fixture irreal 3× (inclusive **adivinhando o
+vocabulário** de `identities.kyc_level`) · `audit-schema-coherence-ratchet` mordeu meu teste por
+`INSERT INTO actors` fora do writer soberano (**o guard estava certo; a fixture passou a nascer por
+`authService.register`**) · o lint de vocabulário financeiro estourou 2× seguidas, a segunda porque
+**meu comentário explicando a palavra continha a palavra**. **Nenhuma baseline foi afrouxada.**
+
+**🟡 NOMEADAS, não construídas de carona:** `DT-AVAILABILITY-OVERLAP-ALERT-MISSING` (o resíduo
+read-model do Art. II — `findOverlapping` fica **DORMENTE de propósito**, é a semente do alerta) ·
+`DT-COMMITMENT-LAYER-HAS-NO-DB-CONSTRAINT` (a exclusividade agora repousa só no advisory lock) ·
+`DT-DB-GUARANTEE-SWEEP-INCOMPLETE` (**com dono e gatilho** — roda antes da próxima migração de
+substrato).
+
+> ### 🧭 REGRA NOVA E GENERALIZÁVEL — **"o `WHERE` prende um ESTADO ou um NOME?"**
+> *"Esta garantia alcança o vivo?"* **não basta.** O banco tem **2 `EXCLUDE`** e **as duas alcançam
+> 0 linhas** — mas só uma é dívida:
+> · `pdv_sessions_one_open_per_actor` prende um **ESTADO** (`status='open'`) → 0 hoje, alcança
+>   amanhã. **SADIA — não mexa.**
+> · `availability_rental_no_overlap` prendia um **NOME** (`owner_type='rentable_resource'`)
+>   aposentado → 0 **para sempre**. **DÍVIDA.**
+> **Estado volta; nome aposentado não volta.** Com a bússola de um eixo só, eu teria "consertado" a
+> `pdv_sessions` — destruindo uma trava correta. Vale para toda varredura de garantia de banco.
+
+### 🟠 SESSÃO 2026-08-05 (noite, 3ª rodada) — GATE-PEQUENO + VARREDURA · **READ-ONLY, nada movido**
+
+**A pergunta que destravou tudo:** *"o bug de 08/07 quebrou o quê, e o bloqueio do CONFIRM teria
+prevenido?"* → **SIM. E não "teria": já prevenia, desde 15 dias antes.**
+`confirmBookingWithResourceLock` + `RENTAL_RESOURCE_TIME_CONFLICT` nasceram em **2026-06-23**
+(`6359d31cc`); o bloqueio de DECLARAÇÃO em **2026-07-08** (`f43a78e2c`).
+E a migration do MESMO dia mediu o dano: *"recursos vivos NÃO estão sobrepostos: **overlap real=0**"*
+— as 8 janelas sobrepostas eram **órfãs de smoke**.
+⇒ **EMENDA CONSTITUCIONAL NÃO É NECESSÁRIA.** Art. II e `0146 §A.1/§A.7/G1` se cumprem **removendo**
+o bloqueio da declaração, não emendando a norma. Resta só o resíduo de **read-model** (duas janelas
+sobrepostas confundem a projeção) — e a resposta canônica é `FATO→ALERTA→humano`, alerta que **não
+existe**.
+
+| DT | o que é | grau |
+|---|---|---|
+| 🆕 `DT-GUARD-PINS-GUARANTEE-TO-DEAD-VOCABULARY-AND-BLOCKS-FIX` | `audit-rental-hardening-constraints.mjs` **exige** (`:36`) o `WHERE owner_type='rentable_resource'` — **mover a garantia para o substrato vivo faz o guard FALHAR**. Não é guard desatualizado: **é guard que reprova o conserto.** E morde ao **REMOVER** a `EXCLUDE`, quando `0146 G1` prescreve morder ao **INTRODUZIR** — norma e guard em sentidos opostos sobre o mesmo objeto. É **estático**: prova que o texto existe, não que protege linha | 🔴 bloqueia conserto |
+| ⬆️ `DT-DB-GUARANTEE-LEFT-BEHIND-BY-SUBSTRATE-MIGRATION` **reclassificada** | eu a chamei de *"trava que não protege nada"* — soa decorativa. **É load-bearing.** A regra `resource_type='equipment' OR quantity=1` ficou em `rentable_resources` (0 linhas) e **não migrou** para `actor_asset_rental_terms` (4 linhas), que é **de onde o confirm lê a capacidade** (`repository.ts:490`). **`quantity=10` num `vehicle` faria o confirm aceitar 10 reservas do MESMO carro.** O dado vivo respeita a regra **por sorte** (Fiat Argo `vehicle` qty 1), não por trava | 🔴 estrutural → **caminho de exclusividade** |
+
+**🧭 A BÚSSOLA REFINADA PELA MEDIÇÃO — vale para toda varredura futura:**
+o banco inteiro tem **2 `EXCLUDE`**, e **as duas alcançam 0 linhas** — mas **só uma é dívida**.
+`pdv_sessions_one_open_per_actor` prende um **ESTADO** (`status='open'`): 0 hoje, alcança amanhã, é
+**sadia**. `availability_rental_no_overlap` prende um **NOME** (`owner_type='rentable_resource'`)
+que foi **aposentado**: 0 **para sempre**, é **dívida**.
+🔴 **"Alcança o vivo?" não separa as duas. A pergunta que separa é: o `WHERE` prende um ESTADO ou um
+NOME?** Com a bússola só de alcance, eu teria "consertado" a `pdv_sessions` — estragando uma
+garantia correta.
+
+**Varredura:** ✅ exaustiva em `EXCLUDE` (2) e em CHECK/EXCLUDE citando `*_type` literal (18).
+❌ **não varridos:** triggers, FKs, índices únicos parciais por `status` (centenas). **`?`, não `0`.**
+⛔ **Nada movido** — mapear é o mandato; mover com a bússola errada multiplica o erro.
+
+**Migalhas [D]: 2 propostas, 0 escritas** (mandato proíbe editar guard) — inclui
+`audit-booking-provider-conflict.mjs:51`, que **atribui à `0146 G10` uma regra que a G10 não diz**.
+
+### ⚪ SESSÃO 2026-08-05 (noite, rodadas 1-2) — GATE F0 `organizacaoevento.md` · **READ-ONLY, 0 commits de código**
+
+**Nada mudou de estado material.** Runner **258 OK** · `tsc` BE **0** · FE **0** · Δbank **0**
+(os três remedidos de 1ª mão). Artefato: `docs/04_audit/GATE_F0_ORGANIZACAO_EVENTO_2026-08-05.md`.
+Detalhe e provas no cartório (topo).
+
+**5 dívidas NOMEADAS — nenhuma entra em "VIVA E DEMONSTRADA", e o motivo é a errata de 30/07:**
+*referência não é alcance.* As cinco estão provadas por **query e leitura**; **nenhuma corrida foi
+provocada, nenhum servidor subiu.**
+
+| DT | o que é | grau |
+|---|---|---|
+| `DT-DB-GUARANTEE-LEFT-BEHIND-BY-SUBSTRATE-MIGRATION` | a `EXCLUDE` `availability_rental_no_overlap` (TRAVA 3, **GO de Clayton 08/07**) cerca `owner_type='rentable_resource'` = **0 linhas**; o substrato vivo virou `actor_asset` (**4 janelas**) horas depois, no mesmo dia, e **a trava não foi junto**. Hoje o dado real é protegido só por check-then-act de aplicação. **Constraint que existe parece proteção** | 🔴 estrutural · irmãos **não varridos** (`?`, não `0`) |
+| `DT-AVAILABILITY-DECLARATION-HARD-BLOCK-VS-ART-II` | o **409 de aplicação** (`unified-availability.service.ts:93-100`, todos os owner_types) bloqueia a DECLARAÇÃO — `ART. II` e `0146 §A.1/§A.7/G1` mandam `FATO→ALERTA→humano`. **Zero cartório, zero decisão, zero guard** (3 greps). ⚠️ metade irmã (a `EXCLUDE`) **é ratificada** e vira reconciliação de norma | 🔴 norma × código |
+| `DT-TWO-EMPTY-QUOTE-ENGINES-NORM-CONTRADICTS-ITSELF` | `service_demand_responses.quote_cents` (tabela, 0 linhas) **e** `events.metadata.rfqs[].quotes` (jsonb, 10 rotas vivas sob `FEATURE_RFQ_ENABLED=true`, **0 rfqs em 8 eventos**). `0164 D1` rejeitou jsonb *"não indexa"*; `0164 ADENDO 6(c)` manda compor do jsonb | 🔴 norma × norma |
+| `DT-DEMAND-MODULE-SEALED-REOPENED-AS-LOOSE-PATCH` | re-selo YALA de 07/07 (cartório `:13026`): *"módulo `demands` está FECHADO — reabertura só por frente nomeada `F-SERVICE-DEMAND-*`, **não patch solto**"*. O `organizacaoevento.md` o redesenha e **não cita a 0164 nenhuma vez** | 🟠 rito |
+| `DT-DEMAND-AGENDA-MIRROR-PHASE2-WITHOUT-DEADLINE` | `hasScheduleConflict` decide agenda lendo `service_demand_responses`, não `availability`. **É contenção DECIDIDA** (cartório `:13083`, *"espelho na Agenda universal = fase 2 nomeada"*) — **sem prazo e sem dono**. Família `DT-CONTAINMENT-WITHOUT-DEADLINE` | 🟠 contenção |
+
+**🔴 DUAS RETRATAÇÕES DA DIREÇÃO, ambas do mesmo dia e da mesma família:**
+· afirmei que a trava de overlap **não era `EXCLUDE`** e tinha **zero ratificação**. Rodei
+  `pg_constraint … AND contype='c'` — **filtro mais estreito que a afirmação** — e greppei pelo
+  **código de erro** em vez do **nome da constraint**. A `EXCLUDE` existe, tem GO e tem cartório.
+  *Procurar pelo nome que EU uso não prova ausência.*
+· chamei `hasScheduleConflict` de violação constitucional **sem procurar ratificação** — ela existe.
+  **No mesmo documento eu procurei para um achado e supus para o outro.**
+
+**⚖️ Registrado como CERTO, de propósito** (impede a próxima instância de "consertar"):
+`POST /demands/:id/respond` **valida autoridade** (`canRepresentActor` fail-closed antes do service;
+`provider_actor_id` nunca vem do body; 404 para fora-da-plateia) · `fillSlot` é **UM `UPDATE` com o
+predicado no `WHERE`** — zero TOCTOU no contador (⚠️ o *par* `fillSlot`+`createResponse` é
+**compensado**, não transacional — já nomeado em 07/07) · `audit-demand-orchestration-boundary.mjs`
+**já vigia** o módulo: nenhum guard novo foi construído.
+
+**Hipótese da direção (*"o 409 do overlap é a solução, garantia de banco > advisory lock"*): CAI.**
+Ele é `SELECT`+`INSERT` sem constraint/trigger/lock nos owner_types vivos (**check-then-act**),
+agrupa por **oferta** quando `0146 §A.3` exige **provider**, e o banco já mostra **48 pares** de
+janelas sobrepostas do mesmo provider em ofertas diferentes onde ele nunca disparou. É **mais fraca**
+que o advisory lock, não mais forte.
+
 ### 🟢 SESSÃO 2026-08-05 (tarde) — INVENTÁRIO DE `ARQUITETURA/` VIRA BUSCA · 21 commits · runner 246 → **257**
 
 **Método:** Clayton mandou usar o aprendizado da pasta `ARQUITETURA/` para corrigir o sistema. O
@@ -504,6 +635,19 @@ pegar defeito de autorização nessas rotas.
 daquelas 44 rotas acende tudo de uma vez, em produção, sem inventário.
 
 ## 🟠 VIVA MAS CONTIDA — e **por quê** está contida
+
+🆕 🔴 **`DT-COMMITMENT-LAYER-HAS-NO-DB-CONSTRAINT`** (2026-08-06) — **a §A.7 está cumprida pela
+METADE, e é a metade fácil que foi feita.** A `DECISION-0146 §A.7` faz duas coisas: **proíbe**
+constraint forte na DECLARAÇÃO *e* **prescreve** que ela more no COMPROMISSO (*"se houver constraint
+forte, ela mira compromisso real de booking"*). A `F-RENTAL-EXCLUSIVITY-GUARANTEE` **tirou da camada
+proibida** (`availability_rental_no_overlap` dropada, migration `20260806010000`) e **não pôs na
+camada prescrita**: não há **nenhuma** constraint de exclusividade em `bookings`.
+**Contido por quê:** `confirmBookingWithResourceLock` (`repository.ts:473`) — `pg_advisory_xact_lock`
++ checagem e gravação na mesma transação. **Funciona, e é garantia de APLICAÇÃO.** Qualquer escrita
+que não passe pelo service (script, migration, psql, worker futuro) **não encontra trava nenhuma no
+banco**. ⚠️ Não é regressão desta fatia — `actor_asset` nunca teve constraint de banco; o que a fatia
+fez foi **tornar o vão visível** ao remover a trava que fingia cobri-lo em outro nome.
+**Fatia própria: GATE + GO.** Prova: `SELECT conname FROM pg_constraint WHERE conrelid='bookings'::regclass AND contype IN ('x','u')` → nenhuma de exclusividade.
 
 **Cluster PORTA-1** — contido por **ledger vazio + firewall default-OFF**, *não* por desenho à prova de semeadura. Dentro: sink `executePayment` sem firewall interno (4 callers) · **Core de Aprovação Financeira** com MODEL vivo e EXECUTION HOLD, embora `DECISION-0128` o exija para todo movimento · split-engine stub · **≥8 callers do sink sem firewall** · e o vão `DECISION-0194` selada × código (sem trava de base única, motor ignora `applies_to`, allowlist vazia, agrupador multi-base vivo).
 

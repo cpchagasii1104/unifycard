@@ -87,17 +87,19 @@ class UnifiedAvailabilityService {
     // se quarentenado. canRepresentActor (rota) prova representação; isto prova autoridade ATIVA. NÃO toca canRepresentActor.
     await assertAvailabilityOwnerAuthorityActive(tenantId, input.ownerType, input.ownerId);
 
-    // 🔴 F-RENTAL-AVAILABILITY-OVERLAP (bug material 2026-07-08): NÃO existia trigger/constraint de
-    // sobreposição (o comentário "trigger previne sobreposição" era falso). A verdade temporal é do
-    // BANCO: rejeita janela ATIVA que sobreponha outra do mesmo recurso. 409 + a janela conflitante.
-    const conflicts = await unifiedAvailabilityRepository.findOverlapping(
-      tenantId, input.ownerType, input.ownerId, input.startDatetime!, input.endDatetime!);
-    if (conflicts.length > 0) {
-      const c = conflicts[0];
-      throw new ConflictError(
-        `RENTAL_AVAILABILITY_OVERLAP: esta janela conflita com uma disponibilidade já cadastrada ` +
-        `(${c.startDatetime.toISOString()} → ${c.endDatetime.toISOString()}).`);
-    }
+    // 🔴 F-RENTAL-EXCLUSIVITY-GUARANTEE (GO Clayton 2026-08-05) — o bloqueio de sobreposição SAIU daqui.
+    // Entre 2026-07-08 e hoje esta função recusava com 409 RENTAL_AVAILABILITY_OVERLAP toda janela ativa
+    // que sobrepusesse outra do mesmo owner. Isso é HARD-BLOCK NA DECLARAÇÃO, e a norma proíbe por escrito:
+    // CONSTITUIÇÃO ART. II (conflito gera FATO→ALERTA→humano, nunca ação automática) · DECISION-0146 §A.1
+    // ("overlap em availability NÃO bloqueia") · §A.7 · G1.
+    // O GATE-pequeno de 2026-08-05 provou que era dispensável: a trava do COMPROMISSO
+    // (confirmBookingWithResourceLock + RENTAL_RESOURCE_TIME_CONFLICT, commit 6359d31cc) nasceu 2026-06-23,
+    // QUINZE DIAS ANTES, e cobre a impossibilidade física na camada que a §A.7 prescreve — o conflito lá é
+    // por RECURSO sobre TODAS as janelas dele, então janela sobreposta não abre buraco.
+    // ⚠️ O que o compromisso NÃO cobre e fica NOMEADO (dono/prazo com Clayton): duas janelas sobrepostas
+    // CONFUNDEM A PROJEÇÃO (capacidade contada duas vezes). Isso é read-model, e a resposta canônica é o
+    // ALERTA do Art. II — que não existe. `repository.findOverlapping` fica DORMENTE de propósito: é a
+    // consulta que esse alerta vai precisar. Ver DT-AVAILABILITY-OVERLAP-ALERT-MISSING.
 
     // Cria disponibilidade. NÃO decide quem pode agendar, apenas expõe janelas.
     return await unifiedAvailabilityRepository.create(tenantId, input);
@@ -144,17 +146,9 @@ class UnifiedAvailabilityService {
     // 🔴 F-AVAILABILITY-WRITE-QUARANTINE-GATE (§4.8.4) — autoridade-ATIVA do owner do recurso existente ANTES do UPDATE.
     await assertAvailabilityOwnerAuthorityActive(tenantId, existing.ownerType, existing.ownerId);
 
-    // F-RENTAL-AVAILABILITY-OVERLAP: revalida sobreposição após a edição (excluindo a própria janela).
-    const newStart = input.startDatetime ?? existing.startDatetime;
-    const newEnd = input.endDatetime ?? existing.endDatetime;
-    const conflicts = await unifiedAvailabilityRepository.findOverlapping(
-      tenantId, existing.ownerType, existing.ownerId, newStart, newEnd, availabilityId);
-    if (conflicts.length > 0) {
-      const c = conflicts[0];
-      throw new ConflictError(
-        `RENTAL_AVAILABILITY_OVERLAP: a janela editada conflita com outra já cadastrada ` +
-        `(${c.startDatetime.toISOString()} → ${c.endDatetime.toISOString()}).`);
-    }
+    // 🔴 F-RENTAL-EXCLUSIVITY-GUARANTEE: a revalidação de sobreposição SAIU daqui pelo mesmo motivo do
+    // createAvailability acima — editar uma declaração para que ela sobreponha outra é DECLARAÇÃO, e
+    // declaração não hard-blocka (ART. II · 0146 §A.1/§A.7/G1). O compromisso segue protegido no confirm.
 
     return await unifiedAvailabilityRepository.updateAvailability(tenantId, availabilityId, input);
   }

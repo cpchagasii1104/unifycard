@@ -94,6 +94,7 @@
     "validate:payout-proof-e2e": "pwsh -File scripts/run-payout-proof-e2e-ephemeral.ps1",
     "validate:db-role-rls-hardening": "pwsh -File scripts/run-rls-isolation-ephemeral.ps1",
     "validate:payout-toctou-safety": "pwsh -File scripts/run-payout-toctou-ephemeral.ps1",
+    "validate:rental-exclusivity-guarantee": "pwsh -File scripts/run-rental-exclusivity-guarantee-ephemeral.ps1",
     "validate:concept-id-uuid-shape": "node ../scripts/validate-concept-id-uuid-shape.mjs",
     "reconcile:escrow-bank-drift": "node scripts/reconcile-escrow-bank-drift.mjs",
     "guard:app-builder": "node scripts/guard-app-builder-artifact.mjs",

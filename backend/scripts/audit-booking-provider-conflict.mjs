@@ -1,4 +1,21 @@
 #!/usr/bin/env node
+// backend/scripts/audit-booking-provider-conflict.mjs
+//
+// ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+// ║ STATUS:  CANÔNICO — cobre APENAS owner_type='service_offering'
+// ║ NORMA:   docs/02_decisions/DECISION_0146_… §A.3 (rollup por provider) · §B-bis G10
+// ║ NÃO:     ler "fica fora do guard" como conformidade com a G10 — a G10 manda PARAR
+// ║ EM VEZ:  owner_type ≠ service_offering hoje CONFIRMA SEM TRAVA — ver GATE_F0 §1(a)
+// ╚════════════════════════════════════════════════════════════════
+//
+// ⚠️ CORREÇÃO DE ATRIBUIÇÃO (2026-08-05, GO Clayton): a mensagem da checagem do gate `SERVICE_OFFERING`
+// citava a **G10** como se ela autorizasse deixar os outros owner_types fora da trava. Ela não autoriza —
+// diz o contrário: *"Resolução ambígua/ausente → **STOP_DECISION_REQUIRED** […] para (não adivinhar o
+// recurso)"*. Norma manda PARAR; o código CONFIRMA; e o guard carimbava a passagem citando a norma.
+// **Comentário que mente dentro de um guard é pior que dentro de código** — guard é onde as pessoas vão
+// ler a regra. Corrigida a mensagem; o comportamento do guard NÃO mudou (ele nunca cobriu os outros
+// owner_types, e continua não cobrindo — o que mudou é ele parar de chamar isso de conformidade).
+//
 // Guard estrutural — F-OFFER-5/6 (DECISION-0146): integridade temporal da oferta + conflito de booking por provider.
 //
 // O COMPROMISSO (confirm de booking) recusa, fail-closed e à prova de corrida, um 2º booking do MESMO
@@ -48,7 +65,7 @@ else {
   if (!/input\.status === UnifiedBookingStatus\.CONFIRMED/.test(svc)) failures.push(`${SVC}: guard não incide na transição p/ confirmed (G11; não pode ficar só no createBooking).`);
   if (!/confirmBookingWithProviderLock/.test(svc)) failures.push(`${SVC}: confirm não chama o guard transacional confirmBookingWithProviderLock.`);
   if (!/resolveAvailabilityOwner\(/.test(svc)) failures.push(`${SVC}: provider não é derivado server-side (resolveAvailabilityOwner — G9).`);
-  if (!/AvailabilityOwnerType\.SERVICE_OFFERING/.test(svc)) failures.push(`${SVC}: sem gate owner_type=service_offering (G10; owner_type≠service_offering fica fora do guard).`);
+  if (!/AvailabilityOwnerType\.SERVICE_OFFERING/.test(svc)) failures.push(`${SVC}: sem gate owner_type=service_offering — este guard cobre SOMENTE service_offering. ⚠️ owner_type≠service_offering está FORA da cobertura deste guard, e isso NÃO é conformidade com a G10: a G10 manda STOP_DECISION_REQUIRED, e o código hoje CONFIRMA SEM TRAVA (ver GATE_F0 §1(a)).`);
   if (/providerActorId:\s*input\./.test(svc) || /input\.providerActorId/.test(svc)) failures.push(`${SVC}: provider_actor_id NÃO pode vir do body (G9).`);
 }
 
