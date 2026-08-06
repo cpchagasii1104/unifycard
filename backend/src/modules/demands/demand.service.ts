@@ -11,6 +11,10 @@ import {
   type CreateDemandInput, type DemandResponse, type ServiceDemand,
 } from './demand.types';
 import { assertQuoteUsable } from './quote-validity';
+import {
+  DemandCommitmentError, DEMAND_COMMITMENT_TIMEZONE,
+  demandWindowToInterval, resolveCommitmentOwner, type CommitmentOwner,
+} from './demand-commitment';
 
 class DemandError extends Error {
   statusCode: number;
@@ -25,6 +29,131 @@ function assertIn(value: unknown, allowed: readonly string[], label: string): st
 }
 
 class DemandService {
+  /**
+   * 🔴 F2 · O ACEITE ATÔMICO (DECISION-0196 §D7 · GATE + GO Clayton 2026-08-06).
+   *
+   * UMA transação: preenche a vaga → grava a resposta aceita → **cria a availability, o booking e o
+   * CONFIRM**. Se qualquer passo falha, **reverte inteira**: o cliente vê erro honesto, o orçamento
+   * segue válido e aceitável, e **nenhum estado órfão persiste**. O estado *"aceito + confirm
+   * falhou"* deixa de existir em vez de ganhar nome (§D7).
+   *
+   * ⚠️ Isto substitui a SAGA com compensação manual (`fillSlot` → `createResponse` →
+   * `catch releaseSlot`). O `releaseSlot` de compensação **sai**: com transação real, o ROLLBACK
+   * desfaz a vaga sozinho. Compensação à mão em caminho que vira compromisso é o que a §D7 mandou
+   * eliminar — e cada passo novo multiplicava os ramos dela.
+   *
+   * 📌 O confirm passa pelo **chokepoint único** (`unifiedAvailabilityService.updateBooking`), com o
+   * client externo: cascata do §B.4 resolvida aqui, mas a trava (advisory lock + conflito + a
+   * `EXCLUDE` do banco) continua sendo a de sempre, dentro desta MESMA transação.
+   *
+   * Devolve `null` em `booking` quando o vínculo não tem janela (`recorrente`/`efetivo`): o aceite
+   * é registro COMERCIAL válido; o que não acontece é ocupar agenda (STOP nomeado da G10).
+   */
+  private async aceitarComCompromisso(
+    tenantId: string,
+    demandId: string,
+    providerActorId: string,
+    quoteCents: number | null,
+    message: string | null,
+    expiresAt: Date,
+    offeringId: string | null,
+    assetId: string | null,
+    statusResposta: 'accepted' | 'chosen',
+    responseIdExistente: string | null,
+  ): Promise<{ demand: ServiceDemand; response: DemandResponse; bookingId: string | null; stop: string | null }> {
+    const { getClientWithTenant } = await import('@core/database/pool');
+    const { unifiedAvailabilityService } = await import('@core/availability/unified-availability.service');
+    const { unifiedAvailabilityRepository } = await import('@core/availability/unified-availability.repository');
+    const { UnifiedBookingStatus } = await import('@core/availability/unified-availability.types');
+
+    const client = await getClientWithTenant(tenantId);
+    try {
+      await client.query('BEGIN');
+
+      const filled = await demandRepository.fillSlot(tenantId, demandId, client);
+      if (!filled) throw new DemandError(409, 'Vaga já preenchida — a demanda fechou');
+
+      let response: DemandResponse | null;
+      if (responseIdExistente) {
+        // caminho `choose`: a candidatura já existe e transita condicionalmente (anti-corrida)
+        response = await demandRepository.updateResponseStatusIf(
+          tenantId, responseIdExistente, ['pending'], statusResposta, client);
+        if (!response) throw new DemandError(409, 'Candidatura mudou de estado — escolha outro');
+      } else {
+        response = await demandRepository.createResponse(
+          tenantId, demandId, providerActorId, statusResposta, quoteCents, message, expiresAt,
+          offeringId, assetId, client);
+      }
+
+      // ── O COMPROMISSO ────────────────────────────────────────────────────────────────────────
+      let bookingId: string | null = null;
+      let stop: string | null = null;
+      try {
+        const janela = demandWindowToInterval(filled);
+        const owner: CommitmentOwner = resolveCommitmentOwner({
+          offeringId, assetId, providerActorId,
+          providerActorType: await this.actorTypeOf(tenantId, providerActorId, client),
+        });
+
+        // §B.1: a agenda só é tocada AQUI, no aceite — nunca no pedido nem na resposta.
+        const availability = await unifiedAvailabilityRepository.create(tenantId, {
+          ownerType: owner.ownerType as any,
+          ownerId: owner.ownerId,
+          availabilityType: 'fixed',
+          startDatetime: janela.startIso as any,
+          endDatetime: janela.endIso as any,
+          timezone: DEMAND_COMMITMENT_TIMEZONE,
+          metadata: { source: 'demand_accept', demandId, responseId: response.id, degrau: owner.degrau },
+        } as any, client);
+
+        const booking = await unifiedAvailabilityRepository.createBooking(
+          tenantId,
+          {
+            availabilityId: availability.availabilityId,
+            requesterActorId: filled.actorId, // quem PEDIU é quem reserva o tempo do fornecedor
+            metadata: { source: 'demand_accept', demandId, responseId: response.id },
+            bookedStartDatetime: janela.startIso as any,
+            bookedEndDatetime: janela.endIso as any,
+          } as any,
+          { query: async (q: any) => (await client.query(q)).rows }
+        );
+
+        // chokepoint ÚNICO de confirm, na MESMA transação (client externo).
+        const confirmado = await unifiedAvailabilityService.updateBooking(
+          tenantId, booking.bookingId, providerActorId,
+          { status: UnifiedBookingStatus.CONFIRMED }, client);
+        bookingId = confirmado.bookingId;
+      } catch (e: any) {
+        // 🔴 STOP nomeado (vínculo sem janela / page sem agenda / tipo não decidido) NÃO derruba o
+        // aceite comercial: ele registra por que a agenda não foi tocada. Qualquer OUTRO erro
+        // derruba a transação inteira — inclusive o conflito de agenda, que é o ponto da §D7.
+        if (e instanceof DemandCommitmentError && (e.statusCode === 501 || e.code === 'DEMAND_COMMITMENT_PAGE_HAS_NO_AGENDA')) {
+          stop = e.code;
+        } else {
+          throw e;
+        }
+      }
+
+      await client.query('COMMIT');
+      return { demand: filled, response, bookingId, stop };
+    } catch (e) {
+      try { await client.query('ROLLBACK'); } catch { /* tx pode já não estar ativa */ }
+      throw e;
+    } finally {
+      client.release();
+    }
+  }
+
+  /** Tipo do actor, lido do schema vivo DENTRO da transação — nunca do body (0113/G9). */
+  private async actorTypeOf(tenantId: string, actorId: string, client: any): Promise<string> {
+    const r = await client.query(
+      `SELECT actor_type FROM actors WHERE id = $1::uuid AND tenant_id = $2::uuid LIMIT 1`,
+      [actorId, tenantId]);
+    const t = r.rows[0]?.actor_type;
+    if (!t) throw new DemandError(404, 'Actor respondente não encontrado neste tenant');
+    return String(t);
+  }
+
   /** ESPELHO NO FEED (item 1 do fechamento): a demanda gera um post-projeção com a MESMA
    *  plateia. Falha do espelho NUNCA derruba a demanda (verdade = motor; feed = projeção). */
   private async mirrorToFeed(tenantId: string, userId: string, demand: ServiceDemand): Promise<void> {
@@ -187,14 +316,16 @@ class DemandService {
     }
 
     if (demand.acceptanceMode === 'automatico') {
-      const filled = await demandRepository.fillSlot(tenantId, demandId);
-      if (!filled) throw new DemandError(409, 'Vaga já preenchida — a demanda fechou');
+      // 🔴 F2 — ACEITE ATÔMICO (§D7). Antes: saga (fillSlot → createResponse → catch releaseSlot).
+      // Agora: UMA transação que também cria availability + booking + confirm. O `releaseSlot` de
+      // compensação SAIU: o ROLLBACK desfaz a vaga sozinho, e compensação à mão era o que a §D7
+      // mandou eliminar.
       try {
-        const response = await demandRepository.createResponse(
-          tenantId, demandId, providerActorId, 'accepted', input?.quoteCents ?? null, input?.message ?? null, expiresAt, offeringId, assetId);
-        return { demand: filled, response };
+        const r = await this.aceitarComCompromisso(
+          tenantId, demandId, providerActorId, input?.quoteCents ?? null, input?.message ?? null,
+          expiresAt, offeringId, assetId, 'accepted', null);
+        return { demand: r.demand, response: r.response };
       } catch (err: any) {
-        await demandRepository.releaseSlot(tenantId, demandId); // rollback da vaga (ex.: resposta duplicada)
         if (String(err?.message ?? '').includes('uq_sd_responses_demand_provider')) {
           throw new DemandError(409, 'Você já respondeu a esta demanda');
         }
@@ -233,15 +364,15 @@ class DemandService {
       throw new DemandError(409, 'Agenda do candidato entrou em conflito nessa janela — escolha outro');
     }
 
-    const filled = await demandRepository.fillSlot(tenantId, demandId);
-    if (!filled) throw new DemandError(409, 'Sem vagas restantes nesta demanda');
-    // transição CONDICIONAL (fix Yala #4): se o candidato correu (withdraw) no meio, devolve a vaga
-    const updated = await demandRepository.updateResponseStatusIf(tenantId, responseId, ['pending'], 'chosen');
-    if (!updated) {
-      await demandRepository.releaseSlot(tenantId, demandId);
-      throw new DemandError(409, 'Candidatura mudou de estado — vaga devolvida, escolha outro');
-    }
-    return { demand: filled, response: updated };
+    // 🔴 F2 — O SEGUNDO VERBO DE ACEITE, e ele NÃO podia ficar de fora. A §B.4 condena "duas
+    // espécies de aceito" como segunda verdade sobre o que aceitar SIGNIFICA: se só o `respond`
+    // automático tocasse a agenda, metade dos compromissos nasceria sem ela. Mesma transação, mesma
+    // cascata, mesmo confirm. A transição CONDICIONAL (fix Yala #4) sobrevive DENTRO da transação —
+    // e o `releaseSlot` de compensação sai, porque agora existe ROLLBACK de verdade.
+    const r = await this.aceitarComCompromisso(
+      tenantId, demandId, response.providerActorId, response.quoteCents, response.message,
+      new Date(response.expiresAt), response.offeringId, response.assetId, 'chosen', responseId);
+    return { demand: r.demand, response: r.response };
   }
 
   /** Provider CANCELA (adendo 3): accepted/chosen → withdrawn + vaga LIBERA (reabre se filled).

@@ -2,9 +2,11 @@
 // DECISION-0164 — persistência da demanda. SÓ toca service_demands/service_demand_responses
 // (+ leitura de concepts/actors p/ projeção). NUNCA bank_*.
 
+import type { PoolClient } from 'pg';
 import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
 import type { DemandResponse, DemandResponseStatus, ServiceDemand } from './demand.types';
 import { isQuoteExpired } from './quote-validity';
+import { demandWindowToInterval, vinculoHasSingleWindow } from './demand-commitment';
 
 const D_COLS = `d.id, d.tenant_id, d.actor_id, d.concept_id, d.title, d.description, d.vinculo,
   d.quantity, d.quantity_filled, d.date_start, d.date_end, d.time_start, d.time_end, d.weekdays,
@@ -50,6 +52,19 @@ function toResponse(r: any): DemandResponse {
     assetId: r.asset_id ?? null,
     createdAt: new Date(r.created_at).toISOString(), updatedAt: new Date(r.updated_at).toISOString(),
   };
+}
+
+/**
+ * 🔴 F2 / DECISION-0196 §D7 — uma query, dois donos possíveis de conexão.
+ * Sem `client`: pool, auto-commit, comportamento idêntico ao de sempre.
+ * COM `client`: participa da transação do chamador (o ACEITE ATÔMICO). O client já vem com
+ * `app.current_tenant` setado por `getClientWithTenant` — não re-setar.
+ * Existe para que `fillSlot`/`createResponse`/… deixem de ser SAGA com compensação manual e passem
+ * a ser transação real: `catch → releaseSlot` só existe porque não havia transação.
+ */
+async function one<T>(tenantId: string, client: PoolClient | undefined, text: string, values: any[]): Promise<T | undefined> {
+  if (client) return (await client.query(text, values)).rows[0] as T | undefined;
+  return runQueryWithTenant<T>(tenantId, text, values);
 }
 
 class DemandRepository {
@@ -179,25 +194,56 @@ class DemandRepository {
   /** ANTI-DOUBLE-COMMIT (item 2 do fechamento): o provider já tem compromisso
    *  (accepted/chosen) cuja JANELA colide com esta demanda? Cobre diaria/periodo com
    *  horários; recorrente/efetivo = fase 2 (integração Agenda universal, nomeada). */
-  async hasScheduleConflict(tenantId: string, providerActorId: string, d: ServiceDemand): Promise<boolean> {
-    if ((d.vinculo !== 'diaria' && d.vinculo !== 'periodo') || !d.dateStart) return false;
-    const row = await runQueryWithTenant<{ conflict: boolean }>(
-      tenantId,
+  /**
+   * 🔴 CONVERGIDO EM 2026-08-06 — "não pode existir segunda verdade" (Clayton), F2.
+   *
+   * ⚠️ **A versão anterior desta função lia `service_demand_responses`** e perguntava *"este provider
+   * já tem OUTRA RESPOSTA aceita nesta janela?"*, com régua `daterange(...,'[]')` **FECHADA**.
+   * A agenda respondia a MESMA pergunta lendo `bookings`+`availability` com régua `[start,end)`
+   * **meio-aberta** (`0146 G8`). Duas fontes e duas réguas para *"quem está ocupado?"* — e elas
+   * divergem exatamente no **back-to-back**, que a G8 promulga como NÃO-conflito. Enquanto a demanda
+   * nunca tocava a agenda isso dormia; a F2 acordaria a divergência.
+   *
+   * **Agora existe UMA verdade sobre tempo: a AGENDA** (`ART. II`, mesmo princípio do Bank para
+   * dinheiro). Esta função passa a LER a agenda, com o MESMO rollup por provider e o MESMO conjunto
+   * bloqueante do confirm (`unified-availability.repository.ts`), e a MESMA régua meio-aberta.
+   *
+   * 📌 Ela é AVISO ANTECIPADO, não autoridade: a autoridade é o confirm, sob advisory lock e dentro
+   * da transação (mais a `EXCLUDE bookings_commitment_no_overlap` no banco). Ter as duas NÃO é
+   * segunda verdade porque as duas leem a MESMA fonte com a MESMA régua — o que a regra proíbe é
+   * duas FONTES, não duas leituras. Sem este aviso, o usuário só descobriria o conflito no fim.
+   */
+  async hasScheduleConflict(
+    tenantId: string, providerActorId: string, d: ServiceDemand, client?: PoolClient
+  ): Promise<boolean> {
+    // vocabulário GOVERNADO, não literal copiado (o manifest morde quem enumera à mão)
+    if (!vinculoHasSingleWindow(d.vinculo)) return false;
+    let janela: { startIso: string; endIso: string };
+    try {
+      janela = demandWindowToInterval(d);
+    } catch {
+      // Demanda sem janela componível não tem conflito de AGENDA a checar (o aceite dela para
+      // antes, com STOP nomeado). Não é "não há conflito": é "não há janela".
+      return false;
+    }
+    const row = await one<{ conflict: boolean }>(
+      tenantId, client,
       `SELECT EXISTS (
-         SELECT 1 FROM service_demand_responses r
-         JOIN service_demands x ON x.id = r.demand_id
-        WHERE r.tenant_id = $1 AND r.provider_actor_id = $2
-          AND r.status IN ('accepted','chosen')
-          AND x.vinculo IN ('diaria','periodo') AND x.date_start IS NOT NULL
-          AND daterange(x.date_start, COALESCE(x.date_end, x.date_start), '[]')
-              && daterange($3::date, COALESCE($4::date, $3::date), '[]')
-          AND (
-            x.time_start IS NULL OR $5::time IS NULL
-            OR (x.time_start < COALESCE($6::time, '23:59'::time)
-                AND COALESCE(x.time_end, '23:59'::time) > $5::time)
-          )
+         SELECT 1
+           FROM bookings b
+           JOIN availability a ON a.availability_id = b.availability_id AND a.tenant_id = b.tenant_id
+           LEFT JOIN service_offerings so ON so.id = a.owner_id AND so.tenant_id = a.tenant_id
+                 AND a.owner_type = 'service_offering'
+          WHERE b.tenant_id = $1
+            AND (
+                  (a.owner_type = 'service_offering' AND so.provider_actor_id = $2)
+               OR (a.owner_type = 'user'             AND a.owner_id = $2)
+            )
+            AND b.status IN ('confirmed','checked_in','checked_out')
+            AND COALESCE(b.booked_start_datetime, a.start_datetime) < $4::timestamptz
+            AND COALESCE(b.booked_end_datetime,   a.end_datetime)   > $3::timestamptz
        ) AS conflict`,
-      [tenantId, providerActorId, d.dateStart, d.dateEnd, d.timeStart, d.timeEnd]);
+      [tenantId, providerActorId, janela.startIso, janela.endIso]);
     return !!row?.conflict;
   }
 
@@ -235,9 +281,9 @@ class DemandRepository {
 
   /** TRANSIÇÃO CONDICIONAL (fix Yala #4): só atualiza se status atual ∈ from — o row-lock
    *  do UPDATE serializa; concorrente perde a condição e recebe null (sem double-release). */
-  async updateResponseStatusIf(tenantId: string, responseId: string, from: DemandResponseStatus[], to: DemandResponseStatus): Promise<DemandResponse | null> {
-    const row = await runQueryWithTenant<any>(
-      tenantId,
+  async updateResponseStatusIf(tenantId: string, responseId: string, from: DemandResponseStatus[], to: DemandResponseStatus, client?: PoolClient): Promise<DemandResponse | null> {
+    const row = await one<any>(
+      tenantId, client,
       `UPDATE service_demand_responses SET status = $3, updated_at = now()
         WHERE tenant_id = $1 AND id = $2 AND status = ANY($4)
         RETURNING *`,
@@ -249,9 +295,9 @@ class DemandRepository {
    *  de propósito). `offeringId`/`assetId` são exclusivos entre si (CHECK no banco). */
   async createResponse(tenantId: string, demandId: string, providerActorId: string,
     status: DemandResponseStatus, quoteCents: number | null, message: string | null,
-    expiresAt: Date, offeringId: string | null, assetId: string | null): Promise<DemandResponse> {
-    const row = await runQueryWithTenant<any>(
-      tenantId,
+    expiresAt: Date, offeringId: string | null, assetId: string | null, client?: PoolClient): Promise<DemandResponse> {
+    const row = await one<any>(
+      tenantId, client,
       `INSERT INTO service_demand_responses
          (tenant_id, demand_id, provider_actor_id, status, quote_cents, message, expires_at, offering_id, asset_id)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
@@ -278,9 +324,9 @@ class DemandRepository {
 
   /** Incremento ATÔMICO de vaga preenchida — fecha (filled) ao atingir quantity.
    *  Retorna a demanda pós-update ou null se não havia vaga (fail-closed). */
-  async fillSlot(tenantId: string, demandId: string): Promise<ServiceDemand | null> {
-    const row = await runQueryWithTenant<any>(
-      tenantId,
+  async fillSlot(tenantId: string, demandId: string, client?: PoolClient): Promise<ServiceDemand | null> {
+    const row = await one<any>(
+      tenantId, client,
       `WITH upd AS (
          UPDATE service_demands SET
            quantity_filled = quantity_filled + 1,
@@ -294,9 +340,9 @@ class DemandRepository {
   }
 
   /** Libera vaga (cancelamento do provider) — REABRE se estava filled. */
-  async releaseSlot(tenantId: string, demandId: string): Promise<ServiceDemand | null> {
-    const row = await runQueryWithTenant<any>(
-      tenantId,
+  async releaseSlot(tenantId: string, demandId: string, client?: PoolClient): Promise<ServiceDemand | null> {
+    const row = await one<any>(
+      tenantId, client,
       `WITH upd AS (
          UPDATE service_demands SET
            quantity_filled = GREATEST(quantity_filled - 1, 0),

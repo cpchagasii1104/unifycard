@@ -22,6 +22,7 @@
 //    trava nenhuma, EM SILÊNCIO. EM VEZ: mantenha os dois; o guard audit-commitment-layer-db-constraint
 //    morde se qualquer um dos dois sumir.
 
+import type { PoolClient } from 'pg';
 import { runQueryWithTenant, runQueriesWithTenant, getClientWithTenant } from '@core/database/pool';
 import type {
   UnifiedAvailability,
@@ -105,9 +106,18 @@ class UnifiedAvailabilityRepository {
    *    detect_availability_conflicts() no booking, e o guard real de double-booking é o advisory
    *    lock do confirm canônico.
    */
+  /**
+   * 🔴 F2 / DECISION-0196 §D7 — `client` OPCIONAL para o ACEITE ATÔMICO.
+   * Sem ele, comportamento idêntico ao de sempre (pool, uma query, auto-commit). COM ele, o INSERT
+   * participa da transação do chamador — sem isso o aceite não falha limpo: o confirm rodaria em
+   * OUTRA conexão, não enxergaria a availability não-commitada, e devolveria `NotFoundError` (falha
+   * pelo motivo errado, num caminho que vira dinheiro). O client já vem com `app.current_tenant`
+   * setado por `getClientWithTenant` — não re-setar aqui.
+   */
   async create(
     tenantId: string,
-    input: CreateUnifiedAvailabilityInput
+    input: CreateUnifiedAvailabilityInput,
+    client?: PoolClient
   ): Promise<UnifiedAvailability> {
     const {
       ownerType,
@@ -135,30 +145,31 @@ class UnifiedAvailabilityRepository {
       throw new BadRequestError('endDatetime deve ser posterior a startDatetime');
     }
 
-    const row = await runQueryWithTenant<UnifiedAvailabilityRow>(
-      tenantId,
-      `
+    const text = `
       INSERT INTO availability (
         tenant_id, owner_type, owner_id, availability_type, status,
         start_datetime, end_datetime, timezone, capacity, purpose_concept_id, metadata
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
       RETURNING *
-      `,
-      [
-        tenantId,
-        ownerType,
-        ownerId,
-        availabilityType,
-        status,
-        startDatetime,
-        endDatetime,
-        timezone,
-        capacity,
-        purposeConceptId, // DECISION-0132 (concept_id resolvido server-side; NULL permitido)
-        JSON.stringify(metadata),
-      ]
-    );
+      `;
+    const values = [
+      tenantId,
+      ownerType,
+      ownerId,
+      availabilityType,
+      status,
+      startDatetime,
+      endDatetime,
+      timezone,
+      capacity,
+      purposeConceptId, // DECISION-0132 (concept_id resolvido server-side; NULL permitido)
+      JSON.stringify(metadata),
+    ];
+
+    const row = client
+      ? ((await client.query(text, values)).rows[0] as UnifiedAvailabilityRow | undefined)
+      : await runQueryWithTenant<UnifiedAvailabilityRow>(tenantId, text, values);
 
     if (!row) {
       throw new BadRequestError('Failed to create availability');
@@ -208,12 +219,12 @@ class UnifiedAvailabilityRepository {
   /**
    * Busca disponibilidade por ID
    */
-  async findAvailabilityById(tenantId: string, availabilityId: string): Promise<UnifiedAvailability | null> {
-    const row = await runQueryWithTenant<UnifiedAvailabilityRow>(
-      tenantId,
-      `SELECT * FROM availability WHERE availability_id = $1 AND tenant_id = $2`,
-      [availabilityId, tenantId]
-    );
+  /** 🔴 F2 — `client` OPCIONAL: dentro do aceite atômico a availability ainda não foi commitada. */
+  async findAvailabilityById(tenantId: string, availabilityId: string, client?: PoolClient): Promise<UnifiedAvailability | null> {
+    const text = `SELECT * FROM availability WHERE availability_id = $1 AND tenant_id = $2`;
+    const row = client
+      ? ((await client.query(text, [availabilityId, tenantId])).rows[0] as UnifiedAvailabilityRow | undefined)
+      : await runQueryWithTenant<UnifiedAvailabilityRow>(tenantId, text, [availabilityId, tenantId]);
     return row ? this.toUnifiedAvailability(row) : null;
   }
 
@@ -427,11 +438,17 @@ class UnifiedAvailabilityRepository {
     bookingId: string,
     providerActorId: string,
     startIso: string,
-    endIso: string
+    endIso: string,
+    externalClient?: PoolClient
   ): Promise<UnifiedBooking> {
-    const client = await getClientWithTenant(tenantId);
+    // 🔴 F2 / DECISION-0196 §D7 — quando o chamador JÁ possui a transação (aceite atômico), este
+    // método NÃO abre nem fecha a dele: entra na que existe. O advisory lock e a checagem de
+    // conflito continuam idênticos e continuam DENTRO da transação — é ela que os torna
+    // à prova de corrida. Quem abre, fecha: `owns` decide BEGIN/COMMIT/ROLLBACK e o release.
+    const owns = !externalClient;
+    const client = externalClient ?? (await getClientWithTenant(tenantId));
     try {
-      await client.query('BEGIN');
+      if (owns) await client.query('BEGIN');
       // G7: lock xact-scoped por tenant+provider (libera automático no commit/rollback).
       await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [`${tenantId}:${providerActorId}`]);
       // G2/G3/G8: conflito = MESMO provider (via availability→service_offering) em status bloqueante,
@@ -484,13 +501,14 @@ class UnifiedAvailabilityRepository {
       if (upd.rows.length === 0) {
         throw new ConflictError('BOOKING_CONFIRM_INVALID_STATE: booking não está em estado requested.');
       }
-      await client.query('COMMIT');
+      if (owns) await client.query('COMMIT');
       return this.toUnifiedBooking(upd.rows[0] as UnifiedBookingRow);
     } catch (e) {
-      try { await client.query('ROLLBACK'); } catch { /* tx pode já não estar ativa */ }
+      // Transação alheia: NÃO faço ROLLBACK — quem abriu decide. Propagar é o contrato.
+      if (owns) { try { await client.query('ROLLBACK'); } catch { /* tx pode já não estar ativa */ } }
       throw e;
     } finally {
-      client.release();
+      if (owns) client.release();
     }
   }
 
@@ -506,11 +524,15 @@ class UnifiedAvailabilityRepository {
     bookingId: string,
     resourceId: string,
     startIso: string,
-    endIso: string
+    endIso: string,
+    externalClient?: PoolClient
   ): Promise<UnifiedBooking> {
-    const client = await getClientWithTenant(tenantId);
+    // 🔴 F2 / DECISION-0196 §D7 — mesmo contrato do provider-lock: entra na transação do chamador
+    // quando ela existe; quem abre, fecha. Lock e contagem por capacidade permanecem DENTRO dela.
+    const owns = !externalClient;
+    const client = externalClient ?? (await getClientWithTenant(tenantId));
     try {
-      await client.query('BEGIN');
+      if (owns) await client.query('BEGIN');
       await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [`${tenantId}:actor_asset:${resourceId}`]);
       // Correção conceitual 2026-07-08: conflito por SUBPERÍODO (não pela janela macro). Duas reservas de
       // subperíodos diferentes da MESMA janela (ex.: 10-12 e 20-22 de uma janela 08-31) NÃO conflitam.
@@ -561,25 +583,32 @@ class UnifiedAvailabilityRepository {
       if (upd.rows.length === 0) {
         throw new ConflictError('BOOKING_CONFIRM_INVALID_STATE: booking não está em estado requested.');
       }
-      await client.query('COMMIT');
+      if (owns) await client.query('COMMIT');
       return this.toUnifiedBooking(upd.rows[0] as UnifiedBookingRow);
     } catch (e) {
-      try { await client.query('ROLLBACK'); } catch { /* tx pode já não estar ativa */ }
+      // Transação alheia: NÃO faço ROLLBACK — quem abriu decide. Propagar é o contrato.
+      if (owns) { try { await client.query('ROLLBACK'); } catch { /* tx pode já não estar ativa */ } }
       throw e;
     } finally {
-      client.release();
+      if (owns) client.release();
     }
   }
 
   /**
    * Busca booking por ID
    */
-  async findBookingById(tenantId: string, bookingId: string): Promise<UnifiedBooking | null> {
-    const row = await runQueryWithTenant<UnifiedBookingRow>(
-      tenantId,
-      `SELECT * FROM bookings WHERE booking_id = $1 AND tenant_id = $2`,
-      [bookingId, tenantId]
-    );
+  /**
+   * 🔴 F2 — `client` OPCIONAL, e a falta dele foi o defeito que a prova pegou.
+   * O GATE listou 3 peças a refatorar (`create` + os dois `confirm*`) e ESQUECEU OS LEITORES: com o
+   * finder no pool, o confirm dentro da transação não enxergava o booking recém-criado e devolvia
+   * `NotFoundError` — exatamente o sintoma que a `§D7` descreveu ("falha pelo motivo errado, num
+   * caminho que vira dinheiro"). A norma tinha razão e a minha lista de custo estava incompleta.
+   */
+  async findBookingById(tenantId: string, bookingId: string, client?: PoolClient): Promise<UnifiedBooking | null> {
+    const text = `SELECT * FROM bookings WHERE booking_id = $1 AND tenant_id = $2`;
+    const row = client
+      ? ((await client.query(text, [bookingId, tenantId])).rows[0] as UnifiedBookingRow | undefined)
+      : await runQueryWithTenant<UnifiedBookingRow>(tenantId, text, [bookingId, tenantId]);
     return row ? this.toUnifiedBooking(row) : null;
   }
 

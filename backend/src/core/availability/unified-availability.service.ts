@@ -446,10 +446,19 @@ class UnifiedAvailabilityService {
     tenantId: string,
     bookingId: string,
     userId: string,
-    input: UpdateUnifiedBookingInput
+    input: UpdateUnifiedBookingInput,
+    // 🔴 F2 / DECISION-0196 §D7 — client EXTERNO opcional para o ACEITE ATÔMICO. Passá-lo mantém
+    // este método como o CHOKEPOINT ÚNICO de confirm (cascata, aviso suave e bind do performer
+    // continuam acontecendo aqui) em vez de criar um 2º caminho de confirm — que seria segunda
+    // verdade sobre "o que confirmar significa". Os efeitos NÃO-CRÍTICOS (aviso suave, bind,
+    // outbox) seguem em conexões próprias e por isso podem não enxergar a linha ainda não
+    // commitada; eles já são best-effort por desenho (try/catch que nunca desfaz o confirm).
+    client?: import('pg').PoolClient
   ): Promise<UnifiedBooking> {
-    // 🔴 BLINDAGEM: Validar que booking existe
-    const existing = await unifiedAvailabilityRepository.findBookingById(tenantId, bookingId);
+    // 🔴 BLINDAGEM: Validar que booking existe. `client` é obrigatório aqui quando há transação
+    // externa: com o finder no pool, o booking recém-criado (não commitado) seria invisível e este
+    // NotFoundError apareceria no lugar do rollback — o sintoma exato que a §D7 descreve.
+    const existing = await unifiedAvailabilityRepository.findBookingById(tenantId, bookingId, client);
     if (!existing) {
       throw new NotFoundError('Booking não encontrado');
     }
@@ -459,7 +468,7 @@ class UnifiedAvailabilityService {
     // checked_out} ocorre SÓ via confirm (checkIn exige confirmed; checkOut exige checked_in — state-machine),
     // então confirm é o ponto ÚNICO. availability segue declarativa (não é tocada aqui).
     if (input.status === UnifiedBookingStatus.CONFIRMED) {
-      const availability = await unifiedAvailabilityRepository.findAvailabilityById(tenantId, existing.availabilityId);
+      const availability = await unifiedAvailabilityRepository.findAvailabilityById(tenantId, existing.availabilityId, client);
       if (!availability) {
         throw new NotFoundError('Disponibilidade do booking não encontrada');
       }
@@ -480,7 +489,8 @@ class UnifiedAvailabilityService {
           bookingId,
           owner.authorityActorId,
           startIso,
-          endIso
+          endIso,
+          client
         );
         // 🔴 F4 ARCO FUNDAÇÃO EVENTOS — AVISO SUAVE de conflito POR PESSOA (cross-membership).
         // DEPOIS do compromisso firmado (o 409 do hard-lock acima propaga ANTES de qualquer aviso):
@@ -541,7 +551,8 @@ class UnifiedAvailabilityService {
           bookingId,
           availability.ownerId, // = actor_assets.id (o item real — F-ASSET 2b-4)
           startIso,
-          endIso
+          endIso,
+          client
         );
       }
 
@@ -559,7 +570,7 @@ class UnifiedAvailabilityService {
         const startIso = new Date(availability.startDatetime).toISOString();
         const endIso = new Date(availability.endDatetime).toISOString();
         return await unifiedAvailabilityRepository.confirmBookingWithProviderLock(
-          tenantId, bookingId, owner.authorityActorId, startIso, endIso
+          tenantId, bookingId, owner.authorityActorId, startIso, endIso, client
         );
       }
 

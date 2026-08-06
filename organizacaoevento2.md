@@ -129,7 +129,19 @@ no topo do `REMEDIATION_DT_LOG.md`.
 foi avaliada, cobriria também o fungível, e foi **REJEITADA** por duplicar a regra em duas linguagens.
 Motivo registrado no cartório.
 
-### 🔴 PRÓXIMA: **F2 — o aceite atômico** (⛔ GATE próprio antes, `0196 §I.1`)
+### ⚛️ F2 — **ENTREGUE em 2026-08-06 · ⛔ NÃO SELADA** (o veto da `§I.2` espera a navegação)
+
+Aceitar demanda **cria compromisso na agenda**, numa transação só, pelos **DOIS** verbos.
+Harness `npm run validate:demand-atomic-accept` **11/11** · guard `audit-demand-atomic-accept`
+(vermelho forçado 3×) · cascata `§B.4` em **leitor único** (`demand-commitment.ts`).
+✅ Fecha **`DT-DEMAND-AGENDA-MIRROR`** (prova `F1`, query contável do `§J`).
+🔴 **`hasScheduleConflict` CONVERGIU para a agenda** — ele lia `service_demand_responses` com régua
+`'[]'` FECHADA enquanto a agenda usava `[start,end)`. **Não reabra a fonte paralela.**
+🔴 **Leitores também precisam da transação:** `findBookingById`/`findAvailabilityById` no pool
+faziam o aceite falhar com `NotFoundError` em vez de rollback — o sintoma exato da `§D7`.
+⛔ **Para SELAR falta a navegação de Clayton** (`§I.2`): substrato certo com pessoa no escuro reprova.
+
+### (histórico do desenho da F2)
 
 *"Duas mãos no mesmo lock na mesma semana sem mapa é como nascem as corridas."*
 

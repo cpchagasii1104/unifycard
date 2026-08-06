@@ -1,5 +1,103 @@
 # REMEDIATION DT LOG
 
+## ⚛️ F2 — O ACEITE ATÔMICO ENTREGUE (2026-08-06 · GO Clayton "execute") · **NÃO SELADA**
+
+`DECISION-0196 §D7`. Aceitar uma demanda passa a **criar compromisso na agenda**, numa transação só.
+Harness `npm run validate:demand-atomic-accept` **11/11** em efêmera · guard
+`audit-demand-atomic-accept` no runner **no mesmo commit**, vermelho forçado 3× ·
+**runner 263 COMMANDS OK** (era 262) · tsc backend 0 · tsc frontend 0 · Δbank 0.
+
+### 🔴 O RUNNER MORDEU MAIS TRÊS VEZES — e nas três estava certo
+
+1. **`red-gates-baseline`** (`3882 > 3881`): o método de **partição de string** conta como termo
+   financeiro. **Terceira vez neste arco.** Reescrito com `slice` sobre posições fixas; o comentário
+   que explica **não** contém a palavra — foi assim que a rodada anterior estourou 2× seguidas.
+2. **`governed-vocabulary-manifest`**: eu havia **enumerado à mão** `'recorrente'`/`'efetivo'` em
+   `demand-commitment.ts`. *"COMPOR do vocabulário GOVERNADO, nunca enumerar por conta"* — regra que
+   já me pegou 2× antes e me pegou de novo. Virou `Record<DemandVinculo, 'single'|'none'>`
+   **exaustivo por tipo**: vínculo novo **quebra o compilador** e obriga decisão, em vez de cair num
+   ramo por omissão. **Ficou melhor do que estava.**
+3. **`case-drift-ratchet`**: o nome de fixture `'Fornecedor'` colide em case com o valor governado
+   `fornecedor` (rótulo de relação). Renomeei a **fixture**; **baseline intocada**.
+
+⚠️ **E o meu PRÓPRIO guard reprovou o conserto do item 2** — ele exigia o TEXTO
+`'recorrente' || 'efetivo'`. *Guard que prova GRAFIA reprova conserto*: é a **terceira vez hoje**
+(depois de `booking-provider-conflict` e `rental-resource-substrate`). Reescrito para provar a
+SUBSTÂNCIA (o mapa exaustivo, com `recorrente/efetivo → 'none'` e `diaria/periodo → 'single'`), e
+com vermelho forçado no valor, não na grafia.
+📌 **Nenhuma baseline foi afrouxada em nenhuma das três.**
+
+⛔ **NÃO SELADA, de propósito:** o veto da `§I.2` exige que a pessoa **VEJA** a própria agenda ser
+ocupada, e com `service_demands` = 0 no banco oficial isso é impossível até Clayton navegar.
+**Entregue e provada; o selo espera a navegação.**
+
+### 🔴 A REGRA "não pode existir segunda verdade", executada
+
+`hasScheduleConflict` **lia `service_demand_responses`** com régua `daterange '[]'` **FECHADA**,
+enquanto a agenda respondia a MESMA pergunta com `[start,end)` **meio-aberta** (`G8`). Duas fontes
+**e** duas réguas para *"quem está ocupado?"*, divergindo exatamente no **back-to-back**.
+✅ **Convergiu para a AGENDA** (`ART. II`), com o **mesmo rollup por provider** e o **mesmo conjunto
+bloqueante** do confirm. Ela vira **aviso antecipado**, não autoridade — a autoridade segue sendo o
+confirm sob advisory lock + a `EXCLUDE` do banco. *Duas leituras da MESMA fonte com a MESMA régua
+não são duas verdades; o que a regra proíbe é duas FONTES.*
+
+### Os DOIS verbos, porque a §B.4 já proibia escolher um
+
+`respond` (automático → `accepted`) **e** `choose` (com_analise → `chosen`) passam pelo **mesmo**
+`aceitarComCompromisso`. Cobrir só um criaria *"duas espécies de aceito"* — que a própria `§B.4`
+nomeia como **segunda verdade sobre o que aceitar SIGNIFICA**. Não foi decisão: foi norma aplicada.
+
+### A SAGA morreu
+
+Antes: `fillSlot` → `createResponse` → `catch releaseSlot` (compensação **à mão**). Agora: **UMA
+transação** que ainda cria `availability` + `booking` + `confirm`. **O `releaseSlot` de compensação
+SAIU** — com ROLLBACK real ele devolveria a vaga **duas vezes**. Provado: `B2` mostra vaga
+**não** preenchida e resposta **não** persistida depois de um conflito.
+
+### 🔴 O GATE LISTOU 3 PEÇAS E FALTAVAM OS LEITORES — a prova pegou
+
+A primeira execução falhou com **`NotFoundError`**, que é *o sintoma exato que a `§D7` descreve*
+(*"o confirm roda em outra conexão, não enxerga a availability não-commitada, e devolve NotFoundError
+— falha pelo motivo errado, num caminho que vira dinheiro"*). Causa: `findBookingById` e
+`findAvailabilityById` continuavam no **pool**. O meu mapa de custo dizia *"`create` + os dois
+`confirm*`"* e **esquecia os leitores**. A norma tinha razão e a minha contagem estava incompleta —
+*a §D7 previu o defeito com dois meses de antecedência e eu ainda assim o produzi.*
+📌 Regra que fica: **transação não é só quem ESCREVE — é quem LÊ também.** Um leitor no pool dentro
+de uma transação não vê o próprio trabalho.
+
+### A cascata em LEITOR ÚNICO (`demand-commitment.ts`)
+
+Três degraus, nenhum inventado: FK → oferta/ativo · sem FK + `user` → o próprio actor ·
+sem FK + `page` → **recusa nomeada** (`R1`: *a empresa AGREGA*). Outros tipos → **STOP G10**.
+`recorrente`/`efetivo` → **STOP**: não têm UMA janela, e inventar uma seria adivinhar o compromisso.
+⚠️ Nos STOPs o **aceite comercial acontece** e a **agenda não é tocada** — provado em `E1`/`E2`.
+O **fuso** é `America/Sao_Paulo`, que **não é escolha nova**: é o default NOT NULL de
+`availability.timezone`, usado por **70/70** janelas vivas. `countries.timezone_default` fica como
+caminho nomeado para multi-país.
+
+### As provas — 11/11, com o lado positivo escrito
+
+`A1` respond automático ocupa a agenda · `A2` **choose também** · `B1` conflito **recusado** ·
+`B2` **nada órfão** · `C1` **corrida do aceite COMPLETO**: exatamente um vence (`G7`) · `C2` o banco
+tem 1 · `D1` **back-to-back passa** (`G8`) · `E1` page sem FK: comercial vive, agenda intocada ·
+`E2` `efetivo` idem · `F1` **`DT-DEMAND-AGENDA-MIRROR` fecha** — a query contável do `§J` devolve
+compromissos com `metadata->>'source' = 'demand_accept'`.
+
+🔴 **Vermelho forçado 3×:** ① só um verbo no caminho atômico · ② `hasScheduleConflict` voltando à
+tabela de respostas (a segunda verdade) · ③ o leitor voltando ao pool (o defeito que a prova pegou).
+
+⚠️ **Fixture irreal 2×, e as duas ensinaram:** `actors.is_active` **não existe** (supus), e
+`INSERT INTO actors` cru é barrado pelo writer soberano — a fixture passou a nascer por
+`ensurePageActor`. *Ler as obrigatórias de uma vez no catálogo é mais barato que descobrir uma por
+execução vermelha.*
+
+⚠️ **E o lint de vocabulário financeiro mordeu pela TERCEIRA vez neste arco** (`3882 > 3881`): o
+método de **partição de string** conta como termo financeiro, em código **e em comentário**. O
+handoff avisava exatamente isto e eu caí mesmo assim. Reescrito com `slice` sobre posições fixas
+(`YYYY-MM-DD`), e o comentário que explica **não** contém a palavra — foi assim que a rodada
+anterior estourou duas vezes seguidas. **Baseline não foi tocada: o código cedeu, como manda a
+regra.**
+
 ## 🔑 F3 (SUBSTRATO) — `service_demands.need_id` ENTREGUE (2026-08-06 · GO Clayton "execute")
 
 A chave evento↔demanda da `DECISION-0196 §H`. Migration `20260806230000` · guard
