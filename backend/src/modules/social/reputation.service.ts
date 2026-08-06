@@ -78,7 +78,8 @@ export class ReputationService {
     let previousLevel = 0;
     try {
       const existing = await this.getReputation(tenantId, actorId, actorType);
-      if (existing) previousLevel = existing.reputation_level;
+      // a coluna guarda o TERMO governado; o comparador de salto é ORDINAL — converte pela escada
+      if (existing) previousLevel = this.termToLevel(existing.reputation_level);
     } catch (err) {
       // Ignorar se não existir (primeira vez)
     }
@@ -101,7 +102,18 @@ export class ReputationService {
         tenant_id, actor_id, actor_type, impact_total, active_days, diversity_score, reputation_level
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7)
-      ON CONFLICT (tenant_id, actor_id, actor_type)
+      -- 🔴 CONSERTO 2026-08-06 — o ON CONFLICT citava TRÊS colunas
+      -- (tenant_id, actor_id, actor_type) e o índice VIVO tem DUAS:
+      --   uq_actor_reputation  UNIQUE (tenant_id, actor_id)     ← lido do catálogo
+      -- Sem índice correspondente, o Postgres recusa com 42P10 ("não há restrição de unicidade
+      -- que corresponda à especificação ON CONFLICT") — e o caller engolia no catch de
+      -- "não crítico". Medido antes do conserto: actor_reputation = **0 linhas**.
+      -- É o irmão do NULL da tabela de impacto: código afirmando um schema que não existe, protegido
+      -- por catch honesto. A coluna actor_type continua sendo GRAVADA; só não é chave de conflito
+      -- — e não deve ser: o mesmo actor não muda de tipo (a identidade é tenant + actor).
+      -- (sem crases neste bloco: ele vive DENTRO de um template literal e a crase fecharia a
+      --  string — foi assim que este arquivo quebrou o parse na 1a tentativa.)
+      ON CONFLICT (tenant_id, actor_id)
       DO UPDATE SET
         impact_total = EXCLUDED.impact_total,
         active_days = EXCLUDED.active_days,
@@ -110,7 +122,8 @@ export class ReputationService {
         updated_at = NOW()
       RETURNING tenant_id, actor_id, actor_type, impact_total, active_days, diversity_score, reputation_level, NULL::timestamptz AS created_at, updated_at
       `,
-      [tenantId, actorId, actorType, impactTotal, activeDays, diversityScore, reputationLevel]
+      // ⬇️ o degrau vira TERMO governado na fronteira da escrita (nunca número cru na coluna)
+      [tenantId, actorId, actorType, impactTotal, activeDays, diversityScore, this.levelToTerm(reputationLevel)]
     );
 
     if (!result || result.length === 0) {
@@ -156,6 +169,31 @@ export class ReputationService {
    * Nível 2: impacto ≥ 50 E active_days ≥ 10 E diversity ≥ 3
    * Nível 3: impacto ≥ 150 E active_days ≥ 30 E diversity ≥ 4
    */
+  /**
+   * 🔴 A ESCADA, COMPOSTA DO VOCABULÁRIO DO BANCO — não enumerada por conta.
+   * `actor_reputation.reputation_level` é TEXTO com CHECK vivo, lido do catálogo em 2026-08-06:
+   *   CHECK (reputation_level = ANY (ARRAY['newcomer','member','contributor','leader','champion']))
+   * O cálculo interno é uma ESCADA (0,1,2,3 …) e continua sendo — mas o que vai para o banco é o
+   * TERMO governado. O índice na tupla É o degrau: posição 0 = newcomer, 1 = member, …
+   * ⚠️ Antes daqui, o service gravava o NÚMERO cru numa coluna de texto governado — o CHECK
+   * recusava, e o `catch` de "não crítico" de quem chamava engolia. Medido antes do conserto:
+   * `actor_reputation` = 0 linhas. É a mesma doença do `type` TS que "afirma" e não checa
+   * (`CLAUDE.md §3.2`): o tipo dizia `number`, a coluna dizia vocabulário.
+   */
+  private static readonly REPUTATION_LADDER = ['newcomer', 'member', 'contributor', 'leader', 'champion'] as const;
+
+  /** degrau numérico → termo governado (fail-closed: fora da escada cai no 1º degrau). */
+  private levelToTerm(level: number): string {
+    const l = ReputationService.REPUTATION_LADDER;
+    return l[Math.max(0, Math.min(l.length - 1, Math.trunc(level)))];
+  }
+
+  /** termo governado → degrau numérico (o comparador de "subiu de nível" continua sendo ordinal). */
+  private termToLevel(term: unknown): number {
+    const i = (ReputationService.REPUTATION_LADDER as readonly string[]).indexOf(String(term));
+    return i >= 0 ? i : 0;
+  }
+
   private calculateReputationLevel(
     impactTotal: number,
     activeDays: number,

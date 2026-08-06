@@ -88,9 +88,9 @@ class DemandRepository {
     weekdays: number[] | null; radiusKm: number | null; breakMinutes: number | null; acceptanceMode: string; pricingMode: string;
     offeredPriceCents: number | null; cancelNoticeHours: number | null; visibility: string;
     audienceRelationshipTypes: string[] | null; needId?: string | null; targetActorId?: string | null;
-  }): Promise<ServiceDemand> {
-    const row = await runQueryWithTenant<any>(
-      tenantId,
+  }, client?: PoolClient): Promise<ServiceDemand> {
+    const row = await one<any>(
+      tenantId, client,
       `WITH ins AS (
          INSERT INTO service_demands (
            tenant_id, actor_id, concept_id, title, description, vinculo, quantity,
@@ -127,6 +127,21 @@ class DemandRepository {
       `SELECT EXISTS (SELECT 1 FROM actors WHERE id = $2::uuid AND tenant_id = $1::uuid) AS ok`,
       [tenantId, actorId]);
     return !!row?.ok;
+  }
+
+  /** 🔗 F4-b — o id da NECESSIDADE de (evento, conceito). O writer de need devolve o conceito, não
+   *  o id da linha; a FK `need_id` precisa do id. Amarrado ao tenant pelo MESMO caminho do
+   *  `findNeedEventIdInTenant` (a need não tem tenant próprio — ele mora em `events`). */
+  async findNeedIdByEventAndConcept(tenantId: string, eventId: string, conceptId: string): Promise<string | null> {
+    const row = await runQueryWithTenant<{ id: string }>(
+      tenantId,
+      `SELECT n.id::text AS id
+         FROM event_operational_needs n
+         JOIN events e ON e.id = n.event_id
+        WHERE n.event_id = $2::uuid AND n.need_concept_id = $3::uuid AND e.tenant_id = $1::uuid
+        LIMIT 1`,
+      [tenantId, eventId, conceptId]);
+    return row?.id ?? null;
   }
 
   async findNeedEventIdInTenant(tenantId: string, needId: string): Promise<string | null> {

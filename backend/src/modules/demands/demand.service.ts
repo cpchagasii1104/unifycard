@@ -155,8 +155,16 @@ class DemandService {
   }
 
   /** ESPELHO NO FEED (item 1 do fechamento): a demanda gera um post-projeção com a MESMA
-   *  plateia. Falha do espelho NUNCA derruba a demanda (verdade = motor; feed = projeção). */
+   *  plateia. Falha do espelho NUNCA derruba a demanda (verdade = motor; feed = projeção).
+   *
+   * 🔴 DIRIGIDA NÃO ESPELHA (F4-b, 2026-08-06). Defeito que EU introduzi na F4 e que só apareceu
+   * ao ler o caminho inteiro: a demanda dirigida nascia com `visibility='public'` (porque quem
+   * estreita a plateia é o `target_actor_id`, no servidor) e o espelho a publicava NO FEED, com o
+   * texto "🎯 Oportunidade". Ou seja: um pedido ENDEREÇADO a uma pessoa aparecia para todo mundo —
+   * o oposto exato do que a F4 provou nos dois readers. A plateia estreitava no motor e vazava na
+   * projeção. *Espelho tem de espelhar a plateia, não a coluna `visibility`.* */
   private async mirrorToFeed(tenantId: string, userId: string, demand: ServiceDemand): Promise<void> {
+    if (demand.targetActorId) return; // dirigida: não há "oportunidade" pública a anunciar
     try {
       const { social2Service } = await import('../social/social-2.0.service');
       const money = demand.offeredPriceCents !== null ? ` · R$ ${(demand.offeredPriceCents / 100).toFixed(2)}` : '';
@@ -175,7 +183,18 @@ class DemandService {
     }
   }
 
-  async create(tenantId: string, actorId: string, input: CreateDemandInput, userId?: string): Promise<ServiceDemand> {
+  /**
+   * O NÚCLEO de criar UMA demanda — usado pelo item único e por cada linha do lote, para que lote
+   * NÃO seja atalho de regra. `client` opcional: no lote, todas as linhas na MESMA transação.
+   */
+  private async criarUm(
+    tenantId: string,
+    actorId: string,
+    input: CreateDemandInput,
+    client?: import('pg').PoolClient,
+    eventIdParaAmarrar?: string | null,
+    naoAmarrados?: string[]
+  ): Promise<ServiceDemand> {
     if (!input?.title || !input.title.trim()) throw new DemandError(400, 'title é obrigatório');
     const vinculo = assertIn(input.vinculo, DEMAND_VINCULOS, 'vinculo');
     const acceptanceMode = input.acceptanceMode !== undefined
@@ -242,6 +261,21 @@ class DemandService {
       targetActorId = alvo;
     }
 
+    // 🔗 F4-b — AMARRAÇÃO AO EVENTO por NECESSIDADE (o elo FORTE da §H). Só o lote passa `eventId`;
+    // o caminho de item único segue exatamente como estava. A necessidade só nasce se o concept
+    // estiver no TEMPLATE do formato (regra de `eventOperationalNeedsService.add`) — fora dele, o
+    // item é criado SEM amarração e volta NOMEADO em `naoAmarrados`. Silenciar aqui seria a tela
+    // dizendo "amarrei" sobre o que não amarrou.
+    if (!needId && eventIdParaAmarrar) {
+      const { eventOperationalNeedsService } = await import('@core/events/event-operational-needs.service');
+      const need = await eventOperationalNeedsService.add(tenantId, eventIdParaAmarrar, concept.concept_id);
+      if (need) {
+        const resolvido = await demandRepository.findNeedIdByEventAndConcept(tenantId, eventIdParaAmarrar, concept.concept_id);
+        if (resolvido) needId = resolvido;
+      }
+      if (!needId) naoAmarrados?.push(input.title?.trim() || concept.concept_id);
+    }
+
     const quantity = input.quantity && input.quantity > 0 ? Math.floor(input.quantity) : 1;
     const demand = await demandRepository.create(tenantId, actorId, {
       needId, targetActorId,
@@ -261,9 +295,79 @@ class DemandService {
       cancelNoticeHours: input.cancelNoticeHours ?? null,
       visibility,
       audienceRelationshipTypes: audienceTypes,
-    });
+    }, client);
+    return demand;
+  }
+
+  /** Porta pública do item ÚNICO — comportamento idêntico ao de sempre (pool, espelho no feed). */
+  async create(tenantId: string, actorId: string, input: CreateDemandInput, userId?: string): Promise<ServiceDemand> {
+    const demand = await this.criarUm(tenantId, actorId, input);
     if (userId) await this.mirrorToFeed(tenantId, userId, demand);
     return demand;
+  }
+
+  /**
+   * 🔴 F4-b · PEDIDO COM VÁRIOS ITENS (GO Clayton 2026-08-06).
+   *
+   * *"se eu for ficar pedindo item por item pode complicar"* — mas **item por item é o desenho
+   * CERTO no banco**, e o próprio Clayton provou por quê: *"o cara orça a segurança de um jeito e a
+   * limpeza de outro, e outra empresa é mais barata na segurança e mais cara na limpeza"*. Se os N
+   * itens virassem UM objeto ("orçamento nº 47"), o fornecedor responderia UM preço para o conjunto
+   * e a comparação por item MORRERIA — só daria para aceitar ou recusar tudo.
+   * ⇒ **Multi-item é conveniência de TELA, nunca entidade.** Aqui nascem N demandas, cada uma com a
+   *   SUA configuração (data/quantidade/horário — colunas que já existiam), cada uma comparável e
+   *   aceitável sozinha. Zero tabela nova, zero coluna nova.
+   *
+   * ⚛️ **ATÔMICO**, pela mesma razão da F2: 3 itens entram os 3 ou nenhum. Meio pedido é pior que
+   * pedido nenhum — o fornecedor veria uma lista que o cliente não escreveu.
+   *
+   * 🔗 **AMARRAÇÃO (opcional):** com `eventId`, cada item vira uma NECESSIDADE daquele evento
+   * (`event_operational_needs`) e a demanda aponta para ela por FK — o elo FORTE da `§H`, não
+   * `metadata`. Sem `eventId`, os N saem como pedidos dirigidos independentes.
+   * ⚠️ **NÃO invento "ocasião" para o caso sem evento.** Clayton decidiu que *obra ≠ evento* e que a
+   * ideia de "coisa que tem necessidades" ganhará casa PRÓPRIA, separada de eventos. Criar hoje um
+   * agrupamento — seja `events` draft, seja tabela nova — seria erguer a casa errada para a frente
+   * dele derrubar depois. Fica declarado, não disfarçado.
+   *
+   * ⚠️ A necessidade só nasce se o concept estiver no TEMPLATE do formato do evento
+   * (`event-operational-needs.service.ts:47-63` — seleção das sugestões, não catálogo livre). Fora
+   * do template, a demanda é criada **sem** `need_id` e o item volta marcado — nunca em silêncio.
+   */
+  async createBatch(
+    tenantId: string,
+    actorId: string,
+    input: { targetActorId?: string | null; eventId?: string | null; items: CreateDemandInput[] },
+    userId?: string
+  ): Promise<{ demands: ServiceDemand[]; naoAmarrados: string[] }> {
+    const itens = Array.isArray(input?.items) ? input.items : [];
+    if (itens.length === 0) throw new DemandError(400, 'Nenhum item no pedido');
+    if (itens.length > 20) throw new DemandError(400, 'DEMAND_BATCH_TOO_LARGE: no máximo 20 itens por pedido');
+
+    const { getClientWithTenant } = await import('@core/database/pool');
+    const client = await getClientWithTenant(tenantId);
+    const criadas: ServiceDemand[] = [];
+    const naoAmarrados: string[] = [];
+    try {
+      await client.query('BEGIN');
+      for (const item of itens) {
+        // Cada item passa pela MESMA porta de um pedido único — validação, alvo e vocabulário
+        // governado idênticos. Lote não é atalho de regra: é atalho de clique.
+        const d = await this.criarUm(tenantId, actorId, {
+          ...item,
+          targetActorId: input.targetActorId ?? item.targetActorId ?? null,
+        }, client, input.eventId ?? null, naoAmarrados);
+        criadas.push(d);
+      }
+      await client.query('COMMIT');
+    } catch (e) {
+      try { await client.query('ROLLBACK'); } catch { /* tx pode já não estar ativa */ }
+      throw e;
+    } finally {
+      client.release();
+    }
+    // Espelho no feed só para o que NÃO é dirigido (ver mirrorToFeed) e fora da transação.
+    if (userId) for (const d of criadas) await this.mirrorToFeed(tenantId, userId, d);
+    return { demands: criadas, naoAmarrados };
   }
 
   async listMine(tenantId: string, actorId: string) {

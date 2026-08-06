@@ -60,10 +60,38 @@ export default function DemandPublishForm({ onPublished, onCancel, initialAudien
     .filter(Boolean)
     .join(' + ') || 'Público';
 
+  // 🔴 F4-b — NA PÁGINA DELE, O CATÁLOGO É O DELE (fricção de Clayton, 2026-08-06).
+  // O formulário dirigido perguntava ao catálogo GLOBAL: na página da "Rio Verde Estruturas"
+  // (tenda · gerador · banheiro químico) ele oferecia 315 conceitos, começando por "Alisamento
+  // capilar". Ele sabia PARA QUEM era o pedido e não usava isso para nada — pedido dirigido com
+  // lista de broadcast é o mesmo "nome e comportamento discordam" que a §G existe para matar.
+  // A vitrine já existia e já é consumida pelo diálogo de RESERVA: getSupplierShowcase.
+  // ⚠️ FALLBACK MEDIDO, e ele não é conveniência: 11 dos 12 actors `user` não têm NADA publicado.
+  // "Só o que ele oferece", aplicado seco, deixaria a lista VAZIA para a persona central — o erro
+  // que a §B.4 já cometeu nesta frente e que a medição derrubou. Sem vitrine, não há por que
+  // estreitar: cai no catálogo. Escape manual NÃO existe, por decisão de Clayton.
+  const [vitrineVazia, setVitrineVazia] = useState(false);
   useEffect(() => {
     if (!activeActor?.actor_id) return;
-    listWorkConcepts().then(setConcepts).catch(() => setConcepts([]));
-  }, [activeActor?.actor_id]);
+    let cancelado = false;
+    (async () => {
+      if (target?.actorId) {
+        try {
+          const { getSupplierShowcase } = await import('../../api/events');
+          const v = await getSupplierShowcase(target.actorId);
+          const doFornecedor = (v.offers ?? [])
+            .filter((o) => o.conceptId)
+            .map((o) => ({ concept_id: o.conceptId as string, slug: o.conceptId as string, label: o.label }));
+          if (cancelado) return;
+          if (doFornecedor.length > 0) { setConcepts(doFornecedor as any); setVitrineVazia(false); return; }
+          setVitrineVazia(true); // sem vitrine: cai no catálogo (senão a página vira beco)
+        } catch { if (!cancelado) setVitrineVazia(true); }
+      }
+      const todos = await listWorkConcepts().catch(() => []);
+      if (!cancelado) setConcepts(todos);
+    })();
+    return () => { cancelado = true; };
+  }, [activeActor?.actor_id, target?.actorId]);
 
   const filteredConcepts = concepts.filter((c) =>
     !conceptSearch.trim() || conceptLabel(c).toLowerCase().includes(conceptSearch.trim().toLowerCase()) || c.slug.includes(conceptSearch.trim().toLowerCase()));
@@ -111,7 +139,18 @@ export default function DemandPublishForm({ onPublished, onCancel, initialAudien
           <button type="button" className="audience-collapsed-alter" onClick={() => setAudienceExpanded(true)}>Alterar</button>
         </div>
       )}
-      <label>2 · O que você precisa? (busque no catálogo) *
+      <label>
+        {target && !vitrineVazia
+          ? `2 · O que você precisa de ${target.name}?`
+          : '2 · O que você precisa? (busque no catálogo) *'}
+        {target && !vitrineVazia && (
+          <small className="opp-hint">Só o que este fornecedor oferece.</small>
+        )}
+        {target && vitrineVazia && (
+          // Estado HONESTO: ele não publicou nada, então não há o que estreitar. Dizer isso é mais
+          // útil que uma lista vazia — e não inventa que ele oferece o catálogo inteiro.
+          <small className="opp-hint">Este fornecedor ainda não publicou o que oferece — busque no catálogo.</small>
+        )}
         <input placeholder="Digite pra buscar: garçom, pedreiro, manicure…" value={conceptSearch}
           onChange={(e) => { setConceptSearch(e.target.value); setForm((f) => ({ ...f, conceptSlug: '' })); }} />
         <select value={form.conceptSlug} size={Math.min(Math.max(filteredConcepts.length, 2), 6)}

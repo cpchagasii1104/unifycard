@@ -1,5 +1,80 @@
 # REMEDIATION DT LOG
 
+## 🖱️ A NAVEGAÇÃO DE CLAYTON (§G.3) — 2 defeitos na tela, 1 vazamento meu, 3 defeitos MUDOS
+
+2026-08-06. **Clayton navegou** — a cláusula `§G.3` foi exercida — e produziu exatamente o que a
+norma previu. Harness `npm run validate:demand-multi-item` **12/12** · runner **266 COMMANDS OK** ·
+tsc 0/0 · Δbank 0.
+
+### O que ele viu na tela, e o que estava por baixo
+
+**① "Pedir orçamento" na página do fornecedor mostrava o catálogo do SISTEMA INTEIRO.**
+Na página da *Rio Verde Estruturas* (0 ofertas de serviço, **3 ativos**: tenda, gerador, banheiro)
+o formulário oferecia **315 conceitos**, começando por *"Alisamento capilar"*. Causa: eu reusei o
+formulário de demanda com um ALVO na F4, e ele continuou perguntando ao catálogo GLOBAL — **sabia
+para quem era o pedido e não usava isso para nada.**
+✅ Conserto por RELIGAR, não construir: a vitrine (`getSupplierShowcase`) já existia e já era
+consumida pelo diálogo de reserva.
+⚠️ **Com fallback medido, e ele não é conveniência:** `user` **11 de 12** não têm nada publicado.
+*"Só o que ele oferece"*, aplicado seco, deixaria a lista VAZIA para a persona central — o erro que
+a `§B.4` já cometeu nesta frente. Sem vitrine → catálogo, com o estado dito na tela.
+⛔ **Sem escape manual** (decisão de Clayton: *"no primeiro momento só posso pedir o que está no
+catálogo dele"*).
+
+**② Faltava o caminho inverso: quem tem a demanda é o cliente.** *"Reservar horário"* pressupõe que
+o fornecedor publicou agenda. Entregue o multi-item com **configuração por item** — e a medição
+mostrou que **as colunas já existiam todas** (`quantity · vinculo · date_start/end · time_start/end
+· break_minutes`). *Uma demanda já É uma linha de item configurada.*
+
+### 🔴 A DECISÃO QUE EVITOU UMA ENTIDADE ERRADA
+
+Clayton descreveu o cenário que decide: *"o cara orça a segurança de um jeito e a limpeza de outro,
+e outra empresa é mais barata na segurança e mais cara na limpeza"*.
+⇒ **A comparação é POR ITEM.** Se os N itens virassem um "pacote", o fornecedor daria UM preço e a
+comparação morreria — só daria para aceitar ou recusar tudo.
+✅ **Multi-item é conveniência de TELA, nunca entidade.** No banco continuam N demandas, cada uma
+comparável e aceitável sozinha (`UNIQUE (demand_id, provider_actor_id)` permite N fornecedores por
+demanda; **não há unique em `need_id`**, então a mesma necessidade aceita N consultas).
+Provado: `A4` verifica que **nenhuma** tabela de pacote nasceu.
+
+### 🔴 `obra ≠ evento` — DECISÃO DE CLAYTON, e ela me impediu de erguer a casa errada
+
+Eu ia propor *"obra entra como mais um formato de evento"* (o substrato aceitaria: `events` tem
+`event_format_concept_id`, e há 7 formatos com template — `show` com 17 itens). **Clayton disse
+não:** *"obra não é evento, mas depois iremos fazer algo usando a mesma ideia só que separado"*.
+⇒ Consequência que EXECUTEI: **não criei ocasião nenhuma.** Qualquer agrupamento que eu inventasse
+hoje seria `events` (errado para obra) ou casa nova prematura. O lote sem evento sai como N pedidos
+dirigidos; **com** evento, cada item vira `event_operational_needs` e a demanda aponta por **FK**
+(o elo forte da `§H`). Declarado no código, não disfarçado.
+
+### 🔴 UM VAZAMENTO MEU, DA F4
+
+A demanda **dirigida** nascia com `visibility='public'` (quem estreita é o `target_actor_id`, no
+servidor) e o **espelho a publicava NO FEED**, com o texto *"🎯 Oportunidade"*. Um pedido endereçado
+a UMA pessoa aparecia para todo mundo — **a plateia estreitava no motor e vazava na projeção.**
+Consertado: dirigida não espelha. Provado em `C1`.
+
+### 🔴 E TRÊS DEFEITOS MUDOS, TODOS ENGOLIDOS PELO MESMO `catch`
+
+*"temos que resolver as dívidas ao invés de ficar acumulando"* (Clayton). Eu ia **nomear e seguir**;
+ele mandou resolver. Os três foram consertados no mesmo turno:
+| # | defeito | medida antes |
+|---|---|---|
+| ① | `impact.service.ts` passava `null` EXPLÍCITO numa coluna `NOT NULL` **com DEFAULT** — e default **não salva NULL explícito, só omissão** → `23502` sempre | tabela de impacto: **0 linhas** |
+| ② | `reputation.service.ts` fazia `ON CONFLICT` com **3 colunas**; o índice vivo é `UNIQUE (tenant_id, actor_id)` — **2** → `42P10` sempre | `actor_reputation`: **0 linhas** |
+| ③ | o mesmo service gravava o **NÚMERO** da escada numa coluna de **vocabulário governado** (`newcomer·member·contributor·leader·champion`) → CHECK recusava sempre | idem |
+📌 **Um `catch` honesto — *"falha do espelho NUNCA derruba a demanda"* — escondeu três defeitos
+100% reprodutíveis.** Não-crítico não quer dizer não-observável. Agora a prova exige as três tabelas
+gravando (`D2`/`D3`/`D4`), com o nível chegando como termo (`newcomer`), não número.
+
+### ⚠️ ERRATA MINHA, NO MEIO DISSO
+
+Cheguei a escrever no harness que *"o espelho do feed NUNCA funcionou — 0 posts de demanda"*.
+**Falso.** Eu consultei `posts.metadata` e o dado mora em **`posts.intent_metadata`**:
+`9 de 11 posts` têm `demand_id`. **O espelho sempre funcionou** — o que estava morto era a cadeia
+de impacto/reputação atrás dele. *Ler pela coluna que eu supus, e não pela que a query grava* — é o
+defeito nº2 do `CLAUDE.md §2.1`, e me pegou pela segunda vez no dia.
+
 ## 🧱 12 GARANTIAS DEIXADAS PARA TRÁS NA LOCAÇÃO — achadas por MEDIR o pacote que dizia "está pago"
 
 2026-08-06. Migration `20260806235000` · guard **`audit-rental-guarantee-parity`** no runner ·

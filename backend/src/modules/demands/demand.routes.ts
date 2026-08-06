@@ -37,6 +37,26 @@ const demandRoutes = async (fastify: FastifyInstance) => {
     }
   });
 
+  /**
+   * POST /demands/batch — 🔴 F4-b · PEDIDO COM VÁRIOS ITENS (GO Clayton 2026-08-06).
+   * N itens do MESMO fornecedor, cada um com a SUA configuração, numa transação só. Multi-item é
+   * conveniência de TELA: no banco continuam N demandas comparáveis e aceitáveis uma a uma — se
+   * virasse pacote, o fornecedor daria UM preço e a comparação por item morreria.
+   */
+  fastify.post<{ Body: { targetActorId?: string; eventId?: string; items: CreateDemandInput[] } }>(
+    '/demands/batch',
+    async (req, reply) => {
+      const actorId = requireContext(req, reply); if (!actorId) return reply;
+      if (!(await assertRepresentsActor(req, reply, actorId))) return reply;
+      try {
+        const userId = req.user?.userId ?? req.user?.id;
+        const r = await demandService.createBatch(req.tenant!.id, actorId, req.body ?? ({ items: [] } as any), userId);
+        return reply.status(201).send({ ok: true, data: r });
+      } catch (err: any) {
+        return reply.status(err?.statusCode ?? 500).send({ ok: false, error: err?.message ?? 'Erro ao criar pedido' });
+      }
+    });
+
   /** GET /demands/mine — demandas do actor emissor. */
   fastify.get('/demands/mine', async (req, reply) => {
     const actorId = requireContext(req, reply); if (!actorId) return reply;

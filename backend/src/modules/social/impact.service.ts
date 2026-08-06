@@ -102,7 +102,16 @@ export class ImpactService {
         delta,
         sourceType,
         sourceId,
-        metadata ? JSON.stringify(metadata) : null,
+        // 🔴 CONSERTO 2026-08-06 — `DT-DEMAND-FEED-MIRROR-DEAD-IN-SILENCE`.
+        // Aqui estava `metadata ? JSON.stringify(metadata) : null`. A coluna é **NOT NULL com
+        // DEFAULT '{}'::jsonb** — e default NÃO salva quem passa NULL EXPLÍCITO: só se aplica a
+        // quem OMITE a coluna. Resultado: todo registro de impacto sem metadata estourava
+        // `23502`, e o `try/catch` "não crítico" de quem chama ENGOLIA.
+        // Medido no banco OFICIAL antes do conserto: esta tabela com **0 linhas** e
+        // `posts` com `demand_id` = **0** (de 11 posts). Não era falha eventual: era 100%.
+        // O comentário do caller dizia "falha do espelho NUNCA derruba a demanda" — verdade, e foi
+        // exatamente por isso que ninguém viu. **Defeito mudo protegido por catch honesto.**
+        JSON.stringify(metadata ?? {}),
       ]
     );
 
