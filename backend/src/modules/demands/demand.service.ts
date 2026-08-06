@@ -225,9 +225,26 @@ class DemandService {
       needId = String(input.needId);
     }
 
+    // 🔴 F4 / DECISION-0196 §G.1 — PEDIDO DIRIGIDO. O botão "Solicitar orçamento" da ActorPage abre
+    // uma demanda COM alvo; nulo = broadcast (§C/D4: MESMA entidade, nunca uma segunda).
+    // O alvo é validado contra o schema vivo NO TENANT — nunca aceito cru do body (0113).
+    let targetActorId: string | null = null;
+    if (input.targetActorId !== undefined && input.targetActorId !== null && String(input.targetActorId).trim() !== '') {
+      const alvo = String(input.targetActorId);
+      if (alvo === actorId) {
+        throw new DemandError(400, 'DEMAND_TARGET_IS_SELF: não se pede orçamento a si mesmo.');
+      }
+      const existe = await demandRepository.actorExistsInTenant(tenantId, alvo);
+      if (!existe) {
+        throw new DemandError(400,
+          'DEMAND_TARGET_NOT_IN_TENANT: o destinatário do pedido não existe neste tenant.');
+      }
+      targetActorId = alvo;
+    }
+
     const quantity = input.quantity && input.quantity > 0 ? Math.floor(input.quantity) : 1;
     const demand = await demandRepository.create(tenantId, actorId, {
-      needId,
+      needId, targetActorId,
       conceptId: concept.concept_id,
       title: input.title.trim(),
       description: input.description?.trim() || null,

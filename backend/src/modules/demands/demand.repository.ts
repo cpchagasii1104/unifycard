@@ -11,7 +11,7 @@ import { demandWindowToInterval, vinculoHasSingleWindow } from './demand-commitm
 const D_COLS = `d.id, d.tenant_id, d.actor_id, d.concept_id, d.title, d.description, d.vinculo,
   d.quantity, d.quantity_filled, d.date_start, d.date_end, d.time_start, d.time_end, d.weekdays,
   d.radius_km, d.break_minutes, d.acceptance_mode, d.pricing_mode, d.offered_price_cents, d.cancel_notice_hours,
-  d.visibility, d.audience_relationship_types, d.status, d.need_id, d.created_at, d.updated_at, c.slug AS concept_slug`;
+  d.visibility, d.audience_relationship_types, d.status, d.need_id, d.target_actor_id, d.created_at, d.updated_at, c.slug AS concept_slug`;
 
 function toDemand(r: any): ServiceDemand {
   return {
@@ -31,6 +31,8 @@ function toDemand(r: any): ServiceDemand {
     visibility: r.visibility, audienceRelationshipTypes: r.audience_relationship_types ?? null, status: r.status,
     // 🔴 DECISION-0196 §H — a chave evento↔demanda. NULL = demanda avulsa (sem evento).
     needId: r.need_id ?? null,
+    // 🔴 DECISION-0196 §G.1/§C-D4 — pedido DIRIGIDO. NULL = broadcast (mesma entidade).
+    targetActorId: r.target_actor_id ?? null,
     createdAt: new Date(r.created_at).toISOString(), updatedAt: new Date(r.updated_at).toISOString(),
   };
 }
@@ -85,7 +87,7 @@ class DemandRepository {
     dateStart: string | null; dateEnd: string | null; timeStart: string | null; timeEnd: string | null;
     weekdays: number[] | null; radiusKm: number | null; breakMinutes: number | null; acceptanceMode: string; pricingMode: string;
     offeredPriceCents: number | null; cancelNoticeHours: number | null; visibility: string;
-    audienceRelationshipTypes: string[] | null; needId?: string | null;
+    audienceRelationshipTypes: string[] | null; needId?: string | null; targetActorId?: string | null;
   }): Promise<ServiceDemand> {
     const row = await runQueryWithTenant<any>(
       tenantId,
@@ -94,8 +96,8 @@ class DemandRepository {
            tenant_id, actor_id, concept_id, title, description, vinculo, quantity,
            date_start, date_end, time_start, time_end, weekdays, radius_km, break_minutes,
            acceptance_mode, pricing_mode, offered_price_cents, cancel_notice_hours, visibility,
-           audience_relationship_types, need_id
-         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20::text[],$21::uuid)
+           audience_relationship_types, need_id, target_actor_id
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20::text[],$21::uuid,$22::uuid)
          RETURNING *
        )
        SELECT ${D_COLS.replace(/d\./g, 'ins.').replace('c.slug AS concept_slug', 'c.slug AS concept_slug')}
@@ -103,7 +105,7 @@ class DemandRepository {
       [tenantId, actorId, d.conceptId, d.title, d.description, d.vinculo, d.quantity,
        d.dateStart, d.dateEnd, d.timeStart, d.timeEnd, d.weekdays, d.radiusKm, d.breakMinutes,
        d.acceptanceMode, d.pricingMode, d.offeredPriceCents, d.cancelNoticeHours, d.visibility,
-       d.audienceRelationshipTypes, d.needId ?? null]
+       d.audienceRelationshipTypes, d.needId ?? null, d.targetActorId ?? null]
     );
     return toDemand(row);
   }
@@ -117,6 +119,16 @@ class DemandRepository {
    * (inexistente, de outro tenant, órfã) — o caller recusa fail-closed. NUNCA devolve `false`/`0`
    * para "não consegui ler": ausência aqui é ausência de fato, verificada por JOIN.
    */
+  /** 🔴 F4 §G.1 — o ALVO do pedido dirigido existe NESTE tenant? Fail-closed no writer (0113: o
+   *  body declara, o servidor prova). `actors` tem RLS, mas o filtro é explícito de propósito. */
+  async actorExistsInTenant(tenantId: string, actorId: string): Promise<boolean> {
+    const row = await runQueryWithTenant<{ ok: boolean }>(
+      tenantId,
+      `SELECT EXISTS (SELECT 1 FROM actors WHERE id = $2::uuid AND tenant_id = $1::uuid) AS ok`,
+      [tenantId, actorId]);
+    return !!row?.ok;
+  }
+
   async findNeedEventIdInTenant(tenantId: string, needId: string): Promise<string | null> {
     const row = await runQueryWithTenant<{ event_id: string }>(
       tenantId,
@@ -164,8 +176,11 @@ class DemandRepository {
         JOIN concepts c ON c.concept_id = d.concept_id
         WHERE d.tenant_id = $1 AND d.status = 'open'
           AND d.actor_id <> $2
+          -- 🔴 F4 §G.1 — dirigida aparece SÓ para o alvo; broadcast segue como sempre.
+          AND (d.target_actor_id IS NULL OR d.target_actor_id = $2)
           AND (
-            d.visibility = 'public'
+            d.target_actor_id = $2
+            OR d.visibility = 'public'
             OR (
               d.visibility = 'connections'
               AND EXISTS (
@@ -252,11 +267,21 @@ class DemandRepository {
   async isActorInAudience(tenantId: string, viewerActorId: string, demandId: string): Promise<boolean> {
     const row = await runQueryWithTenant<{ ok: boolean }>(
       tenantId,
+      // 🔴 F4 / DECISION-0196 §G.1+§C/D4 — DEMANDA DIRIGIDA. `target_actor_id` NULL = broadcast
+      // (o comportamento de sempre). Preenchido = o pedido é PARA aquele actor: ele entra na
+      // plateia SEMPRE (mesmo sem conexão — é o ponto de "dirigida"), e os DEMAIS saem dela.
+      // ⚠️ A regra ESTREITA a plateia, nunca alarga: quem não é o alvo deixa de ver. Estreitar é
+      // seguro por construção (não vaza); e nada regride, porque demanda dirigida não existia
+      // (medido: 0 linhas com target_actor_id quando esta regra nasceu).
+      // Mesma ENTIDADE, não uma segunda (§C/D4): duas entidades seriam segunda verdade sobre "o
+      // que é um pedido".
       `SELECT EXISTS (
          SELECT 1 FROM service_demands d
           WHERE d.tenant_id = $1 AND d.id = $2
+            AND (d.target_actor_id IS NULL OR d.target_actor_id = $3 OR d.actor_id = $3)
             AND (
               d.actor_id = $3
+              OR d.target_actor_id = $3
               OR d.visibility = 'public'
               OR (
                 d.visibility = 'connections'

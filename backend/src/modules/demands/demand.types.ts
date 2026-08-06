@@ -48,6 +48,9 @@ export interface ServiceDemand {
   /** DECISION-0196 §H — a NECESSIDADE do evento que este pedido atende. NULL = demanda avulsa.
    *  NÃO carrega valor (§H.2: o preço mora na RESPOSTA; a F3 agrega de baixo para cima). */
   needId: string | null;
+  /** DECISION-0196 §G.1/§C-D4 — pedido DIRIGIDO a um actor. NULL = broadcast. MESMA entidade:
+   *  duas entidades seriam segunda verdade sobre "o que é um pedido". */
+  targetActorId: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -76,6 +79,9 @@ export interface CreateDemandInput {
   /** DECISION-0196 §H — liga o pedido à NECESSIDADE do evento (`event_operational_needs.id`).
    *  Opcional: ausente = demanda avulsa. O writer RECUSA need de outro tenant (0146 §A.6). */
   needId?: string | null;
+  /** DECISION-0196 §G.1 — a quem o pedido é DIRIGIDO. Ausente = broadcast. O servidor recusa
+   *  alvo inexistente no tenant (DEMAND_TARGET_NOT_IN_TENANT) e a si mesmo. */
+  targetActorId?: string | null;
 }
 
 export interface DemandResponse {

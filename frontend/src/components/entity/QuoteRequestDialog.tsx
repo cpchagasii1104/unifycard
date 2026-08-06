@@ -1,11 +1,18 @@
 // frontend/src/components/entity/QuoteRequestDialog.tsx
 //
 // ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
-// ║ STATUS:  CANÔNICO — o pedido de orçamento, in-page, para QUALQUER actor
-// ║ NORMA:   `DESENHO_PAGINA_DO_ACTOR` §2.4 — uma página para todo actor; ação `request_quote`
-// ║ NÃO:     NÃO criar página de fornecedor paralela; NÃO confirmar reserva pela tela.
-// ║ EM VEZ:  este diálogo abre sobre a `ActorPage`, que é a casca universal.
+// ║ STATUS:  CANÔNICO — RESERVAR HORÁRIO, in-page, sobre janela PUBLICADA
+// ║ NORMA:   `DECISION_0196 §G` (dois verbos) · `DESENHO_PAGINA_DO_ACTOR` §2.4
+// ║ NÃO:     NÃO usar isto para "pedir orçamento" — pressupõe janela publicada pelo fornecedor
+// ║ EM VEZ:  orçar sem janela = demanda DIRIGIDA (DemandPublishForm com `target`), §G.1
 // ╚════════════════════════════════════════════════════════════════
+//
+// 🔴 RENOMEADO EM 2026-08-06 (F4 · DECISION-0196 §G). O nome antigo era "Solicitar orçamento" e o
+// comportamento era RESERVA: o corpo do diálogo escolhe uma `availabilityId` entre as janelas que o
+// fornecedor publicou e escreve booking direto. *O defeito nunca foi nenhuma das duas superfícies —
+// foi o RÓTULO.* Quem não publicou janela não tinha o que escolher, e o botão "orçamento" travava.
+// Precedente de mercado: Airbnb *Reserve* / Calendly reservam; Thumbtack / Airbnb *Contact host*
+// orçam. **Nenhum marketplace grande funde os dois verbos** — e nós tínhamos fundido no nome.
 //
 // ═══ POR QUE ISTO É DIÁLOGO, E NÃO UMA PÁGINA ═══
 // Eu tinha criado `/fornecedores/:id` — a SEXTA superfície de "página de vendedor" do repositório,
@@ -138,9 +145,9 @@ export default function QuoteRequestDialog({ providerActorId, providerName, onCl
 
   return (
     <div className="qrd-overlay" onClick={onClose} role="presentation">
-      <div className="qrd" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={`Solicitar orçamento a ${providerName}`}>
+      <div className="qrd" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={`Reservar horário com ${providerName}`}>
         <div className="qrd-head">
-          <h2>Solicitar orçamento</h2>
+          <h2>Reservar horário</h2>
           <button type="button" className="qrd-fechar" onClick={onClose} aria-label="Fechar">×</button>
         </div>
         <p className="qrd-sub">para <strong>{providerName}</strong></p>

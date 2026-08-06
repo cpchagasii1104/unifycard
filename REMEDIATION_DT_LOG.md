@@ -1,5 +1,53 @@
 # REMEDIATION DT LOG
 
+## 🔤 F4 — OS DOIS VERBOS, COM NOMES HONESTOS (2026-08-06 · GO Clayton "execute") · **NÃO SELADA**
+
+`DECISION-0196 §G`. Harness `npm run validate:directed-demand` **10/10** em efêmera · guard
+`audit-directed-demand-two-verbs` no runner **no mesmo commit**, vermelho forçado 2× ·
+**runner 264 COMMANDS OK** · tsc backend 0 · tsc frontend 0 · Δbank 0.
+
+⛔ **NÃO SELADA:** a `§G.3` exige **NAVEGAR** — um clique em cada caminho — antes do selo.
+*Código confirmado ≠ jornada confirmada.*
+
+### O defeito nunca foi a superfície: era o RÓTULO
+
+| verbo | quem declara a janela | superfície |
+|---|---|---|
+| **Reservar horário** | o fornecedor publica, o cliente escolhe | o diálogo que já existia (`QuoteRequestDialog`), **renomeado** |
+| **Pedir orçamento** | **o cliente declara a necessidade** | o motor de demandas, **dirigido** por `target_actor_id` |
+
+`request_quote` abria o diálogo de RESERVA, que **pressupõe janela publicada**. Quem não publicou
+agenda clicava em *"Solicitar orçamento"* e não tinha o que escolher. Agora ele abre um **pedido
+dirigido**; o diálogo antigo sobrevive no item que **tem** janela, com o nome certo.
+
+### 🔴 CORREÇÃO AO PLANO: `target_actor_id` existia como COLUNA, não como CÓDIGO
+
+O plano dizia *"`target_actor_id`, já existe"* e a `§G.2` que a F4 *"encolheu de construir para
+rotear e renomear"*. **Metade verdade, medida:**
+```
+coluna:  service_demands.target_actor_id uuid NULL + FK para actors  ✅ existe (F1)
+código:  grep target_actor_id|targetActorId em backend/src/modules/demands  →  ZERO
+```
+A F4 teve de **religar a coluna**: writer com prova de alvo, projeção, e os **dois readers** de
+plateia. *Coluna sem código é a mesma família de "garantia que parece existir".*
+✅ Mas o "rotear e renomear" valeu no frontend: o formulário de demanda (`DemandPublishForm`) foi
+**reusado com um alvo**, em vez de nascer um segundo formulário — superfície paralela evitada.
+
+### A plateia ESTREITA, nunca alarga
+
+`target_actor_id` NULL = broadcast (o de sempre). Preenchido: **o alvo entra na plateia mesmo sem
+conexão** (é o ponto de "dirigido") e **os demais saem**. Estreitar é seguro por construção — não
+vaza —, e **nada regride** porque demanda dirigida não existia (0 linhas quando a regra nasceu).
+⚠️ O contrário é o **defeito mudo**: se a cláusula sumir do reader, um pedido endereçado a uma
+pessoa vira broadcast **em silêncio**. É o vermelho ① do guard.
+
+### As provas — 10/10, com o lado positivo escrito
+
+`A1` nasce dirigida · `A2` **o alvo vê** · `A3` o terceiro **não** vê · `A4` não abre (404) ·
+`A5` não responde · `B1`/`B2` **broadcast intacto para os dois** · `C1` pedido a si mesmo recusado
+(`DEMAND_TARGET_IS_SELF`) · `C2` alvo inexistente recusado (`DEMAND_TARGET_NOT_IN_TENANT`) ·
+`D1` **nenhuma entidade paralela** — mesma tabela, mesma entidade (`§C/D4`).
+
 ## ⚛️ F2 — O ACEITE ATÔMICO ENTREGUE (2026-08-06 · GO Clayton "execute") · **NÃO SELADA**
 
 `DECISION-0196 §D7`. Aceitar uma demanda passa a **criar compromisso na agenda**, numa transação só.

@@ -12,6 +12,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import EntityHero, { type EntityHeroStat, type EntityHeroAction } from '../components/entity/EntityHero';
 import QuoteRequestDialog from '../components/entity/QuoteRequestDialog';
+import DemandPublishForm from '../components/demands/DemandPublishForm';
 import { formatSupplierPrice } from '../utils/money';
 import PostCard, { type PostCardData } from '../components/social/PostCard';
 import SalesHistory from '../components/social/SalesHistory';
@@ -93,7 +94,12 @@ export default function ActorPage() {
   const [error, setError] = useState<string | null>(null);
   const [connectOpen, setConnectOpen] = useState(false);
   // Pedido de orçamento: in-page (a ação vem do contrato com deeplink null), sobre a casca universal.
+  // 🔴 F4 §G — DOIS diálogos porque são DOIS VERBOS (e era o rótulo, não a superfície, que estava
+  // errado): `quoteOpen` = RESERVAR horário (janela publicada, preço fixo — o diálogo que já
+  // existia); `demandOpen` = PEDIR orçamento (o cliente declara a necessidade → motor de demandas,
+  // dirigido por `target_actor_id`).
   const [quoteOpen, setQuoteOpen] = useState(false);
+  const [demandOpen, setDemandOpen] = useState(false);
   const [followBusy, setFollowBusy] = useState(false);
   const [reclassifyBusy, setReclassifyBusy] = useState<string | null>(null);
 
@@ -316,8 +322,14 @@ export default function ActorPage() {
     // 🔴 AÇÃO IN-PAGE: habilitada e SEM deeplink. O laço tratava só (habilitada+deeplink) e
     // (desabilitada) — `request_quote`, que nasce aceso e in-page, não renderizava NADA. Botão que
     // o contrato manda acender e a tela engole é pior que botão ausente: o contrato fica mentindo.
+    // 🔴 F4 / DECISION-0196 §G — DOIS VERBOS, NOMES HONESTOS. O defeito nunca foi nenhuma das duas
+    // superfícies: era o RÓTULO. `request_quote` abria o diálogo de RESERVA, que pressupõe janela
+    // publicada pelo fornecedor — e por isso "Solicitar orçamento" travava em quem não publicou
+    // agenda. Agora ele abre um PEDIDO DIRIGIDO no motor de demandas (`target_actor_id`), que é
+    // onde o CLIENTE declara a necessidade. Reservar horário continua existindo, no item que TEM
+    // janela (ver `renderItemAction`). Nenhum marketplace grande funde os dois verbos.
     if (a.key === 'request_quote' && a.enabled) {
-      heroActions.push({ label: a.label, onClick: () => setQuoteOpen(true), variant: 'primary' });
+      heroActions.push({ label: 'Pedir orçamento', onClick: () => setDemandOpen(true), variant: 'primary' });
       continue;
     }
     if (a.enabled && a.deeplink) {
@@ -363,9 +375,14 @@ export default function ActorPage() {
   const renderItemAction = (requestable: boolean | null, reason: string | null) => {
     if (requestable === null || requestable === undefined) return null;
     if (requestable) {
+      // 🔴 F4 §G — o RÓTULO HONESTO. Este botão só acende quando o servidor diz `requestable`,
+      // isto é, quando existe JANELA PUBLICADA (o `reason='no_schedule'` abaixo é a prova de que a
+      // agenda é a condição). Isso é RESERVAR, não orçar: o fornecedor publicou, o cliente escolhe.
+      // Chamá-lo de "Solicitar orçamento" era o nome e o comportamento discordando — quem quer
+      // ORÇAR sem janela publicada usa "Pedir orçamento" no topo, que abre demanda dirigida.
       return (
         <button type="button" className="actor-item-action" onClick={() => setQuoteOpen(true)}>
-          Solicitar orçamento
+          Reservar horário
         </button>
       );
     }
@@ -693,6 +710,30 @@ export default function ActorPage() {
           providerName={header.displayName}
           onClose={() => setQuoteOpen(false)}
         />
+      )}
+
+      {/* 🔴 F4 §G.1 — PEDIR ORÇAMENTO: demanda DIRIGIDA no motor de demandas. Reusa o formulário
+          que já existia (`DemandPublishForm`), com o alvo preenchido — "rotear e renomear", não
+          construir. A plateia some da tela: com alvo, ela já está decidida. */}
+      {demandOpen && (
+        <div className="actor-demand-dialog-backdrop" onClick={() => setDemandOpen(false)}>
+          <div
+            className="actor-demand-dialog"
+            role="dialog"
+            aria-label={`Pedir orçamento a ${header.displayName}`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <header className="actor-demand-dialog-head">
+              <h2>Pedir orçamento</h2>
+              <button type="button" aria-label="Fechar" onClick={() => setDemandOpen(false)}>×</button>
+            </header>
+            <DemandPublishForm
+              target={{ actorId: header.actorId, name: header.displayName }}
+              onPublished={() => setDemandOpen(false)}
+              onCancel={() => setDemandOpen(false)}
+            />
+          </div>
+        </div>
       )}
 
       {connectOpen && (

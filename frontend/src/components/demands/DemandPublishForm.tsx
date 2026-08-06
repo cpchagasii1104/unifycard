@@ -16,11 +16,20 @@ export const VINCULO_PT: Record<string, string> = {
 export const WEEKDAY_PT = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 const conceptLabel = (c: { slug?: string; label?: string | null }) => c.label ?? (c.slug ?? '').replace(/-/g, ' ');
 
-export default function DemandPublishForm({ onPublished, onCancel, initialAudienceKeys }: {
+export default function DemandPublishForm({ onPublished, onCancel, initialAudienceKeys, target }: {
   onPublished?: () => void;
   onCancel?: () => void;
   /** CARRY-OVER: plateia herdada do composer inicial (exclui 'only_me' — demanda não pode ser só eu). */
   initialAudienceKeys?: string[];
+  /**
+   * 🔴 F4 / DECISION-0196 §G.1 — PEDIDO DIRIGIDO. Quando presente, esta MESMA entidade vira um
+   * pedido PARA um actor (`target_actor_id`), e não um broadcast (§C/D4: duas entidades seriam
+   * segunda verdade sobre "o que é um pedido"). É o que o botão `request_quote` da `ActorPage`
+   * passa a abrir — em vez do diálogo de RESERVA, que pressupõe janela publicada.
+   * ⚠️ Com alvo, a PLATEIA some da tela: perguntar "para quem?" depois de o usuário ter escolhido
+   * uma pessoa seria pedir duas vezes a mesma coisa, com respostas que podem divergir.
+   */
+  target?: { actorId: string; name: string };
 }) {
   const { activeActor } = useActiveActor();
   const [concepts, setConcepts] = useState<Array<{ concept_id: string; slug: string; label?: string | null }>>([]);
@@ -69,11 +78,15 @@ export default function DemandPublishForm({ onPublished, onCancel, initialAudien
       const demandVisibility: 'public' | 'connections' = aud.visibility === 'connections' ? 'connections' : 'public';
       await createDemand({
         ...form,
-        visibility: demandVisibility,
-        audienceRelationshipTypes: aud.audienceRelationshipTypes ?? undefined,
+        // Dirigido: a plateia é a própria pessoa. Mando 'public' porque o alvo é quem estreita a
+        // audiência no servidor (isActorInAudience/listOpportunities) — a visibilidade aqui deixa
+        // de ser o critério, e inventar um valor novo seria vocabulário paralelo.
+        visibility: target ? 'public' : demandVisibility,
+        audienceRelationshipTypes: target ? undefined : (aud.audienceRelationshipTypes ?? undefined),
+        targetActorId: target?.actorId,
         offeredPriceCents: form.pricingMode === 'preco_ofertado' && form.offeredPriceCents ? form.offeredPriceCents : undefined,
       });
-      showToast('Demanda publicada — o matching começou. 🎯', 'success');
+      showToast(target ? `Pedido enviado a ${target.name}. 📨` : 'Demanda publicada — o matching começou. 🎯', 'success');
       setForm({ conceptSlug: '', title: '', vinculo: 'diaria', quantity: 1, acceptanceMode: 'com_analise', pricingMode: 'preco_ofertado', visibility: 'public' });
       onPublished?.();
     } catch (e) { showToast((e as Error)?.message || 'Falha ao publicar.', 'error'); }
@@ -82,7 +95,14 @@ export default function DemandPublishForm({ onPublished, onCancel, initialAudien
 
   return (
     <div className="opp-form">
-      {audienceExpanded ? (
+      {target ? (
+        // Pedido DIRIGIDO: a plateia já está decidida — é esta pessoa. Mostrar o picker aqui
+        // perguntaria de novo o que o usuário já respondeu ao clicar no perfil dela.
+        <div className="audience-collapsed">
+          <span className="audience-collapsed-title">Pedido dirigido a</span>
+          <span className="audience-collapsed-value">{target.name}</span>
+        </div>
+      ) : audienceExpanded ? (
         <AudiencePicker options={audienceOptions} selectedKeys={audienceKeys} onChange={setAudienceKeys} title="1 · Para quem é isso?" />
       ) : (
         <div className="audience-collapsed">

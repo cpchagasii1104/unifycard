@@ -220,13 +220,19 @@ writer que recusa `need_id` de outro tenant · guard que morde se a checagem sum
 agregaria **ZERO** hoje (`service_demand_responses` = 0 linhas) — fica cego até a navegação, mesma
 dependência da F2.
 
-### F4 — a tela · **encolheu** para "rotear e renomear" (`0196 §G`)
+### 🔤 F4 — **ENTREGUE em 2026-08-06 · ⛔ NÃO SELADA** (a `§G.3` exige NAVEGAR)
 
-`request_quote` da `ActorPage` passa a abrir **demanda DIRIGIDA** (`target_actor_id`, já existe);
-o `QuoteRequestDialog` sobrevive **renomeado para "Reservar horário"**.
-⛔ **CONDIÇÃO ANTES DO SELO (`§G.3`): NAVEGAR.** Um clique em cada caminho. A tabela dos dois verbos
-é **fato de código**, **não** experiência verificada. *Código confirmado ≠ jornada confirmada.*
-📌 **Depende da F2** (o aceite tem de existir antes de a tela prometê-lo).
+`request_quote` da `ActorPage` abre **demanda DIRIGIDA**; o `QuoteRequestDialog` sobreviveu
+**renomeado para "Reservar horário"** e serve o item que TEM janela publicada.
+Harness `npm run validate:directed-demand` **10/10** · guard `audit-directed-demand-two-verbs`
+(vermelho forçado 2×) · o formulário de demanda foi **reusado com alvo**, sem 2ª superfície.
+🔴 **CORREÇÃO AO PLANO:** *"`target_actor_id`, já existe"* era verdade da **coluna** e falso do
+**código** — `grep` no módulo de demandas dava **ZERO**. A F4 teve de religar writer, projeção e os
+**dois readers** de plateia.
+🔴 **A plateia dirigida ESTREITA** (alvo vê, terceiro não vê/não abre/não responde) e **broadcast
+não regride**. Se a cláusula sumir do reader, pedido dirigido vira broadcast **em silêncio**.
+⛔ **CONDIÇÃO ANTES DO SELO (`§G.3`): NAVEGAR.** Um clique em cada caminho.
+*Código confirmado ≠ jornada confirmada.*
 
 ### Resíduos com dono e gatilho **por query** (`0196 §J`)
 

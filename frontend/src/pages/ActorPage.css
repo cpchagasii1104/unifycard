@@ -118,6 +118,49 @@
   font-weight: 600;
 }
 
+/* 🔴 F4 · DECISION-0196 §G.1 — PEDIR ORÇAMENTO (demanda dirigida). Sobreposto, porque o
+   formulário é longo e a página continua atrás; o de conexão fica in-page porque é 1 clique. */
+.actor-demand-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 24px 12px;
+  overflow-y: auto;
+  z-index: 60;
+}
+
+.actor-demand-dialog {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.24);
+  width: min(560px, 100%);
+  padding: 16px;
+}
+
+.actor-demand-dialog-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.actor-demand-dialog-head h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.actor-demand-dialog-head button {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  color: #6b7280;
+}
+
 .actor-connect-dialog {
   background: #fff;
   border: 1px solid #d7dbe0;

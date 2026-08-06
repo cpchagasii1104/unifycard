@@ -30,6 +30,8 @@ export interface ServiceDemand {
   /** DECISION-0196 §H — a NECESSIDADE do evento que este pedido atende. null = demanda avulsa.
    *  NÃO carrega valor (§H.2: o preço vive na RESPOSTA). */
   needId: string | null;
+  /** DECISION-0196 §G.1/§C-D4 — pedido DIRIGIDO a um actor. null = broadcast. MESMA entidade. */
+  targetActorId: string | null;
   createdAt: string;
 }
 
@@ -78,6 +80,9 @@ export interface CreateDemandInput {
   /** DECISION-0196 §H — liga o pedido à NECESSIDADE do evento. Ausente = demanda avulsa.
    *  ⚠️ O servidor RECUSA need de outro tenant (DEMAND_NEED_NOT_IN_TENANT) — a trava é dele. */
   needId?: string | null;
+  /** DECISION-0196 §G.1 — a quem o pedido é DIRIGIDO. Ausente = broadcast.
+   *  ⚠️ O servidor recusa alvo de outro tenant e a si mesmo — a trava é dele, não daqui. */
+  targetActorId?: string | null;
 }
 
 export async function listWorkConcepts(): Promise<Array<{ concept_id: string; slug: string; domain: string; label?: string | null }>> {
