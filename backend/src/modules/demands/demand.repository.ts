@@ -36,6 +36,11 @@ function toResponse(r: any): DemandResponse {
     providerDisplayName: r.provider_display_name ?? undefined,
     status: r.status, quoteCents: r.quote_cents !== null && r.quote_cents !== undefined ? Number(r.quote_cents) : null,
     message: r.message ?? null,
+    // DECISION-0196: validade e o que está sendo ofertado viajam na projeção — sem isso a tela não
+    // consegue derivar "vencido" nem mostrar o que foi cotado.
+    expiresAt: new Date(r.expires_at).toISOString(),
+    offeringId: r.offering_id ?? null,
+    assetId: r.asset_id ?? null,
     createdAt: new Date(r.created_at).toISOString(), updatedAt: new Date(r.updated_at).toISOString(),
   };
 }
@@ -212,13 +217,17 @@ class DemandRepository {
     return row ? toResponse(row) : null;
   }
 
+  /** DECISION-0196: `expiresAt` é OBRIGATÓRIO (a coluna é NOT NULL sem default — a omissão falha alto,
+   *  de propósito). `offeringId`/`assetId` são exclusivos entre si (CHECK no banco). */
   async createResponse(tenantId: string, demandId: string, providerActorId: string,
-    status: DemandResponseStatus, quoteCents: number | null, message: string | null): Promise<DemandResponse> {
+    status: DemandResponseStatus, quoteCents: number | null, message: string | null,
+    expiresAt: Date, offeringId: string | null, assetId: string | null): Promise<DemandResponse> {
     const row = await runQueryWithTenant<any>(
       tenantId,
-      `INSERT INTO service_demand_responses (tenant_id, demand_id, provider_actor_id, status, quote_cents, message)
-       VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
-      [tenantId, demandId, providerActorId, status, quoteCents, message]);
+      `INSERT INTO service_demand_responses
+         (tenant_id, demand_id, provider_actor_id, status, quote_cents, message, expires_at, offering_id, asset_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+      [tenantId, demandId, providerActorId, status, quoteCents, message, expiresAt, offeringId, assetId]);
     return toResponse(row);
   }
 

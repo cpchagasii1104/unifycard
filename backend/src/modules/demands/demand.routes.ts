@@ -90,7 +90,7 @@ const demandRoutes = async (fastify: FastifyInstance) => {
   });
 
   /** POST /demands/:id/respond — aceite (automatico) ou candidatura (com_analise). */
-  fastify.post<{ Params: { id: string }; Body: { quoteCents?: number; message?: string } }>(
+  fastify.post<{ Params: { id: string }; Body: { quoteCents?: number; message?: string; offeringId?: string; assetId?: string } }>(
     '/demands/:id/respond', async (req, reply) => {
       const actorId = requireContext(req, reply); if (!actorId) return reply;
       if (!(await assertRepresentsActor(req, reply, actorId))) return reply;

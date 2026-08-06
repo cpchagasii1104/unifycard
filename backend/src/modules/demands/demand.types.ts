@@ -81,6 +81,21 @@ export interface DemandResponse {
   status: DemandResponseStatus;
   quoteCents: number | null;
   message: string | null;
+  /** DECISION-0196 §C/D1 — até quando esta resposta vale. NUNCA null (coluna NOT NULL). */
+  expiresAt: string;
+  /** DECISION-0196 §B.2 — o que está sendo ofertado: offering XOR asset, nunca os dois. */
+  offeringId: string | null;
+  assetId: string | null;
   createdAt: string;
   updatedAt: string;
 }
+
+/**
+ * DECISION-0196 §C/D1 — validade padrão do orçamento.
+ * 🔴 Injetado NA ESCRITA, nunca como default de banco: default de banco deixa o writer esquecer em
+ * silêncio, e foi assim que `actor_active_location.expires_at` virou prazo decorativo
+ * (`DT-EXPIRY-DOOR-WITHOUT-TRIGGER`, 2026-08-05). Aqui a omissão FALHA ALTO (NOT NULL sem default).
+ * ⚠️ "configurável POR OFERTA" é a decisão; a casa dessa configuração ainda NÃO existe — quando
+ * existir, ela entra AQUI, e esta constante vira o fallback. Nomeado para não virar hardcode órfão.
+ */
+export const DEMAND_QUOTE_DEFAULT_VALIDITY_DAYS = 7;

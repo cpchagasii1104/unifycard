@@ -1,5 +1,100 @@
 # REMEDIATION DT LOG
 
+## 🔓 F-SERVICE-DEMAND-QUOTE-LIFECYCLE — a porta aberta pelo lado certo, e o substrato da F1 (2026-08-06, GO Clayton)
+
+**GO:** *"adote como decisões para destravar"*. Decisões promulgadas em
+**`docs/02_decisions/DECISION_0196_SERVICE_DEMAND_QUOTE_LIFECYCLE.md`** (nova).
+Migration `20260806120000` aplicada em `unificard_dev` com `EXPECTED_DATABASE_NAME`.
+`runner 259 OK` · `tsc BE 0 / FE 0` · **Δbank 0** · canários **75·48·3·16 ledger·0 splits** intactos ·
+`schema_migrations` **571 → 572** (só a minha, conferido por `executed_at`).
+
+### O ato de abrir a porta
+
+A `0164` fechou o módulo: *"reabertura só por **frente nomeada** (`F-SERVICE-DEMAND-*`), não patch
+solto"*. O primeiro ato não foi código — foi **nomear a frente e promulgar as decisões**, porque
+decisão que vive só no chat não existe para a próxima instância. **`F-SERVICE-DEMAND-QUOTE-LIFECYCLE`**:
+diz o que abre (ciclo do orçamento) e o que não abre (dinheiro).
+
+### 🔴 TRÊS CORREÇÕES MEDIDAS ao pacote de recomendação — adotei o pacote, não as suas falhas
+
+**1 · A FK não é só de `service_offerings`.** O pacote pedia FK singular. Medido:
+```sql
+SELECT (SELECT count(DISTINCT provider_actor_id) FROM service_offerings WHERE status='active') com_oferta,
+       (SELECT count(DISTINCT owner_actor_id) FROM actor_assets) com_ativo;   -- 7 · 2
+-- e os 2 donos de actor_assets têm ofertas_ativas = 0 · 0
+```
+**Os dois fornecedores de locação — Tenda, Gerador, Banheiro, Fiat Argo — não têm uma única
+`service_offering`.** FK singular obrigatória **expulsaria a metade locação que a própria
+`0164 ADENDO 5(c)` promulga** (*"o motor é UM só"*). Adotado: **`offering_id` XOR `asset_id`**.
+
+**2 · A atomicidade do D7 não é de graça.** `create` não aceita transação externa; os dois
+`confirm*` abrem o próprio `BEGIN`. **A decisão sustenta; o custo (refatorar três métodos) está
+declarado na 0196 §C/D7** para não parecer grátis.
+
+**3 · O lock de `user` não é reuso direto.** A checagem dentro dele é escopada a
+`service_offering` (`repository.ts:431-435`) — para `owner_type='user'` **não acha conflito nenhum**.
+⛔ **O `501` de `user` PERMANECE até a generalização do rollup**, com prova de corrida. Destravar por
+decisão sem destravar por código seria acender a superfície sem a trava.
+
+### 🔴 E A MIGRATION QUASE ME DEIXOU UMA REGRESSÃO — peguei antes de commitar
+
+`expires_at` nasceu **`NOT NULL` sem default** (de propósito: `D1` manda o default vir da ESCRITA, e
+default de banco deixa o writer esquecer em silêncio — foi assim que `actor_active_location.expires_at`
+virou prazo decorativo). **Só que o writer vivo `createResponse` não preenchia a coluna.**
+⇒ **`POST /demands/:id/respond` passaria a dar 500 (`23502`) em toda resposta.** Zero linhas
+afetadas, mas o **caminho vivo estaria quebrado**.
+
+**A fatia teve de incluir o writer** — e isso é o achado de método: *schema provado ≠ caminho vivo
+provado*. Por isso a prova ganhou a seção **E**, que exercita o `demandService.respond` real.
+
+### O que entrou
+
+`service_demand_responses`: **`expires_at`** (`TIMESTAMPTZ NOT NULL`, sem default) ·
+**`offering_id`** / **`asset_id`** + `chk_sd_responses_offer_ref_exclusive` ·
+`service_demands`: **`target_actor_id`** (NULL = broadcast) + índice parcial.
+Writer: validade injetada na escrita (7 dias, com a constante nomeada como ponto de encaixe da
+config **por oferta**, que ainda não tem casa) · exclusividade e obrigatoriedade por `pricing_mode`
+no service · `expiresAt`/`offeringId`/`assetId` viajam na projeção.
+
+🔴 **O NOME MUDOU E A NORMA VENCEU:** o plano pedia `valid_until`. `07_NOMENCLATURA §4.6` exige
+sufixo **`_at`**, e o `CLAUDE.md §3.2` já lista `effective_until` entre as 33 violações medidas.
+Adotado **`expires_at`** — canônico **e** já é a convenção viva (`live_presence`,
+`actor_active_location`). **Não se cria a 34ª violação para obedecer a um rascunho.**
+
+### ✅ PROVA DE COMPORTAMENTO 11/11 em efêmera (`npm run validate:quote-lifecycle-substrate`)
+
+`A1` offering+asset juntos **RECUSADOS** pelo CHECK · `B1`/`B2` **cada um sozinho ACEITO** (a metade
+que não grita — inclusive `asset`, a metade locação) · `C1` `expires_at` omitido **RECUSADO** (a
+omissão falha alto) · `D1`/`D2` dirigida aceita **e** broadcast intacto · `E1` orçamento sem
+oferta/ativo **400 nomeado** · `E2` os dois juntos barrados **no service, antes do banco** ·
+`E3` resposta criada com **validade ≈ 7,00 dias** · `E4` a oferta **viaja na projeção**.
+⚠️ A prova **ABORTA** se a constraint alvo não existir.
+
+### 🧹 Três vezes a fixture me parou, e as três eram legítimas
+
+`service_offerings.service_id` NOT NULL · `price_cents`/`duration_minutes` NOT NULL — **parei de
+descobrir uma por vez e li TODAS as obrigatórias de uma vez no catálogo** · e o service recusou
+*"responder à própria demanda"* porque eu usara **um actor só**: a fixture passou a ter **emissor e
+ofertante separados**. ⚠️ E o `case-drift-ratchet` mordeu o **nome** da minha fixture (*"Fornecedor"*
+colide com o vocabulário governado de relação). **Consertei o código, não a baseline.**
+
+### 🟡 O VÃO QUE ESTA FATIA ABRE E NÃO FECHA — nomeado, não escondido
+
+`DECISION-0196 §B.4` passa a **exigir** `offeringId`/`assetId` ao responder demanda com
+`pricing_mode='orcamento'`. **O frontend não envia nenhum dos dois** (`OpportunitiesPage:73` manda só
+`quoteCents`). ⇒ **responder a uma demanda de orçamento pela tela devolverá 400 nomeado.**
+**Hoje isso não quebra nada** — há **0 demandas** no banco —, mas é botão que vai falhar quando a
+primeira nascer. **Não é aceitável deixar sem nome.**
+→ `DT-QUOTE-RESPONSE-UI-MISSING-OFFER-PICKER` · **dono:** esta frente · **gatilho:** antes da
+primeira demanda `orcamento` real (`SELECT count(*) FROM service_demands WHERE pricing_mode='orcamento'` > 0).
+**É a próxima fatia da F1** — a superfície onde o fornecedor escolhe o que está ofertando.
+
+### 📌 ESTADO
+
+F1 **substrato ✅**. Falta da F1: a superfície (o vão acima) · a **função única de validade** (leitor
+único, derivação preguiçosa) · o ciclo de vida da declaração (depende da F2).
+F2/F3/F4 seguem travadas. `501` de `user` e de `page` **permanecem** (§D da 0196).
+
 ## 📝 ERRATA NO `organizacaoevento.md` + o `catch` que afirmava vazio — e a F3 CAIU (2026-08-06, direção)
 
 Duas fatias curtas, sem decisão de ninguém. `runner 259 OK` · `tsc FE 0` · Δbank 0 · zero migration.

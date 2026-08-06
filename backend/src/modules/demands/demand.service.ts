@@ -7,6 +7,7 @@
 import { demandRepository } from './demand.repository';
 import {
   DEMAND_ACCEPTANCE_MODES, DEMAND_PRICING_MODES, DEMAND_VINCULOS,
+  DEMAND_QUOTE_DEFAULT_VALIDITY_DAYS,
   type CreateDemandInput, type DemandResponse, type ServiceDemand,
 } from './demand.types';
 
@@ -126,7 +127,8 @@ class DemandService {
   /** Provider responde: automatico → accepted + fillSlot (fechou = fechou);
    *  com_analise → pending (candidatura na fila do emissor). */
   async respond(tenantId: string, providerActorId: string, demandId: string,
-    input: { quoteCents?: number; message?: string }): Promise<{ demand: ServiceDemand; response: DemandResponse }> {
+    input: { quoteCents?: number; message?: string; offeringId?: string; assetId?: string }
+  ): Promise<{ demand: ServiceDemand; response: DemandResponse }> {
     // Fix Yala #6 (o pior achado): AGIR também exige estar na plateia — não-conexão não
     // pode aceitar/consumir vaga de demanda restrita (mutação não-autorizada barrada).
     await this.assertAudience(tenantId, providerActorId, demandId);
@@ -138,6 +140,27 @@ class DemandService {
       throw new DemandError(400, 'Esta demanda pede ORÇAMENTO — informe quoteCents');
     }
 
+    // 🔴 DECISION-0196 §B.2/§B.4 — a resposta declara O QUE está sendo ofertado.
+    // O BANCO garante EXCLUSIVIDADE (chk_sd_responses_offer_ref_exclusive); a OBRIGATORIEDADE por
+    // pricing_mode é AQUI, porque CHECK não atravessa tabelas (pricing_mode mora na demanda).
+    // Declarado na migration para ninguém supor que o banco cobre o que ele não cobre.
+    const offeringId = input?.offeringId ?? null;
+    const assetId = input?.assetId ?? null;
+    if (offeringId && assetId) {
+      throw new DemandError(400, 'Informe a oferta OU o ativo, nunca os dois (DECISION-0196 §B.2)');
+    }
+    if (demand.pricingMode === 'orcamento' && !offeringId && !assetId) {
+      // §B.4: obrigatória só no ORÇAMENTO — é onde o aceite vira compromisso de agenda e o sistema
+      // precisaria adivinhar o recurso (0146 G10 proíbe adivinhar). Em `preco_ofertado` continua
+      // opcional, para o motor não expulsar do caso simples quem não tem oferta/ativo cadastrado.
+      throw new DemandError(400,
+        'Esta demanda pede ORÇAMENTO — informe offeringId ou assetId (o que você está ofertando). ' +
+        'Sem isso o aceite não teria dono para a agenda (DECISION-0196 §B.2).');
+    }
+
+    // §C/D1 — validade injetada NA ESCRITA, nunca por default de banco.
+    const expiresAt = new Date(Date.now() + DEMAND_QUOTE_DEFAULT_VALIDITY_DAYS * 24 * 60 * 60 * 1000);
+
     // Selo de agenda (TEMPO consistente): compromisso não colide com compromisso
     if (await demandRepository.hasScheduleConflict(tenantId, providerActorId, demand)) {
       throw new DemandError(409, 'Agenda em conflito: você já tem um compromisso aceito nessa janela');
@@ -148,7 +171,7 @@ class DemandService {
       if (!filled) throw new DemandError(409, 'Vaga já preenchida — a demanda fechou');
       try {
         const response = await demandRepository.createResponse(
-          tenantId, demandId, providerActorId, 'accepted', input?.quoteCents ?? null, input?.message ?? null);
+          tenantId, demandId, providerActorId, 'accepted', input?.quoteCents ?? null, input?.message ?? null, expiresAt, offeringId, assetId);
         return { demand: filled, response };
       } catch (err: any) {
         await demandRepository.releaseSlot(tenantId, demandId); // rollback da vaga (ex.: resposta duplicada)
@@ -161,7 +184,7 @@ class DemandService {
 
     try {
       const response = await demandRepository.createResponse(
-        tenantId, demandId, providerActorId, 'pending', input?.quoteCents ?? null, input?.message ?? null);
+        tenantId, demandId, providerActorId, 'pending', input?.quoteCents ?? null, input?.message ?? null, expiresAt, offeringId, assetId);
       return { demand, response };
     } catch (err: any) {
       if (String(err?.message ?? '').includes('uq_sd_responses_demand_provider')) {

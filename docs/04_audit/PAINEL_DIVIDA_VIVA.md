@@ -230,6 +230,39 @@ Sem essa resposta, cada tabela vira pesquisa. Com ela, a cauda de 26 módulos é
 
 ## 🗓️ REGISTRO DE SESSÕES — o que cada fatia mudou no placar
 
+### 🟢 SESSÃO 2026-08-06 — `F-SERVICE-DEMAND-QUOTE-LIFECYCLE` · **substrato da F1 (GO de Clayton)**
+
+**`DECISION-0196` promulgada** (`docs/02_decisions/DECISION_0196_SERVICE_DEMAND_QUOTE_LIFECYCLE.md`) —
+o primeiro ato foi **nomear a frente e escrever as decisões**, porque decisão que vive só no chat não
+existe para a próxima instância. Migration `20260806120000` aplicada.
+`runner 259 OK` · `tsc BE 0 / FE 0` · Δbank 0 · canários intactos · migrations 571 → **572**.
+
+**Entrou:** `expires_at` (`NOT NULL`, **sem default de banco** — o default é da ESCRITA, 7 dias) ·
+`offering_id` **XOR** `asset_id` com CHECK · `target_actor_id` (NULL = broadcast). **Prova 11/11** em
+efêmera, nos dois sentidos, incluindo o **writer vivo**.
+
+🔴 **A migration quase deixou uma REGRESSÃO:** `expires_at NOT NULL` sem default, e o writer
+`createResponse` não o preenchia — **`POST /demands/:id/respond` daria 500 em toda resposta**. Zero
+linhas afetadas, mas o caminho vivo estaria quebrado. **A fatia teve de incluir o writer.**
+*Schema provado ≠ caminho vivo provado.*
+
+🔴 **Três correções medidas ao pacote de recomendação** (adotei o pacote, não as suas falhas):
+a FK **não** é só de `service_offerings` — os 2 donos de `actor_assets` têm **zero** oferta ativa, e a
+FK singular expulsaria a metade locação que a `0164 ADENDO 5(c)` promulga · a atomicidade do `D7`
+**custa refatorar três métodos** (dois não aceitam transação externa) · o lock de `user` **não é reuso
+direto** (a checagem é escopada a `service_offering`), então o **`501` de `user` PERMANECE** até a
+generalização do rollup, com prova de corrida.
+
+🔴 **A norma venceu o rascunho no NOME:** o plano pedia `valid_until`; `07_NOMENCLATURA §4.6` exige
+sufixo `_at`. Adotado **`expires_at`** — canônico e já vivo no repo. Não se cria a 34ª violação para
+obedecer a um rascunho.
+
+🆕 🟡 **`DT-QUOTE-RESPONSE-UI-MISSING-OFFER-PICKER`** — o vão que esta fatia **abre e não fecha**:
+`§B.4` passa a exigir `offeringId`/`assetId` ao responder demanda de **orçamento**, e o frontend
+manda só `quoteCents` (`OpportunitiesPage:73`) ⇒ **400 nomeado**. **Hoje não quebra nada (0 demandas)**,
+mas é botão que falha na primeira. **Dono:** esta frente. **Gatilho por query:**
+`SELECT count(*) FROM service_demands WHERE pricing_mode='orcamento'` > 0. É a **próxima fatia da F1**.
+
 ### 🟢 SESSÃO 2026-08-06 — `F-WINDOW-RENDER-TRUTHFUL-EXTENT` · fricção de uso do Clayton
 
 `runner 258 → **259 OK**` · `tsc BE 0 / FE 0` · Δbank 0 · zero migration.
