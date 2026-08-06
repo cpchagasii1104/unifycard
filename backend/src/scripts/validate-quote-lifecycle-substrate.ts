@@ -165,13 +165,17 @@ function gerarCpf(): string {
   await c.query(`DELETE FROM service_demand_responses WHERE demand_id = $1`, [demandId]);
   const { demandService } = await import('../modules/demands/demand.service');
 
+  // 🔴 §B.4 EMENDADA — orçamento SEM offering/asset agora é ACEITO. A exigência anterior expulsaria
+  // 11 dos 12 `user` (nenhum tem oferta), e o dono da agenda passou a resolver em CASCATA no aceite.
+  // Esta asserção INVERTEU de propósito: antes provava a recusa, agora prova que ninguém é expulso.
   try {
-    await demandService.respond(tenantId, actorId, demandId, { quoteCents: 5000 });
-    bad('E1 orçamento SEM offering/asset foi aceito', '§B.4 não está sendo aplicada');
+    const semFk = await demandService.respond(tenantId, actorId, demandId, { quoteCents: 5000 });
+    semFk.response.offeringId === null && semFk.response.assetId === null
+      ? ok('E1 orçamento SEM offering/asset ACEITO', '§B.4 emendada — ninguém é expulso na resposta')
+      : bad('E1 FK apareceu sem ter sido informada', JSON.stringify([semFk.response.offeringId, semFk.response.assetId]));
+    await c.query(`DELETE FROM service_demand_responses WHERE demand_id = $1`, [demandId]);
   } catch (e: any) {
-    e?.statusCode === 400 && /offeringId ou assetId/.test(String(e?.message))
-      ? ok('E1 orçamento sem offering/asset RECUSADO', '400 nomeado (§B.4)')
-      : bad('E1 recusado pelo motivo ERRADO', `${e?.statusCode}: ${String(e?.message).slice(0, 120)}`);
+    bad('E1 orçamento sem FK foi RECUSADO', `${e?.statusCode}: ${String(e?.message).slice(0, 140)}`);
   }
 
   try {

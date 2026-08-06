@@ -230,6 +230,26 @@ Sem essa resposta, cada tabela vira pesquisa. Com ela, a cauda de 26 módulos é
 
 ## 🗓️ REGISTRO DE SESSÕES — o que cada fatia mudou no placar
 
+### 🟢 SESSÃO 2026-08-06 — EMENDA da `§B.4` · a cascata, e uma dívida que **dissolveu**
+
+`runner 260 OK` · `tsc BE 0 / FE 0` · Δbank 0 · zero migration.
+
+🔴 **A cláusula derrubada era MINHA, escrita hoje cedo com GO.** `§B.4` exigia FK para responder com
+orçamento. Medido: **nenhum dos 12 actors `user` tem oferta** ⇒ expulsaria **11 de 12** — a persona
+central do produto. *Eu tinha medido `com_oferta 7 · com_ativo 2` e **não** tinha medido o TIPO
+desses 7. O número que decide não era o que eu tinha na mão.*
+
+**Vigente:** FK **opcional**; o dono da agenda resolve em **cascata no aceite** — FK presente →
+offering/asset · FK ausente + `user` → **o próprio actor** (`§D.1`) · FK ausente + `page` → **recusa
+honesta** (**R1**: a empresa AGREGA). Nenhum degrau inventa nada.
+✅ **O pré-requisito do degrau 2 já estava cumprido** — o rollup generalizado, provado sob corrida
+horas antes. *A sequência se pagou: a fatia ① existia para isto.*
+
+✅ **`DT-QUOTE-RESPONSE-UI-MISSING-OFFER-PICKER` DISSOLVEU** — não foi consertada por código: sumiu
+quando a decisão que a criou foi corrigida.
+📌 **E a prova INVERTEU de propósito:** `E1` provava *"sem FK é recusado"*, agora prova *"é aceito"*.
+**Asserção que sobrevive a uma inversão de decisão estava medindo outra coisa.**
+
 ### 🟢 SESSÃO 2026-08-06 — VALIDADE DO ORÇAMENTO · leitor único, expiração preguiçosa
 
 `runner 259 → **260 OK**` · `tsc BE 0` · Δbank 0 · **zero migration**. Fatia ② da sequência.
@@ -305,11 +325,12 @@ generalização do rollup, com prova de corrida.
 sufixo `_at`. Adotado **`expires_at`** — canônico e já vivo no repo. Não se cria a 34ª violação para
 obedecer a um rascunho.
 
-🆕 🟡 **`DT-QUOTE-RESPONSE-UI-MISSING-OFFER-PICKER`** — o vão que esta fatia **abre e não fecha**:
-`§B.4` passa a exigir `offeringId`/`assetId` ao responder demanda de **orçamento**, e o frontend
-manda só `quoteCents` (`OpportunitiesPage:73`) ⇒ **400 nomeado**. **Hoje não quebra nada (0 demandas)**,
-mas é botão que falha na primeira. **Dono:** esta frente. **Gatilho por query:**
-`SELECT count(*) FROM service_demands WHERE pricing_mode='orcamento'` > 0. É a **próxima fatia da F1**.
+~~🆕 🟡 `DT-QUOTE-RESPONSE-UI-MISSING-OFFER-PICKER`~~ ✅ **DISSOLVIDA em 2026-08-06 — e não por
+código.** Ela nasceu quando a `§B.4` tornou a FK obrigatória no orçamento (a tela manda só
+`quoteCents` ⇒ 400). Com a **emenda da `§B.4`** (FK opcional, dono resolvido em **cascata no
+aceite**), a tela **volta a funcionar sozinha**; a superfície de escolha vira **melhoria**, não
+conserto. 📌 **Dívida que some ao corrigir a decisão que a criou é sinal de que a decisão era o
+defeito** — não se paga com código o que se paga com medição.
 
 ### 🟢 SESSÃO 2026-08-06 — `F-WINDOW-RENDER-TRUTHFUL-EXTENT` · fricção de uso do Clayton
 

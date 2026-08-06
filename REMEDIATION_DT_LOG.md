@@ -1,5 +1,64 @@
 # REMEDIATION DT LOG
 
+## ⚖️ EMENDA DA `DECISION-0196 §B.4` — a cascata, e uma dívida minha que DISSOLVEU (2026-08-06)
+
+Ratificação: *"pode destravar a sequência"*. `runner 260 OK` · `tsc BE 0 / FE 0` · **Δbank 0** ·
+**zero migration**.
+
+### A cláusula que eu escrevi de manhã foi derrubada pela medição da tarde
+
+`§B.4` original: *FK obrigatória para responder com orçamento.* **Medido:**
+```sql
+SELECT a.actor_type, count(DISTINCT o.provider_actor_id) FROM service_offerings o
+  JOIN actors a ON a.id=o.provider_actor_id WHERE o.status='active' GROUP BY 1;
+-- page 6 · group 1 · NENHUMA linha 'user'          ·   actors user = 12
+```
+🔴 **Nenhuma pessoa física tem oferta cadastrada.** A exigência expulsaria **11 dos 12 `user`** — e
+*pessoa física respondendo com preço é a persona central do produto*. **A regra não cortaria gordura:
+cortaria o público-alvo.** E a alternativa (obrigatória só no orçamento) criaria **duas espécies de
+"aceito"** — um que compromete agenda e um que não compromete nada: segunda verdade sobre o que
+aceitar SIGNIFICA.
+
+📌 **Registro que a cláusula derrubada é MINHA, escrita hoje cedo com GO.** Riscada, não apagada — a
+afirmação registra o que se acreditou, e apagá-la perderia a lição: *eu tinha medido `com_oferta 7 ·
+com_ativo 2` e NÃO tinha medido o TIPO desses 7.* O número que decide não era o que eu tinha na mão.
+
+### ✅ A saída não escolhe entre os dois males — DISSOLVE a pergunta
+
+O dono da availability resolve em **CASCATA no aceite**, e **cada degrau já tem doutrina ratificada**:
+
+| ordem | condição | dono | doutrina |
+|---|---|---|---|
+| 1 | FK presente | `service_offering` / `actor_asset` | `§B.2` · `0164 ADENDO 7(c)` |
+| 2 | FK ausente + `user` | **o próprio actor** | `§D.1` · `0146` V1 |
+| 3 | FK ausente + `page` | ⛔ **recusa honesta no aceite** | **R1** (*a empresa AGREGA*) |
+
+**✅ O pré-requisito do degrau 2 JÁ ESTAVA CUMPRIDO** — a generalização do rollup foi feita horas
+antes e **provada sob corrida**. Sem ela, o aceite criaria a janela e o confirm a recusaria com 501.
+*A sequência se pagou: a fatia ① existia para isto.*
+
+### 🔴 E UMA DÍVIDA MINHA DE ONTEM DISSOLVEU — não foi "consertada"
+
+`DT-QUOTE-RESPONSE-UI-MISSING-OFFER-PICKER` nasceu quando eu tornei a FK obrigatória: a tela mandava
+só `quoteCents` e passaria a receber **400**. Com a FK opcional, **a tela volta a funcionar sozinha**.
+A superfície de escolha vira **melhoria**, não conserto de botão quebrado.
+📌 **Vale registrar a forma:** a dívida não foi paga por código — **sumiu quando a decisão errada foi
+corrigida**. Dívida que some ao corrigir a decisão que a criou é sinal de que a decisão era o defeito.
+
+### A prova INVERTEU de propósito
+
+`E1` provava *"orçamento sem FK é RECUSADO"*; agora prova *"é ACEITO, e nenhuma FK aparece sozinha"*.
+**Asserção que inverte junto com a decisão é honesta; asserção que sobrevive a uma inversão de
+decisão estava medindo outra coisa.** 16/16 seguem verdes, com `E2` (exclusividade) intacta — o que
+saiu foi a **obrigatoriedade**, não a **exclusividade**.
+
+### 📌 ESTADO
+
+`§B.4` vigente = cascata. **F1 fechada no backend.** Restam os **custos declarados** da cascata, que
+são da **F2**: a prova vermelha cobre os **três** degraus (inclusive a recusa do `page`), e a agenda
+pessoal passa a receber compromisso de venda — o que **exige superfície**, porque a pessoa precisa
+VER a própria agenda ser ocupada.
+
 ## ⏳ VALIDADE DO ORÇAMENTO — leitor único, expiração preguiçosa (2026-08-06)
 
 Fatia ② da sequência. Execução da **`DECISION-0196 §C/D1+D2`** e da exigência literal do plano

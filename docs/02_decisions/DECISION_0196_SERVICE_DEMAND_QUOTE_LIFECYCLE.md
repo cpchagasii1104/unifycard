@@ -88,14 +88,60 @@ que a `0146 G10` proíbe por nome (`STOP_DECISION_REQUIRED`).
 *"compõe com […] **`service_offerings`** (a política de visita pode morar na **oferta do provider**)"*.
 Esta decisão **estende** aquele ponteiro para o par oferta/ativo, pela razão de B.2.
 
-🔴 **B.4 — CONSEQUÊNCIA DE PRODUTO, declarada e não escondida.** Hoje **qualquer** actor da plateia
-responde (`respond` não exige oferta nem ativo). Com a FK obrigatória, o universo de quem pode
-responder cai de **22 actors** para **9** (7 com oferta ativa + 2 com ativo). **Isto é mudança de
-produto, não detalhe de schema.**
-**Decisão:** a FK é obrigatória **para responder com orçamento** (`pricing_mode='orcamento'`), e
-**opcional** para `preco_ofertado` — que é registro comercial puro e não vira compromisso de agenda.
-Assim o motor não expulsa ninguém do caso simples, e exige identidade do recurso exatamente onde ela
-passa a ser necessária.
+🔴 **B.4 — QUEM PODE RESPONDER, e onde o dono da agenda é resolvido.**
+
+> ### ⚖️ EMENDA DE 2026-08-06 (ratificada: *"pode destravar a sequência"*)
+> **A versão original desta cláusula está RISCADA abaixo, não apagada** — ela registra uma decisão
+> que a medição derrubou, e apagar perderia a lição.
+
+~~**Decisão original:** a FK é obrigatória para responder com orçamento (`pricing_mode='orcamento'`)
+e opcional para `preco_ofertado`.~~
+
+⛔ **DERRUBADA POR MEDIÇÃO.** Ela expulsaria a persona central do produto:
+```sql
+SELECT a.actor_type, count(DISTINCT o.provider_actor_id) FROM service_offerings o
+  JOIN actors a ON a.id = o.provider_actor_id WHERE o.status='active' GROUP BY 1;
+-- page 6 · group 1 · (NENHUMA linha 'user')
+SELECT count(*) FROM actors WHERE actor_type='user';  -- 12
+-- users sem oferta E sem ativo: 11
+```
+**Nenhuma pessoa física tem oferta cadastrada.** A FK obrigatória expulsaria **11 dos 12 `user`**
+(o 12º é o dono do Fiat Argo, que poderia responder por `asset_id`). *Pessoa física respondendo com
+preço é literalmente a persona do produto* — a regra não cortaria gordura, cortaria o público-alvo.
+E torná-la opcional em `preco_ofertado` criaria **duas espécies de "aceito"** — um que compromete
+agenda e um que não compromete nada: **segunda verdade sobre o que aceitar SIGNIFICA**.
+
+### ✅ B.4 (VIGENTE) — FK opcional; o dono resolve em CASCATA no aceite
+
+A saída não escolhe entre os dois males: **dissolve a pergunta**. Cada degrau já tem doutrina
+ratificada — **nenhum inventa nada**:
+
+| ordem | condição | dono da availability | doutrina |
+|---|---|---|---|
+| 1 | **FK presente** | `service_offering` ou `actor_asset` da FK | `§B.2` · `0164 ADENDO 7(c)` |
+| 2 | FK ausente **e** respondente é **`user`** | **o próprio user-actor** | **`§D.1`** · `0146` V1 (*"`provider_actor_id` é o RECURSO"*) |
+| 3 | FK ausente **e** respondente é **`page`** | ⛔ **recusa honesta NO ACEITE** | **R1** de Clayton (*"a empresa não tem agenda: ela AGREGA"*) — a mensagem diz o caminho: cadastre a oferta |
+
+**Resultado:** ninguém é expulso na resposta (os 22 seguem podendo responder) · nenhum aceite fica
+sem dono legítimo de agenda · `page` continua fail-closed **pela regra do dono**, não por limitação
+técnica.
+
+**✅ PRÉ-REQUISITO DE ORDEM — JÁ CUMPRIDO (2026-08-06).** O degrau 2 dependia da generalização do
+rollup por `provider_actor_id` (sem ela o aceite criaria a janela e o confirm a recusaria com 501).
+**Feito e provado sob corrida** (`validate:personal-agenda-exclusivity-race`: sobrepostas → exatamente
+uma confirma; sem sobreposição e back-to-back → as duas). O degrau 2 está liberado.
+
+**🔴 CUSTOS ACEITOS, declarados para ninguém descobrir depois:**
+1. **A prova vermelha da F2 cobre os TRÊS degraus** — inclusive a recusa do `page` sem FK.
+2. **A agenda pessoal do respondente passa a receber compromisso de venda.** É o comportamento
+   DESEJADO (um corpo, uma agenda) — mas aceitar um preço fixo passa a **OCUPAR a agenda da pessoa**,
+   e **a pessoa precisa VER isso acontecer**: exige **superfície**, não só substrato.
+
+**Efeito imediato no writer:** `respond` **deixa de exigir** `offeringId`/`assetId` em
+`pricing_mode='orcamento'`. A exclusividade (`offering` XOR `asset`) **permanece** — no banco e no
+service. ⇒ `DT-QUOTE-RESPONSE-UI-MISSING-OFFER-PICKER` **dissolve-se**: a tela que manda só
+`quoteCents` volta a funcionar. A superfície de escolha vira **melhoria**, não correção de botão
+quebrado.
 
 **B.5 — Fora desta decisão:** `[3]` (o overlap de declaração virar ALERTA) **não** entra aqui. É o
 cluster do `ART. II` / `DT-AVAILABILITY-OVERLAP-ALERT-MISSING`, e anda em frente própria.

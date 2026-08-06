@@ -150,14 +150,14 @@ class DemandService {
     if (offeringId && assetId) {
       throw new DemandError(400, 'Informe a oferta OU o ativo, nunca os dois (DECISION-0196 §B.2)');
     }
-    if (demand.pricingMode === 'orcamento' && !offeringId && !assetId) {
-      // §B.4: obrigatória só no ORÇAMENTO — é onde o aceite vira compromisso de agenda e o sistema
-      // precisaria adivinhar o recurso (0146 G10 proíbe adivinhar). Em `preco_ofertado` continua
-      // opcional, para o motor não expulsar do caso simples quem não tem oferta/ativo cadastrado.
-      throw new DemandError(400,
-        'Esta demanda pede ORÇAMENTO — informe offeringId ou assetId (o que você está ofertando). ' +
-        'Sem isso o aceite não teria dono para a agenda (DECISION-0196 §B.2).');
-    }
+    // 🔴 §B.4 EMENDADA (2026-08-06) — a FK é OPCIONAL, sempre. A versão anterior exigia
+    // offering/asset em `pricing_mode='orcamento'`, e a medição a derrubou: NENHUM dos 12 actors
+    // `user` tem oferta cadastrada, então a exigência expulsaria 11 de 12 — a persona central do
+    // produto (pessoa física respondendo com preço), não gordura.
+    // O dono da agenda deixa de ser exigido AQUI e passa a resolver em CASCATA no ACEITE:
+    //   FK presente → offering/asset · FK ausente + `user` → o próprio actor (§D.1, 0146 V1)
+    //   · FK ausente + `page` → recusa honesta (R1: a empresa AGREGA, não é recurso).
+    // A EXCLUSIVIDADE (offering XOR asset) permanece — acima, e no CHECK do banco.
 
     // §C/D1 — validade injetada NA ESCRITA, nunca por default de banco.
     const expiresAt = new Date(Date.now() + DEMAND_QUOTE_DEFAULT_VALIDITY_DAYS * 24 * 60 * 60 * 1000);
