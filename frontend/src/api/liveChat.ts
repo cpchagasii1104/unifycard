@@ -9,7 +9,7 @@ export interface LivePresence {
   contextType: 'EVENT' | 'VENUE';
   contextId: string;
   contactId: string;
-  status: 'ONLINE' | 'OFFLINE';
+  status: 'online' | 'offline';
   optedIn: boolean;
   lastSeenAt: string;
   expiresAt: string;

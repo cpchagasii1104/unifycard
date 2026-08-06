@@ -57,10 +57,10 @@ class LivePresenceRepository {
         tenant_id, context_type, context_id, contact_id, status, opted_in,
         last_seen_at, expires_at, metadata
       )
-      VALUES ($1, $2, $3, $4, 'ONLINE', true, $5, $6, '{}'::jsonb)
+      VALUES ($1, $2, $3, $4, 'online', true, $5, $6, '{}'::jsonb)
       ON CONFLICT (tenant_id, context_type, context_id, contact_id)
       DO UPDATE SET
-        status = 'ONLINE',
+        status = 'online',
         opted_in = true,
         last_seen_at = $5,
         expires_at = $6,
@@ -88,7 +88,7 @@ class LivePresenceRepository {
       tenantId,
       `
       UPDATE live_presence
-      SET status = 'OFFLINE',
+      SET status = 'offline',
           opted_in = false,
           updated_at = NOW()
       WHERE tenant_id = $1 AND context_type = $2 AND context_id = $3 AND contact_id = $4
@@ -152,7 +152,7 @@ class LivePresenceRepository {
       FROM live_presence
       WHERE tenant_id = $1 AND context_type = $2 AND context_id = $3
         AND opted_in = true
-        AND status = 'ONLINE'
+        AND status = 'online'
         AND expires_at > $4
       ORDER BY last_seen_at DESC
       LIMIT $5

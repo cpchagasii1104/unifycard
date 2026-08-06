@@ -1,5 +1,86 @@
 # REMEDIATION DT LOG
 
+## 📜 `DECISION-0196 ADENDO 1` — dois verbos, a chave `need_id`, e duas convergências (2026-08-06)
+
+Ratificação: *"adote como escolhas/decisões"*. `runner` verde · `tsc BE 0 / FE 0` · **Δbank 0**.
+`schema_migrations` **572 → 573**. Canários intactos (**75 · 48 · 3 · 16 ledger · 0 splits**).
+
+### §G — a pergunta por baixo do plano inteiro tinha resposta "os dois"
+
+**O defeito nunca foi nenhuma das duas superfícies. Foi o RÓTULO.**
+O `QuoteRequestDialog` é um **diálogo de RESERVA fantasiado de orçamento** — dropdown de
+`availabilityId` das janelas do FORNECEDOR (`:125-126,198`), escrevendo booking direto. O motor de
+demandas já faz o verbo oposto (o CLIENTE declara a janela) **desde 07/07**.
+**Nenhum marketplace grande funde os dois verbos** — Airbnb tem *Reserve* **e** *Contact host*.
+
+**Decisão:** `request_quote` passa a abrir **demanda DIRIGIDA** (`target_actor_id` — a coluna que a
+F1 criou **três dias antes de alguém saber para quê**); o diálogo sobrevive **renomeado para
+"Reservar horário"**.
+⇒ **A F4 encolhe de "construir" para "rotear e renomear".**
+⛔ **Condição antes do selo: NAVEGAR.** A minha ressalva (*"inferi de leitura, não de navegação"*)
+virou cláusula: **código confirmado ≠ jornada confirmada.**
+
+### §H — a chave é `need_id`, e o valor não mora em nenhuma das duas
+
+Ligar `service_demands` direto ao evento criaria **segunda verdade sobre "o que este evento
+precisa"** — e essa pergunta já tem casa: `event_operational_needs` (14 linhas vivas).
+```
+events → event_operational_needs → service_demands → service_demand_responses
+          (o QUE precisa)            (o PEDIDO)        (o PREÇO)
+```
+`need_id` FK **anulável**; nulo = demanda avulsa (o caso de hoje) — **nada regride**.
+🔴 **O valor não entra em nenhuma das duas:** *necessidade declarada ≠ preço · pedido ≠ preço*. Ele
+**já está no lugar certo — a resposta**. A F3 agrega **de baixo para cima**.
+⚠️ `event_financial_execution` **não serve** e o nome engana (0 linhas; é rastreamento de execução).
+
+### §I — F2 com GATE próprio, e um VETO DE SELO
+
+*Duas mãos no mesmo lock na mesma semana sem mapa é como nascem as corridas. O GATE é barato; a
+corrida não é.*
+🔴 **VETO:** a F2 **não sela** sem a pessoa **VER** a própria agenda ser ocupada. *Substrato certo
+com pessoa no escuro* reprova. **A forma mínima não exige tela nova** — a visão de agenda que ela já
+tem, mais o outbox quando o notificador nascer.
+
+### §J — os quatro resíduos ganharam gatilho **em forma de query**
+
+O que era marco virou `SELECT`. `DT-DEMAND-AGENDA-MIRROR` deixa de depender de *"entrega da F2"* e
+passa a depender de *"booking aceito de demanda aparece na leitura da agenda unificada do provider"*
+— **contável**. E `DT-COMMITMENT-LAYER-HAS-NO-DB-CONSTRAINT` sobe para **fatia própria, PRÓXIMA**:
+*exclusividade de dinheiro apoiada só em lock de aplicação é o tipo de garantia que **parece**
+existir.*
+
+### §K — as duas convergências, executadas
+
+**K.1 · `live_presence.status` → minúsculo** (`07_NOMENCLATURA §4.11`). Migration `20260806180000`
+com a tabela **vazia** — *o momento mais barato que vai existir; amanhã é migração de conteúdo*.
+6 sítios (5 backend + 1 frontend), convergidos **junto** com o CHECK: separá-los criaria drift que o
+`case-drift-ratchet` pegaria — e ele estaria certo.
+
+**K.2 · 🔴 `@core/errors` — E AQUI EU ERREI, no diagnóstico e no preço.**
+Chamei de *"convergir para uma casa"* e de tarefa **barata**. **Medido, era falso nas duas metades:**
+```
+imports do ARQUIVO  (@core/errors)                     147
+imports da PASTA    (@core/errors/http-error|…)         66     ⇒ convergir = 213 sítios
+```
+E **a pasta não é duplicata** — tem conteúdo exclusivo e vivo (`http-error`, `error-codes`,
+`postgres-schema-error`), inclusive importado pelo próprio `errors.ts`.
+
+**O que era barato — e é o que resolve — é OUTRA coisa:** `src/core/errors/index.ts` tem **ZERO
+importadores** e redefinia `BadRequestError`/`ConflictError`/… como **funções**, enquanto o arquivo
+vivo os define como **classes**:
+```
+barril morto:  export const BadRequestError = (msg) => HttpError.badRequest(msg)   ← FUNÇÃO
+casa viva:     export class  BadRequestError extends AppError                      ← CLASSE
+```
+Quem acreditasse nele escreveria `new BadRequestError(...)` → `TypeError: is not a constructor`; ou,
+pior, pegaria um erro **que não é `instanceof AppError`**, escapando de **todo `catch` tipado**.
+**É a doença das duas verdades em miniatura, no lugar mais irônico possível: a casa dos erros.**
+**TOMBSTONE, não deleção** (`CLAUDE.md §5`) — o barril já era inalcançável; o que fazia dano era a
+**crença** de que valia. O cabeçalho mata a crença.
+
+📌 **`referência não é alcance` aplicada ao meu próprio diagnóstico, pela terceira vez na sessão** —
+e desta vez o erro não foi medir errado: foi **não medir e chamar de barato**.
+
 ## ⚖️ EMENDA DA `DECISION-0196 §B.4` — a cascata, e uma dívida minha que DISSOLVEU (2026-08-06)
 
 Ratificação: *"pode destravar a sequência"*. `runner 260 OK` · `tsc BE 0 / FE 0` · **Δbank 0** ·

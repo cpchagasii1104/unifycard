@@ -244,3 +244,96 @@ toca · a resposta declara o que oferta por `offering_id` XOR `asset_id` (FK sin
 locação) · validade 7 dias por oferta, `NULL` proibido, vencido morre · dirigido é a mesma entidade
 · o estado "aceito + confirm falhou" deixa de existir por atomicidade — que custa refatorar três
 métodos · `user` destrava depois de generalizar o rollup; `page` agrega e segue 501.**
+
+---
+
+# ADENDO 1 — 2026-08-06 · ratificado ("adote como escolhas/decisões")
+
+## §G — DOIS VERBOS, NOMES HONESTOS (a pergunta por baixo do plano inteiro)
+
+**O defeito nunca foi nenhuma das duas superfícies. Foi o RÓTULO.**
+
+| verbo | quem declara a janela | superfície CERTA | precedente de mercado |
+|---|---|---|---|
+| **Reservar horário** | o fornecedor publica, o cliente escolhe | **o diálogo atual** — que já faz isso bem | Airbnb *Reserve* · Calendly |
+| **Pedir orçamento** | **o cliente declara a necessidade** | **o motor de demandas** — que já faz isso desde 2026-07-07 | Thumbtack · GetNinjas · Airbnb *Contact host* |
+
+O `QuoteRequestDialog` é um **diálogo de RESERVA fantasiado de orçamento** — o próprio plano já
+tinha dito, em outras palavras, no `§1`: *"o nome e o comportamento discordam"*.
+**Nenhum marketplace grande funde os dois verbos**; todos mantêm os dois, com nomes honestos.
+
+**G.1 — DECISÃO:** o botão `request_quote` da `ActorPage` passa a **abrir uma demanda DIRIGIDA**
+(`target_actor_id` — a coluna que a F1 criou; a peça caiu no lugar na hora exata). O diálogo atual
+**sobrevive, renomeado para "Reservar horário"**, servindo ofertas com **janela publicada e preço
+fixo**.
+
+**G.2 — CONSEQUÊNCIA:** a **F4 encolhe de "construir" para "rotear e renomear"**, e boa parte do
+`organizacaoevento.md` **já está construída**.
+
+⛔ **G.3 — CONDIÇÃO ANTES DO SELO:** **navegar de verdade**, um clique em cada caminho, antes do GO
+da F4. A tabela acima é **fato de código** (verificado em `QuoteRequestDialog.tsx:125-126,198` —
+dropdown de `availabilityId` das janelas do fornecedor, escrevendo booking direto), **não é
+experiência verificada**. Código confirmado ≠ jornada confirmada.
+
+## §H — A CHAVE EVENTO↔DEMANDA É `need_id`, E O VALOR NÃO MORA EM NENHUMA DAS DUAS
+
+**Ligar `service_demands` direto ao evento criaria segunda verdade sobre *"o que este evento
+precisa"*** — e essa pergunta **já tem casa**: `event_operational_needs` (14 linhas VIVAS, com
+`event_id` + `need_concept_id` + `fulfillment_kind`, lida por `event-need-supplier-discovery.service.ts`,
+o mesmo serviço que alimenta o "Solicitar orçamento").
+
+```
+events → event_operational_needs → service_demands → service_demand_responses
+           (o QUE o evento precisa)   (o PEDIDO)        (o PREÇO)
+```
+
+**H.1 — DECISÃO:** `service_demands.need_id` — FK **anulável** para `event_operational_needs`.
+Nulo = demanda avulsa (sem evento), que é o caso de hoje. **Nada regride.**
+
+**H.2 — O VALOR NÃO ENTRA NEM EM `event_operational_needs` NEM EM `service_demands`.**
+*Necessidade declarada ≠ preço. Pedido ≠ preço.* O valor **já está no lugar certo: a RESPOSTA**
+(`service_demand_responses.quote_cents`). A F3 agrega **da resposta**, subindo pela cadeia.
+
+**H.3 —** ⚠️ `event_financial_execution` **não serve** e o nome engana: 0 linhas, colunas
+`status/error_message/processed_at` — é rastreamento de execução, não custo. **Registrado para
+ninguém tropeçar nele de novo.**
+
+## §I — F2 EXIGE GATE PRÓPRIO, E O SELO TEM UM VETO
+
+**I.1 —** A **F2 abre com GATE próprio**, sem exceção. Ela refatora transação **no caminho que vira
+dinheiro** e toca **a única trava de exclusividade** do sistema — que já foi tocada em 2026-08-06.
+*Duas mãos no mesmo lock na mesma semana sem mapa é como nascem as corridas. O GATE é barato; a
+corrida não é.*
+
+**I.2 — 🔴 VETO DE SELO:** a F2 **não sela** sem a pessoa **VER** a própria agenda ser ocupada.
+Aceitar preço fixo passa a **ocupar a agenda do respondente** (comportamento desejado — um corpo,
+uma agenda), e *substrato certo com pessoa no escuro* é motivo de reprovação no selo.
+**A forma mínima já existe e não exige tela nova:** o compromisso aceito aparece na **visão de
+agenda que a pessoa já tem**, e o aviso entra na **espinha do outbox** quando o notificador nascer
+(dependência **já registrada**, não construção desta fatia).
+
+## §J — OS QUATRO RESÍDUOS, COM DONO E GATILHO **EM FORMA DE QUERY**
+
+| resíduo | dono | gatilho verificável |
+|---|---|---|
+| `DT-RFQ-JSONB-QUOTE-TRAIL-SUPERSEDED` | esta frente | **`grep FEATURE_RFQ_ENABLED` = 0 ocorrências e rotas removidas**, ancorado ao **fim da F4** |
+| `DT-DEMAND-AGENDA-MIRROR-PHASE2-WITHOUT-DEADLINE` | esta frente | **`SELECT` contável:** *booking aceito de demanda aparece na leitura da agenda unificada do provider*. **Marco virou query** — a objeção de que *"entrega da F2"* não era verificável morre aqui |
+| 🔴 `DT-COMMITMENT-LAYER-HAS-NO-DB-CONSTRAINT` | **fatia própria, PRÓXIMA** | é **a metade prescrita da `§A.7`** que ficou por fazer quando a `EXCLUDE` saiu da camada proibida. *Exclusividade de dinheiro apoiada só em lock de aplicação é o tipo de garantia que **parece** existir.* **A mais importante das quatro** |
+| `DT-AVAILABILITY-OVERLAP-ALERT-MISSING` | esta frente | ancorado ao **selo da F2** — o alerta do `ART. II` fica relevante quando compromissos fluem. Hoje, com zero usuários reais, é **semente**: `findOverlapping` dormente **está certo como está** |
+
+## §K — AS DUAS CONVERGÊNCIAS BARATAS (executadas em 2026-08-06)
+
+**K.1 — `live_presence.status` → minúsculo.** `07_NOMENCLATURA §4.11`. Feito com a tabela **vazia** —
+*o momento mais barato que vai existir; amanhã é migração de conteúdo*. Migration
+`20260806180000` + 6 sítios de código (5 backend, 1 frontend).
+
+**K.2 — `@core/errors`: o barril morto vira TOMBSTONE.**
+⚠️ **Correção de uma afirmação minha do mesmo dia:** eu chamei isto de *"convergir para uma casa"* e
+de tarefa barata. **Medido, era falso nas duas metades:** convergir custaria **213 sítios de
+import**, e a pasta **não é duplicata** — tem conteúdo exclusivo e vivo (`http-error` 66 sítios,
+`error-codes`, `postgres-schema-error`).
+**O que era barato — e é o que resolve — é matar o BARRIL:** `src/core/errors/index.ts` tem **zero
+importadores** e redefinia `BadRequestError`/`ConflictError`/… como **funções**, enquanto o arquivo
+vivo os define como **classes**. Quem acreditasse nele escreveria `new BadRequestError(...)` e
+receberia `TypeError: is not a constructor` — ou pegaria um erro que **não é `instanceof AppError`**,
+escapando de todo `catch` tipado. **Tombstone, não deleção** (`CLAUDE.md §5`).

@@ -1,7 +1,7 @@
 // backend/src/modules/live-chat/live-chat.types.ts
 // SPRINT 95: LOCAL CHAT (OPT-IN) + PRESENÇA AO VIVO + ANTI-ABUSO
 
-export type LivePresenceStatus = 'ONLINE' | 'OFFLINE';
+export type LivePresenceStatus = 'online' | 'offline';
 export type ChatRoomType = 'PUBLIC';
 export type ChatRoomStatus = 'ACTIVE' | 'ARCHIVED';
 export type ChatMessageStatus = 'VISIBLE' | 'DELETED';
