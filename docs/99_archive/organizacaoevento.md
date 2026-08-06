@@ -1,5 +1,23 @@
 # ORGANIZAÇÃO DE EVENTO — orçamento → aceite → agenda → custo
 
+> **Categoria:** histórico
+> **Status:** histórico — **ARQUIVADO em 2026-08-06**, sucedido por `organizacaoevento2.md` (raiz)
+> **Fonte canônica:** `docs/02_decisions/DECISION_0196_SERVICE_DEMAND_QUOTE_LIFECYCLE.md` (+ ADENDO 1)
+> **Obrigatório:** não — ⛔ **NÃO consulte para saber o estado**
+> **Governado por:** Clayton (decisão) · direção (execução)
+
+> ## 🪦 ESTE DOCUMENTO É HISTÓRICO. NÃO É PLANO, NÃO É ESTADO.
+>
+> Ele foi o plano de 2026-08-05. O **GATE F0** (3 rodadas) e a execução de 2026-08-06 derrubaram
+> **nove** das suas afirmações — as erratas ⛔ seguem no corpo, **riscadas e não apagadas**, porque
+> a afirmação original registra o que alguém acreditou.
+>
+> **Quatro fatias saíram daqui e estão FEITAS.** As decisões que ele deixava em aberto foram
+> promulgadas na `DECISION-0196` e no seu `ADENDO 1`.
+>
+> 🔴 **O que falta vive em `organizacaoevento2.md` (raiz).** Este arquivo é preservado como
+> evidência do raciocínio, e porque a errata só ensina enquanto o erro original estiver ao lado dela.
+
 > **Estado deste documento:** plano em revisão, **NÃO promulgado**. Passou por duas revisões
 > independentes (YALA + instância de decisão de produto) em 2026-08-05; as correções delas já estão
 > integradas aqui. **Faltam duas respostas de Clayton** (§7) antes de virar GATE.

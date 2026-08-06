@@ -1,5 +1,46 @@
 # REMEDIATION DT LOG
 
+## 🔀 SUCESSÃO DO PLANO — `organizacaoevento.md` → `organizacaoevento2.md` (2026-08-06)
+
+Pedido de Clayton **antes da compactação de contexto**: *"crie o `organizacaoevento2.md` somente com
+o que falta, e coloque todas as orientações para você mesma no novo arquivo"*.
+`runner 260 OK` · `doc-tag-ratchet` verde · Δbank 0.
+
+### Por que sucessão e não edição
+
+O plano antigo tinha **9 erratas ⛔ no corpo** e **4 fatias já executadas**. Um documento em que a
+maior parte do texto está riscada **deixa de roteirizar e passa a confundir** — e o `PAINEL` já
+ensinou essa lição com o `dividatecnica.md`, que *"declarou-se obrigatório e mentiu por 24 dias"*.
+**Um arquivo por papel:** o novo é **PLANO** (o que falta); o antigo virou **HISTÓRICO**.
+
+### O antigo foi ARQUIVADO, não apagado
+
+`git mv organizacaoevento.md docs/99_archive/` — **movido com histórico preservado**. Clayton
+autorizou deletar ou arquivar; escolhi arquivar, porque **a errata só ensina enquanto o erro
+original estiver ao lado dela**. Ganhou tarja de 5 campos + tombstone: *"NÃO é plano, NÃO é estado"*.
+
+⚠️ **E o `doc-tag-ratchet` mordeu na hora certa:** ao entrar em `docs/`, o arquivo virou "documento
+novo" para o guard (teto 1807 > 1806). **Não alistei na baseline** — pus a tarja, que é o que o
+próprio guard manda. *Mover arquivo para dentro de `docs/` é criar documento aos olhos do teto.*
+
+### O que o novo arquivo carrega — e por que cada parte
+
+Ele é **handoff para uma instância sem memória**, não sumário executivo:
+· **§1 comandos de verificação** — *estado é medição, nunca memória*;
+· **§2 os 9 commits do dia**, para **não refazer**;
+· **§3 🔴 as SETE armadilhas em que eu caí hoje**, com a forma de cada uma. *Todas têm a mesma
+  assinatura: afirmei o que era cômodo verificar depois.* As sete foram pegas — 4 por mim ao
+  remedir, 3 pelo runner — e **nenhuma virou commit errado**, mas só porque medi de novo;
+· **§4 o que falta**, com o que **cada fatia precisa carregar** (a F2 tem 5 requisitos, inclusive o
+  **veto de selo**);
+· **§5 o que é de Clayton** — e a lista do que **NÃO é decisão**, para a próxima instância não
+  gastar caneta dele com o que já foi promulgado;
+· **§6 o rito** · **§7 o que nunca foi medido** — *o navegador nunca foi aberto*.
+
+📌 **A parte mais valiosa é a §3.** Um handoff que só lista tarefas entrega o trabalho; um que lista
+**como o antecessor errou** entrega o método. As armadilhas são reincidentes por construção: quem
+chega não tem como saber que já pisou nelas.
+
 ## 📜 `DECISION-0196 ADENDO 1` — dois verbos, a chave `need_id`, e duas convergências (2026-08-06)
 
 Ratificação: *"adote como escolhas/decisões"*. `runner` verde · `tsc BE 0 / FE 0` · **Δbank 0**.
