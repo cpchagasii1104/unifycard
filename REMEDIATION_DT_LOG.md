@@ -1,5 +1,82 @@
 # REMEDIATION DT LOG
 
+## 📏 DUAS MEDIÇÕES QUE DERRUBARAM ESTIMATIVAS — 2026-08-06, depois do selo da trava
+
+Registradas **antes** de virarem fatia, porque as duas mudam decisão já tomada.
+
+### 🔴 ① *"trocar o usuário do `.env` é UMA LINHA"* — o ALVO está certo, o TAMANHO não
+
+O diagnóstico de Clayton (2026-08-06) é **confirmado de 1ª mão**, e o placar herdado estava errado
+para pior:
+```sql
+SELECT count(*) FILTER (WHERE NOT relrowsecurity) sem_rls, count(*) FILTER (WHERE relrowsecurity) com_rls
+  FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind='r';
+-- 218 sem RLS · 118 com · 336 tabelas  (o placar dizia 128/239)
+SELECT rolname, rolsuper, rolbypassrls, rolcreatedb FROM pg_roles WHERE rolname IN ('postgres','unificard_app');
+-- postgres      t t t     ← é quem o .env usa
+-- unificard_app f f f
+```
+166 policies vivas, e **o runtime de dev passa por fora de todas** porque conecta como superusuário.
+*As policies são decoração enquanto o usuário for superuser* — é o mesmo padrão do guard que nunca
+fica vermelho.
+
+**MAS a troca não é uma linha. Medido, são quatro impedimentos, e três são fail-fechado:**
+```sql
+SELECT has_schema_privilege('unificard_app','public','CREATE'), has_database_privilege('unificard_app','unificard_dev','CREATE');
+-- f · f          ⇒ `npm run migrate` (mesma DATABASE_URL) para de funcionar
+```
+```powershell
+(Select-String -Path backend/scripts/run-*-ephemeral.ps1 -Pattern 'CREATE DATABASE' | Select -Expand Path -Unique).Count
+# 120  ⇒ os 120 harnesses efêmeros derivam o adminUrl da MESMA DATABASE_URL e criam banco.
+#         unificard_app tem rolcreatedb=f ⇒ TODOS param, inclusive os desta frente.
+```
+```sql
+-- tabela pública SEM grant de SELECT para unificard_app:
+neighborhood_writer_authorizations   ⇒ o writer da N3 SELADA (75 bairros) ficaria no escuro
+```
+E **não existe variável separada de admin/migration**: `.env` tem uma só (`DATABASE_URL`).
+
+📌 **O conserto real é uma FATIA, não uma linha:** separar o botão em `DATABASE_URL` (runtime,
+`unificard_app`) × URL administrativa (migrate + criação de efêmera, `postgres`), acertar o grant de
+`neighborhood_writer_authorizations`, e só então virar o `.env`. **A ordem contexto → role → RLS
+continua certa; o que muda é que o passo "role" tem 4 itens, não 1.**
+⚠️ Isto **não diminui a urgência** — aumenta: a insegurança é real e está declarada no próprio
+código (`db-role-rls-preflight.ts:136`, *"o dev ainda roda como postgres até a ops trocar"*).
+
+### 🟡 ② A trava nova foi construída sobre um campo PENDENTE de reclassificação — e o alvo é UM
+
+Clayton apontou que `quantity=10` está pendente de reclassificação (tenda/banheiro = pool ·
+gerador = identidade, por D3) e que *"uma constraint nova foi construída em cima de um campo
+pendente"*. **Procede, e a medição diz exatamente quanto custa:**
+```sql
+SELECT a.label, t.resource_type, t.quantity, (t.resource_type <> 'equipment') AS entra_na_exclude,
+       (SELECT count(*) FROM availability av JOIN bookings b ON b.availability_id=av.availability_id
+         WHERE av.owner_type='actor_asset' AND av.owner_id=a.id
+           AND b.status IN ('confirmed','checked_in','checked_out')) AS compromissos
+  FROM actor_assets a JOIN actor_asset_rental_terms t ON t.asset_id=a.id;
+-- Banheiro químico   equipment 10  fora  0
+-- Gerador 180 kVA    equipment 10  fora  1   ← O ÚNICO compromisso bloqueante do banco inteiro
+-- Tenda 10x10        equipment 10  fora  0
+-- Fiat Argo          vehicle    1   DENTRO 0
+```
+🔴 **O único booking comprometido que existe está no GERADOR — justamente o que a reclassificação
+manda virar IDENTIDADE.** Consequência nomeada, para não ser descoberta depois:
+1. A regra do confirm decide por **`resource_type='equipment'`**, não por `quantity=1` (de propósito:
+   `quantity` é mutável). Reclassificar *"gerador tem identidade"* **sem mudar `resource_type`** o
+   deixa **fora** da trava de banco mesmo com `quantity=1`.
+2. A fatia de reclassificação **tem de carregar backfill de `commitment_resource_id`** — hoje
+   exatamente **1 linha**:
+   ```sql
+   SELECT count(*) FROM bookings b JOIN availability av ON av.availability_id=b.availability_id
+     JOIN actor_asset_rental_terms t ON t.asset_id=av.owner_id
+    WHERE av.owner_type='actor_asset' AND t.resource_type='equipment'
+      AND b.status IN ('confirmed','checked_in','checked_out') AND b.commitment_resource_id IS NULL;
+   -- 1
+   ```
+3. O guard `audit-commitment-layer-db-constraint` vigia `UPDATE … SET resource_type` **no writer**
+   (`rentable-resource.repository.ts`). Uma **migration** de reclassificação **não o dispara** — é
+   dado, não código. Por isso o backfill fica escrito aqui: *o guard não vai lembrar por você.*
+
 ## 🔒 `DT-COMMITMENT-LAYER-HAS-NO-DB-CONSTRAINT` — FECHADA (2026-08-06 · GATE + GO Clayton)
 
 A metade **PRESCRITA** da `DECISION-0146 §A.7`. A `§A.7` faz duas coisas: **proíbe** constraint forte
