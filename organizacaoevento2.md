@@ -139,11 +139,27 @@ um 2º confirm concorrente **espera e falha**, em vez de passar. O refactor de c
 necessário (o confirm precisa enxergar a availability não-commitada), mas a rede de segurança já está
 no lugar.
 
+✅ **GATE FECHADO em 2026-08-06** (read-only, `§I.1`) — mapa completo no topo do `REMEDIATION_DT_LOG.md`.
+**Zero pergunta em aberto:** as 3 que eu ia levar ao dono já estavam decididas (`§B.4` = os DOIS
+verbos de aceite · substrato vivo = fuso · `0146 G10` = `recorrente`/`efetivo` PARAM). **Falta só o GO.**
+
+🔴 **REGRA VINCULANTE (Clayton, 2026-08-06): NÃO PODE EXISTIR SEGUNDA VERDADE.**
+`hasScheduleConflict` (lê `service_demand_responses`, régua `[]` fechada) e a trava da agenda
+(`bookings`+`availability`, régua `[start,end)` da `G8`) respondem à MESMA pergunta com fontes e
+réguas diferentes. Hoje não colidem só porque a demanda nunca chega à agenda. Na F2:
+**converge para a agenda ou morre · na MESMA fatia** (antes = zero checagem, depois = duas verdades
+vivas) · **uma régua só, `[start,end)`**.
+
 O que ela precisa carregar:
 1. **Refatorar** `repository.create` e os dois `confirm*` para aceitar **client externo** — hoje
    `create` usa `runQueryWithTenant` (pool) e os `confirm*` abrem o **próprio `BEGIN`**. Sem isso o
    aceite atômico **não falha limpo**: o confirm não enxerga a availability não-commitada e devolve
    `NotFoundError`, não rollback (`0196 §C/D7`).
+   ✅ **`createBooking` JÁ aceita `trx`** (`repository.ts:359-363`) com caller real
+   (`checkout-ticket.service.ts:148`) — o contrato existe, é só seguir. `create` tem **1 caller**.
+   🔴 **Mas o módulo `demands` é SAGA, não transação** (`fillSlot`→`createResponse`→`catch
+   releaseSlot`) e nenhum método dele aceita client: os DOIS verbos precisam virar transação real.
+1-bis. **`hasScheduleConflict` converge** (a regra da segunda verdade, acima).
 2. **A cascata do `§B.4`**, com prova vermelha nos **TRÊS** degraus — inclusive a **recusa do `page`**.
 3. **Nova prova de corrida** — a de hoje cobriu o *confirm*; a F2 cria availability + booking +
    confirm.

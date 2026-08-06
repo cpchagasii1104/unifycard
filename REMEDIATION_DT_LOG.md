@@ -1,5 +1,64 @@
 # REMEDIATION DT LOG
 
+## 🚪 GATE DA F2 (aceite atômico) — FECHADO, e as 3 "decisões" que eu ia pedir DISSOLVERAM
+
+Read-only, 2026-08-06, `0196 §I.1`. Nada escrito no código. **Aguarda só o GO.**
+
+### 🔴 A REGRA DE CLAYTON QUE DECIDE O DESENHO: *"não pode existir segunda verdade"*
+
+O GATE achou uma nascendo. Hoje **duas estruturas respondem *"quem está ocupado?"*** — e ainda não
+colidem só porque a demanda nunca chega à agenda:
+```
+demand.repository.ts:159  hasScheduleConflict → service_demand_responses (accepted|chosen)
+                                                daterange(...,'[]')  ← FECHADO
+repository.ts:437/522     confirm lock/EXCLUDE → bookings + availability
+                                                [start,end)          ← MEIO-ABERTO (G8)
+```
+Duas fontes **e duas réguas de sobreposição** sobre o mesmo compromisso. No dia em que a F2 fizer o
+aceite tocar a agenda, elas divergem — e `[]` × `[)` diverge exatamente no **back-to-back**, o caso
+que a `G8` promulga como *não-conflito*.
+
+**Veredito (Clayton, 2026-08-06):** ⛔ **não pode existir.** A verdade sobre tempo é **a Agenda**
+(`ART. II`; mesmo princípio do Bank para dinheiro). Consequências vinculantes para a F2:
+1. `hasScheduleConflict` **converge para a agenda ou morre** — não sobrevive como leitor paralelo.
+2. **Na MESMA fatia**, nunca antes nem depois. Antes = janela com **zero** checagem (hoje ele é o
+   único que existe). Depois = duas verdades vivas por uma fatia inteira.
+3. **Uma régua só: `[start,end)` meio-aberto** — a promulgada pela `G8`. O `[]` fechado sai.
+
+### As 3 "decisões" que eu ia levar para o dono — as 3 já estavam decididas
+
+📌 *Registro do erro de método:* eu ia gastar a caneta dele em três perguntas. Duas já tinham norma
+e a terceira já tinha substrato. **Exaurir a norma antes de perguntar é regra dele, e eu quase a
+violei três vezes no mesmo bloco.**
+
+| eu ia perguntar | quem já decide | resposta |
+|---|---|---|
+| A F2 cobre **um** verbo de aceite ou **os dois** (`respond` automático + `choose`)? | a própria `0196 §B.4` | **OS DOIS.** A §B.4 condena por escrito *"duas espécies de aceito — segunda verdade sobre o que aceitar SIGNIFICA"*. Cobrir só um cria exatamente isso. Não é decisão: é a norma aplicada |
+| De onde vem o **fuso** do compromisso (a demanda não tem coluna)? | o **substrato vivo** | `availability.timezone` é **NOT NULL com default `'America/Sao_Paulo'`**, e **70/70 janelas vivas** usam esse valor; o writer repete o mesmo default. Compor a janela da demanda com o MESMO fuso é **convergência**, não invenção. 🟡 `countries.timezone_default` existe e é o caminho nomeado quando houver multi-país — **resíduo, não bloqueio** |
+| Quais `vinculo` viram compromisso de agenda? | `0146 §B-bis G10` | **`diaria` e `periodo` agora; `recorrente` e `efetivo` PARAM** com `STOP_DECISION_REQUIRED`. A G10 é literal: *"resolução ambígua/ausente → para (não adivinhar o recurso)"*. Vínculo sem janela única é ambiguidade. Ampliar depois é barato; gravar compromisso inventado não é |
+
+### O mapa que o GATE entrega (medido, com comando)
+
+**Zero linhas no motor inteiro** — e isto reordena a frente:
+```sql
+SELECT count(*) FROM service_demands;            -- 0
+SELECT count(*) FROM service_demand_responses;   -- 0
+```
+⇒ O **veto de selo da `§I.2`** (*"a pessoa precisa VER a própria agenda ser ocupada"*) é
+**impossível de satisfazer hoje**: não há o que ver. **A navegação de Clayton deixa de ser paralela
+e vira PRÉ-REQUISITO do GO.** *(Corrijo aqui a minha própria recomendação de uma hora antes, que a
+punha em paralelo.)*
+
+**O refactor é MENOR que o plano diz num eixo:**
+`createBooking` **já aceita client externo** (`repository.ts:359-363`, param `trx`) e tem caller real
+usando (`checkout-ticket.service.ts:148`) — o contrato já existe e é exercitado. Falta `create` da
+availability (**1 caller de produção**, `service.ts:115`) e os dois `confirm*`.
+
+**E MAIOR num eixo que o plano não menciona:** o módulo `demands` é **saga com compensação manual**,
+não transação (`fillSlot` → `createResponse` → `catch releaseSlot`), e **nenhum** dos seus métodos
+aceita client. Enfiar availability+booking+confirm nessa cadeia sem transação real multiplica os
+ramos de compensação — o oposto do que a `§D7` mandou eliminar.
+
 ## 📏 DUAS MEDIÇÕES QUE DERRUBARAM ESTIMATIVAS — 2026-08-06, depois do selo da trava
 
 Registradas **antes** de virarem fatia, porque as duas mudam decisão já tomada.
