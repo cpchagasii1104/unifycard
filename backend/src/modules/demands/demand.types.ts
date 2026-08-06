@@ -83,6 +83,8 @@ export interface DemandResponse {
   message: string | null;
   /** DECISION-0196 §C/D1 — até quando esta resposta vale. NUNCA null (coluna NOT NULL). */
   expiresAt: string;
+  /** DECISION-0196 §C/D1 — DERIVADO na leitura pelo leitor único; nunca gravado. */
+  isExpired: boolean;
   /** DECISION-0196 §B.2 — o que está sendo ofertado: offering XOR asset, nunca os dois. */
   offeringId: string | null;
   assetId: string | null;

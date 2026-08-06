@@ -1,5 +1,55 @@
 # REMEDIATION DT LOG
 
+## ⏳ VALIDADE DO ORÇAMENTO — leitor único, expiração preguiçosa (2026-08-06)
+
+Fatia ② da sequência. Execução da **`DECISION-0196 §C/D1+D2`** e da exigência literal do plano
+(`organizacaoevento.md §4⑥`): *"UMA função responde 'este orçamento ainda vale', e todos importam
+dela."* `runner 259 → **260 OK**` · `tsc BE 0` · **Δbank 0** · **zero migration**.
+
+### Por que um módulo para uma comparação de duas datas
+
+Porque a comparação não é o problema — **a divergência é**. Em 2026-08-05 este repositório pagou
+exatamente isso com `free-time`: *"este horário está livre?"* tinha DUAS respostas, e quem estivesse
+errado venderia o mesmo bem duas vezes. `modules/demands/quote-validity.ts` é o dono da pergunta.
+
+### As DUAS metades — e o guard exige as duas
+
+· **DERIVAR na leitura** (`isQuoteExpired`): `isExpired` viaja na projeção, calculado pelo leitor
+  único. **`expirado` NUNCA é gravado** — não há status `expired` no CHECK vivo e **não deve haver**:
+  gravar exigiria worker, e *worker que não roda produz orçamento vencido que o sistema jura estar
+  vivo*. Precedente: `group_invites`, que expira na leitura sem worker (verificado em 05/08).
+· **IMPOR no aceite** (`assertQuoteUsable`, dentro do `choose`): **derivar sem impor deixa a tela
+  honesta e o motor permissivo** — alguém escolheria por uma aba velha, e o compromisso nasceria de
+  um preço que já não vale. `409 QUOTE_EXPIRED`, com a mensagem dizendo o caminho (**D2: vencido
+  morre, não renova — peça outro**; empurrar `expires_at` faria o histórico mentir sobre o que o
+  cliente viu quando decidiu).
+
+### ✅ PROVA DE COMPORTAMENTO — 16/16, agora com a seção F
+
+`F1` resposta nova **não** vencida · `F2` vencida **derivada** na leitura · `F3` 🔴 **o BANCO não
+gravou nada** (`status` segue `pending`) · `F4` aceite de vencido **RECUSADO** (`409 QUOTE_EXPIRED`)
+· `F5` 🔴 **orçamento VIVO continua aceitável** — a metade que não grita.
+O envelhecimento é feito **pelo banco** (`expires_at = now() - 1h`), não mexendo no relógio do
+processo: o relógio é a verdade.
+
+### 🛡️ `audit-quote-validity-single-reader.mjs` (runner 259 → **260**) — **vermelha 5/5**
+
+Morde se: o módulo perder qualquer das duas exportações · **passar a escrever** (ele responde,
+read-only) · nascer **segunda derivação** no domínio · o `choose` deixar de impor · nascer status
+`expired` no vocabulário. Desfeita por BACKUP, restauração byte a byte nos 4 arquivos.
+
+⚠️ **Falso positivo corrigido na hora, e a correção é a lição:** a v1 mordeu
+`seed-smoke-p3.ts` por `actor_delegations.expires_at > NOW()` — **outro domínio, outra regra**.
+`expires_at` é nome **comum** no schema (`live_presence`, `actor_active_location`, `group_invites`,
+passes…). **Escopo por DOMÍNIO, não por nome de coluna** — o guard só olha quem toca
+`service_demand_responses`/`DemandResponse`/`modules/demands`.
+
+### 📌 ESTADO
+
+**F1 fechada no backend:** substrato ✅ · writer ✅ · validade com leitor único ✅.
+Falta da F1: **a superfície** (`DT-QUOTE-RESPONSE-UI-MISSING-OFFER-PICKER`) e o **ciclo de vida da
+declaração**, que depende da F2.
+
 ## 🏃 ROLLUP GENERALIZADO — a agenda pessoal virou contratável, e a corrida foi PROVOCADA (2026-08-06)
 
 Execução material da **`DECISION-0196 §D.1`** (*"exclusividade de `user` = o próprio actor, V1 da

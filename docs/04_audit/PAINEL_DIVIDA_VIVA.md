@@ -230,6 +230,29 @@ Sem essa resposta, cada tabela vira pesquisa. Com ela, a cauda de 26 módulos é
 
 ## 🗓️ REGISTRO DE SESSÕES — o que cada fatia mudou no placar
 
+### 🟢 SESSÃO 2026-08-06 — VALIDADE DO ORÇAMENTO · leitor único, expiração preguiçosa
+
+`runner 259 → **260 OK**` · `tsc BE 0` · Δbank 0 · **zero migration**. Fatia ② da sequência.
+
+**Duas metades, e o guard exige as duas:** **DERIVAR** na leitura (`isQuoteExpired` — `isExpired`
+viaja na projeção; **`expirado` nunca é gravado**, porque gravar exigiria worker, e worker que não
+roda produz vencido que o sistema jura estar vivo) e **IMPOR** no aceite (`assertQuoteUsable` dentro
+do `choose` — derivar sem impor deixa a tela honesta e o motor permissivo).
+`409 QUOTE_EXPIRED`, com **D2** na mensagem: vencido **morre**, não renova — renovar faria o
+histórico mentir sobre o que o cliente viu quando decidiu.
+
+**Prova 16/16** (seção F nova): vencida **derivada** · **o banco não gravou nada** (`status` segue
+`pending`) · aceite de vencido **recusado** · 🔴 **orçamento vivo continua aceitável** (a metade que
+não grita). O envelhecimento é feito **pelo banco**, não mexendo no relógio do processo.
+
+**🛡️ `audit-quote-validity-single-reader.mjs`** — vermelha **5/5**. ⚠️ **Falso positivo corrigido na
+hora, e a correção é a lição:** a v1 mordeu `actor_delegations.expires_at > NOW()` num seed —
+**outro domínio, outra regra**. `expires_at` é nome comum no schema. **Escopo por DOMÍNIO, não por
+nome de coluna.**
+
+**F1 fechada no backend** (substrato ✅ · writer ✅ · validade ✅). Falta a **superfície**
+(`DT-QUOTE-RESPONSE-UI-MISSING-OFFER-PICKER`) e o ciclo da declaração, que depende da F2.
+
 ### 🟢 SESSÃO 2026-08-06 — ROLLUP GENERALIZADO · **a agenda pessoal virou contratável** · corrida PROVOCADA
 
 Execução material da `DECISION-0196 §D.1`. **Zero migration.** `runner 259 OK` · `tsc BE 0` · Δbank 0.

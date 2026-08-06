@@ -4,6 +4,7 @@
 
 import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
 import type { DemandResponse, DemandResponseStatus, ServiceDemand } from './demand.types';
+import { isQuoteExpired } from './quote-validity';
 
 const D_COLS = `d.id, d.tenant_id, d.actor_id, d.concept_id, d.title, d.description, d.vinculo,
   d.quantity, d.quantity_filled, d.date_start, d.date_end, d.time_start, d.time_end, d.weekdays,
@@ -39,6 +40,10 @@ function toResponse(r: any): DemandResponse {
     // DECISION-0196: validade e o que está sendo ofertado viajam na projeção — sem isso a tela não
     // consegue derivar "vencido" nem mostrar o que foi cotado.
     expiresAt: new Date(r.expires_at).toISOString(),
+    // 🔴 DERIVADO na leitura pelo LEITOR ÚNICO — nunca comparado aqui à mão. `expirado` não é
+    // gravado em lugar nenhum (não há status `expired` no CHECK vivo, e não deve haver: exigiria
+    // worker, e worker que não roda produz orçamento vencido que o sistema jura estar vivo).
+    isExpired: isQuoteExpired(r.expires_at),
     offeringId: r.offering_id ?? null,
     assetId: r.asset_id ?? null,
     createdAt: new Date(r.created_at).toISOString(), updatedAt: new Date(r.updated_at).toISOString(),

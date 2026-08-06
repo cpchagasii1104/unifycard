@@ -10,6 +10,7 @@ import {
   DEMAND_QUOTE_DEFAULT_VALIDITY_DAYS,
   type CreateDemandInput, type DemandResponse, type ServiceDemand,
 } from './demand.types';
+import { assertQuoteUsable } from './quote-validity';
 
 class DemandError extends Error {
   statusCode: number;
@@ -202,6 +203,12 @@ class DemandService {
     const response = await demandRepository.findResponse(tenantId, responseId);
     if (!response || response.demandId !== demandId) throw new DemandError(404, 'Candidatura não encontrada');
     if (response.status !== 'pending') throw new DemandError(409, `Candidatura não está pendente (status=${response.status})`);
+
+    // 🔴 DECISION-0196 §C/D1+D2 — A IMPOSIÇÃO da expiração preguiçosa. Derivar na leitura sem impor
+    // AQUI deixaria a tela honesta e o motor permissivo: alguém escolheria por uma aba velha e o
+    // compromisso nasceria de um preço que já não vale. Vencido MORRE (não renova): o fornecedor
+    // responde de novo. LEITOR ÚNICO — a comparação mora em `quote-validity`, nunca aqui.
+    assertQuoteUsable(response.expiresAt);
     // Selo de agenda também na ESCOLHA: o candidato pode ter fechado outra janela entretanto
     if (await demandRepository.hasScheduleConflict(tenantId, response.providerActorId, demand)) {
       throw new DemandError(409, 'Agenda do candidato entrou em conflito nessa janela — escolha outro');

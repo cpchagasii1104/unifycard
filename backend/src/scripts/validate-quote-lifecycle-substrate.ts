@@ -196,6 +196,61 @@ function gerarCpf(): string {
     bad('E3 o caminho FELIZ quebrou', `${e?.statusCode ?? ''} ${String(e?.message).slice(0, 160)}`);
   }
 
+  // ── F · VALIDADE: derivada na LEITURA e imposta no ACEITE (DECISION-0196 §C/D1+D2) ────────────
+  // O plano exige "UMA função responde 'este orçamento ainda vale'". Aqui prova-se que ela responde
+  // NAS DUAS PONTAS — e que o caso vivo continua aceitável (a metade que não grita).
+  await c.query(`DELETE FROM service_demand_responses WHERE demand_id = $1`, [demandId]);
+
+  // demanda com_analise (o `choose` só existe nesse regime)
+  const demAnalise = await c.query(
+    `INSERT INTO service_demands (id, tenant_id, actor_id, concept_id, title, vinculo, quantity, date_start, pricing_mode, acceptance_mode)
+     VALUES (gen_random_uuid(), $1, $2, $3, 'Preciso de tenda 2', 'diaria', 1, CURRENT_DATE + 20, 'orcamento', 'com_analise')
+     RETURNING id::text AS id`,
+    [tenantId, emissorId, concept.rows[0].concept_id]);
+  const demandAnaliseId: string = demAnalise.rows[0].id;
+
+  const respostaValida = await demandService.respond(tenantId, actorId, demandAnaliseId, { quoteCents: 7000, offeringId });
+  respostaValida.response.isExpired === false
+    ? ok('F1 resposta nova NÃO está vencida', 'derivação na leitura')
+    : bad('F1 resposta nova veio como vencida', String(respostaValida.response.isExpired));
+
+  // envelhece a resposta pelo BANCO (o relógio é a verdade; não mexo no relógio do processo)
+  await c.query(
+    `UPDATE service_demand_responses SET expires_at = now() - interval '1 hour' WHERE id = $1::uuid`,
+    [respostaValida.response.id]);
+
+  const relida = await demandService.getWithResponses(tenantId, emissorId, demandAnaliseId);
+  relida.responses[0]?.isExpired === true
+    ? ok('F2 resposta vencida é DERIVADA na leitura', 'sem worker, sem status gravado')
+    : bad('F2 vencida não foi derivada', JSON.stringify(relida.responses[0]?.isExpired));
+
+  const statusNoBanco = await c.query(`SELECT status FROM service_demand_responses WHERE id = $1::uuid`, [respostaValida.response.id]);
+  statusNoBanco.rows[0].status === 'pending'
+    ? ok('F3 o BANCO não gravou "expirado"', `status segue '${statusNoBanco.rows[0].status}' — expiração é derivada`)
+    : bad('F3 o vencimento foi GRAVADO', statusNoBanco.rows[0].status);
+
+  try {
+    await demandService.choose(tenantId, emissorId, demandAnaliseId, respostaValida.response.id);
+    bad('F4 aceite de orçamento VENCIDO foi permitido', 'a imposição não está no choose');
+  } catch (e: any) {
+    e?.code === 'QUOTE_EXPIRED' && e?.statusCode === 409
+      ? ok('F4 aceite de orçamento vencido RECUSADO', '409 QUOTE_EXPIRED (D2: vencido morre)')
+      : bad('F4 recusado pelo motivo ERRADO', `${e?.statusCode} ${e?.code}: ${String(e?.message).slice(0, 120)}`);
+  }
+
+  // 🔴 A metade que não grita: um orçamento VIVO tem de continuar aceitável.
+  await c.query(
+    `UPDATE service_demand_responses SET expires_at = now() + interval '3 days' WHERE id = $1::uuid`,
+    [respostaValida.response.id]);
+  try {
+    const escolhido = await demandService.choose(tenantId, emissorId, demandAnaliseId, respostaValida.response.id);
+    escolhido.response.status === 'chosen'
+      ? ok('F5 orçamento VIVO continua aceitável', 'a trava não bloqueia quem pode')
+      : bad('F5 escolha não transicionou', escolhido.response.status);
+  } catch (e: any) {
+    bad('F5 orçamento vivo foi RECUSADO', `${e?.statusCode} ${String(e?.message).slice(0, 120)}`);
+  }
+
   await c.end();
   console.log(`\n${fails === 0 ? '✅ TODAS AS PROVAS PASSARAM' : `❌ ${fails} PROVA(S) FALHARAM`}\n`);
   process.exit(fails === 0 ? 0 : 1);
