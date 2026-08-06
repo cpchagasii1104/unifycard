@@ -168,7 +168,19 @@ O que ela precisa carregar:
    ela já tem + o outbox quando o notificador nascer.
 5. Ao entregar: fecha `DT-DEMAND-AGENDA-MIRROR` e `DT-AVAILABILITY-OVERLAP-ALERT-MISSING`.
 
-### F3 — dashboard do organizador · a chave já está decidida (`0196 §H`)
+### F3 — 🔑 **SUBSTRATO ENTREGUE em 2026-08-06**; falta só o dashboard (cego até a navegação)
+
+Migration `20260806230000` — `service_demands.need_id` FK anulável, `ON DELETE SET NULL`, índice
+parcial · writer fail-closed `DEMAND_NEED_NOT_IN_TENANT` · guard
+`audit-demand-need-tenant-coherence` (vermelho forçado 2×) · harness
+`npm run validate:demand-need-event-key` **8/8**.
+🔴 **A coerência de tenant é do WRITER, não do banco** — `event_operational_needs` não tem
+`tenant_id` nem RLS (padrão de 6 tabelas `event_*`, **não endureça**); `0146 §A.6` prescreve
+writer/guard fail-closed. **Não presuma que a FK isola.**
+⚠️ **O dashboard não foi construído de propósito:** `service_demand_responses` = 0 linhas, ele
+agregaria zero. Fica atrás da navegação.
+
+### F3 (histórico do desenho) — a chave já estava decidida (`0196 §H`)
 
 ```
 events → event_operational_needs → service_demands → service_demand_responses

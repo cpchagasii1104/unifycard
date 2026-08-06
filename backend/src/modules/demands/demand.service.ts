@@ -78,8 +78,27 @@ class DemandService {
       audienceTypes = input.audienceRelationshipTypes;
     }
 
+    // 🔴 DECISION-0196 §H — a chave evento↔demanda. FK ANULÁVEL: nulo = demanda avulsa, o caso de
+    // 100% do dado hoje; nada regride. A COERÊNCIA DE TENANT é imposta AQUI porque o banco não
+    // consegue: `event_operational_needs` não tem `tenant_id` (ele mora um salto adiante, em
+    // `events`) e não tem RLS, enquanto `service_demands` tem os dois. Sem esta trava, uma demanda
+    // do tenant A apontaria para need de evento do tenant B — duas respostas para "de quem é isto".
+    // DECISION-0146 §A.6: "onde FK condicional não couber, guard/writer fail-closed". Guard:
+    // audit-demand-need-tenant-coherence.
+    let needId: string | null = null;
+    if (input.needId !== undefined && input.needId !== null && String(input.needId).trim() !== '') {
+      const eventId = await demandRepository.findNeedEventIdInTenant(tenantId, String(input.needId));
+      if (!eventId) {
+        throw new DemandError(400,
+          'DEMAND_NEED_NOT_IN_TENANT: a necessidade referenciada não existe neste tenant. ' +
+          'A demanda só se liga a necessidade de evento do PRÓPRIO tenant (DECISION-0196 §H · 0146 §A.6).');
+      }
+      needId = String(input.needId);
+    }
+
     const quantity = input.quantity && input.quantity > 0 ? Math.floor(input.quantity) : 1;
     const demand = await demandRepository.create(tenantId, actorId, {
+      needId,
       conceptId: concept.concept_id,
       title: input.title.trim(),
       description: input.description?.trim() || null,

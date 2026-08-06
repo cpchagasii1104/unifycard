@@ -1,5 +1,69 @@
 # REMEDIATION DT LOG
 
+## 🔑 F3 (SUBSTRATO) — `service_demands.need_id` ENTREGUE (2026-08-06 · GO Clayton "execute")
+
+A chave evento↔demanda da `DECISION-0196 §H`. Migration `20260806230000` · guard
+`audit-demand-need-tenant-coherence` no runner **no mesmo commit** · harness
+`npm run validate:demand-need-event-key` **8/8** em efêmera · **runner 262 COMMANDS OK** (era 261) ·
+tsc backend 0 · tsc frontend 0 · Δbank 0 · canários intactos (75 · 48 · 3 · 16 · 0) ·
+migrations 574 → 575.
+
+### 🪞 UM ESPELHO QUEBRADO, ACHADO DE CARONA (§7 da `07_NOMENCLATURA`)
+
+Ao acrescentar `needId` ao tipo do frontend, vi que **`DemandResponse` do cliente não declarava 4
+campos que a API devolve desde a F1 de ontem**: `expiresAt`, `isExpired`, `offeringId`, `assetId`.
+*O frontend espelha EXATAMENTE o contrato — não inventa e não omite.* Omitir tem custo real: o
+compilador não podia defender nenhuma tela que dependesse deles, e **a validade do orçamento ficava
+invisível para a UI** — a metade "tela honesta" da expiração preguiçosa (`§C/D1+D2`) não tinha como
+existir. Declarados agora.
+⚠️ **Declarar ≠ exibir.** Mostrar validade/oferta é trabalho da **F4**; aqui só o contrato ficou
+verdadeiro.
+
+```
+events → event_operational_needs → service_demands → service_demand_responses
+           (o QUE precisa)          (o PEDIDO)         (o PREÇO)
+```
+FK **anulável**, `ON DELETE SET NULL`, índice parcial. **Nulo = demanda avulsa** — o caso de 100% do
+dado ao nascer a coluna. **Nada regride** (provado: `P1`).
+
+### 🔴 A trava que o BANCO não consegue dar — e por que não é ele quem dá
+
+```sql
+SELECT relname, relrowsecurity FROM pg_class WHERE relname IN ('service_demands','event_operational_needs');
+-- service_demands          t   ← RLS LIGADO + tenant_id NOT NULL
+-- event_operational_needs  f   ← RLS DESLIGADO + SEM coluna tenant_id
+```
+O tenant da need mora **um salto adiante**, em `events.tenant_id`. FK simples deixaria demanda do
+tenant A apontar para need de evento do tenant B — **duas respostas para *"de quem é isto"***,
+exatamente o que a regra de Clayton proíbe. Risco **latente** hoje (2 tenants, 1 com eventos).
+
+⚠️ **Não endureci o padrão.** A ausência de `tenant_id` é o desenho de **6 tabelas `event_*`**;
+adicionar coluna ali seria o executor legislando. Usei a saída que a **`0146 §A.6`** já prescreve —
+*"onde FK condicional não couber, guard/writer fail-closed"*:
+1. FK anulável (banco) · 2. **writer** `findNeedEventIdInTenant` com JOIN em `events` amarrando
+`e.tenant_id`, recusando com `DEMAND_NEED_NOT_IN_TENANT` · 3. **guard** que morde se qualquer das
+duas sumir — e que **mede a fuga no dado vivo**, não só o texto do código.
+
+### As provas — os dois sentidos, e o positivo primeiro
+
+`P1` demanda **avulsa** passa (need_id NULL) · `P2` need do **próprio tenant** passa e persiste ·
+`N1` need de **outro tenant** recusada pelo nome · `N2` need **inexistente** recusada igual
+(*ausência é ausência*) · `D1` **apagar a NECESSIDADE não apaga o PEDIDO** — vira avulsa, não some ·
+`V1` **§H.2 preservada**: nem a need nem a demanda ganharam coluna de custo.
+
+🔴 **Vermelho forçado 2×** (com mutação verificada, restauro por backup): ① writer perde
+`findNeedEventIdInTenant` → 2 falhas, inclusive *"a resolução falhando não LANÇA"* · ② o JOIN perde
+`e.tenant_id` → *"a checagem não prova nada"*. **O 2º é o que importa:** sem ele o guard aprovaria
+uma trava que existe no nome e não no efeito.
+
+⚠️ **Fixture irreal me pegou uma vez** (`tenants.status` não existe — a coluna nunca existiu). Li as
+obrigatórias de `tenants` **e** `events` **numa consulta só** ao catálogo, como o handoff manda, em
+vez de descobrir uma por execução vermelha. `events` exigia `actor_type`, que a mesma leitura já
+entregou.
+
+📌 **O dashboard da F3 NÃO foi construído** — e não é omissão: `service_demand_responses` = **0
+linhas**, então ele agregaria zero. Fica atrás da navegação, junto com o veto de selo da F2.
+
 ## 🚪 GATE DA F3 (`need_id` + dashboard) — FECHADO. **Os dois GATEs da frente estão prontos.**
 
 Read-only, 2026-08-06, `§2.3.2` (toca tabela). Nada escrito. **Aguarda o mesmo GO da F2.**

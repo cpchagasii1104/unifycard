@@ -9,7 +9,7 @@ import { isQuoteExpired } from './quote-validity';
 const D_COLS = `d.id, d.tenant_id, d.actor_id, d.concept_id, d.title, d.description, d.vinculo,
   d.quantity, d.quantity_filled, d.date_start, d.date_end, d.time_start, d.time_end, d.weekdays,
   d.radius_km, d.break_minutes, d.acceptance_mode, d.pricing_mode, d.offered_price_cents, d.cancel_notice_hours,
-  d.visibility, d.audience_relationship_types, d.status, d.created_at, d.updated_at, c.slug AS concept_slug`;
+  d.visibility, d.audience_relationship_types, d.status, d.need_id, d.created_at, d.updated_at, c.slug AS concept_slug`;
 
 function toDemand(r: any): ServiceDemand {
   return {
@@ -27,6 +27,8 @@ function toDemand(r: any): ServiceDemand {
     offeredPriceCents: r.offered_price_cents !== null && r.offered_price_cents !== undefined ? Number(r.offered_price_cents) : null,
     cancelNoticeHours: r.cancel_notice_hours !== null && r.cancel_notice_hours !== undefined ? Number(r.cancel_notice_hours) : null,
     visibility: r.visibility, audienceRelationshipTypes: r.audience_relationship_types ?? null, status: r.status,
+    // 🔴 DECISION-0196 §H — a chave evento↔demanda. NULL = demanda avulsa (sem evento).
+    needId: r.need_id ?? null,
     createdAt: new Date(r.created_at).toISOString(), updatedAt: new Date(r.updated_at).toISOString(),
   };
 }
@@ -68,7 +70,7 @@ class DemandRepository {
     dateStart: string | null; dateEnd: string | null; timeStart: string | null; timeEnd: string | null;
     weekdays: number[] | null; radiusKm: number | null; breakMinutes: number | null; acceptanceMode: string; pricingMode: string;
     offeredPriceCents: number | null; cancelNoticeHours: number | null; visibility: string;
-    audienceRelationshipTypes: string[] | null;
+    audienceRelationshipTypes: string[] | null; needId?: string | null;
   }): Promise<ServiceDemand> {
     const row = await runQueryWithTenant<any>(
       tenantId,
@@ -77,8 +79,8 @@ class DemandRepository {
            tenant_id, actor_id, concept_id, title, description, vinculo, quantity,
            date_start, date_end, time_start, time_end, weekdays, radius_km, break_minutes,
            acceptance_mode, pricing_mode, offered_price_cents, cancel_notice_hours, visibility,
-           audience_relationship_types
-         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20::text[])
+           audience_relationship_types, need_id
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20::text[],$21::uuid)
          RETURNING *
        )
        SELECT ${D_COLS.replace(/d\./g, 'ins.').replace('c.slug AS concept_slug', 'c.slug AS concept_slug')}
@@ -86,9 +88,30 @@ class DemandRepository {
       [tenantId, actorId, d.conceptId, d.title, d.description, d.vinculo, d.quantity,
        d.dateStart, d.dateEnd, d.timeStart, d.timeEnd, d.weekdays, d.radiusKm, d.breakMinutes,
        d.acceptanceMode, d.pricingMode, d.offeredPriceCents, d.cancelNoticeHours, d.visibility,
-       d.audienceRelationshipTypes]
+       d.audienceRelationshipTypes, d.needId ?? null]
     );
     return toDemand(row);
+  }
+
+  /**
+   * 🔴 DECISION-0196 §H + DECISION-0146 §A.6 — a COERÊNCIA DE TENANT que o banco NÃO consegue dar.
+   * `event_operational_needs` não tem `tenant_id` (o tenant mora um salto adiante, em `events`), e
+   * não tem RLS — enquanto `service_demands` tem os dois. Uma FK simples deixaria uma demanda do
+   * tenant A apontar para need de evento do tenant B: DUAS respostas para "de quem é isto".
+   * Devolve o `event_id` quando a need existe E pertence ao tenant; `null` em qualquer outro caso
+   * (inexistente, de outro tenant, órfã) — o caller recusa fail-closed. NUNCA devolve `false`/`0`
+   * para "não consegui ler": ausência aqui é ausência de fato, verificada por JOIN.
+   */
+  async findNeedEventIdInTenant(tenantId: string, needId: string): Promise<string | null> {
+    const row = await runQueryWithTenant<{ event_id: string }>(
+      tenantId,
+      `SELECT e.id::text AS event_id
+         FROM event_operational_needs n
+         JOIN events e ON e.id = n.event_id
+        WHERE n.id = $2::uuid AND e.tenant_id = $1::uuid
+        LIMIT 1`,
+      [tenantId, needId]);
+    return row?.event_id ?? null;
   }
 
   /** Vincula o post-espelho do feed (projeção; a demanda é a verdade). */

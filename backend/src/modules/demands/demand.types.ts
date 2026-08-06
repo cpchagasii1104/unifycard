@@ -45,6 +45,9 @@ export interface ServiceDemand {
   visibility: 'public' | 'connections';
   audienceRelationshipTypes: string[] | null;
   status: DemandStatus;
+  /** DECISION-0196 §H — a NECESSIDADE do evento que este pedido atende. NULL = demanda avulsa.
+   *  NÃO carrega valor (§H.2: o preço mora na RESPOSTA; a F3 agrega de baixo para cima). */
+  needId: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -70,6 +73,9 @@ export interface CreateDemandInput {
   visibility?: 'public' | 'connections';
   /** Espelho 0162: refinamento por tipo de relação (⊆ typed-edge; exige visibility='connections'). */
   audienceRelationshipTypes?: string[];
+  /** DECISION-0196 §H — liga o pedido à NECESSIDADE do evento (`event_operational_needs.id`).
+   *  Opcional: ausente = demanda avulsa. O writer RECUSA need de outro tenant (0146 §A.6). */
+  needId?: string | null;
 }
 
 export interface DemandResponse {

@@ -139,6 +139,7 @@ const CMDS = [
   "node scripts/audit-discovery-concept-rekey.mjs",
   "node scripts/audit-booking-provider-conflict.mjs",
   "node scripts/audit-commitment-layer-db-constraint.mjs",
+  "node scripts/audit-demand-need-tenant-coherence.mjs",
   "node scripts/audit-internal-financial-authority-containment.mjs",
   "node scripts/audit-offering-activation-safe.mjs",
   "node scripts/audit-checkout-financial-containment.mjs",
