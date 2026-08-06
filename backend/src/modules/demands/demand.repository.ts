@@ -197,9 +197,32 @@ class DemandRepository {
               )
             )
           )
-          AND ($3::boolean = false OR d.concept_id IN (
-            SELECT apc.concept_id FROM actor_professional_concepts apc
+          -- 🔴 MATCHING = UNIÃO DAS DUAS METADES DO GATE DA 0144 (GO Clayton 2026-08-06).
+          -- ⚠️ A versão anterior filtrava SÓ por actor_professional_concepts — a metade PF.
+          -- (sem crases neste bloco: ele vive DENTRO de um template literal, e a crase fecharia a
+          --  string; foi assim que este arquivo quebrou o typecheck na 1ª tentativa.)
+          -- Medido no dia da decisão: 8 páginas com 14 ofertas ativas e ZERO profissão declarada
+          -- ⇒ uma EMPRESA que publicou oferta NUNCA casava com demanda nenhuma. O filtro dizia
+          -- "oportunidades para mim" e respondia "oportunidades para quem preencheu a aba do C1".
+          --
+          -- A pergunta de CADA superfície é diferente, e só esta muda:
+          --   · motor de EVENTO (organizador contratando) → OFERTA publicada. CORRETO, não mexe:
+          --     só se contrata o que está ofertado.
+          --   · matching de DEMANDA (oportunidade) → quem PODE responder, que é a UNIÃO:
+          --     PF com profissão ATIVA no concept  OU  provider com OFERTA ATIVA no concept.
+          -- ⇒ ZERO fonte nova: são as MESMAS duas metades que a DECISION-0144/0147 já usa como
+          --   gate de publicação (PF: actor_professional_concepts · PJ: a oferta que só existe se
+          --   company_concept_publications a autorizou). Não é segunda verdade — é a mesma régua
+          --   lida inteira, em vez de pela metade.
+          AND ($3::boolean = false OR EXISTS (
+            SELECT 1 FROM actor_professional_concepts apc
              WHERE apc.tenant_id = $1 AND apc.actor_id = $2
+               AND apc.concept_id = d.concept_id AND apc.is_active = true
+          ) OR EXISTS (
+            SELECT 1 FROM service_offerings so
+              JOIN canonical_services cs ON cs.id = so.canonical_service_id
+             WHERE so.tenant_id = $1 AND so.provider_actor_id = $2
+               AND so.status = 'active' AND cs.concept_id = d.concept_id
           ))
         ORDER BY d.created_at DESC LIMIT 100`,
       [tenantId, providerActorId, onlyMatching]);

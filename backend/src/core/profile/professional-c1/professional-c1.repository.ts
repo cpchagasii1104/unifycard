@@ -3,6 +3,24 @@
 // C1 — acesso às 2 tabelas do substrato profissional declarativo.
 // COLUNAS EXPLÍCITAS sempre; SEM SELECT *; tenant_id=$1 explícito em TODA query.
 // actorId usado = valor recebido (actionContext.actorId já resolvido). NENHUMA criação de actor.
+//
+// ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+// ║ STATUS:  CANÔNICO — é a METADE PF do gate de publicação de serviço
+// ║ NORMA:   DECISION-0144 · DECISION-0147 Q2/Q3 (espelhado em
+// ║          services-offering-activation-gate.ts e canonical-service.service.ts::searchOfferable)
+// ║ NÃO:     NÃO criar outra casa de "o que esta pessoa faz" — nem em metadata, nem em perfil
+// ║ EM VEZ:  PF declara aqui (actor_professional_concepts) · PJ publica em
+// ║          company_concept_publications. Não há terceira porta.
+// ╚════════════════════════════════════════════════════════════════
+//
+// ⚠️ MIGALHA DE 2026-08-06. `actor_professional_profiles` tem 0 linhas (ninguém preencheu bio) e eu
+// quase a classifiquei como cadáver numa auditoria — **errado**: o writer é VIVO e está logo abaixo
+// (`upsertBio`), com harness. **Dormente ≠ morto.**
+//
+// 📌 E o que estas duas tabelas alimentam, medido em 2026-08-06: o **matching de demanda**
+// (`/oportunidades?matching=true`) passou a ler a UNIÃO das duas metades do gate — profissão ATIVA
+// **ou** oferta ATIVA no mesmo concept (GO Clayton). Antes lia só esta metade, e por isso as 8
+// páginas com 14 ofertas **nunca** casavam com demanda nenhuma.
 
 import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
 import type {

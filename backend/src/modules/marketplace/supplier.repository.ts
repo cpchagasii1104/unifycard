@@ -1,5 +1,29 @@
 // backend/src/modules/marketplace/supplier.repository.ts
 // SPRINT 69: Repository para suppliers
+//
+// ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
+// ║ STATUS:  CANÔNICO — ficha de fornecedor do arco CRM/ERP (compras/contas a pagar)
+// ║ NORMA:   arco CRM/ERP (fatia selada) · DT-CRM-CONTACTS-PARALLEL-IDENTITY-RISK
+// ║ NÃO:     NÃO tratar como cadáver, e NÃO usá-la como fonte de "quem presta serviço"
+// ║ EM VEZ:  quem presta serviço vem do gate da DECISION-0144/0147 —
+// ║          PF: actor_professional_concepts · PJ: company_concept_publications
+// ╚════════════════════════════════════════════════════════════════
+//
+// ⚠️ MIGALHA DEIXADA EM 2026-08-06, depois de um erro meu quase virar tombstone.
+// Numa auditoria de "de onde vêm os profissionais", eu afirmei que `suppliers` tinha **ZERO caller**
+// e propus carimbá-la de cadáver com guard anti-revival. **Era falso**: `grep -l suppliers` em
+// `backend/src` devolve **15 arquivos**, incluindo este repository, `supplier.routes.ts`,
+// `supplier.service.ts`, o serviço de contas-a-pagar do ERP e um harness E2E de reconciliação.
+// (o nome do arquivo de contas-a-pagar não é citado aqui de propósito: o lint de vocabulário
+//  financeiro da DECISION-0158 lê COMENTÁRIO, e o teto dele só desce.)
+// A tabela tem 0 linhas porque ninguém cadastrou fornecedor de compras — **dormente ≠ morto**.
+// Executar aquela proposta teria quebrado módulo vivo de arco selado.
+//
+// 🔴 O RISCO QUE EU VI, PORÉM, É REAL e já tem dono: esta ficha guarda name/email/phone/tax_id/
+// address — uma identidade de fornecedor **ao lado** do `actor`. Isso é exatamente
+// `DT-CRM-CONTACTS-PARALLEL-IDENTITY-RISK`, dívida JÁ REGISTRADA. O tratamento é aquela dívida,
+// **não** tombstone aqui. Ao ligar `suppliers` a um fornecedor que também é `actor`, use
+// `owner_actor_id`/`actor_id` — não recrie a pessoa.
 
 import { runQueryWithTenant, runQueriesWithTenant } from '@core/database/pool';
 import type {

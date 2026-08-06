@@ -142,6 +142,7 @@ const CMDS = [
   "node scripts/audit-demand-need-tenant-coherence.mjs",
   "node scripts/audit-demand-atomic-accept.mjs",
   "node scripts/audit-directed-demand-two-verbs.mjs",
+  "node scripts/audit-professional-source-single-truth.mjs",
   "node scripts/audit-internal-financial-authority-containment.mjs",
   "node scripts/audit-offering-activation-safe.mjs",
   "node scripts/audit-checkout-financial-containment.mjs",

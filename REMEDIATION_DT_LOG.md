@@ -1,5 +1,116 @@
 # REMEDIATION DT LOG
 
+## 🧭 "DE ONDE VÊM OS PROFISSIONAIS" — auditoria, DUAS ERRATAS MINHAS, e as 3 decisões (2026-08-06)
+
+Pergunta de Clayton: *"as profissões/profissionais que atenderão os fluxos de criação de eventos
+saem de onde? Isso não pode ter verdades paralelas."* Hipótese dele: *"ou parte da aba profissional
+da PF, ou parte das empresas cadastradas."*
+**A hipótese está CERTA e é a norma promulgada.** Guard `audit-professional-source-single-truth`
+(vermelho forçado 2×) + harness `npm run validate:professional-source-union` (**5/5**) ·
+**runner 265 COMMANDS OK** · tsc backend 0 · tsc frontend 0 · Δbank 0.
+
+### 🔴 O RUNNER MORDEU MAIS 3× NESTA FATIA — e nas três estava certo
+
+1. **`red-gates-baseline` (3882 > 3881):** o lint de vocabulário financeiro mordeu **o meu próprio
+   comentário**, porque eu citei o nome do arquivo de contas-a-pagar e ele contém o termo. **Quarta
+   vez neste arco**, e a segunda por COMENTÁRIO. Reescrito sem o token, com o aviso ao lado.
+2. **`case-drift-ratchet`:** o `'draft'` novo do seed colide em case com `companies.company_status`
+   (`'DRAFT'`). **Provei antes de classificar** —
+   `CHECK (status = ANY (ARRAY['draft','active','suspended']))` em `service_offerings`: minúsculo e
+   EXATO na tabela que o seed escreve. Entrou em `BASELINE_CLASSIFIED` **com a razão escrita**, que
+   é o canal que o próprio guard manda usar (`PENDING` seria calar). Mesma família de 4 linhas que
+   já estavam lá.
+3. **TypeScript `TS1005`:** eu escrevi uma **crase** dentro de um comentário SQL que vive **dentro
+   de um template literal** — e fechei a string. Corrigido, com a nota no lugar para a próxima.
+
+### ✅ O desenho NÃO tem segunda verdade — e isto fica registrado para não ser "consertado"
+
+`DECISION-0144` + `DECISION-0147 Q2/Q3` definem **um** gate com **duas metades**:
+```
+PF (actor_type='user')  → actor_professional_concepts (is_active)   ← a aba profissional do C1
+PJ (company_id setado)  → company_concept_publications (active)
+                          + companies.primary_company_type_id + KYB approved
+```
+Espelhado **1:1** em `services-offering-activation-gate.ts:56-87` e
+`canonical-service.service.ts:178-207` — e os dois **dizem** que espelham **e espelham**.
+`service_offerings` · `services` · `actor_assets` · a descoberta de fornecedor do evento são
+**DOWNSTREAM**: cadeia, não paralelo. E os quatro lados falam **CONCEPT** (profissão · oferta ·
+need do evento · demanda) — uma linguagem só.
+
+### 🔴 ERRATA 1 — eu escrevi DOIS números do mesmo fato, discordando, no MESMO documento
+
+A tabela da minha auditoria dizia `group 1 · user 0 · page 0` declarantes; três linhas abaixo o
+texto dizia *"2 declaram profissão"*. **Clayton derrubou, e remedi:**
+```sql
+SELECT count(*) total, count(*) FILTER (WHERE is_active) ativas, count(DISTINCT actor_id) atores
+  FROM actor_professional_concepts;               -- 2 · 1 · 2
+```
+São **2 linhas / 2 atores**, mas **1 ATIVA** — e a tabela filtrava `is_active`, o texto não.
+**O número certo é 1 declarante.** Consequência: a interseção *"1 em ambos"* quer dizer que **o
+único declarante já tem oferta**; a `D-1` continua certa como REGRA, mas o argumento de urgência
+(*"resgata 11 pessoas"*) estava **inflado pelo número errado** — as 12 PFs não declararam nada.
+📌 *Dois números do mesmo fato no mesmo documento é o padrão `181×182` do cartório. Reconciliar
+ANTES da caneta, não depois.*
+
+### 🔴 ERRATA 2 — "ZERO caller" que não era zero, e a proposta teria quebrado arco selado
+
+Eu afirmei que `suppliers` tinha **zero caller** e propus **tombstone + guard anti-revival**.
+**Falso, e perigoso.** Medido com o filtro certo:
+```
+grep -l "suppliers" backend/src   →  15 arquivos
+  supplier.repository.ts · supplier.routes.ts · supplier.service.ts ·
+  accounts-payable.service.ts · validate-pipeline-e2e-crm-suppliers-reconciliation.ts · …
+grep -l "actor_professional_profiles" backend/src → 3 (writer VIVO: professional-c1.repository.ts:58)
+```
+**A CAUSA, e ela é a armadilha nº1 do handoff, ipsis litteris:** rodei o grep com
+`head_limit: 15`, e os acertos de `tenant_concept_offerings` **consumiram as 15 vagas**. A saída
+até avisou *"Showing results with pagination"* — e eu li a lista truncada como universo.
+*"`Select-Object -First 10` truncou um grep e virou 'nenhum caller'"* está escrito no `CLAUDE.md
+§2.1`, foi a primeira das 16 erratas de 2026-07-31, e eu repeti **com o aviso na mão**.
+⇒ **Regra que fica: `head_limit` em grep de EXISTÊNCIA é proibido.** Para NEGAR, o filtro tem de
+ser mais largo que a afirmação — e sem teto.
+`suppliers` **é a ficha de fornecedor do arco CRM/ERP**, com fatia selada e harness. 0 linhas porque
+ninguém cadastrou compra: **dormente ≠ morto**.
+
+### As três decisões, executadas
+
+**D-1 · SIM — união SÓ no matching; o motor de evento NÃO muda.**
+`listOpportunities(?matching=true)` passa a casar por **profissão ATIVA no concept OU oferta ATIVA
+no concept**. Antes lia só a metade PF, e o efeito medido era brutal: **8 páginas com 14 ofertas
+ativas casavam com ZERO demanda** — o filtro dizia *"oportunidades para mim"* e respondia *"para
+quem preencheu a aba do C1"*. **Zero fonte nova:** são as mesmas duas metades do gate, lidas
+inteiras. O **motor de evento continua lendo OFERTA**, como deve: só se contrata o que está
+ofertado.
+Provas: `A1` PF vê · `A2` **PJ vê** · `B1` quem não tem nenhuma das duas **não** vê (a união não
+virou "todo mundo") · `C1` `matching=false` segue mostrando tudo · `D1` oferta **draft não casa**.
+
+**D-2 · SIM — o seed CONSULTA o gate em vez de afirmar.**
+`seed-demo-event-supply.ts` escrevia `service_offerings … 'active'` por `pool.query` cru. Medido:
+**14 ofertas ativas de `page` + 1 de `group` com 0 publicações**, **7 de 8** empresas sem
+`primary_company_type_id`, **0 KYB aprovado** — 7 fornecedores na vitrine que **nenhum** poderia ter
+ativado. Agora o seed chama `evaluateOfferingActivationEligibility` (o **predicado ÚNICO** que o
+gate e a projeção de readiness já compartilham) e **só nasce `active` quem passa**; o resto nasce
+`draft` **com os motivos impressos**.
+⚠️ **AVISO QUE VAI JUNTO:** no próximo seed **a vitrine ESVAZIA e repovoa**. Os 7 somem por
+definição — nunca poderiam ter existido.
+🟡 **`DT-SEED-DEMO-SUPPLY-NOT-GATE-COMPLIANT`** — o seed ainda não PREENCHE as pré-condições pelos
+writers governados (publicação + tipo + KYB). Os builders existem e são **HTTP**
+(`validate-pipeline-e2e-canonical-offerings-inventory.ts:170-200`), e este seed é script de `pool`.
+Gatilho por query:
+```sql
+SELECT count(*) FROM service_offerings WHERE status='draft';  -- >0 depois do próximo seed = dívida viva
+```
+
+**D-3 · NEGADA — e a negativa é o achado.** Nada de tombstone. Em vez disso: **migalha canônica**
+nos dois arquivos (`supplier.repository.ts` e `professional-c1.repository.ts`), dizendo o que foi
+**verificado** — inclusive o meu erro, para a próxima instância não repetir a proposta. E o risco
+real que eu vi (ficha de fornecedor com `name/email/tax_id` **ao lado** do actor) tem dono desde
+2026-07-03: **`DT-CRM-CONTACTS-PARALLEL-IDENTITY-RISK`**, que ganha o gatilho que faltava:
+```sql
+-- vira dívida VIVA quando o CRM sair do arquivo com ficha desacoplada do actor:
+SELECT count(*) FROM suppliers WHERE owner_actor_id IS NULL AND actor_id IS NULL;  -- hoje: 0 linhas na tabela
+```
+
 ## 🔤 F4 — OS DOIS VERBOS, COM NOMES HONESTOS (2026-08-06 · GO Clayton "execute") · **NÃO SELADA**
 
 `DECISION-0196 §G`. Harness `npm run validate:directed-demand` **10/10** em efêmera · guard

@@ -47,6 +47,14 @@ const BASELINE_CLASSIFIED = new Set([
   "src/scripts/validate-pipeline-e2e-mvp-service-journey-pj-provider.ts::draft::companies",   // 'draft' é de services/policies (exato lá); companies acusa por colisão DRAFT
   "src/scripts/validate-pipeline-e2e-operator-service-order-view-grant.ts::draft::companies", // idem
   "src/scripts/validate-pipeline-e2e-pe5-resolver.ts::draft::companies",                      // idem (economic_policies status='draft')
+  // D-2 (GO Clayton 2026-08-06): o seed passou a nascer oferta em 'draft' quando o gate da 0147
+  // recusa. PROVADO no catálogo, não suposto:
+  //   SELECT pg_get_constraintdef(oid) FROM pg_constraint
+  //    WHERE conrelid='service_offerings'::regclass AND contype='c';
+  //   → CHECK (status = ANY (ARRAY['draft','active','suspended']))   ← minúsculo, EXATO nesta tabela
+  // A acusação vem de companies.company_status ('DRAFT', MAIÚSCULO governado pela 0093/0097) —
+  // tabela DIFERENTE. Mesma família das 4 linhas acima.
+  "src/scripts/seed-demo-event-supply.ts::draft::companies",
   "src/scripts/validate-pipeline-e2e-pe5-resolver.ts::ACTIVE::bank_accounts",                 // INSERT dual de companies ('active','ACTIVE'), 0093/0097
   "src/scripts/validate-pipeline-e2e-pj-capability-kyb.ts::ACTIVE::company_users",            // company_status deliberado no cenário ('mentira' testada)
   "src/scripts/validate-pipeline-e2e-pj-verification-display.ts::ACTIVE::company_users",      // company_status lifecycle deliberado

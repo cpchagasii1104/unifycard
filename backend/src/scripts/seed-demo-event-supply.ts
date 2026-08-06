@@ -255,7 +255,32 @@ async function conceptIdPorSlug(slug: string): Promise<string | null> {
   return r.rows[0]?.concept_id ?? null;
 }
 
-/** services + service_offerings (a oferta PENDE do serviço — service_id é NOT NULL). Idempotente. */
+/**
+ * 🔴 D-2 (GO Clayton 2026-08-06) — O SEED DEIXA DE MENTIR SOBRE O GATE.
+ *
+ * ⚠️ Até 2026-08-06 esta função escrevia `service_offerings … status='active'` por `pool.query`
+ * CRU, pulando o gate de ativação da `DECISION-0147`. O resultado, medido no banco oficial:
+ * **14 ofertas ativas de `page` e 1 de `group` com ZERO `company_concept_publications`**,
+ * 7 de 8 empresas sem `primary_company_type_id` e **0 KYB aprovado** — ou seja, o motor de eventos
+ * mostrava 7 fornecedores que **nenhum deles poderia ter ativado** pela regra viva.
+ * *Dado que não obedece a regra faz a próxima instância concluir que a regra não existe.*
+ *
+ * Agora a ativação é **CONSULTADA, não afirmada**: o seed chama o PREDICADO ÚNICO
+ * `evaluateOfferingActivationEligibility` — o MESMO que o gate e a projeção de readiness consomem
+ * (não há segunda regra) — e só nasce `active` quem passa. Quem não passa nasce **`draft`**, com os
+ * motivos impressos. Nada é inventado e nada é escondido.
+ *
+ * ⚠️ CONSEQUÊNCIA DECLARADA, avisada ao dono antes: **a vitrine ESVAZIA e repovoa.** Os fornecedores
+ * de demonstração de hoje somem por definição — eles nunca poderiam ter existido.
+ *
+ * 🟡 O QUE ESTA FATIA **NÃO** FAZ: preencher as pré-condições (publicação de concept + tipo
+ * operacional + KYB) pelos writers governados. Os builders existem, mas são **HTTP**
+ * (`app.inject` nos harnesses `validate-pipeline-e2e-canonical-offerings-inventory.ts:170-200`:
+ * `submitKybDocument` → `POST /companies/:id/kyb/requests` → review admin → `POST
+ * /companies/:id/publications`), e este seed é script de `pool`. Compor daí é fatia própria —
+ * `DT-SEED-DEMO-SUPPLY-NOT-GATE-COMPLIANT`, com gatilho por query no cartório.
+ * O que ESTA fatia entrega é o fim da MENTIRA: nada mais nasce `active` sem poder.
+ */
 async function garantirOferta(tenantId: string, providerActorId: string, canonicalServiceId: string, nomeServico: string, priceCents: number, minutos: number): Promise<void> {
   const ex = (
     await pool.query<{ id: string }>(
@@ -270,12 +295,39 @@ async function garantirOferta(tenantId: string, providerActorId: string, canonic
      VALUES ($1,$2,$3,$4,$5,'active',NOW(),NOW()) RETURNING service_id`,
     [tenantId, providerActorId, nomeServico, `${nomeServico.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-')}-${Date.now()}-${Math.floor(Math.random() * 1e4)}`, canonicalServiceId]
   );
+
+  // ── O GATE, CONSULTADO (não afirmado) ──────────────────────────────────────────────────────
+  // `companyId` e `conceptId` vêm do SCHEMA VIVO, derivados server-side — nunca do que o seed
+  // "sabe" sobre o fornecedor que acabou de criar.
+  const ctx = await pool.query<{ company_id: string | null; concept_id: string | null }>(
+    `SELECT a.company_id::text AS company_id, cs.concept_id::text AS concept_id
+       FROM actors a
+       LEFT JOIN canonical_services cs ON cs.id = $2::uuid
+      WHERE a.id = $1::uuid LIMIT 1`,
+    [providerActorId, canonicalServiceId]
+  );
+  const companyId = ctx.rows[0]?.company_id ?? null;
+  const conceptId = ctx.rows[0]?.concept_id ?? null;
+
+  let status: 'active' | 'draft' = 'draft';
+  let motivos: string[] = ['OFFERING_ACTIVATION_CONCEPT_UNRESOLVED'];
+  if (conceptId) {
+    const { evaluateOfferingActivationEligibility } = await import('../modules/services/services-offering-activation-gate');
+    const eleg = await evaluateOfferingActivationEligibility({ tenantId, providerActorId, companyId, conceptId });
+    status = eleg.ok ? 'active' : 'draft';
+    motivos = eleg.reasons;
+  }
+
   await pool.query(
     `INSERT INTO service_offerings (tenant_id, service_id, canonical_service_id, provider_actor_id, price_cents, duration_minutes, status, created_at, updated_at)
-     VALUES ($1,$2,$3,$4,$5,$6,'active',NOW(),NOW())`,
-    [tenantId, svc.rows[0].service_id, canonicalServiceId, providerActorId, priceCents, minutos]
+     VALUES ($1,$2,$3,$4,$5,$6,$7,NOW(),NOW())`,
+    [tenantId, svc.rows[0].service_id, canonicalServiceId, providerActorId, priceCents, minutos, status]
   );
   criados.ofertas++;
+  if (status === 'draft') {
+    // Alto e nomeado: silêncio aqui seria o seed voltando a mentir, só que por omissão.
+    console.warn(`   ⚠️  oferta "${nomeServico}" nasceu DRAFT — o gate da DECISION-0147 recusa: ${motivos.join(' · ')}`);
+  }
 }
 
 async function main(): Promise<void> {

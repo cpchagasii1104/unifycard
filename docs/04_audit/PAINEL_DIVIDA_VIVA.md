@@ -433,6 +433,22 @@ vocabulário** de `identities.kyc_level`) · `audit-schema-coherence-ratchet` mo
 `authService.register`**) · o lint de vocabulário financeiro estourou 2× seguidas, a segunda porque
 **meu comentário explicando a palavra continha a palavra**. **Nenhuma baseline foi afrouxada.**
 
+> ### 🧭 "DE ONDE VÊM OS PROFISSIONAIS" — auditoria de 2026-08-06 (pergunta de Clayton)
+> **O desenho NÃO tem segunda verdade.** `DECISION-0144` + `0147 Q2/Q3`: **um** gate, **duas**
+> metades — PF declara (`actor_professional_concepts`, a aba do C1) · PJ publica
+> (`company_concept_publications` + tipo operacional + KYB). `service_offerings`/`services`/
+> `actor_assets`/descoberta de fornecedor são **downstream**. Todos falam **CONCEPT**.
+> ✅ **D-1 executada:** o matching de demanda passou a ler a **UNIÃO** das duas metades — lendo só a
+> metade PF, **8 páginas com 14 ofertas casavam com ZERO demanda**. O motor de evento **não** mudou
+> (contratar exige oferta publicada).
+> ✅ **D-2 executada:** o seed **consulta** o gate em vez de afirmar `active`. ⚠️ **A vitrine
+> esvazia no próximo seed** — os 7 fornecedores atuais nunca poderiam ter existido (0 publicações ·
+> 7/8 empresas sem tipo · 0 KYB).
+> ⛔ **D-3 NEGADA** (proposta minha): eu ia carimbar `suppliers` de cadáver com guard anti-revival,
+> alegando "zero caller". **Eram 15 arquivos** — a proposta teria quebrado arco selado.
+> 🟡 Novas, com gatilho: `DT-SEED-DEMO-SUPPLY-NOT-GATE-COMPLIANT` ·
+> `DT-CRM-CONTACTS-PARALLEL-IDENTITY-RISK` (já existia, **ganhou o gatilho que faltava**).
+
 **🟡 NOMEADAS, não construídas de carona:** `DT-AVAILABILITY-OVERLAP-ALERT-MISSING` (o resíduo
 read-model do Art. II — `findOverlapping` fica **DORMENTE de propósito**, é a semente do alerta) ·
 ~~`DT-COMMITMENT-LAYER-HAS-NO-DB-CONSTRAINT`~~ **✅ PAGA em 2026-08-06** (migration `20260806220000`;
