@@ -123,6 +123,7 @@ const CMDS = [
   "node scripts/audit-date-query-param-boundary.mjs",
   // F-FREE-TIME-SINGLE-READER: "esta livre?" tem UMA resposta; copia da aritmetica morde.
   "node scripts/audit-free-time-single-reader.mjs",
+  "node scripts/audit-window-render-truthful-extent.mjs",
   // F-INBOX-TWO-SIDED: pedido que ninguem ve e formulario escrevendo no vazio (Clayton: pense nos dois lados).
   "node scripts/audit-inbox-covers-every-owner-type.mjs",
   // F-POLICY-BASE-HONORED: o motor ignorava applies_to — arma carregada para a 1a policy de outra base.

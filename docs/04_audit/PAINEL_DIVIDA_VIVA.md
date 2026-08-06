@@ -230,6 +230,32 @@ Sem essa resposta, cada tabela vira pesquisa. Com ela, a cauda de 26 módulos é
 
 ## 🗓️ REGISTRO DE SESSÕES — o que cada fatia mudou no placar
 
+### 🟢 SESSÃO 2026-08-06 — `F-WINDOW-RENDER-TRUTHFUL-EXTENT` · fricção de uso do Clayton
+
+`runner 258 → **259 OK**` · `tsc BE 0 / FE 0` · Δbank 0 · zero migration.
+
+**Ele apontou:** *"o 'Solicitar orçamento' da Tenda oferece uma janela — 04 de ago. 08:00–18:00. A
+única opção já passou."* **A leitura estava certa; a tela é que mentia.**
+A janela vai de **2026-08-04 08:00 a 2026-09-03 18:00 — 30,4 dias, válida por mais 28**.
+`janelaLegivel` imprimia a data do **início** e as duas **horas**, descartando a **data do fim**.
+
+🔴 **O BACKEND ESTÁ SADIO** — `event-need-supplier-discovery.service.ts:680` filtra
+`end_datetime >= now()`. **Não mexa no filtro.** O defeito era só de projeção.
+⚠️ **Não era borda: 56 das 70 janelas (80%) são multi-dia.**
+
+**Família de 4, e o 4º o grep não achou:** `QuoteRequestDialog` (o que ele viu, dado real) ·
+`EventCheckoutModal` e `CulturalEventCard` (mesmo defeito, **0 caso observável** — `events` sem
+multi-dia; correção **lógica, não verificada visualmente**) · 🔴 **`ActorPage.formatWindow`, achado
+pelo GUARD** — usa `Intl.DateTimeFormat`, então meu grep por `toLocaleTimeString` passou por cima.
+**Grep acha o que eu já sei procurar; guard por substância acha o que eu não sei.**
+
+**🛡️ `audit-window-render-truthful-extent.mjs`** (novo, no runner no mesmo commit). Exige comparação
+de DIAS onde a hora de um FIM é renderizada; detecta inclusive pela **assinatura** (par início/fim).
+**Duas correções do próprio guard, na prova:** falso positivo em `validateDateRange` (validador, não
+renderizador → passou a exigir que o arquivo também **formate**) e 🔴 **furo achado pela vermelha** —
+renomear um parâmetro fazia o guard **perder um alvo em silêncio**; ganhou **PISO `MIN_SITES=4`**
+(ratchet, só sobe). **Vermelha 5/5**, desfeita por BACKUP, restauração byte a byte.
+
 ### 🟢 SESSÃO 2026-08-06 — `F-CONFIRM-THIRD-BRANCH-STOP` · **EXECUTADA (GO de Clayton)** · reversão pura
 
 `runner 258 OK` · `tsc BE 0 / FE 0` · **Δbank 0** · **zero migration, zero decisão nova**.
@@ -668,6 +694,16 @@ pegar defeito de autorização nessas rotas.
 daquelas 44 rotas acende tudo de uma vez, em produção, sem inventário.
 
 ## 🟠 VIVA MAS CONTIDA — e **por quê** está contida
+
+🆕 ⚖️ **DECISÃO DE PRODUTO ABERTA — `qual é o recurso de exclusividade da agenda `user`/`page`?`**
+(2026-08-06) · **Dono: Clayton.** Não é dívida de código: é decisão que o código está esperando.
+**Consequência VIVA enquanto não vier:** a **agenda pessoal não é contratável**. O confirm de
+`owner_type ∈ {user, page}` responde `501 BOOKING_CONFIRM_STOP_DECISION_REQUIRED`
+(`F-CONFIRM-THIRD-BRANCH-STOP`, reversão ao que a `0146 G10` sempre mandou). **Custo hoje = 0** —
+zero bookings sobre essas janelas. **Destravar não é remover o STOP:** é nomear o recurso e dar a
+esse `owner_type` a sua trava, como `service_offering`→provider e `actor_asset`→resource já têm.
+⚠️ Alcance maior do que parece: `PUT /availability/weekly-template` aceita `{user, page}` com
+**`user` como DEFAULT** — é a agenda pessoal do perfil (frente selada `DECISION-0072 B1`).
 
 🆕 🔴 **`DT-COMMITMENT-LAYER-HAS-NO-DB-CONSTRAINT`** (2026-08-06) — **a §A.7 está cumprida pela
 METADE, e é a metade fácil que foi feita.** A `DECISION-0146 §A.7` faz duas coisas: **proíbe**

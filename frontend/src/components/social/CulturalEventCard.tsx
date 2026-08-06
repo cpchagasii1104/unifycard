@@ -275,8 +275,15 @@ export default function CulturalEventCard({
           <div className="event-meta-item">
             <span className="event-meta-icon">🗓️</span>
             <span className="event-meta-text">
+              {/* 🔴 F-WINDOW-RENDER-TRUTHFUL-EXTENT: 3º membro da família (2026-08-06). Data do fim
+                  quando o evento atravessa o dia — hora sozinha afirma que acabou no mesmo dia.
+                  ⚠️ `events` tem 0 multi-dia hoje: correção lógica, não verificada visualmente. */}
               {formatDate(event.datetime_start)}
-              {event.datetime_end && ` - ${formatTime(event.datetime_end)}`}
+              {event.datetime_end && (
+                new Date(event.datetime_end).toDateString() === new Date(event.datetime_start).toDateString()
+                  ? ` - ${formatTime(event.datetime_end)}`
+                  : ` → ${formatDate(event.datetime_end)}`
+              )}
             </span>
           </div>
 

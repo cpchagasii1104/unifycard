@@ -47,12 +47,19 @@ const PURPOSE_LABEL_PT: Record<string, string> = {
   trabalho: 'Trabalho', estudo: 'Estudo', 'cuidados-pessoais': 'Cuidados pessoais', lazer: 'Lazer',
 };
 
+// 🔴 F-WINDOW-RENDER-TRUTHFUL-EXTENT (2026-08-06) — 4º membro da família, e o único que o meu grep
+// NÃO achou: ele usa `Intl.DateTimeFormat`, não `toLocaleTimeString`. Quem o achou foi o guard
+// `audit-window-render-truthful-extent`, pela ASSINATURA (par início/fim), não pelo nome no uso.
+// O defeito: imprimia a data do INÍCIO e as duas HORAS, descartando a data do FIM — janela de 30
+// dias saía como slot de 10 horas no primeiro dia. 56 das 70 janelas do banco são multi-dia.
 function formatWindow(startIso: string, endIso: string): string {
   const start = new Date(startIso);
   const end = new Date(endIso);
   const dateFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short' });
   const timeFmt = new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' });
-  return `${dateFmt.format(start)} · ${timeFmt.format(start)}–${timeFmt.format(end)}`;
+  return start.toDateString() === end.toDateString()
+    ? `${dateFmt.format(start)} · ${timeFmt.format(start)}–${timeFmt.format(end)}`
+    : `${dateFmt.format(start)} ${timeFmt.format(start)} → ${dateFmt.format(end)} ${timeFmt.format(end)}`;
 }
 
 const LABEL_PT: Record<string, string> = {

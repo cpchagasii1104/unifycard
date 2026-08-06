@@ -32,12 +32,23 @@ interface Props {
   onClose: () => void;
 }
 
+// 🔴 F-WINDOW-RENDER-TRUTHFUL-EXTENT (2026-08-06) — esta função MENTIA sobre a extensão da janela.
+// Ela imprimia a DATA do início e depois as duas HORAS, descartando a data do FIM. Uma janela de
+// 2026-08-04 08:00 → 2026-09-03 18:00 (30 dias, VÁLIDA) saía como "ter., 04 de ago. · 08:00–18:00",
+// e Clayton leu, corretamente, "a única opção já passou" — dois dias depois do dia 04.
+// A oferta não tinha passado: valia por mais 28 dias.
+// ⚠️ Não era borda: 56 das 70 janelas do banco (80%) atravessam mais de um dia.
+// O backend está SADIO — `event-need-supplier-discovery.service.ts:680` filtra `end_datetime >= now()`
+// e o comentário de lá já dizia "janela vencida não é agenda". O defeito era só de projeção.
 function janelaLegivel(inicio: string, fim: string): string {
   const d = new Date(inicio);
   const f = new Date(fim);
-  return `${d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' })} · ` +
-    `${d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}–` +
-    `${f.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
+  const data = (x: Date) => x.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' });
+  const hora = (x: Date) => x.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  // Mesmo dia: forma curta. Dias diferentes: a data do FIM aparece — é ela que diz até quando vale.
+  return d.toDateString() === f.toDateString()
+    ? `${data(d)} · ${hora(d)}–${hora(f)}`
+    : `${data(d)} ${hora(d)} → ${data(f)} ${hora(f)}`;
 }
 
 export default function QuoteRequestDialog({ providerActorId, providerName, onClose }: Props) {

@@ -220,8 +220,16 @@ export default function EventCheckoutModal({ event, onClose, onSuccess }: EventC
               <div className="event-checkout-meta-item">
                 <span className="meta-icon">🗓️</span>
                 <span className="meta-text">
+                  {/* 🔴 F-WINDOW-RENDER-TRUTHFUL-EXTENT: evento que termina em OUTRO dia mostra a
+                      data do fim, não só a hora — senão a tela afirma que acabou no mesmo dia.
+                      Irmão do defeito achado em QuoteRequestDialog (2026-08-06). ⚠️ Hoje `events`
+                      tem 0 linhas multi-dia: correção NÃO verificada visualmente, só logicamente. */}
                   {formatDate(event.datetime_start)}
-                  {event.datetime_end && ` - ${formatTime(event.datetime_end)}`}
+                  {event.datetime_end && (
+                    new Date(event.datetime_end).toDateString() === new Date(event.datetime_start).toDateString()
+                      ? ` - ${formatTime(event.datetime_end)}`
+                      : ` → ${formatDate(event.datetime_end)}`
+                  )}
                 </span>
               </div>
               {event.location_cultural_profile_id && (

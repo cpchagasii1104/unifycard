@@ -1,5 +1,118 @@
 # REMEDIATION DT LOG
 
+## 🪟 F-WINDOW-RENDER-TRUTHFUL-EXTENT — a janela não passou; a TELA é que encurtava (2026-08-06, direção)
+
+**Fricção de uso do Clayton:** *"o 'Solicitar orçamento' da Tenda 10x10 oferece UMA janela — ter., 04
+de ago. · 08:00–18:00. A única opção já passou."* Hoje é 06/08. **A leitura estava certa; a tela é
+que mentia.** `runner 258 → 259 OK` · `tsc BE 0 / FE 0` · Δbank 0 · zero migration.
+
+### A medição, ANTES de consertar — e ela derrubou as duas hipóteses da pergunta
+
+```sql
+SELECT a.label, av.start_datetime, av.end_datetime, (av.end_datetime > now()) AS ainda_vale,
+       round(EXTRACT(EPOCH FROM (av.end_datetime - av.start_datetime))/86400, 1) AS dias
+  FROM availability av JOIN actor_assets a ON a.id = av.owner_id WHERE av.owner_type='actor_asset';
+-- Tenda 10x10: 2026-08-04 08:00 → 2026-09-03 18:00 · ainda_vale = TRUE · 30,4 DIAS
+```
+**A janela vale por mais 28 dias.** Não é dado velho, e não é falta de filtro:
+```
+event-need-supplier-discovery.service.ts:680   AND end_datetime >= now()
+                                        :666   "Só janelas que ainda podem ser usadas […]
+                                                janela vencida não é agenda"
+```
+🔴 **O BACKEND ESTÁ SADIO — registro isto com destaque para ninguém "consertar" o filtro depois.**
+
+**A causa, em `QuoteRequestDialog.tsx:35-41`:**
+```ts
+function janelaLegivel(inicio, fim) {
+  return `${d.toLocaleDateString(…)} · ${d.toLocaleTimeString(…)}–${f.toLocaleTimeString(…)}`;
+}                                              ↑ data do INÍCIO      ↑ hora do FIM, sem a DATA dele
+```
+Ela **descarta a data do fim**. Uma janela de 30 dias sai como um slot de 10 horas no primeiro dia —
+e o primeiro dia já passou. **A resposta à pergunta do Clayton é a TERCEIRA, que não estava na
+lista:** a lista filtra certo, o dado está certo, **a projeção é que encurta**.
+
+⚠️ **Não é borda:** `56 das 70 janelas do banco (80%) atravessam mais de um dia`.
+
+### 🔴 A FAMÍLIA TEM QUATRO MEMBROS — e o quarto o meu grep NÃO achou
+
+| sítio | como foi achado | dado observável hoje |
+|---|---|---|
+| `components/entity/QuoteRequestDialog.tsx` | fricção do Clayton | 🔴 **sim** — 4 janelas, todas multi-dia |
+| `components/events/EventCheckoutModal.tsx` | grep `toLocaleTimeString` | `events` tem **0** multi-dia |
+| `components/social/CulturalEventCard.tsx` | idem | idem |
+| `pages/ActorPage.tsx` (`formatWindow`) | 🔴 **pelo GUARD, não por mim** | agenda do actor |
+
+📌 **O quarto é o achado de método.** Meu grep procurou `toLocaleTimeString`; `ActorPage.formatWindow`
+usa **`Intl.DateTimeFormat`** e não casava. Quem o encontrou foi o guard, porque ele passou a casar a
+**ASSINATURA** (função que recebe um par início/fim) em vez do nome no ponto de uso.
+**Grep acha o que eu já sei procurar; guard por substância acha o que eu não sei.**
+
+**Conserto:** os quatro comparam os dias (`toDateString()`) e, quando o fim cai em outro dia,
+**mostram a data do fim**. Formato de cada tela preservado — nenhum ganhou visual novo.
+⚠️ **Declarado:** os 2 de eventos têm **0 caso observável** (`events` sem linha multi-dia); a correção
+é **lógica, não verificada visualmente**.
+
+### 🛡️ `audit-window-render-truthful-extent.mjs` (runner 258 → **259**)
+
+Exige que todo sítio que renderiza a **hora de um FIM** compare os **DIAS** antes. Detecta por três
+formas, uma delas a **assinatura** — foi ela que achou o 4º membro.
+
+**Duas correções do próprio guard, ambas na prova:**
+1. **Falso positivo:** `validateDateRange(startDate, endDate)` casava a assinatura e **não desenha
+   nada**. Corrigido por substância: só conta como sítio quem também **formata** (`toLocale*String`).
+2. 🔴 **Furo achado pela prova vermelha:** renomeei o parâmetro `fim` de UM sítio e o guard passou
+   **VERDE** — os outros 3 ainda casavam e a checagem de zero não disparava. **Guard que perde alvo em
+   silêncio é o mesmo defeito do "excluído que não aparece".** Ganhou **PISO** (`MIN_SITES = 4`,
+   ratchet: o piso só SOBE). Reprovado depois: perda de alvo agora é vermelha.
+
+**PROVA VERMELHA 5/5**, desfeita por **BACKUP** (nunca `git checkout`), restauração byte a byte nos
+4 arquivos: cada sítio sem a comparação de dias → **FALHA nomeando o arquivo**; perda de alvo →
+**FALHA**; estado restaurado → volta a passar.
+
+### ⚠️ E o CRLF me pegou — a armadilha que o `CLAUDE.md` descreve, ao pé da letra
+
+`git diff --check` acusou **arquivo inteiro** em dois dos quatro:
+```
+git ls-files --eol → i/lf w/crlf   EventCheckoutModal.tsx · CulturalEventCard.tsx
+git diff --numstat → 325/317 e 464/457 linhas   (a mudança real era 9/1 e 8/1)
+```
+O `Edit` no Windows reescreveu os dois em CRLF. **Não normalizei o repositório** (o `CLAUDE.md` avisa
+que alguns arquivos são nativamente CRLF **no índice** e mexer ali gera diff à toa) — conferi o
+índice primeiro: os dois são `i/lf`, então a divergência era **da minha escrita**, não do arquivo.
+Convertidos de volta para LF, o diff caiu para a mudança real e `git diff --check` ficou limpo.
+📌 **A ordem que evita o erro dos dois lados: `git ls-files --eol` ANTES de decidir normalizar.**
+Sem isso, "consertar CRLF" vira diff de arquivo inteiro em arquivo que estava certo.
+
+## 📐 PADRÃO — **copiar harness propaga DESCRIÇÃO, não só código** (2026-08-06, pedido de Clayton)
+
+> **Variante nova de uma família conhecida, e ninguém a tinha nomeado.**
+
+A família mãe é *"guard escrito DEPOIS do conserto nasce descrevendo o CONSERTO, não a REGRA"*. Esta
+é a irmã dela pelo eixo da **cópia**:
+
+**Ao criar um harness/guard/script a partir de outro, o CÓDIGO você adapta porque ele quebra se
+estiver errado — o CABEÇALHO não quebra, e por isso ele viaja intacto descrevendo o artefato ANTIGO.**
+
+**Caso concreto (2026-08-06):** criei `run-confirm-third-branch-stop-ephemeral.ps1` a partir de
+`run-rental-exclusivity-guarantee-ephemeral.ps1`. O nome do arquivo, o banco efêmero e o script
+chamado foram todos adaptados — e o bloco de comentário seguiu listando *"A1 vehicle + quantity>1 →
+DEVE FALHAR"*, provas que aquele harness **não roda**. Peguei antes de rodar; se tivesse rodado
+verde, o arquivo estaria mentindo com prova em anexo.
+
+**Por que é pior que comentário errado comum:** harness e guard são **onde as pessoas vão ler a
+regra**. E a cópia é o momento de MENOR atenção — o autor está pensando no que muda, não no que
+permanece.
+
+**A regra:** ao copiar artefato, **o cabeçalho é a PRIMEIRA coisa a reescrever, antes do código** —
+é a única parte que não tem quem a corrija. Se o cabeçalho descreve provas, elas têm de ser as provas
+que o artefato realmente executa. **Vale para `.ps1`, `.mjs` de guard, script de validação e
+migration.**
+
+📌 **Irmã da lição de 2026-08-05** (*"copiar de código legado propaga o legado — inclusive dentro de
+um teste escrito para impedir regressão"*): lá o que viajava era o **vocabulário morto**; aqui é a
+**descrição**. Mesmo mecanismo, superfície diferente.
+
 ## 🛑 F-CONFIRM-THIRD-BRANCH-STOP — o terceiro ramo PARA, como a G10 sempre mandou (2026-08-06, direção · GO Clayton)
 
 **MODO EXECUTOR. Reversão pura ao promulgado — zero migration, zero decisão nova.**
