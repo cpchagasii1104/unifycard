@@ -2,11 +2,17 @@
 // backend/scripts/audit-booking-provider-conflict.mjs
 //
 // ╔═ ORIENTAÇÃO CANÔNICA ══════════════════════════════════════════
-// ║ STATUS:  CANÔNICO — cobre APENAS owner_type='service_offering'
-// ║ NORMA:   docs/02_decisions/DECISION_0146_… §A.3 (rollup por provider) · §B-bis G10
-// ║ NÃO:     ler "fica fora do guard" como conformidade com a G10 — a G10 manda PARAR
-// ║ EM VEZ:  owner_type ≠ service_offering hoje CONFIRMA SEM TRAVA — ver GATE_F0 §1(a)
+// ║ STATUS:  CANÔNICO — cobre service_offering E user (rollup por provider, 0196 §D.1)
+// ║ NORMA:   DECISION_0146 §A.3 (rollup por provider) · §B-bis G10 · DECISION_0196 §D.1
+// ║ NÃO:     estreitar o rollup de volta à oferta — cega a agenda pessoal em silêncio
+// ║ EM VEZ:  owner_type fora de {service_offering, actor_asset, user} PARA com 501 (G10)
 // ╚════════════════════════════════════════════════════════════════
+//
+// ⚠️ ERRATA DO PRÓPRIO CABEÇALHO (2026-08-06): até hoje ele dizia "cobre APENAS service_offering" e
+// "owner_type ≠ service_offering hoje CONFIRMA SEM TRAVA". As duas frases eram verdadeiras quando
+// escritas e deixaram de ser no MESMO dia: o terceiro ramo passou a PARAR
+// (F-CONFIRM-THIRD-BRANCH-STOP) e o rollup passou a cobrir `user` (DECISION-0196 §D.1).
+// Cabeçalho de guard que envelhece é a doença que este arquivo já teve uma vez — corrigido de novo.
 //
 // ⚠️ CORREÇÃO DE ATRIBUIÇÃO (2026-08-05, GO Clayton): a mensagem da checagem do gate `SERVICE_OFFERING`
 // citava a **G10** como se ela autorizasse deixar os outros owner_types fora da trava. Ela não autoriza —
@@ -44,6 +50,14 @@ else {
   if (!/pg_advisory_xact_lock/.test(repo)) failures.push(`${REPO}: sem pg_advisory_xact_lock (concorrência/anti-phantom — G7).`);
   if (!/status IN \('confirmed','checked_in','checked_out'\)/.test(repo)) failures.push(`${REPO}: conjunto bloqueante não é {confirmed,checked_in,checked_out} (G4; checked_out obrigatório).`);
   if (!/so2\.provider_actor_id = \$2/.test(repo)) failures.push(`${REPO}: rollup não é por provider_actor_id (G3; conflito é cross-oferta do provider, não por offering isolada).`);
+  // 🔴 ROLLUP GENERALIZADO (DECISION-0196 §D.1) — o provider aparece em DUAS superfícies temporais:
+  // a availability da OFERTA e a availability do PRÓPRIO ACTOR (owner_type='user'). Se alguém
+  // reverter a segunda, o confirm de agenda pessoal volta a NÃO ACHAR CONFLITO NENHUM — e isso é
+  // PIOR que o 501 anterior, porque confirma calado. Substância: a cláusula por owner_id, não o nome.
+  if (!/a2\.owner_type = 'user'\s*\)?\s*AND\s+a2\.owner_id = \$2/.test(repo)) {
+    failures.push(`${REPO}: o rollup NÃO cobre owner_type='user' (DECISION-0196 §D.1). Sem a cláusula por a2.owner_id, o confirm de agenda pessoal confirma SEM detectar conflito — pior que o STOP.`);
+  }
+  if (!/LEFT JOIN service_offerings so2/.test(repo)) failures.push(`${REPO}: o JOIN com service_offerings precisa ser LEFT — com INNER, a linha de owner_type='user' (que não tem oferta) é DESCARTADA e o rollup volta a cegar a agenda pessoal.`);
   if (!/b2\.booking_id <> \$3/.test(repo)) failures.push(`${REPO}: self booking não excluído da busca de conflito (falso-positivo na reconfirmação).`);
   if (!/a2\.start_datetime < \$5/.test(repo) || !/a2\.end_datetime > \$4/.test(repo)) failures.push(`${REPO}: overlap não é meio-aberto [start,end) (G8; back-to-back deve NÃO conflitar).`);
   if (!/JOIN service_offerings so2/.test(repo)) failures.push(`${REPO}: cadeia booking→availability→service_offerings ausente (derivação do provider).`);
@@ -65,7 +79,11 @@ else {
   if (!/input\.status === UnifiedBookingStatus\.CONFIRMED/.test(svc)) failures.push(`${SVC}: guard não incide na transição p/ confirmed (G11; não pode ficar só no createBooking).`);
   if (!/confirmBookingWithProviderLock/.test(svc)) failures.push(`${SVC}: confirm não chama o guard transacional confirmBookingWithProviderLock.`);
   if (!/resolveAvailabilityOwner\(/.test(svc)) failures.push(`${SVC}: provider não é derivado server-side (resolveAvailabilityOwner — G9).`);
-  if (!/AvailabilityOwnerType\.SERVICE_OFFERING/.test(svc)) failures.push(`${SVC}: sem gate owner_type=service_offering — este guard cobre SOMENTE service_offering. ⚠️ owner_type≠service_offering está FORA da cobertura deste guard, e isso NÃO é conformidade com a G10: a G10 manda STOP_DECISION_REQUIRED, e o código hoje CONFIRMA SEM TRAVA (ver GATE_F0 §1(a)).`);
+  if (!/AvailabilityOwnerType\.SERVICE_OFFERING/.test(svc)) failures.push(`${SVC}: sem gate owner_type=service_offering (rollup por provider — G3/§A.3).`);
+  // DECISION-0196 §D.1: a agenda pessoal tem ramo PRÓPRIO, com o mesmo lock e o rollup generalizado.
+  // Sem ele, `user` volta a cair no STOP — regressão silenciosa de produto (agenda pessoal deixa de
+  // ser contratável) que nenhum outro guard pega.
+  if (!/AvailabilityOwnerType\.USER/.test(svc)) failures.push(`${SVC}: sem ramo owner_type=user no confirm (DECISION-0196 §D.1) — a agenda pessoal volta a ser não-contratável.`);
   if (/providerActorId:\s*input\./.test(svc) || /input\.providerActorId/.test(svc)) failures.push(`${SVC}: provider_actor_id NÃO pode vir do body (G9).`);
 
   // ── F-CONFIRM-THIRD-BRANCH-STOP (G10) — o TERCEIRO RAMO tem de PARAR, não cair fora ──────────
@@ -108,4 +126,4 @@ if (failures.length > 0) {
   for (const f of failures) console.error('   - ' + f);
   process.exit(1);
 }
-console.log('GATE OK [booking-provider-conflict] — F-OFFER-5/6: confirm recusa 2º compromisso do mesmo provider (status {confirmed,checked_in,checked_out}, intervalo [start,end), self excluído, rollup por provider, advisory-lock transacional); provider derivado server-side; availability declarativa não bloqueada. 🔴 TERCEIRO RAMO PARA (G10): owner_type fora de {service_offering, actor_asset} lança BOOKING_CONFIRM_STOP_DECISION_REQUIRED — conferido por BALANCEAMENTO DE CHAVES do bloco de confirm (nada escapa por baixo dos ramos travados), não por presença de string. DECISION-0146 blindada.');
+console.log('GATE OK [booking-provider-conflict] — F-OFFER-5/6: confirm recusa 2º compromisso do mesmo provider (status {confirmed,checked_in,checked_out}, intervalo [start,end), self excluído, rollup por provider, advisory-lock transacional); provider derivado server-side; availability declarativa não bloqueada. 🔴 ROLLUP GENERALIZADO (0196 §D.1): o conflito por provider atravessa a availability da OFERTA E a do PROPRIO ACTOR (owner_type=user, LEFT JOIN) — um corpo, uma agenda. 🔴 TERCEIRO RAMO PARA (G10): owner_type fora de {service_offering, actor_asset, user} lança BOOKING_CONFIRM_STOP_DECISION_REQUIRED — conferido por BALANCEAMENTO DE CHAVES do bloco de confirm (nada escapa por baixo dos ramos travados), não por presença de string. DECISION-0146 blindada.');

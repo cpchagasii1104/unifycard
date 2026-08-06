@@ -230,6 +230,31 @@ Sem essa resposta, cada tabela vira pesquisa. Com ela, a cauda de 26 módulos é
 
 ## 🗓️ REGISTRO DE SESSÕES — o que cada fatia mudou no placar
 
+### 🟢 SESSÃO 2026-08-06 — ROLLUP GENERALIZADO · **a agenda pessoal virou contratável** · corrida PROVOCADA
+
+Execução material da `DECISION-0196 §D.1`. **Zero migration.** `runner 259 OK` · `tsc BE 0` · Δbank 0.
+
+`confirmBookingWithProviderLock` filtrava `owner_type='service_offering'` e **para `user` não achava
+conflito nenhum** — por isso o `501` teve de ficar de pé mesmo com a decisão tomada. Agora o rollup
+atravessa as **duas** superfícies temporais do provider (`LEFT JOIN`, para a linha de `user` não ser
+descartada). **Um corpo, uma agenda** — `0146 §A.3`.
+
+🔴 **A DÍVIDA DE CORRIDA VENCEU AQUI.** A sessão inteira declarou *"nenhuma corrida provocada"* como
+limite honesto. Esta fatia mexe na **única trava de exclusividade viva**, e a `0146 §A.8/G7` exige a
+prova. `npm run validate:personal-agenda-exclusivity-race`, `Promise.allSettled` sem `await` entre as
+chamadas: **R** sobrepostas → **exatamente UMA** confirmou, recusa nomeada, **banco com 1** sem
+meia-escrita · **S** sem sobreposição → **as duas** confirmaram · **T** back-to-back → **as duas**
+(G8, `[start,end)`).
+**S e T são a metade que não grita** — sem elas, uma trava que barrasse todo mundo passaria verde.
+
+**Guard +3 checagens por substância** (cláusula de `user` · `LEFT JOIN` · ramo no service),
+**vermelha 3/3**. ⚠️ E o **cabeçalho do próprio guard virou mentira em 24h** (*"cobre APENAS
+service_offering"*, *"confirma sem trava"*) — corrigido com errata dentro do arquivo. **Artefato que
+descreve estado envelhece toda vez que o estado MELHORA.**
+
+**Estado:** `user` **contratável** · `page` **segue 501** (correto pela `R1` — a empresa agrega) ·
+`actor_asset`/`service_offering` provados não-regredidos.
+
 ### 🟢 SESSÃO 2026-08-06 — `F-SERVICE-DEMAND-QUOTE-LIFECYCLE` · **substrato da F1 (GO de Clayton)**
 
 **`DECISION-0196` promulgada** (`docs/02_decisions/DECISION_0196_SERVICE_DEMAND_QUOTE_LIFECYCLE.md`) —

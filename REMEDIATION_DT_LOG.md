@@ -1,5 +1,72 @@
 # REMEDIATION DT LOG
 
+## 🏃 ROLLUP GENERALIZADO — a agenda pessoal virou contratável, e a corrida foi PROVOCADA (2026-08-06)
+
+Execução material da **`DECISION-0196 §D.1`** (*"exclusividade de `user` = o próprio actor, V1 da
+0146"*). **Zero migration** — é código e prova. `runner 259 OK` · `tsc BE 0` · **Δbank 0**.
+
+### O que estava cego
+
+`confirmBookingWithProviderLock` fazia `JOIN service_offerings` e filtrava
+`a2.owner_type = 'service_offering'`. **Para `owner_type='user'` a query não achava conflito
+nenhum** — foi por isso que o `501` da `F-CONFIRM-THIRD-BRANCH-STOP` teve de ficar de pé mesmo
+depois de a decisão sair: destravar sem generalizar seria **confirmar calado**, que é pior que parar.
+
+### O conserto — o provider aparece em DUAS superfícies temporais, não uma
+
+```sql
+LEFT JOIN service_offerings so2 ON so2.id = a2.owner_id AND … AND a2.owner_type = 'service_offering'
+ WHERE ( (a2.owner_type = 'service_offering' AND so2.provider_actor_id = $2)
+      OR (a2.owner_type = 'user'             AND a2.owner_id = $2) )
+```
+**`LEFT` de propósito:** a linha de `user` não tem oferta para casar, e um `INNER` a descartaria em
+silêncio — o guard passa a morder essa reversão especificamente.
+A `0146 §A.3` sempre exigiu rollup **por provider**, não por oferta isolada: **um corpo, uma agenda.**
+Vender a mesma hora numa oferta *e* na agenda pessoal é o mesmo double-booking.
+
+### 🔴 A PROVA DE CORRIDA — a dívida que venceu hoje
+
+A `0146 §A.8/G7` exige literalmente: *"duas tentativas simultâneas […] não podem confirmar ambas.
+**Cenário de concorrência deve ser PROVADO**."* **Toda esta sessão declarou "nenhuma corrida
+provocada"** — em todas as entregas, como limite honesto. Esta fatia mexe na **única trava de
+exclusividade viva**, então a dívida venceu aqui.
+
+`npm run validate:personal-agenda-exclusivity-race`, em efêmera, **`Promise.allSettled` sem `await`
+entre as chamadas** — simultaneidade real, não sequência disfarçada:
+
+| | |
+|---|---|
+| **R** janelas SOBREPOSTAS, 2 confirms simultâneos | ✅ **exatamente UMA confirmou** · recusa **NOMEADA** (`BOOKING_PROVIDER_TIME_CONFLICT`) · **o BANCO tem 1**, sem meia-escrita |
+| **S** janelas SEM sobreposição | ✅ **as duas confirmaram** |
+| **T** back-to-back (`fim == início`) | ✅ **as duas confirmaram** — `[start,end)` meio-aberto (G8) |
+
+**S e T são a metade que não grita.** Trava nova bloqueia quem pode tão facilmente quanto libera quem
+não pode — e só a segunda falha aparece na tela. Sem elas, uma trava que barrasse todo mundo passaria
+verde na prova R.
+⚠️ A prova **ABORTA** se o ramo `user` não confirmar na pré-condição: alvo ausente invalida a corrida.
+
+### 🛡️ O guard ganhou três checagens — e o cabeçalho dele MENTIA
+
+`audit-booking-provider-conflict.mjs` passou a exigir, **por substância**: a cláusula
+`owner_type='user' AND owner_id=$2` · o `LEFT JOIN` (o `INNER` cega de volta) · o ramo `USER` no
+service. **Vermelha 3/3**, desfeita por BACKUP, restauração byte a byte.
+
+⚠️ **E o cabeçalho `ORIENTAÇÃO CANÔNICA` do próprio guard virou mentira no mesmo dia:** dizia *"cobre
+APENAS `service_offering`"* e *"owner_type ≠ service_offering hoje **CONFIRMA SEM TRAVA**"*. As duas
+frases eram verdadeiras quando escritas e deixaram de ser **em 24 horas** — o terceiro ramo passou a
+PARAR de manhã, e o rollup passou a cobrir `user` à tarde. **Corrigido, com errata dentro do próprio
+arquivo.** É o segundo cabeçalho mentiroso que este guard tem; a diferença é que desta vez a mentira
+foi criada por *melhoria*, não por descuido — **artefato que descreve estado envelhece toda vez que o
+estado melhora.**
+
+### 📌 ESTADO
+
+`owner_type='user'` **CONTRATÁVEL** (501 removido) · `page` **segue em 501**, correto pela `R1`
+(*"a empresa AGREGA"*) · `actor_asset` e `service_offering` intocados, provados não-regredidos pela
+prova S. **Δbank 0, zero migration.**
+Isto é **pré-requisito** cumprido de duas coisas: o degrau 2 da cascata do `§B.4` (quando emendado) e
+a **F2**.
+
 ## 🔓 F-SERVICE-DEMAND-QUOTE-LIFECYCLE — a porta aberta pelo lado certo, e o substrato da F1 (2026-08-06, GO Clayton)
 
 **GO:** *"adote como decisões para destravar"*. Decisões promulgadas em

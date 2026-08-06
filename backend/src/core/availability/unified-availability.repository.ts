@@ -425,14 +425,26 @@ class UnifiedAvailabilityRepository {
       await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [`${tenantId}:${providerActorId}`]);
       // G2/G3/G8: conflito = MESMO provider (via availability→service_offering) em status bloqueante,
       // intervalo [start,end) sobreposto, self EXCLUÍDO. (existing.start < cand.end AND existing.end > cand.start)
+      // 🔴 ROLLUP GENERALIZADO (DECISION-0196 §D.1, 2026-08-06) — o conflito é por PROVIDER, e o
+      // provider aparece em DUAS superfícies temporais, não uma:
+      //   · availability de uma OFERTA  → provider = service_offerings.provider_actor_id
+      //   · availability do PRÓPRIO ACTOR (owner_type='user') → provider = availability.owner_id
+      // Até hoje a query só olhava a primeira, então `owner_type='user'` NÃO ACHAVA CONFLITO NENHUM —
+      // e era por isso que o confirm de agenda pessoal ficava em 501 (F-CONFIRM-THIRD-BRANCH-STOP).
+      // A 0146 §A.3 sempre exigiu rollup por `provider_actor_id`, não por oferta isolada: um corpo,
+      // uma agenda. Vender a mesma hora numa oferta E na agenda pessoal é o mesmo double-booking.
+      // LEFT JOIN de propósito: a linha de `user` não tem oferta para casar, e um INNER a descartaria.
       const conflict = await client.query(
         `SELECT 1
            FROM bookings b2
            JOIN availability a2 ON a2.availability_id = b2.availability_id AND a2.tenant_id = b2.tenant_id
-           JOIN service_offerings so2 ON so2.id = a2.owner_id AND so2.tenant_id = a2.tenant_id
+           LEFT JOIN service_offerings so2 ON so2.id = a2.owner_id AND so2.tenant_id = a2.tenant_id
+                 AND a2.owner_type = 'service_offering'
           WHERE b2.tenant_id = $1
-            AND a2.owner_type = 'service_offering'
-            AND so2.provider_actor_id = $2
+            AND (
+                  (a2.owner_type = 'service_offering' AND so2.provider_actor_id = $2)
+               OR (a2.owner_type = 'user'             AND a2.owner_id = $2)
+            )
             AND b2.status IN ('confirmed','checked_in','checked_out')
             AND b2.booking_id <> $3
             AND a2.start_datetime < $5

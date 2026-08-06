@@ -529,6 +529,24 @@ class UnifiedAvailabilityService {
         );
       }
 
+      // 🔴 AGENDA PESSOAL — DECISION-0196 §D.1 (destrave material, 2026-08-06).
+      // "Exclusividade de `user` = o próprio actor" é o V1 da 0146 (`provider_actor_id` é o RECURSO).
+      // Um corpo, uma agenda: o MESMO advisory lock e o MESMO conjunto bloqueante da oferta, com o
+      // rollup agora atravessando as duas superfícies (ver a query em repository.ts).
+      // ⚠️ Este ramo SÓ pôde nascer depois de generalizar o rollup — enquanto a query era escopada a
+      // `service_offering`, ele confirmaria sem achar conflito nenhum, que é pior que o 501.
+      // `page` NÃO entra aqui: a R1 de Clayton diz que a empresa AGREGA, não é recurso — cai no STOP.
+      if (availability.ownerType === AvailabilityOwnerType.USER) {
+        // Autoridade derivada server-side pela policy do owner (nunca o ownerId cru) — para `user`
+        // a policy resolve o próprio actor, e valida que ele existe com o TIPO declarado.
+        const owner = await resolveAvailabilityOwner(tenantId, AvailabilityOwnerType.USER, availability.ownerId);
+        const startIso = new Date(availability.startDatetime).toISOString();
+        const endIso = new Date(availability.endDatetime).toISOString();
+        return await unifiedAvailabilityRepository.confirmBookingWithProviderLock(
+          tenantId, bookingId, owner.authorityActorId, startIso, endIso
+        );
+      }
+
       // 🔴 STOP_DECISION_REQUIRED (DECISION-0146 §B-bis G10) — o TERCEIRO RAMO.
       // Chegar aqui = owner_type fora de {service_offering, actor_asset}. Hoje isso inclui `user` e
       // `page`, que NÃO são casos de borda: `PUT /availability/weekly-template` aceita os dois e tem
