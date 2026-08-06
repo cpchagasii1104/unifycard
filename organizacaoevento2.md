@@ -109,18 +109,35 @@ seguidas**, a segunda porque meu comentário explicando a palavra **continha** a
 
 ## §4 · O QUE FALTA — e o que cada coisa espera
 
-### 🔴 PRÓXIMA, por decisão de Clayton: `DT-COMMITMENT-LAYER-HAS-NO-DB-CONSTRAINT`
+### ✅ `DT-COMMITMENT-LAYER-HAS-NO-DB-CONSTRAINT` — **FECHADA em 2026-08-06** (GATE + GO Clayton)
 
-*"A mais importante das quatro"* (Clayton, 2026-08-06). A `0146 §A.7` faz **duas** coisas: proíbe
-constraint forte na DECLARAÇÃO **e prescreve** que ela more no COMPROMISSO. Tirei da camada
-proibida e **não pus na prescrita**: `bookings` não tem **nenhuma** constraint de exclusividade
-(medido: só FKs, PK e 2 CHECKs).
-⚠️ Hoje a exclusividade repousa **inteiramente no advisory lock de aplicação** — *o tipo de garantia
-que **parece** existir*. **Fatia própria, com GATE e GO.**
+Migration `20260806220000`: `bookings_commitment_no_overlap` (EXCLUDE gist) +
+`chk_bookings_blocking_requires_interval`. Guard `audit-commitment-layer-db-constraint` no runner
+(**vermelho forçado 6×**) · harness `npm run validate:commitment-layer-db-constraint` (16/16, efêmera).
+**Alcance medido: 59 janelas confirmáveis sob a trava de banco · 3 de equipment fungível fora.**
+Detalhe completo — inclusive **os dois furos de desenho que Clayton derrubou antes da migration** —
+no topo do `REMEDIATION_DT_LOG.md`.
 
-### F2 — o aceite atômico · ⛔ EXIGE GATE PRÓPRIO (`0196 §I.1`)
+**O que nasceu dela, com gatilho por QUERY:**
+
+| resíduo | gatilho contável |
+|---|---|
+| `DT-FUNGIBLE-CAPACITY-HAS-NO-DB-GUARANTEE` | `SELECT count(*) FROM actor_asset_rental_terms WHERE resource_type='equipment' AND quantity > 1` — hoje **3**. `EXCLUDE` não sabe CONTAR; esses 3 seguem só no advisory lock |
+| `DT-DECLARATION-DRIFTS-FROM-COMMITMENT` | `SELECT count(*) FROM bookings b JOIN availability a USING (availability_id) WHERE b.status IN ('confirmed','checked_in','checked_out') AND (a.start_datetime <> b.booked_start_datetime OR a.end_datetime <> b.booked_end_datetime)` |
+
+⚠️ **NÃO reabra a "Forma 2" (trigger de bloqueio em `bookings`)** achando que ninguém pensou nela:
+foi avaliada, cobriria também o fungível, e foi **REJEITADA** por duplicar a regra em duas linguagens.
+Motivo registrado no cartório.
+
+### 🔴 PRÓXIMA: **F2 — o aceite atômico** (⛔ GATE próprio antes, `0196 §I.1`)
 
 *"Duas mãos no mesmo lock na mesma semana sem mapa é como nascem as corridas."*
+
+📌 **A fatia de 06/08 mudou o terreno da F2, e para melhor:** o aceite atômico deixa de depender de o
+chamador lembrar de pegar o lock — a `EXCLUDE` é verificada pelo banco dentro da mesma transação, e
+um 2º confirm concorrente **espera e falha**, em vez de passar. O refactor de client externo continua
+necessário (o confirm precisa enxergar a availability não-commitada), mas a rede de segurança já está
+no lugar.
 
 O que ela precisa carregar:
 1. **Refatorar** `repository.create` e os dois `confirm*` para aceitar **client externo** — hoje
@@ -161,7 +178,9 @@ o `QuoteRequestDialog` sobrevive **renomeado para "Reservar horário"**.
 | `DT-RFQ-JSONB-QUOTE-TRAIL-SUPERSEDED` | `grep FEATURE_RFQ_ENABLED` = 0 e rotas removidas — ao **fim da F4** |
 | `DT-DEMAND-AGENDA-MIRROR-…` | `SELECT` contável: booking aceito de demanda aparece na agenda unificada do provider |
 | `DT-AVAILABILITY-OVERLAP-ALERT-MISSING` | selo da F2. Hoje `findOverlapping` **dormente está certo** — é a semente do alerta, **não limpe** |
-| `DT-DB-GUARANTEE-SWEEP-INCOMPLETE` | antes da **próxima migração de substrato** (triggers/FKs/índices parciais não varridos: **`?`, não `0`**) |
+| `DT-DB-GUARANTEE-SWEEP-INCOMPLETE` | antes da **próxima migração de substrato** (triggers/FKs/índices parciais não varridos: **`?`, não `0`**). ⚠️ **Parcialmente pago em 06/08 para `bookings`+`availability`**: constraints (sem filtro de `contype`), índices, triggers (com `tgisinternal`) e rules foram varridos e estão no cartório. O resto do banco segue **`?`** |
+| `DT-FUNGIBLE-CAPACITY-HAS-NO-DB-GUARANTEE` | `SELECT count(*) FROM actor_asset_rental_terms WHERE resource_type='equipment' AND quantity > 1` (hoje **3**) |
+| `DT-DECLARATION-DRIFTS-FROM-COMMITMENT` | janela editada depois do confirm passa a divergir do intervalo comprometido — query no cartório |
 
 ---
 

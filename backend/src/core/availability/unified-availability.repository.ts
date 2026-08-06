@@ -10,6 +10,17 @@
 // confirmBookingWithResourceLock — DT-SERVICE-BOOKING-CONFIRM-BYPASSES-LOCK, CLOSED); (2) o aviso de
 // conflito PESSOAL (owner_type='user') é `detect_availability_conflicts()`, materializada em
 // 20260702140000, não-bloqueante — a decisão cabe sempre ao usuário.
+//
+// 🔴 ATUALIZAÇÃO 2026-08-06 — DT-COMMITMENT-LAYER-HAS-NO-DB-CONSTRAINT (GATE + GO Clayton).
+// Agora são DUAS garantias sobre o COMPROMISSO, com coberturas DIFERENTES — e a diferença importa:
+//   (a) EXCLUDE `bookings_commitment_no_overlap` (migration 20260806220000) — DECLARATIVA, no banco,
+//       vale contra QUALQUER escritor (psql, script, worker, migration). Cobre service_offering,
+//       user e actor_asset NÃO-fungível. NÃO cobre equipment fungível: EXCLUDE não sabe CONTAR.
+//   (b) advisory lock + `count(*) >= capacity` nestes dois confirms — cobre TUDO, inclusive o
+//       fungível, lendo a capacidade AO VIVO em actor_asset_rental_terms.quantity.
+// ⛔ NÃO remova (b) achando que (a) o substitui: os 3 ativos de equipment (quantity=10) ficariam SEM
+//    trava nenhuma, EM SILÊNCIO. EM VEZ: mantenha os dois; o guard audit-commitment-layer-db-constraint
+//    morde se qualquer um dos dois sumir.
 
 import { runQueryWithTenant, runQueriesWithTenant, getClientWithTenant } from '@core/database/pool';
 import type {
@@ -447,8 +458,8 @@ class UnifiedAvailabilityRepository {
             )
             AND b2.status IN ('confirmed','checked_in','checked_out')
             AND b2.booking_id <> $3
-            AND a2.start_datetime < $5
-            AND a2.end_datetime > $4
+            AND COALESCE(b2.booked_start_datetime, a2.start_datetime) < $5
+            AND COALESCE(b2.booked_end_datetime, a2.end_datetime) > $4
           LIMIT 1`,
         [tenantId, providerActorId, bookingId, startIso, endIso]
       );
@@ -456,11 +467,19 @@ class UnifiedAvailabilityRepository {
         throw new ConflictError('BOOKING_PROVIDER_TIME_CONFLICT: já existe compromisso confirmado do mesmo provider neste intervalo.');
       }
       // G4 (transição p/ status comprometido) + G_atomicidade: checagem e gravação na MESMA transação.
+      // 🔴 DT-COMMITMENT-LAYER-HAS-NO-DB-CONSTRAINT (GO Clayton 2026-08-06) — o compromisso MATERIALIZA
+      // o que comprometeu: intervalo em booked_* (COALESCE preserva subperíodo já declarado) e recurso em
+      // commitment_resource_id. É o que a EXCLUDE `bookings_commitment_no_overlap` lê. Sem isto o CHECK
+      // chk_bookings_blocking_requires_interval recusa o confirm — de propósito: compromisso sem intervalo
+      // materializado viraria tstzrange ilimitado e travaria o recurso em TODA data.
       const upd = await client.query(
-        `UPDATE bookings SET status = 'confirmed', confirmed_at = now()
+        `UPDATE bookings SET status = 'confirmed', confirmed_at = now(),
+                booked_start_datetime = COALESCE(booked_start_datetime, $3::timestamptz),
+                booked_end_datetime   = COALESCE(booked_end_datetime,   $4::timestamptz),
+                commitment_resource_id = $5::uuid
           WHERE tenant_id = $1 AND booking_id = $2 AND status = 'requested'
           RETURNING *`,
-        [tenantId, bookingId]
+        [tenantId, bookingId, startIso, endIso, providerActorId]
       );
       if (upd.rows.length === 0) {
         throw new ConflictError('BOOKING_CONFIRM_INVALID_STATE: booking não está em estado requested.');
@@ -499,8 +518,18 @@ class UnifiedAvailabilityRepository {
       // fungível permite até `quantity` reservas sobrepostas; veículo/imóvel/espaço = 1).
       // F-ASSET-MULTI-OFFER-FOUNDATION 2b-4: quantidade vem da CAMADA de locação (actor_asset_rental_terms
       // por asset_id); disponibilidade pertence ao ITEM (owner_type='actor_asset'). RLS filtra tenant.
-      const qRow = await client.query(`SELECT quantity FROM actor_asset_rental_terms WHERE asset_id = $1`, [resourceId]);
+      const qRow = await client.query(
+        `SELECT quantity, resource_type FROM actor_asset_rental_terms WHERE asset_id = $1`,
+        [resourceId]
+      );
       const capacity = Math.max(1, Number(qRow.rows[0]?.quantity ?? 1));
+      // 🔴 DT-COMMITMENT-LAYER-HAS-NO-DB-CONSTRAINT — quem entra na EXCLUDE do banco e quem NÃO entra.
+      // A trava declarativa não sabe CONTAR: ela só sabe "nenhum par sobreposto". Equipamento é fungível
+      // (quantity até 10, `chk_aart_quantity_single_unless_equipment` autoriza) e por isso fica FORA dela,
+      // protegido apenas por este advisory lock + a contagem abaixo → DT-FUNGIBLE-CAPACITY-HAS-NO-DB-GUARANTEE.
+      // Não-equipment entra: ali quantity=1 é provado por CHECK VIVO sobre `resource_type`, coluna que
+      // nenhum writer atualiza — exclusividade ESTRUTURAL, não snapshot de termo mutável.
+      const isFungible = String(qRow.rows[0]?.resource_type ?? '') === 'equipment';
       const overlap = await client.query(
         `SELECT count(*)::int AS n
            FROM bookings b2
@@ -517,11 +546,17 @@ class UnifiedAvailabilityRepository {
       if (Number(overlap.rows[0]?.n ?? 0) >= capacity) {
         throw new ConflictError('RENTAL_RESOURCE_TIME_CONFLICT: não há unidade livre deste recurso neste intervalo (DECISION-0151).');
       }
+      // 🔴 DT-COMMITMENT-LAYER-HAS-NO-DB-CONSTRAINT — materializa o intervalo comprometido SEMPRE
+      // (o CHECK chk_bookings_blocking_requires_interval exige) e o recurso APENAS quando a
+      // exclusividade é estrutural. Fungível → NULL: fica fora da EXCLUDE, dentro do lock.
       const upd = await client.query(
-        `UPDATE bookings SET status = 'confirmed', confirmed_at = now()
+        `UPDATE bookings SET status = 'confirmed', confirmed_at = now(),
+                booked_start_datetime = COALESCE(booked_start_datetime, $3::timestamptz),
+                booked_end_datetime   = COALESCE(booked_end_datetime,   $4::timestamptz),
+                commitment_resource_id = $5::uuid
           WHERE tenant_id = $1 AND booking_id = $2 AND status = 'requested'
           RETURNING *`,
-        [tenantId, bookingId]
+        [tenantId, bookingId, startIso, endIso, isFungible ? null : resourceId]
       );
       if (upd.rows.length === 0) {
         throw new ConflictError('BOOKING_CONFIRM_INVALID_STATE: booking não está em estado requested.');

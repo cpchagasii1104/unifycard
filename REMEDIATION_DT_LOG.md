@@ -1,5 +1,168 @@
 # REMEDIATION DT LOG
 
+## 🔒 `DT-COMMITMENT-LAYER-HAS-NO-DB-CONSTRAINT` — FECHADA (2026-08-06 · GATE + GO Clayton)
+
+A metade **PRESCRITA** da `DECISION-0146 §A.7`. A `§A.7` faz duas coisas: **proíbe** constraint forte
+na DECLARAÇÃO e **prescreve** que ela more no COMPROMISSO. A migration `20260806010000` cumpriu a
+proibição; esta cumpre a prescrição. Migration `20260806220000` · tsc backend 0 · tsc frontend 0 ·
+Δbank = 0 · canários intactos (75 bairros · 48 policies · 3 grants · 16 `bank_ledger` · 0
+`bank_splits`) · migrations 573 → 574.
+
+> ⚠️ **ERRATA DE UMA LINHA MINHA, NESTE MESMO PARÁGRAFO.** Eu escrevi *"runner 261 COMMANDS OK"*
+> **antes de rodar** — a armadilha nº4 do handoff, a mesma da minha antecessora, cometida enquanto eu
+> a citava. Fui rodar e **estava VERMELHO, duas vezes seguidas** (ver abaixo). O número final está no
+> fim desta entrada, medido.
+
+### O negativo, medido com filtro MAIS LARGO que a afirmação
+
+```sql
+SELECT conname, contype FROM pg_constraint WHERE conrelid='bookings'::regclass;  -- sem filtro de contype
+SELECT indexname FROM pg_indexes  WHERE tablename='bookings';
+SELECT tgname, tgisinternal FROM pg_trigger WHERE tgrelid='bookings'::regclass;
+SELECT rulename FROM pg_rules WHERE tablename='bookings';
+```
+2 CHECK · 2 FK · 1 PK · **zero `u` · zero `x`** · 3 índices **nenhum único** · 6 triggers **todos
+`tgisinternal='t'`** (internos de FK) · 0 rules. A distinção `tgisinternal` importou: *"6 triggers"*
+cru teria virado achado falso.
+
+### 🔴 OS DOIS FUROS DO MEU PRÓPRIO DESENHO — apontados por Clayton no GO, e os dois procediam
+
+**FURO 1 — `commitment_is_exclusive` apareceu na cláusula `WHERE` e não no custo.** Ele só poderia
+sair de `actor_asset_rental_terms.quantity`, e a medição mostrou que isso seria snapshot de coisa
+**viva**:
+```
+routes:79/546 (PUT /rentable-resources/:id aceita quantity) → service:781-787 (só valida
+vehicle/property/space=1) → repository:406 `quantity = COALESCE($5::int, quantity)`
+```
+E o app lê a capacidade **AO VIVO** no confirm (`repository.ts:502`) — **nunca de snapshot**. Gravar
+snapshot criaria uma segunda semântica que **não existe em lugar nenhum hoje**.
+✅ **Resolvido REMOVENDO A NECESSIDADE, não declarando o snapshot.** `commitment_resource_id` só
+recebe valor onde a exclusividade é **ESTRUTURAL**: `service_offering`→provider (a query de conflito
+nem tem noção de capacidade — é `LIMIT 1`) · `user`→o próprio actor · `actor_asset` **não-equipment**
+(ali `quantity=1` é provado por CHECK **vivo** sobre `resource_type`, coluna que **nenhum writer
+atualiza** — conferido: aparece em INSERT e SELECT, em nenhum `UPDATE … SET`). Equipment fungível
+recebe **NULL** e fica fora da trava, por decisão nomeada.
+
+**FURO 2 — `commitment_range` seria a TERCEIRA representação temporal na MESMA linha** (janela por
+JOIN + `booked_*` + range). *Duas verdades dentro da linha é pior que entre tabelas: ninguém
+desconfia.*
+✅ **Zero coluna temporal nova.** A `EXCLUDE` usa `tstzrange(booked_start_datetime,
+booked_end_datetime, '[)')` — colunas que **já existiam** — e o confirm passa a materializá-las
+**sempre**. Efeito colateral que valeu por si só: **a assimetria do GATE morreu.** O ramo provider
+comparava a janela macro (`a2.start_datetime`), o ramo recurso comparava o subperíodo; agora os dois
+comparam o **intervalo COMPROMETIDO**. Uma regra só.
+
+### 🧪 O VENENO DO INTERVALO NULO — achado num probe, não numa suposição
+
+```sql
+SELECT tstzrange(NULL::timestamptz, NULL::timestamptz, '[)');   -- (,)   e NÃO é NULL
+```
+`tstzrange(NULL,NULL,'[)')` é o range **ILIMITADO**: sobrepõe TUDO. Uma única linha bloqueante sem
+intervalo travaria o recurso **em qualquer data, para sempre** — a trava nova negando **quem pode**,
+que é a falha que não grita. Por isso `chk_bookings_blocking_requires_interval` torna a combinação
+**impossível** (grita) em vez de excluí-la do predicado (calaria). Linhas afetadas hoje: **0**.
+📌 O mesmo probe provou que `commitment_resource_id` **NULL mantém a linha fora** da EXCLUDE sem
+predicado extra — é o que sustenta a saída do FURO 1.
+
+### O que ficou de fora, com número escrito
+
+🟡 **`DT-FUNGIBLE-CAPACITY-HAS-NO-DB-GUARANTEE`** (nome dado por Clayton). `EXCLUDE` **não sabe
+CONTAR**: ela só sabe *"nenhum par sobreposto"*. Equipamento é fungível (`quantity=10`, autorizado
+por `chk_aart_quantity_single_unless_equipment`) e fica com o advisory lock + `count >= capacity`.
+**Alcance medido pelo próprio guard: 59 janelas confirmáveis sob a trava de banco · 3 de equipment
+fora dela.** Gatilho **por query**, não por marco:
+```sql
+-- fecha quando isto for > 0 (um substrato de unidade/capacidade nomeado passa a existir)
+SELECT count(*) FROM actor_asset_rental_terms WHERE resource_type='equipment' AND quantity > 1;
+-- hoje: 3. Enquanto for 3 e não houver entidade de unidade, a dívida está CONTIDA, não paga.
+```
+⛔ **Forma 2 (trigger de bloqueio em `bookings`) foi REJEITADA, e fica registrada como rejeitada**
+para ninguém reabrir daqui a três meses achando que ninguém pensou nela. Ela cobriria 100% dos ramos,
+inclusive o fungível, e `G1` proíbe trigger-de-bloqueio em **`availability`**, não em `bookings` —
+mas duplicaria a regra em **duas linguagens** (a menos de refatorar o app para só capturar o erro do
+trigger, o que é mexer no caminho que vira dinheiro e colide com o `§I.1` da 0196).
+
+### O obstáculo ④ — Clayton duvidou do meu *"resolve de brinde"*, e tinha razão pela metade
+
+Eu havia afirmado que a Forma 1 resolveria ④ (editar a janela depois do compromisso) **de brinde**.
+Medido no harness (prova `D`):
+- ✅ **A metade DOUBLE-BOOKING dissolveu** — mas **não de brinde**: só porque a fatia também alinhou a
+  query do ramo provider ao intervalo comprometido. Sem isso, app e banco passariam a medir coisas
+  diferentes, exatamente como ele previu.
+- 🔴 **A metade VERDADE permanece:** a janela pode ser editada e passar a dizer algo diferente do que
+  o booking comprometeu, **sem erro e sem aviso**. → **`DT-DECLARATION-DRIFTS-FROM-COMMITMENT`**,
+  fatia própria. Gatilho por query:
+  ```sql
+  SELECT count(*) FROM bookings b JOIN availability a USING (availability_id)
+   WHERE b.status IN ('confirmed','checked_in','checked_out')
+     AND (a.start_datetime <> b.booked_start_datetime OR a.end_datetime <> b.booked_end_datetime);
+  ```
+
+### A família de 4 comentários que mentiam há 46 dias
+
+`grep "BLINDAGEM: Trigger previne sobreposição de horários por owner"` → **4 sítios**
+(`unified-availability.service.ts:64,134` · `unified-availability.routes.ts:188,487`). **Esse trigger
+nunca existiu** — a própria `0146 §0` já o havia desmascarado em **2026-06-21**
+(*"trigger de overlap é fantasma: comentários afirmam, nenhuma migration cria"*), e o
+`repository.ts:92,256` **já dizia a verdade**. A mentira morava na camada de cima e sobreviveu 46
+dias. Corrigidos com `EM VEZ` nomeado, na fatia que é **literalmente sobre garantia que parece
+existir**.
+
+### As provas — e as SEIS vermelhas
+
+Harness `npm run validate:commitment-layer-db-constraint` (DB **efêmera**, criada e destruída;
+`EXPECTED_DATABASE_NAME`), **16/16**:
+- **(N) morde onde o lock não alcança:** escrita **CRUA** sobreposta → `23P01` /
+  `bookings_commitment_no_overlap` · compromisso sem intervalo → `chk_bookings_blocking_requires_interval`.
+- **(P) LIBERA quem pode** — *a asserção que quase não se escreve*: back-to-back (`G8`) · outro
+  recurso · outro tenant · status não-bloqueante · recurso NULO · `confirmed→checked_in→checked_out`
+  (a linha não conflita consigo mesma) · cancelar libera o intervalo.
+- **(F) o fungível segue fungível, pelo caminho REAL:** equipment `quantity=10` confirma **as duas**
+  sobrepostas e as duas ficam com `commitment_resource_id IS NULL`; `vehicle` recusa a 2ª **pelo erro
+  NOMEADO do app** (`RENTAL_RESOURCE_TIME_CONFLICT`) — *a trava de banco é backstop, não a UX*.
+- **(A)/(D)** materialização e o obstáculo ④, acima.
+
+🔴 **Guard `audit-commitment-layer-db-constraint` (no runner no MESMO commit) — vermelho FORÇADO 6×:**
+① advisory lock removido · ② `count >= capacity` removido · ③ ramo voltando à janela macro ·
+④ `resource_type` virando atualizável (a premissa do desenho) · ⑤ constraint **dropada do banco**
+(restaurada e conferida byte a byte: `def ANTES == def DEPOIS`) · ⑥ banco indisponível.
+⚠️ **A 1ª tentativa de ⑤/① passou VERDE — e o defeito era MEU:** o `-replace` não casou e a prova
+vermelha **não alterou nada**. Refeita com **verificação da mutação** (`3 → 1` advisory locks) antes
+de rodar o guard. *Prova vermelha que não altera nada passa com cara de sucesso* — pela terceira vez
+esta armadilha aparece neste cartório, e desta vez peguei porque o número não bateu.
+
+📌 **O guard morde nas DUAS pontas de propósito.** Depois desta fatia existem duas garantias com
+coberturas **diferentes**, e a leitura errada óbvia é *"agora o banco garante, posso simplificar o
+lock"* — o que deixaria os 3 ativos fungíveis **sem trava nenhuma, em silêncio**.
+
+### 🔴 O RUNNER MORDEU DUAS VEZES — e nas duas o guard estava REPROVANDO O CONSERTO
+
+Nenhuma baseline foi afrouxada; nos dois casos o guard passou a provar **substância** onde provava
+**texto**, e ficou **mais estrito**, não menos.
+
+**① `audit-booking-provider-conflict`** exigia o TEXTO `a2.start_datetime < $5` — isto é, *"compare a
+JANELA MACRO"*. O conserto fez os dois ramos compararem o **intervalo COMPROMETIDO**. A regra que a
+`G8` escreve é *"sobreposição é meio-aberta `[start,end)`"*, **não** *"leia a coluna X"*. A linha
+agora exige o meio-aberto sobre `COALESCE(booked_*, janela)` **e rejeita explicitamente o fechado**
+(`BETWEEN`/`<=`/`>=`) — vermelho forçado nas duas cláusulas.
+
+**② `audit-rental-resource-substrate`** fatiava o método por **constante mágica** (`+ 2200` chars). O
+método cresceu e as asserções caíram fora da janela. O comentário dele já registrava que **em
+2026-07-08 esse número tinha sido ampliado pelo mesmo motivo** — *corrigir o número seria adiar a
+terceira vez.* Passou a fatiar pela **fronteira real** (o próximo `async ` do arquivo), então o guard
+segue o código em vez de ser recalibrado a cada crescimento. Vermelho forçado com mutação verificada.
+
+📌 **A lição não é sobre estes dois guards.** É que **guard que prova TEXTO reprova o conserto**, e
+foi a terceira vez que este repositório paga por isso (a 1ª está registrada no cabeçalho de
+`audit-rental-hardening-constraints`, cuja v1 *"não estava desatualizada — estava reprovando o
+conserto"*). Sempre que um guard morder um conserto legítimo, a pergunta é *"ele prova a REGRA ou a
+GRAFIA?"* — e a resposta quase sempre pede reescrever a asserção, nunca relaxar o teto.
+
+**Runner completo, medido ao fim (3ª rodada, depois dos dois consertos):**
+`✅ validate:regression-guards — 261 COMMANDS OK` (era 260; +1 = `audit-commitment-layer-db-constraint`,
+que entrou no runner **no mesmo commit**). `guard-coverage-manifest` verde: **335 continuous guards +
+2 agregadores = 337 alcançados**, zero drift.
+
 ## 🔀 SUCESSÃO DO PLANO — `organizacaoevento.md` → `organizacaoevento2.md` (2026-08-06)
 
 Pedido de Clayton **antes da compactação de contexto**: *"crie o `organizacaoevento2.md` somente com

@@ -318,7 +318,7 @@ agenda que a pessoa já tem**, e o aviso entra na **espinha do outbox** quando o
 |---|---|---|
 | `DT-RFQ-JSONB-QUOTE-TRAIL-SUPERSEDED` | esta frente | **`grep FEATURE_RFQ_ENABLED` = 0 ocorrências e rotas removidas**, ancorado ao **fim da F4** |
 | `DT-DEMAND-AGENDA-MIRROR-PHASE2-WITHOUT-DEADLINE` | esta frente | **`SELECT` contável:** *booking aceito de demanda aparece na leitura da agenda unificada do provider*. **Marco virou query** — a objeção de que *"entrega da F2"* não era verificável morre aqui |
-| 🔴 `DT-COMMITMENT-LAYER-HAS-NO-DB-CONSTRAINT` | **fatia própria, PRÓXIMA** | é **a metade prescrita da `§A.7`** que ficou por fazer quando a `EXCLUDE` saiu da camada proibida. *Exclusividade de dinheiro apoiada só em lock de aplicação é o tipo de garantia que **parece** existir.* **A mais importante das quatro** |
+| ✅ `DT-COMMITMENT-LAYER-HAS-NO-DB-CONSTRAINT` | **PAGA 2026-08-06** (GATE + GO Clayton) | migration `20260806220000` — `bookings_commitment_no_overlap` (EXCLUDE gist sobre `tenant_id` + recurso + `tstzrange(booked_*,'[)')`, parcial pelos 3 status bloqueantes) + `chk_bookings_blocking_requires_interval`. **Sem coluna temporal nova** e **sem snapshot de termo mutável** (os dois furos que Clayton derrubou no GO). Nasceram dela: `DT-FUNGIBLE-CAPACITY-HAS-NO-DB-GUARANTEE` e `DT-DECLARATION-DRIFTS-FROM-COMMITMENT`, ambas com gatilho por query no cartório |
 | `DT-AVAILABILITY-OVERLAP-ALERT-MISSING` | esta frente | ancorado ao **selo da F2** — o alerta do `ART. II` fica relevante quando compromissos fluem. Hoje, com zero usuários reais, é **semente**: `findOverlapping` dormente **está certo como está** |
 
 ## §K — AS DUAS CONVERGÊNCIAS BARATAS (executadas em 2026-08-06)

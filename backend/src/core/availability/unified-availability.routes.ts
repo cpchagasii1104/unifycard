@@ -185,7 +185,9 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
    * POST /availability
    * Criar nova disponibilidade
    * 🔴 BLINDAGEM: ownerType e ownerId são OBRIGATÓRIOS
-   * 🔴 BLINDAGEM: Trigger previne sobreposição de horários por owner
+   * ⛔ NÃO existe trigger de sobreposição em `availability` (medido no catálogo 2026-08-06: 6 triggers,
+   *    todos `tgisinternal='t'` de FK). DECISION-0146 §A.7/G1 PROÍBE hard-block na DECLARAÇÃO.
+   * ✅ EM VEZ: a trava forte é do COMPROMISSO — EXCLUDE `bookings_commitment_no_overlap` + advisory lock.
    */
   fastify.post<{
     Body: z.infer<typeof createAvailabilitySchema>;
@@ -484,7 +486,9 @@ const unifiedAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
   /**
    * PUT /availability/:id
    * Atualizar disponibilidade
-   * 🔴 BLINDAGEM: Trigger previne sobreposição de horários por owner
+   * ⛔ NÃO existe trigger de sobreposição em `availability` (medido no catálogo 2026-08-06: 6 triggers,
+   *    todos `tgisinternal='t'` de FK). DECISION-0146 §A.7/G1 PROÍBE hard-block na DECLARAÇÃO.
+   * ✅ EM VEZ: a trava forte é do COMPROMISSO — EXCLUDE `bookings_commitment_no_overlap` + advisory lock.
    */
   fastify.put<{
     Params: { id: string };

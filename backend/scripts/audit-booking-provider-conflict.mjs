@@ -59,7 +59,21 @@ else {
   }
   if (!/LEFT JOIN service_offerings so2/.test(repo)) failures.push(`${REPO}: o JOIN com service_offerings precisa ser LEFT — com INNER, a linha de owner_type='user' (que não tem oferta) é DESCARTADA e o rollup volta a cegar a agenda pessoal.`);
   if (!/b2\.booking_id <> \$3/.test(repo)) failures.push(`${REPO}: self booking não excluído da busca de conflito (falso-positivo na reconfirmação).`);
-  if (!/a2\.start_datetime < \$5/.test(repo) || !/a2\.end_datetime > \$4/.test(repo)) failures.push(`${REPO}: overlap não é meio-aberto [start,end) (G8; back-to-back deve NÃO conflitar).`);
+  // 🔴 ATUALIZADO 2026-08-06 (DT-COMMITMENT-LAYER-HAS-NO-DB-CONSTRAINT) — e a v1 desta linha estava
+  // REPROVANDO O PRÓPRIO CONSERTO, mesma doença que a v1 de audit-rental-hardening-constraints teve.
+  // Ela exigia o TEXTO `a2.start_datetime < $5`, isto é, comparar a JANELA MACRO. O conserto fez os
+  // dois ramos compararem o intervalo COMPROMETIDO (COALESCE(booked_*, janela)) — porque editar a
+  // declaração depois do confirm movia o que o guard media, e app e banco passavam a medir coisas
+  // diferentes. A regra que a G8 escreve é *"sobreposição é meio-aberta [start,end)"*, não *"leia a
+  // coluna X"*. Esta versão prova a SUBSTÂNCIA e é MAIS ESTRITA: exige o meio-aberto sobre o
+  // intervalo comprometido E rejeita explicitamente o fechado (BETWEEN / <= / >=).
+  if (!/COALESCE\(b2\.booked_start_datetime, a2\.start_datetime\)\s*<\s*\$5/.test(repo) ||
+      !/COALESCE\(b2\.booked_end_datetime, a2\.end_datetime\)\s*>\s*\$4/.test(repo)) {
+    failures.push(`${REPO}: overlap não é meio-aberto [start,end) sobre o intervalo COMPROMETIDO (G8 + DT-COMMITMENT-LAYER). Voltar à janela macro (a2.start_datetime cru) reabre double-booking quando a declaração é editada depois do confirm.`);
+  }
+  if (/COALESCE\(b2\.booked_(start|end)_datetime[^\n]*(BETWEEN|<=|>=)/.test(repo)) {
+    failures.push(`${REPO}: o overlap virou intervalo FECHADO (BETWEEN/<=/>=) — back-to-back (fim == início) passaria a conflitar, contra a G8.`);
+  }
   if (!/JOIN service_offerings so2/.test(repo)) failures.push(`${REPO}: cadeia booking→availability→service_offerings ausente (derivação do provider).`);
   if (!/UPDATE bookings SET status = 'confirmed'/.test(repo)) failures.push(`${REPO}: o guard não grava o confirm na MESMA transação (atomicidade).`);
   // escopo: SÓ o método novo (entre confirmBookingWithProviderLock e o método seguinte) não pode depender do stub.

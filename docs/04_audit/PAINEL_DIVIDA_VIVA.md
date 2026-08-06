@@ -435,9 +435,9 @@ vocabulário** de `identities.kyc_level`) · `audit-schema-coherence-ratchet` mo
 
 **🟡 NOMEADAS, não construídas de carona:** `DT-AVAILABILITY-OVERLAP-ALERT-MISSING` (o resíduo
 read-model do Art. II — `findOverlapping` fica **DORMENTE de propósito**, é a semente do alerta) ·
-`DT-COMMITMENT-LAYER-HAS-NO-DB-CONSTRAINT` (a exclusividade agora repousa só no advisory lock) ·
-`DT-DB-GUARANTEE-SWEEP-INCOMPLETE` (**com dono e gatilho** — roda antes da próxima migração de
-substrato).
+~~`DT-COMMITMENT-LAYER-HAS-NO-DB-CONSTRAINT`~~ **✅ PAGA em 2026-08-06** (migration `20260806220000`;
+ver abaixo) · `DT-DB-GUARANTEE-SWEEP-INCOMPLETE` (**com dono e gatilho** — roda antes da próxima
+migração de substrato).
 
 > ### 🧭 REGRA NOVA E GENERALIZÁVEL — **"o `WHERE` prende um ESTADO ou um NOME?"**
 > *"Esta garantia alcança o vivo?"* **não basta.** O banco tem **2 `EXCLUDE`** e **as duas alcançam
@@ -807,8 +807,25 @@ esse `owner_type` a sua trava, como `service_offering`→provider e `actor_asset
 ⚠️ Alcance maior do que parece: `PUT /availability/weekly-template` aceita `{user, page}` com
 **`user` como DEFAULT** — é a agenda pessoal do perfil (frente selada `DECISION-0072 B1`).
 
-🆕 🔴 **`DT-COMMITMENT-LAYER-HAS-NO-DB-CONSTRAINT`** (2026-08-06) — **a §A.7 está cumprida pela
-METADE, e é a metade fácil que foi feita.** A `DECISION-0146 §A.7` faz duas coisas: **proíbe**
+> ### ✅ `DT-COMMITMENT-LAYER-HAS-NO-DB-CONSTRAINT` — **PAGA em 2026-08-06** (GATE + GO Clayton)
+> Migration `20260806220000`: `bookings_commitment_no_overlap` (EXCLUDE gist: `tenant_id` + recurso +
+> `tstzrange(booked_*,'[)')`, parcial pelos 3 status bloqueantes) + `chk_bookings_blocking_requires_interval`.
+> **Zero coluna temporal nova** — a trava reusa `booked_start/end`, que o confirm passou a materializar
+> sempre; **zero snapshot de termo mutável** — `commitment_resource_id` só recebe valor onde a
+> exclusividade é ESTRUTURAL. Guard `audit-commitment-layer-db-constraint` no runner, **vermelho
+> forçado 6×**. Harness `validate:commitment-layer-db-constraint` 16/16 em efêmera.
+> **Alcance medido pelo guard: 59 janelas confirmáveis sob a trava · 3 de equipment fungível fora.**
+> 🟡 **O que sobrou, com nome e query:** `DT-FUNGIBLE-CAPACITY-HAS-NO-DB-GUARANTEE` (EXCLUDE não sabe
+> CONTAR; equipment `quantity=10` segue só no advisory lock) · `DT-DECLARATION-DRIFTS-FROM-COMMITMENT`
+> (editar a janela depois do confirm **não** abre mais double-booking, mas passa a dizer algo diferente
+> do que o booking comprometeu, sem aviso).
+> ⛔ **Forma 2 (trigger de bloqueio em `bookings`) foi avaliada e REJEITADA** — cobriria também o
+> fungível, e `G1` só proíbe trigger em `availability`, mas duplicaria a regra em duas linguagens.
+> Registrada como rejeitada para não ser reaberta como "ninguém pensou nisso".
+
+~~🆕 🔴 **`DT-COMMITMENT-LAYER-HAS-NO-DB-CONSTRAINT`** (2026-08-06) — **a §A.7 está cumprida pela
+METADE, e é a metade fácil que foi feita.**~~ *(texto original preservado abaixo — o diagnóstico
+continua correto, o estado é que mudou)* A `DECISION-0146 §A.7` faz duas coisas: **proíbe**
 constraint forte na DECLARAÇÃO *e* **prescreve** que ela more no COMPROMISSO (*"se houver constraint
 forte, ela mira compromisso real de booking"*). A `F-RENTAL-EXCLUSIVITY-GUARANTEE` **tirou da camada
 proibida** (`availability_rental_no_overlap` dropada, migration `20260806010000`) e **não pôs na

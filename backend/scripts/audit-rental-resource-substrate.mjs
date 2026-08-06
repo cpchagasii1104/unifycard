@@ -56,9 +56,15 @@ if (!/ACTOR_ASSET[\s\S]{0,600}?confirmBookingWithResourceLock/.test(SVC)) {
 if (!/async confirmBookingWithResourceLock/.test(REPO)) {
   failures.push('repository sem confirmBookingWithResourceLock (lock de exclusividade por recurso).');
 } else {
-  // Janela ampliada 2026-07-08: o método cresceu (subperíodo + quantity/capacity) por razão legítima —
-  // conflito agora compara SUBPERÍODO (COALESCE booked_*, janela) e respeita quantity. Segurança intacta.
-  const block = REPO.slice(REPO.indexOf('async confirmBookingWithResourceLock'), REPO.indexOf('async confirmBookingWithResourceLock') + 2200);
+  // 🔴 JANELA POR FRONTEIRA REAL, não por constante mágica (2026-08-06).
+  // Histórico: em 2026-07-08 a janela foi "ampliada" de N para 2200 porque o método cresceu por razão
+  // legítima (subperíodo + quantity/capacity). Em 2026-08-06 ela estourou DE NOVO, pelo mesmo motivo
+  // (DT-COMMITMENT-LAYER: materialização de booked_* + commitment_resource_id) — e o guard reprovou o
+  // conserto, não o defeito. Corrigir o número seria adiar a terceira vez. A fronteira do método é o
+  // PRÓXIMO `async ` no arquivo; se ele não existir, o fim do arquivo. Assim o guard segue o código.
+  const _rlStart = REPO.indexOf('async confirmBookingWithResourceLock');
+  const _rlNext = REPO.indexOf('\n  async ', _rlStart + 1);
+  const block = REPO.slice(_rlStart, _rlNext > _rlStart ? _rlNext : REPO.length);
   if (!/owner_type\s*=\s*'actor_asset'/.test(block) || !/a2\.owner_id\s*=\s*\$2/.test(block)) {
     failures.push('confirmBookingWithResourceLock: conflito NÃO é por owner_id/asset (DECISION-0151 + F-ASSET 2b-4: conflito por asset_id, não provider).');
   }

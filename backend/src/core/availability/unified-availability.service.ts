@@ -61,7 +61,15 @@ class UnifiedAvailabilityService {
   /**
    * Cria uma nova disponibilidade
    * 🔴 BLINDAGEM: ownerType e ownerId são OBRIGATÓRIOS
-   * 🔴 BLINDAGEM: Trigger previne sobreposição de horários por owner
+   * ⛔ NÃO existe trigger de sobreposição em `availability` — e NÃO pode existir: DECISION-0146 §A.7/G1
+   *    PROÍBE hard-block na DECLARAÇÃO (Constituição ART. II: conflito é FATO→ALERTA→humano).
+   *    Este comentário afirmava o contrário desde antes de 2026-06-21, quando a própria 0146 §0 já o
+   *    desmascarou ("trigger de overlap é fantasma: comentários afirmam, nenhuma migration cria").
+   *    Corrigido em 2026-08-06 (DT-COMMITMENT-LAYER-HAS-NO-DB-CONSTRAINT) — medido:
+   *    `SELECT tgname, tgisinternal FROM pg_trigger WHERE tgrelid='availability'::regclass` devolve
+   *    6 linhas, TODAS `tgisinternal='t'` (triggers internos de FK). Nenhum de negócio.
+   * ✅ EM VEZ: a trava forte mora no COMPROMISSO — EXCLUDE `bookings_commitment_no_overlap` +
+   *    advisory lock no confirm (unified-availability.repository.ts).
    */
   async createAvailability(
     tenantId: string,
@@ -131,7 +139,15 @@ class UnifiedAvailabilityService {
 
   /**
    * Atualiza disponibilidade
-   * 🔴 BLINDAGEM: Trigger previne sobreposição de horários por owner
+   * ⛔ NÃO existe trigger de sobreposição em `availability` — e NÃO pode existir: DECISION-0146 §A.7/G1
+   *    PROÍBE hard-block na DECLARAÇÃO (Constituição ART. II: conflito é FATO→ALERTA→humano).
+   *    Este comentário afirmava o contrário desde antes de 2026-06-21, quando a própria 0146 §0 já o
+   *    desmascarou ("trigger de overlap é fantasma: comentários afirmam, nenhuma migration cria").
+   *    Corrigido em 2026-08-06 (DT-COMMITMENT-LAYER-HAS-NO-DB-CONSTRAINT) — medido:
+   *    `SELECT tgname, tgisinternal FROM pg_trigger WHERE tgrelid='availability'::regclass` devolve
+   *    6 linhas, TODAS `tgisinternal='t'` (triggers internos de FK). Nenhum de negócio.
+   * ✅ EM VEZ: a trava forte mora no COMPROMISSO — EXCLUDE `bookings_commitment_no_overlap` +
+   *    advisory lock no confirm (unified-availability.repository.ts).
    */
   async updateAvailability(
     tenantId: string,
