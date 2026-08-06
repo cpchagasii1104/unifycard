@@ -1,5 +1,65 @@
 # REMEDIATION DT LOG
 
+## 🚪 GATE DA F3 (`need_id` + dashboard) — FECHADO. **Os dois GATEs da frente estão prontos.**
+
+Read-only, 2026-08-06, `§2.3.2` (toca tabela). Nada escrito. **Aguarda o mesmo GO da F2.**
+
+### ✅ O que a `0196 §H` afirmou e a medição CONFIRMA
+
+```sql
+SELECT fulfillment_kind, count(*) FROM event_operational_needs GROUP BY 1;
+-- service 12 · rentable 2  ⇒ 14 needs vivas, o número da §H está certo
+SELECT count(*) FROM event_financial_execution;  -- 0 · colunas status/error_message/processed_at
+SELECT count(*) FROM information_schema.columns
+ WHERE table_name='service_demands' AND column_name='need_id';  -- 0 (não existe ainda)
+```
+`uq_event_op_needs_event_need UNIQUE (event_id, need_concept_id)` ⇒ a need é **única por
+(evento, conceito)**; `need_id` em `service_demands` é **N:1**, anulável, nada regride.
+
+**E registro o que está CERTO, para ninguém "consertar":**
+```sql
+SELECT table_name FROM information_schema.columns
+ WHERE (column_name LIKE '%cost%' OR column_name LIKE '%budget%' OR column_name LIKE '%orcamento%')
+   AND table_schema='public' GROUP BY 1;   -- ZERO linhas
+```
+**Não existe nenhuma tabela tentando ser "custo do evento".** A F3 não colide com nada — a `§H.2`
+(*o valor mora na RESPOSTA, a F3 agrega de baixo para cima*) chega num terreno limpo.
+
+### 🔴 O QUE O PLANO NÃO DIZ — a FK atravessa uma fronteira de isolamento
+
+```sql
+SELECT relname, relrowsecurity FROM pg_class
+ WHERE relname IN ('service_demands','event_operational_needs','events');
+-- service_demands          t   ← RLS LIGADO
+-- event_operational_needs  f   ← RLS DESLIGADO
+-- events                   f
+-- e event_operational_needs NÃO TEM COLUNA tenant_id (a query com tenant_id ERRA na cara)
+SELECT count(*) FROM tenants;  -- 2 (só 1 tem eventos: risco LATENTE, não vivo)
+```
+`service_demands.tenant_id` é **NOT NULL e sob RLS**; a need **não tem tenant** — ele mora um salto
+adiante, em `events.tenant_id`. Uma FK anulável simples **não impede** que uma demanda do tenant A
+aponte para uma need de evento do tenant B: seriam **duas respostas para "de quem é isto"**, que é
+exatamente o que a regra de Clayton proíbe.
+
+⚠️ **E a ausência de `tenant_id` NÃO é defeito da need** — é o padrão da casa:
+```sql
+-- tabelas com event_id e SEM tenant_id: 6
+event_category_facets · event_operational_needs · event_theme_links ·
+neighborhood_curation_events · neighborhood_succession_sources · neighborhood_succession_targets
+```
+**Não endurecer o padrão** (o roteador não endurece norma): a saída é a que a `0146 §A.6` já
+prescreve — *"onde FK condicional não couber, **guard/writer fail-closed**"*. Logo a F3 carrega:
+1. FK anulável `service_demands.need_id → event_operational_needs(id)`;
+2. **writer fail-closed** que recusa gravar `need_id` cujo `events.tenant_id ≠ demand.tenant_id`;
+3. **guard** que morde se o writer perder a checagem — porque o banco, aqui, não consegue sozinho.
+
+### A F3 tem DUAS metades com maturidade diferente
+
+| metade | pode ir com o GO? |
+|---|---|
+| **substrato** (`need_id` + writer fail-closed + guard) | ✅ sim, independe de tudo |
+| **dashboard** (agrega da resposta, de baixo para cima) | ⚠️ **agregaria ZERO**: `service_demand_responses` = 0 linhas. Fica **cego até a navegação**, mesma dependência da F2 |
+
 ## 🚪 GATE DA F2 (aceite atômico) — FECHADO, e as 3 "decisões" que eu ia pedir DISSOLVERAM
 
 Read-only, 2026-08-06, `0196 §I.1`. Nada escrito no código. **Aguarda só o GO.**

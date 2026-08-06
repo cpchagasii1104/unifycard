@@ -174,10 +174,27 @@ O que ela precisa carregar:
 events → event_operational_needs → service_demands → service_demand_responses
           (o QUE precisa)           (o PEDIDO)         (o PREÇO)
 ```
+✅ **GATE FECHADO em 2026-08-06** (read-only, `§2.3.2`) — mapa no topo do `REMEDIATION_DT_LOG.md`.
+Confirmado de 1ª mão: **14 needs vivas** (12 `service` + 2 `rentable`) · `need_id` **não existe**
+ainda · `event_financial_execution` = 0 linhas (a §H.3 está certa) · e **zero tabela** tentando ser
+"custo do evento" — a F3 chega em terreno limpo.
+
 Falta materializar **`service_demands.need_id`** (FK **anulável** para `event_operational_needs`;
 nulo = demanda avulsa, **nada regride**). O **valor não entra** em nenhuma das duas — a F3 agrega
 **da resposta**, de baixo para cima.
 ⚠️ `event_financial_execution` **não serve** e o nome engana (0 linhas; é rastreamento de execução).
+
+🔴 **O QUE O PLANO NÃO DIZIA — a FK atravessa fronteira de isolamento.** `service_demands` tem
+**RLS ligado** e `tenant_id NOT NULL`; `event_operational_needs` **não tem `tenant_id` e não tem
+RLS** (o tenant mora um salto adiante, em `events`). FK simples deixaria uma demanda do tenant A
+apontar para need de evento do tenant B — **duas respostas para "de quem é isto"**.
+⚠️ **Não endureça o padrão:** 6 tabelas `event_*` são assim de propósito. A saída é a que a
+`0146 §A.6` já prescreve — **writer fail-closed + guard**. A F3 carrega os três: FK anulável ·
+writer que recusa `need_id` de outro tenant · guard que morde se a checagem sumir.
+
+**Duas metades com maturidade diferente:** o **substrato** pode ir com o GO; o **dashboard**
+agregaria **ZERO** hoje (`service_demand_responses` = 0 linhas) — fica cego até a navegação, mesma
+dependência da F2.
 
 ### F4 — a tela · **encolheu** para "rotear e renomear" (`0196 §G`)
 
