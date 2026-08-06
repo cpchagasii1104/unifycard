@@ -1,5 +1,73 @@
 # REMEDIATION DT LOG
 
+## 📝 ERRATA NO `organizacaoevento.md` + o `catch` que afirmava vazio — e a F3 CAIU (2026-08-06, direção)
+
+Duas fatias curtas, sem decisão de ninguém. `runner 259 OK` · `tsc FE 0` · Δbank 0 · zero migration.
+**Eu tinha listado TRÊS itens como "executáveis agora". Medi o terceiro antes de tocá-lo, e ele não
+era.**
+
+### 🔴 A F3 ESTAVA TRAVADA, e fui eu quem a declarou livre
+
+No GATE eu escrevi que a F3 (*dashboard do organizador — 3 números por evento*) estava
+*"não bloqueada · read-model puro · zero tabela nova"*. **Repeti a premissa do plano sem verificá-la.**
+
+```sql
+SELECT column_name FROM information_schema.columns
+ WHERE table_name='service_demands' AND column_name ILIKE '%event%';   -- []   (só post_id)
+-- service_demand_responses: idem, []
+```
+🔴 **Nem a demanda nem a resposta sabem de evento nenhum.** Um read-model *"por `eventId`"* **não tem
+por onde agrupar**. Não é fatia de código: é **decisão** (por qual chave a demanda se liga ao evento,
+e onde o valor é registrado).
+
+**O que existe, medido:**
+· `bookings.metadata->>'eventId'` — jsonb, **2 de 5** bookings;
+· `event_operational_needs` — **14 linhas VIVAS**, `event_id` + `need_concept_id` +
+  `fulfillment_kind`, lida por `event-need-supplier-discovery.service.ts` (o mesmo serviço do
+  "Solicitar orçamento"). **É a única casa viva do elo evento↔fornecimento** — e liga por **CONCEPT**,
+  não por demanda. ⚠️ **Sem coluna de valor** (nenhum `_cents`).
+· `event_financial_execution` — **0 linhas**, colunas `status/error_message/processed_at`:
+  **rastreamento de execução, não custo.** Nome que engana; não serve.
+
+📌 **É o §9 do plano acontecendo comigo, pela quarta vez na sessão** — e de novo o mesmo formato:
+**li um adjetivo ("read-model puro") e não perguntei se o agrupador existia.** A régua
+`referência não é alcance` desceu sobre a minha própria lista de "executável agora". Registro no
+mesmo lugar em que cobrei dos outros.
+
+### ✅ ERRATA gravada no `organizacaoevento.md` — riscada, não apagada
+
+Nove correções no corpo, cada uma marcada ⛔, **preservando a afirmação original** (ela registra o
+que alguém acreditou; apagar perde a lição). Cabeçalho novo com o estado real de cada fatia.
+
+**A omissão mais cara, agora escrita no topo:** o plano **não cita a `DECISION-0164` uma única vez**
+— a decisão **SELADA** (re-selo YALA) que criou `service_demands`, cujo cartório fecha o módulo com
+*"reabertura só por frente nomeada, não patch solto"*. **O documento é, hoje, um patch solto.**
+
+As nove: 7 rotas (não 5) · `orcamento` é vocabulário governado desde 07/07 (não é novo) ·
+`live_presence` **tem** CHECK · a porta de saída já está no `ADENDO 3` · o ⑧ já está no `ADENDO 4`
+**com régua do público** · `D6a` já implementado e atômico · `D6b` é dependência bloqueada (fatia C,
+central de notificações inexistente) · *"cinco declarações sobrepostas"* era falso quando escrito e
+hoje é verdade **por outro motivo** · **a F3 travada**. Mais a §10 riscada onde já foi auditado, e
+uma §7-BIS com o que falta e o que cada decisão destrava.
+
+### ✅ `OpportunitiesPage` — falha de leitura deixou de virar "não há oportunidades"
+
+```ts
+- listOpportunities(onlyMatching).then(setOpps).catch(() => setOpps([]));
++ .then(d => { setOpps(d); setOppsErro(null); })
++ .catch(e => { setOpps([]); setOppsErro(<mensagem real>); });
+```
+Rede fora, 403, 500: **tudo virava lista vazia**, e a tela dizia *"Nenhuma oportunidade aberta no
+momento"* para um erro. Agora diz que quebrou, mostra o motivo e oferece **tentar de novo**; o vazio
+verdadeiro segue com a mensagem de vazio. Idem para *"Minhas demandas"*.
+📌 Família `DT-CULTURAL-FEED-ASSERTS-EMPTY-WHEN-BROKEN` (fechada em 05/08), **viva na tela que o
+próprio plano quer usar como superfície do orçamento**.
+
+### 📌 ESTADO
+
+`runner 259 OK` · `tsc FE 0` · Δbank 0. Restam **executáveis sem decisão: nenhum** — os três da
+lista viraram dois feitos e um travado. **F1/F2/F3/F4 dependem de Clayton** (§7-BIS do plano).
+
 ## 🪟 F-WINDOW-RENDER-TRUTHFUL-EXTENT — a janela não passou; a TELA é que encurtava (2026-08-06, direção)
 
 **Fricção de uso do Clayton:** *"o 'Solicitar orçamento' da Tenda 10x10 oferece UMA janela — ter., 04

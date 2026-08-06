@@ -9,6 +9,26 @@
 > ⚠️ **Todo número aqui tem o comando que o produziu. Não acredite em nenhum — rode.**
 > Quem escreveu isto errou **quatro** medições nesta mesma conversa (§9), todas do mesmo tipo.
 
+> ## 🔴 ERRATA DO GATE F0 — 2026-08-06 · LEIA ANTES DE QUALQUER PARÁGRAFO ABAIXO
+>
+> O GATE deste plano rodou em 2026-08-05/06 (`docs/04_audit/GATE_F0_ORGANIZACAO_EVENTO_2026-08-05.md`,
+> 3 rodadas) e **derrubou nove afirmações deste documento**. As correções estão marcadas ⛔ no corpo,
+> **riscadas e não apagadas** — a afirmação original registra o que alguém acreditou, e apagá-la
+> perderia a lição.
+>
+> **A omissão mais cara: este plano NÃO CITA a `DECISION-0164` uma única vez** — a decisão RATIFICADA
+> **e SELADA (re-selo YALA, 2026-07-07)** que criou e governa `service_demands`. O cartório
+> (`:13026`) fecha o módulo com cláusula expressa: *"reabertura só por **nova frente nomeada**
+> (`F-SERVICE-DEMAND-*`), **não patch solto**"*. **Este documento é, hoje, um patch solto.**
+>
+> **Três fatias já saíram daqui e estão FEITAS** (não refaça): F-ZERO (3º ramo do confirm
+> `3f36b9dce`) · a garantia de exclusividade da locação (`bb6ac8e73`) · a extensão verdadeira da
+> janela na tela (`e7e09a21c`).
+>
+> **Estado real de cada fatia:** F-ZERO ✅ · F0 ✅ · **F1 parcialmente travada** · **F2 travada** ·
+> **F3 travada — e não pelo motivo que este documento supõe (ver §7-BIS)** · **F4 travada** (depende
+> da F1). ⛔ **NÃO comece a F4.**
+
 ---
 
 ## 1 · O PROBLEMA, EM UMA FRASE
@@ -45,6 +65,17 @@ service_demand_responses
 Rotas vivas: `POST /demands` · `GET /demands/mine` · `GET /demands/opportunities` ·
 `GET /demands/:id` · `POST /demands/:id/respond` (com `quoteCents`).
 Registrado em `app.builder.ts:740-742`.
+
+⛔ **ERRATA (GATE, 2026-08-06): são SETE rotas, não cinco.** Faltam nesta lista
+`GET /demands/concepts` · **`POST /demands/:id/responses/:rid/choose`** ·
+**`POST /demands/:id/responses/:rid/withdraw`**. As duas últimas são exatamente o *"⑤ cliente aceita
+ou recusa"* que o §4 trata como **a construir** — e estão vivas, ligadas ao frontend
+(`OpportunitiesPage.tsx:146` e `:153`) desde 2026-07-07.
+
+⛔ **ERRATA: o modo `orcamento` NÃO é novo.** `DECISION-0164 D2` (ADENDO 6) promulgou
+`pricing_mode: preco_ofertado | orcamento` com CHECK físico, e o motor **já exige** `quoteCents`
+quando é `orcamento` (`demand.service.ts:137`). O §1 deste plano trata orçamento como coisa a
+construir; ele é **vocabulário governado desde 07/07**.
 
 **Frontend alcança as duas pontas** (confirmado pela revisão de produto): `api/demands.ts`,
 `DemandPublishForm.tsx` (embutido em `OpportunitiesPage:163` e `IntentComposer:853`),
@@ -99,7 +130,18 @@ sem worker. Verificado em 2026-08-05.
 ### 2.5 · Presença ("online tipo Uber")
 
 `live_presence(0)`: `context_type · contact_id · status · opted_in · last_seen_at · expires_at`.
-⚠️ **`status` SEM CHECK** — vocabulário sem trava. Foi assim que `actor_type` chegou a 3 gerações.
+~~⚠️ **`status` SEM CHECK** — vocabulário sem trava. Foi assim que `actor_type` chegou a 3 gerações.~~
+
+⛔ **ERRATA (GATE, 2026-08-06): FALSO. O CHECK EXISTE.**
+```sql
+SELECT conname, pg_get_constraintdef(oid) FROM pg_constraint
+ WHERE conrelid='live_presence'::regclass AND contype='c';
+-- live_presence_status_check  CHECK (status = ANY (ARRAY['ONLINE','OFFLINE']))
+```
+O pré-requisito do §8 (*"CHECK em `live_presence.status`"*) **já está satisfeito**.
+⚠️ Há um defeito real ali, e é **outro**: `status`/lifecycle é **minúsculo** por
+`07_NOMENCLATURA §4.11`, e `ONLINE`/`OFFLINE` está **MAIÚSCULO**. Tabela vazia ⇒ é o momento mais
+barato de convergir. Fica **NOMEADO, não tratado**.
 
 ---
 
@@ -157,8 +199,12 @@ Derivação copiada em N telas diverge — é o defeito `free-time` consertado e
 `price_cents`. **Ambas as revisões confirmaram.** Fica escrito para ninguém "consertar" movendo para
 o Bank depois.
 
-**⑧ QUEM RESOLVE QUANDO DÁ ERRADO** — aceito e o fornecedor não cumpre: **não tem caminho hoje**.
-Fica NOMEADO, fora destas fatias.
+**⑧ QUEM RESOLVE QUANDO DÁ ERRADO** — aceito e o fornecedor não cumpre: ~~**não tem caminho hoje**.
+Fica NOMEADO, fora destas fatias.~~
+⛔ **ERRATA: já está nomeado, e com mais régua do que este documento oferece.**
+`DECISION-0164 ADENDO 4` define no-show como **FATO registrado pelo emissor**, avaliação mútua, e a
+**régua do público**: só fatos agregados (nota, nº de serviços, taxa de cancelamento, taxa de
+no-show); **proibido** julgamento de caráter. Renomear aqui **perde a régua**.
 
 ---
 
@@ -172,10 +218,27 @@ declarando uma janela que o fornecedor **nunca publicou**. **Não há linha para
 **Solução (revisão de produto), e ela não inventa nada:** a resposta do fornecedor (④) é
 semanticamente uma **declaração de disposição** — e `DECISION-0146` já define que **declaração não
 bloqueia; só compromisso confirmado bloqueia**. Então ④ grava a availability declarada, e ⑤ reserva
-e confirma contra ela com o lock. Cinco orçamentos na mesma janela = cinco declarações sobrepostas
-(0146 abençoa) e **só um** vira compromisso.
+e confirma contra ela com o lock. ~~Cinco orçamentos na mesma janela = cinco declarações sobrepostas
+(0146 abençoa) e **só um** vira compromisso.~~
 
-**F2 passa a ter UMA escrita nova.** Declarar isso, não esconder atrás de "religamento".
+~~**F2 passa a ter UMA escrita nova.**~~
+
+> ⛔ **ERRATA (GATE, 2026-08-06) — esta era a afirmação mais consequente do documento.**
+>
+> Quando isto foi escrito, *"cinco declarações sobrepostas"* era **FALSO**: `createAvailability`
+> recusava com `409 RENTAL_AVAILABILITY_OVERLAP` (`unified-availability.service.ts:93-100`) e havia
+> ainda uma `EXCLUDE` de banco. O plano leu a **NORMA** e não o **CÓDIGO**.
+>
+> **Hoje é verdade — mas porque o CÓDIGO mudou, não porque o plano estava certo.** O GATE-pequeno
+> provou que o bloqueio de declaração era desnecessário (a trava do COMPROMISSO,
+> `confirmBookingWithResourceLock`, é **15 dias anterior** e cobre a impossibilidade física na camada
+> que a `§A.7` prescreve). Os dois bloqueios saíram no commit `bb6ac8e73`, com GO.
+>
+> 🔴 **E a F2 continua TRAVADA, por outro motivo que o plano não vê:** `service_demand_responses` tem
+> **9 colunas e NENHUMA diz o que está sendo ofertado** (só `provider_actor_id`). `service_offerings`
+> **não tem `concept_id`** enquanto `service_demands` é chaveada por CONCEPT, e **4 dos 7 providers
+> têm 2+ ofertas ativas**. Escolher o dono da declaração seria **adivinhar o recurso** — o que a
+> `0146 G10` proíbe por nome. **"UMA escrita nova" é subestimar: falta uma COLUNA (FK) antes.**
 
 ### 🔴 ACRÉSCIMO DA DIREÇÃO — as declarações perdedoras não têm porta de saída
 
@@ -184,6 +247,11 @@ isso, cada orçamento não-aceito deixa **lixo permanente** na agenda do fornece
 
 É a família *"porta de saída sem gatilho"* consertada em 2026-08-05 — nasceria de novo, na mesma
 semana. **A vida da declaração tem que estar amarrada à vida do orçamento. Entra na F1.**
+
+⛔ **ERRATA: o princípio já estava decidido, e não por mim.** `DECISION-0164 ADENDO 3` (Clayton,
+2026-07-07): cancelamento do provider reabre a vaga **e** *"a janela na agenda do cancelante
+**LIBERA** (TEMPO consistente)"*. O acréscimo estava certo no mérito e **redundante na autoria** —
+o que falta é **material**, não decisão.
 
 ### 🔴 ACRÉSCIMO DA DIREÇÃO — o "três casas" BLOQUEIA a F2, não é adiável
 
@@ -233,7 +301,33 @@ Prova vermelha: aceitar vencido **deve falhar dentro da transação**. Δbank = 
 Prova vermelha: dois aceites na mesma janela → **exatamente um** confirma; e o orçamento aceito
 **não some** quando o booking falha.
 
-**F3 · DASHBOARD DO ORGANIZADOR** — read-model puro, três números rotulados. Zero tabela nova.
+~~**F3 · DASHBOARD DO ORGANIZADOR** — read-model puro, três números rotulados. Zero tabela nova.~~
+
+> ⛔ **ERRATA (2026-08-06) — A F3 ESTÁ TRAVADA, e a direção repetiu aqui o erro do §9.**
+> Eu declarei a F3 *"não bloqueada, read-model puro, zero tabela nova"* no GATE **sem verificar a
+> premissa dela**: que existe um elo demanda→evento. **Não existe.**
+> ```sql
+> SELECT column_name FROM information_schema.columns
+>  WHERE table_name='service_demands' AND column_name ILIKE '%event%';   -- []  (só post_id)
+> -- service_demand_responses: idem, []
+> ```
+> **Nem `service_demands` nem `service_demand_responses` sabem de evento nenhum.** Um read-model
+> *"por `eventId`"* sobre CONTRATADO/ORÇADO/SOLICITADO **não tem por onde agrupar**.
+>
+> **O que EXISTE, medido:** `bookings.metadata->>'eventId'` (jsonb, **2 de 5** bookings o carregam) ·
+> `event_operational_needs` — **14 linhas VIVAS**, com `event_id` + `need_concept_id` +
+> `fulfillment_kind`, lida por `event-need-supplier-discovery.service.ts` (o mesmo serviço que
+> alimenta o "Solicitar orçamento"). ⚠️ **Mas ela não tem coluna de VALOR** — nenhum `_cents`.
+> ⚠️ `event_financial_execution` **não serve**: 0 linhas, e as colunas são
+> `status/error_message/processed_at` — é rastreamento de execução, **não custo**. Nome que engana.
+>
+> ⇒ **A F3 exige decisão, não código:** onde o valor de uma necessidade atendida é registrado, e por
+> qual chave a demanda/resposta se liga ao evento. **`event_operational_needs` é a candidata forte —
+> é a única casa viva do elo evento↔fornecimento — e ela liga por CONCEPT, não por demanda.**
+>
+> 📌 **Isto é o §9 acontecendo de novo, comigo:** li *"read-model puro, zero tabela nova"* e não
+> perguntei *"o agrupador existe?"*. **A régua desceu sobre a minha própria lista de "executável
+> agora".**
 
 **F4 · A TELA** — o campo de horário passa a aceitar data ou intervalo.
 
@@ -250,8 +344,8 @@ Prova vermelha: dois aceites na mesma janela → **exatamente um** confirma; e o
 | **D3** | quem vê orçamentos do evento? ⚠️ *reformulada pela revisão:* a pergunta certa é **"QUAL CHAVE governa"**, não "privacidade sim/não" — o padrão existe (`DECISION-0189`, tríade chave×capability×grant) | registrar vocabulário |
 | **D4** | orçamento dirigido e demanda aberta são a mesma entidade? | **mesma**, `target_actor_id` null = broadcast |
 | **D5** | *"solicite orçamento"* é modo do item ou tipo de cadastro? | **MODO** — amarrar ao fornecedor recria a PJ duplicada |
-| **D6a** | aceitar N respostas até encher `quantity`? | sim |
-| **D6b** | ao encher, as pendentes auto-rejeitam ou ficam? | **auto-reject com aviso** |
+| ~~**D6a**~~ | ⛔ **NÃO É DECISÃO — JÁ ESTÁ IMPLEMENTADO E ATÔMICO.** `fillSlot` (`demand.repository.ts:244`) é **um único `UPDATE`** com `status='open' AND quantity_filled < quantity` no `WHERE` — sem check-then-act, sem TOCTOU. `releaseSlot` reabre. Perguntar isto é pedir a Clayton que **redecida o que ele já decidiu** | — |
+| **D6b** | ao encher, as pendentes auto-rejeitam ou ficam? ⛔ **ERRATA: não é decisão de produto — é DEPENDÊNCIA BLOQUEADA.** `DECISION-0164 D3`: *"a re-orquestração (push) é **fatia C** (depende de central de notificações)"* — **e a central não existe** (substrato notify é schema-ghost). Estado medido: as pendentes **ficam `pending` para sempre**; quem tentar responder depois recebe `409`, mas quem já estava na fila **não é avisado de nada** | bloqueada |
 | **D6c** | os N aceites são independentes ou compostos? | = Q2 |
 | **D7** | 🔴 aceito + confirm falhou = **em que estado o orçamento fica?** A máquina atual não tem nome para isso | — |
 
@@ -295,12 +389,38 @@ consegui derrubar sozinha:
 
 ---
 
+## 7-BIS · O QUE FALTA, DEPOIS DO GATE (2026-08-06)
+
+**Executável sem decisão nenhuma:** ✅ esta errata · ✅ o `catch` que afirmava vazio em
+`OpportunitiesPage` (corrigido: falha de leitura deixou de virar *"não há oportunidades"*).
+
+**Travado em Clayton — e o que cada resposta destrava:**
+
+| decisão | trava |
+|---|---|
+| 🔴 **Qual das duas casas vazias de orçamento morre:** `service_demand_responses.quote_cents` (tabela indexável, 0 linhas) × `events.metadata.rfqs[].quotes` (jsonb, 10 rotas vivas sob `FEATURE_RFQ_ENABLED=true`, **0 rfqs em 9 eventos**). ⚠️ **A `0164` se contradiz consigo:** `D1` rejeitou jsonb (*"não indexa"*), `ADENDO 6(c)` manda **compor com ele** | **F1 · F4** |
+| 🔴 **Onde mora a availability declarada** — e, com o aperto: **sem uma FK do que é ofertado em `service_demand_responses`, o aceite não tem dono legítimo.** `ADENDO 7(c)` já aponta `service_offerings` (direção, não resposta completa) | **F2** |
+| 🔴 **Por qual chave a demanda se liga ao EVENTO, e onde o valor é registrado** (ver errata da F3) | **F3** |
+| 🔴 **Qual é o recurso de exclusividade da agenda `user`/`page`** — nasceu da F-ZERO; enquanto não vier, **agenda pessoal não é contratável** (501 `STOP_DECISION_REQUIRED`) | agenda pessoal |
+| 🟠 Este documento vira **`F-SERVICE-DEMAND-<algo>`** antes de qualquer GO (cartório `:13026`) | **qualquer execução** |
+| 🟡 `Q2`/`D6c` · `D1` · `D2` · `D3` · `D4` · `D5` · `D7` | **F1** |
+
+**Ordem depois das decisões:** F1 é **fatiável** — `valid_until`, `target_actor_id` e a função única
+de validade **não dependem** da decisão do dono da declaração; o **ciclo da declaração depende**.
+F2 só depois da FK. **F4 por último. ⛔ NÃO comece a F4.**
+
 ## 10 · O QUE NÃO ESTÁ AUDITADO
 
-- Nenhuma das duas revisões rodou o runner ou typechecks — os números de estado (258 OK, 0, 0) são
-  medição minha, sem conferência independente.
-- A YALA não leu `demand.routes.ts` nem o service: **não se sabe se `POST /respond` já valida
-  autoridade sobre `provider_actor_id`** como ④ promete.
-- Nenhuma testou concorrência de verdade — o achado do 3º ramo é **leitura de código**, não corrida
-  provocada.
-- F0/F3/F4 não foram atacadas por ninguém.
+- ~~Nenhuma das duas revisões rodou o runner ou typechecks~~ ⛔ **rodados no GATE**: `runner 259 OK`
+  (subiu de 258 com `audit-window-render-truthful-extent`) · `tsc BE 0` · `tsc FE 0`.
+- ~~não se sabe se `POST /respond` já valida autoridade sobre `provider_actor_id`~~
+  ⛔ **VALIDA, e mais do que ④ promete.** `demand.routes.ts:96` → `assertRepresentsActor` →
+  `canRepresentActor` **fail-closed 403** ANTES do service; o `providerActorId` é o actor do contexto,
+  **nunca vem do body**; fora da plateia → **404** (não 403, para não vazar existência);
+  UNIQUE `(demand_id, provider_actor_id)` no banco. **Registrado como CERTO de propósito.**
+- Concorrência: **segue sem corrida provocada.** O 3º ramo virou `501` por leitura de código +
+  prova de comportamento em efêmera — **não** por race reproduzida.
+- ~~F0~~ ⛔ atacada (3 rodadas). **F3 e F4 seguem sem ninguém as atacar** — e a F3 acabou de se
+  revelar travada (§7-BIS).
+- 🔴 **Nunca aberto no navegador.** As duas pontas do frontend seguem provadas por **call-site**,
+  não por uso. As 10 rotas RFQ: **registro ≠ alcance**, não foram abertas uma a uma.

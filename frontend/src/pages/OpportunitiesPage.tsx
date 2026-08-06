@@ -58,10 +58,22 @@ export default function OpportunitiesPage() {
   const [busy, setBusy] = useState(false);
   const [quoteById, setQuoteById] = useState<Record<string, string>>({});
 
+  // 🔴 2026-08-06 — `catch(() => setOpps([]))` AFIRMAVA "não há oportunidades" quando na verdade a
+  // leitura QUEBROU. Rede fora, 403, 500: tudo virava lista vazia, indistinguível de "sem conteúdo",
+  // e a tela dizia "Nenhuma oportunidade aberta no momento" para um erro. É a família fechada em
+  // 2026-08-05 (`DT-CULTURAL-FEED-ASSERTS-EMPTY-WHEN-BROKEN`), viva nesta página.
+  // Zero é uma AFIRMAÇÃO; falha de leitura é DESCONHECIDO — e os dois não podem virar a mesma tela.
+  const [oppsErro, setOppsErro] = useState<string | null>(null);
+  const [mineErro, setMineErro] = useState<string | null>(null);
+
   const load = useCallback(() => {
     if (!activeActor?.actor_id) return;
-    listOpportunities(onlyMatching).then(setOpps).catch(() => setOpps([]));
-    listMyDemands().then(setMine).catch(() => setMine([]));
+    listOpportunities(onlyMatching)
+      .then((d) => { setOpps(d); setOppsErro(null); })
+      .catch((e) => { setOpps([]); setOppsErro(e instanceof Error ? e.message : 'Não foi possível carregar as oportunidades.'); });
+    listMyDemands()
+      .then((d) => { setMine(d); setMineErro(null); })
+      .catch((e) => { setMine([]); setMineErro(e instanceof Error ? e.message : 'Não foi possível carregar as suas demandas.'); });
   }, [activeActor?.actor_id, onlyMatching]);
   useEffect(() => { load(); }, [load]);
 
@@ -98,7 +110,10 @@ export default function OpportunitiesPage() {
               <input type="checkbox" checked={onlyMatching} onChange={(e) => setOnlyMatching(e.target.checked)} />
               Só o que combina com meu perfil profissional
             </label>
-            {opps.length === 0 && <p className="opp-empty">Nenhuma oportunidade aberta {onlyMatching ? 'para o seu perfil — complete a aba Profissional do Meu Perfil' : 'no momento'}.</p>}
+            {/* Falha de leitura NÃO vira "não há": diz que quebrou, mostra o motivo e oferece tentar de novo. */}
+            {oppsErro
+              ? <p className="opp-empty" role="alert">Não foi possível carregar as oportunidades — <code>{oppsErro}</code>. <button type="button" onClick={load}>Tentar de novo</button></p>
+              : opps.length === 0 && <p className="opp-empty">Nenhuma oportunidade aberta {onlyMatching ? 'para o seu perfil — complete a aba Profissional do Meu Perfil' : 'no momento'}.</p>}
             {opps.map((d) => (
               <DemandCard key={d.id} d={d} footer={
                 <div className="opp-actions">
@@ -117,7 +132,9 @@ export default function OpportunitiesPage() {
 
         {tab === 'minhas' && !detail && (
           <>
-            {mine.length === 0 && <p className="opp-empty">Você ainda não publicou demandas.</p>}
+            {mineErro
+              ? <p className="opp-empty" role="alert">Não foi possível carregar as suas demandas — <code>{mineErro}</code>. <button type="button" onClick={load}>Tentar de novo</button></p>
+              : mine.length === 0 && <p className="opp-empty">Você ainda não publicou demandas.</p>}
             {mine.map((d) => (
               <DemandCard key={d.id} d={d} footer={
                 <div className="opp-actions"><button onClick={() => void openDetail(d.id)}>Ver candidatos/aceites →</button></div>
