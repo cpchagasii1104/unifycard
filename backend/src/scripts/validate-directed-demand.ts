@@ -65,7 +65,7 @@ function gerarCpf(): string {
     if (r.rowCount === 0) { console.error(`ABORT: actor "${nome}" não nasceu.`); await c.end(); process.exit(2); }
     return { tenantId: reg.tenantId as string, actorId: r.rows[0].id as string };
   };
-  const cliente = await nasce('Cliente');
+  const cliente = await nasce('Contratante');
   const alvo = await nasce('Alvo Do Pedido');
   const terceiro = await nasce('Terceiro Curioso');
   const tenantId = cliente.tenantId;

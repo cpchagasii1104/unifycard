@@ -88,7 +88,7 @@ function gerarCpf(): string {
     return { tenantId: reg.tenantId as string, actorId: r.rows[0].id as string, userId: r.rows[0].u as string };
   };
   const dono = await nasce('Dono');
-  const cliente = await nasce('Cliente');
+  const cliente = await nasce('Contratante');
   const tenantId = dono.tenantId;
 
   const cpt = await c.query(`SELECT concept_id FROM concept_asset_eligibilities LIMIT 1`);

@@ -1,5 +1,80 @@
 # REMEDIATION DT LOG
 
+## 🧱 12 GARANTIAS DEIXADAS PARA TRÁS NA LOCAÇÃO — achadas por MEDIR o pacote que dizia "está pago"
+
+2026-08-06. Migration `20260806235000` · guard **`audit-rental-guarantee-parity`** no runner ·
+**runner 266 COMMANDS OK** · tsc 0/0 · Δbank 0 · canários intactos · migrations 575 → 576.
+
+### 🔴 UM PACOTE PEDIU PARA MARCAR A DÍVIDA COMO PAGA. A MEDIÇÃO DIZ O CONTRÁRIO.
+
+Chegou um pacote afirmando que `DT-DB-GUARANTEE-SWEEP-INCOMPLETE` podia ser **marcada PAGA** —
+*"nada esquecido para trás na camada temporal/grupo"*. O censo dele estava **certo no que mediu**
+(2 `EXCLUDE` no banco · nenhuma em `availability` · triggers dos pares OK) — **e não mediu o que
+decidia**:
+```sql
+-- CHECKs do PAR migrado da locação:
+rentable_resources       (MORTA, 0 linhas) → 26 CHECKs
+actor_asset_rental_terms (VIVA,  4 linhas) → 16 CHECKs
+```
+Das 10 de diferença, **9 são sobre colunas que AS DUAS tabelas têm**. Somadas às que a viva tinha
+pela metade: **12 garantias reais ausentes do substrato VIVO.**
+🔴 **Quatro delas eram de DINHEIRO:** a tabela viva tem **5 colunas `_cents`** e tinha guarda de
+não-negativo em **UMA** (`price_cents`). `cleaning_fee_cents`, `collection_fee_cents`,
+`delivery_fee_cents` e `extra_km_fee_cents` **aceitavam valor negativo**. Taxa negativa **não
+estoura** — entra torta no preço. É o mesmo par que já tinha mordido nesta frente de manhã
+(`chk_aart_quantity_single_unless_equipment`).
+⇒ **Marcar a dívida como paga teria enterrado 12 buracos reais, 4 deles com forma de dinheiro.**
+📌 *"Adote o pacote, não as suas falhas"* — e a falha aqui foi **concluir COMPLETUDE a partir de um
+censo que não comparou o conteúdo**. Censo de EXCLUDE não fala sobre CHECK.
+
+### O conserto, e o guard que GENERALIZA o achado
+
+Migration `20260806235000` leva as 12 para a tabela viva (backfill **0** — as 4 linhas já
+conformavam), em 6 famílias: dinheiro não-negativo (4) · coerência de limpeza (1) · ordem do horário
+de entrega (1) · coerência de quilometragem (4) · vocabulário de plateia (1) · modalidade só para
+imóvel (1). **Não copiei** as 9 diferenças sobre colunas que a viva não tem — CHECK de coluna
+inexistente é morto por definição.
+
+🔴 **O guard NÃO é uma lista de nomes** — seria a terceira vez que uma lista deixa passar. Ele
+**compara o PAR por COLUNA COMUM no catálogo vivo**: se a morta tem CHECK sobre uma coluna que a
+viva também tem, e a viva não tem nenhum, **falha**. Teria pego a de julho e as 12 de hoje.
+✅ **Ele nasceu VERMELHO contra o defeito real** — não precisei forçar: rodei antes da migration e
+ele listou as 12.
+
+### ⚠️ E A PRIMEIRA PROVA VERMELHA DELE PASSOU VERDE — o guard estava fraco
+
+Dropei `chk_aart_cleaning_fee_nonneg` esperando vermelho e veio **VERDE**: sobrava outro CHECK
+mencionando a mesma coluna. **Cobertura por coluna não é equivalência de cláusula.**
+⇒ Segunda camada, de **substância**: toda coluna `_cents` da tabela viva precisa de guarda de
+**não-negativo** explícita. Refeita a prova vermelha: **morde**.
+📌 **O limite ficou DECLARADO na mensagem de sucesso do próprio guard** — trocar um CHECK por outro
+na mesma coluna ainda passa; para o resto, a prova real é o harness comportamental. *Guard que
+declara o que não cobre vale mais que guard que finge cobrir tudo.*
+
+### As outras duas afirmações do pacote
+
+✅ **RFQ:** confere com a minha — `FEATURE_RFQ_ENABLED` **viva**, gatilho **não disparou**, dívida
+contida. Dois caminhos independentes, mesma conclusão.
+🔴 **RLS: a fatia NÃO encolheu.** O pacote disse que *"3 dos 4 impedimentos podem já ter caído"*.
+Remedi os quatro agora:
+```sql
+has_schema_privilege('unificard_app','public','CREATE')  → f   ⇒ migrate SEGUE quebrando
+has_database_privilege('unificard_app','unificard_dev','CREATE') → f
+rolcreatedb                                              → f   ⇒ os 120 harnesses SEGUEM parando
+tabela pública sem SELECT p/ unificard_app → neighborhood_writer_authorizations (1)
+```
+**Nenhum dos três caiu.** O número que enganou foi *"337 tabelas cobertas de 336 públicas"* — não
+fecha, e não fecha porque `role_table_grants` conta **VIEWS junto**: são **335 tabelas + 2 views**.
+São **335 de 336** — e a que falta é justo a única sem grant. *Número que não fecha escondeu o vão.*
+✅ **O que o pacote trouxe de NOVO e VERDADEIRO:** `pg_default_acl` tem **3 registros** cobrindo
+`unificard_app` (tabelas `arwd`, sequences `rU`, funções `X`) ⇒ **tabela nova já nasce coberta**, e
+**0 sequences sem USAGE**. Isso é uma preocupação futura a menos, e entra no cartório.
+🟡 **Achado meu, que quase virei impedimento e NÃO é:** 14 tabelas sem `INSERT` para `unificard_app`
+— mas olhando a lista, são os **7 `neighborhood_*` da N3 SELADA** (*"NUNCA recarregar"*), o
+substrato **FROZEN** de grupos (`group_members`, `group_actor_memberships`,
+`group_institutional_bindings`) e os **grants**. Escrita por writer soberano é o **desenho**, não
+defeito. *Quase repeti o erro do pacote na direção oposta — inflar achado é tão ruim quanto enterrar.*
+
 ## 🧹 VARREDURA DE PONTAS SOLTAS — 2026-08-06, fim da jornada (*"ficou alguma pendência?"*)
 
 Clayton perguntou se sobrou pendência do dia. **Sobrou, e a maior parte eu não tinha nomeado.**
