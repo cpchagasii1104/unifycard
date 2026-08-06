@@ -4,7 +4,7 @@
 import { useEffect, useState } from 'react';
 import { useActiveActor } from '../../contexts/ActiveActorContext';
 import { showToast } from '../common/Toast';
-import { createDemand, listWorkConcepts, type CreateDemandInput } from '../../api/demands';
+import { createDemand, createDemandBatch, listWorkConcepts, type CreateDemandInput } from '../../api/demands';
 import { useAudienceOptions } from '../../hooks/useAudienceOptions';
 import AudiencePicker from '../composer/AudiencePicker';
 import { resolveAudiencePayload } from '../composer/audience-payload';
@@ -93,28 +93,61 @@ export default function DemandPublishForm({ onPublished, onCancel, initialAudien
     return () => { cancelado = true; };
   }, [activeActor?.actor_id, target?.actorId]);
 
+  // 🔴 OS ITENS ESCOLHIDOS — chips, como o seletor de TEMA do /events/new.
+  // Vários chips = vários itens no MESMO pedido (o que Clayton pediu: "se eu for ficar pedindo item
+  // por item pode complicar"). No banco continuam N demandas: multi-item é conveniência de TELA,
+  // nunca entidade — se virasse pacote, o fornecedor daria UM preço e a comparação por item morreria.
+  const [itens, setItens] = useState<Array<{ slug: string; label: string }>>([]);
+  const adicionarItem = (c: { concept_id: string; slug: string; label?: string | null }) => {
+    const slug = c.slug;
+    setItens((prev) => (prev.some((i) => i.slug === slug) ? prev : [...prev, { slug, label: conceptLabel(c) }]));
+    setConceptSearch('');
+    // o título ganha um padrão útil no 1º item; o usuário reescreve se quiser
+    setForm((f) => (f.title.trim() ? f : { ...f, title: conceptLabel(c) }));
+  };
+  const removerItem = (slug: string) => setItens((prev) => prev.filter((i) => i.slug !== slug));
+
+  // Sugestões: só o que ainda NÃO foi escolhido (chip já adicionado sai da lista).
   const filteredConcepts = concepts.filter((c) =>
     !conceptSearch.trim() || conceptLabel(c).toLowerCase().includes(conceptSearch.trim().toLowerCase()) || c.slug.includes(conceptSearch.trim().toLowerCase()));
+  const sugestoes = filteredConcepts.filter((c) => !itens.some((i) => i.slug === c.slug));
 
   const doPublish = async () => {
-    if (!form.conceptSlug || !form.title.trim()) { showToast('Escolha a função (catálogo) e dê um título.', 'error'); return; }
+    if (itens.length === 0 || !form.title.trim()) { showToast('Adicione ao menos um item e dê um título.', 'error'); return; }
     setBusy(true);
     try {
       // audienceOptions já exclui only_me (restrição de ATO/UX; o backend também rejeita — enforcement
       // não é do front). Resolve via helper central → visibility ∈ {public, connections}.
       const aud = resolveAudiencePayload(audienceOptions, audienceKeys);
       const demandVisibility: 'public' | 'connections' = aud.visibility === 'connections' ? 'connections' : 'public';
-      await createDemand({
+      const comum = {
         ...form,
         // Dirigido: a plateia é a própria pessoa. Mando 'public' porque o alvo é quem estreita a
         // audiência no servidor (isActorInAudience/listOpportunities) — a visibilidade aqui deixa
         // de ser o critério, e inventar um valor novo seria vocabulário paralelo.
-        visibility: target ? 'public' : demandVisibility,
+        visibility: (target ? 'public' : demandVisibility) as 'public' | 'connections',
         audienceRelationshipTypes: target ? undefined : (aud.audienceRelationshipTypes ?? undefined),
         targetActorId: target?.actorId,
         offeredPriceCents: form.pricingMode === 'preco_ofertado' && form.offeredPriceCents ? form.offeredPriceCents : undefined,
-      });
-      showToast(target ? `Pedido enviado a ${target.name}. 📨` : 'Demanda publicada — o matching começou. 🎯', 'success');
+      };
+      // 1 item → o caminho de sempre. N itens → o LOTE ATÔMICO (entram os N ou nenhum): meio pedido
+      // é pior que pedido nenhum, porque o fornecedor veria uma lista que o cliente não escreveu.
+      if (itens.length === 1) {
+        await createDemand({ ...comum, conceptSlug: itens[0].slug });
+      } else {
+        await createDemandBatch({
+          targetActorId: target?.actorId,
+          items: itens.map((i) => ({
+            ...comum,
+            conceptSlug: i.slug,
+            // cada linha leva o NOME do próprio item — senão os 3 pedidos chegam com o mesmo título
+            title: itens.length > 1 ? `${form.title.trim()} — ${i.label}` : form.title,
+          })),
+        });
+      }
+      const quantos = itens.length > 1 ? ` (${itens.length} itens)` : '';
+      showToast(target ? `Pedido enviado a ${target.name}${quantos}. 📨` : `Demanda publicada${quantos} — o matching começou. 🎯`, 'success');
+      setItens([]);
       setForm({ conceptSlug: '', title: '', vinculo: 'diaria', quantity: 1, acceptanceMode: 'com_analise', pricingMode: 'preco_ofertado', visibility: 'public' });
       onPublished?.();
     } catch (e) { showToast((e as Error)?.message || 'Falha ao publicar.', 'error'); }
@@ -151,13 +184,49 @@ export default function DemandPublishForm({ onPublished, onCancel, initialAudien
           // útil que uma lista vazia — e não inventa que ele oferece o catálogo inteiro.
           <small className="opp-hint">Este fornecedor ainda não publicou o que oferece — busque no catálogo.</small>
         )}
+        {/* 🔴 F4-b · O ITEM VIRA CHIP AO CLICAR (fricção de Clayton, 2026-08-06).
+            Era um <select size=N>: clicar só realçava a linha, e nada dizia que o item entrou —
+            "eu preciso conseguir ADICIONAR o item". O padrão certo já existe no produto, no
+            seletor de TEMA do /events/new (Step0EventType.tsx:128-149): busca → resultado
+            clicável → CHIP com ✕. Reuso as MESMAS classes (theme-chips/theme-chip/theme-results)
+            de propósito: superfície nova para o mesmo gesto seria a 2ª forma de escolher. */}
+        {itens.length > 0 && (
+          <div className="theme-chips">
+            {itens.map((i) => (
+              <span key={i.slug} className="theme-chip">
+                {i.label}
+                <button type="button" onClick={() => removerItem(i.slug)} aria-label={`remover ${i.label}`}>✕</button>
+              </span>
+            ))}
+          </div>
+        )}
         <input placeholder="Digite pra buscar: garçom, pedreiro, manicure…" value={conceptSearch}
-          onChange={(e) => { setConceptSearch(e.target.value); setForm((f) => ({ ...f, conceptSlug: '' })); }} />
-        <select value={form.conceptSlug} size={Math.min(Math.max(filteredConcepts.length, 2), 6)}
-          onChange={(e) => setForm((f) => ({ ...f, conceptSlug: e.target.value }))}>
-          {filteredConcepts.length === 0 && <option value="" disabled>Nada no catálogo pra essa busca</option>}
-          {filteredConcepts.map((c) => <option key={c.concept_id} value={c.slug}>{conceptLabel(c)}</option>)}
-        </select>
+          onChange={(e) => setConceptSearch(e.target.value)} />
+        {/* 🔴 LISTA ROLÁVEL, não mural de botões. Clayton: *"se o fornecedor tiver inúmeros itens
+            não pode virar uma bagunça na hora de procurar"* — um grid de chips cresce sem limite e
+            empurra o resto do formulário para fora da tela. A lista tem ALTURA FIXA e rola; a busca
+            filtra. Cada linha CLICA e vira chip (era um <select>, que só realçava e não adicionava). */}
+        {sugestoes.length > 0 && (
+          <>
+            <div className="opp-item-list" role="listbox" aria-label="Itens disponíveis">
+              {sugestoes.map((c) => (
+                <button key={c.concept_id} type="button" className="opp-item-option"
+                  role="option" aria-selected={false} onClick={() => adicionarItem(c)}>
+                  <span>{conceptLabel(c)}</span>
+                  <span className="opp-item-add" aria-hidden="true">+</span>
+                </button>
+              ))}
+            </div>
+            <small className="opp-hint">
+              {conceptSearch.trim()
+                ? `${sugestoes.length} resultado(s) para "${conceptSearch.trim()}" — clique para adicionar.`
+                : `${sugestoes.length} item(ns) disponível(is) — clique para adicionar, ou busque acima.`}
+            </small>
+          </>
+        )}
+        {conceptSearch.trim().length > 0 && sugestoes.length === 0 && (
+          <small className="opp-hint">Nada encontrado para “{conceptSearch.trim()}”.</small>
+        )}
       </label>
       <label>Título *
         <input value={form.title} placeholder="Ex.: Garçom p/ churrascaria — sábado"

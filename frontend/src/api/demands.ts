@@ -95,6 +95,22 @@ export async function createDemand(input: CreateDemandInput): Promise<ServiceDem
   return r.data;
 }
 
+/**
+ * 🔴 F4-b — PEDIDO COM VÁRIOS ITENS, numa transação só (entram os N ou nenhum).
+ * ⚠️ Multi-item é conveniência de TELA: o servidor cria N DEMANDAS, cada uma comparável e
+ * aceitável sozinha. Não existe "pacote" — se existisse, o fornecedor daria UM preço para o
+ * conjunto e você não poderia pegar a segurança de uma empresa e a limpeza de outra.
+ */
+export async function createDemandBatch(input: {
+  targetActorId?: string | null;
+  eventId?: string | null;
+  items: CreateDemandInput[];
+}): Promise<{ demands: ServiceDemand[]; naoAmarrados: string[] }> {
+  const r = await apiFetchJson<{ data: { demands: ServiceDemand[]; naoAmarrados: string[] } }>(
+    '/demands/batch', { method: 'POST', body: JSON.stringify(input) });
+  return r.data;
+}
+
 export async function listMyDemands(): Promise<ServiceDemand[]> {
   const r = await apiFetchJson<{ data: ServiceDemand[] }>('/demands/mine');
   return r.data ?? [];
